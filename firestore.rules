@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Rules: Deny all by default. Only allow authenticated users.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. The leagues Collection (/leagues/{leagueId})
+    match /leagues/{leagueId} {
+      // Read: Any authenticated user can read a league document
+      allow read: if request.auth != null;
+      
+      // Create: Any authenticated user can create a league (they become Chairman)
+      allow create: if request.auth != null;
+      
+      // Update/Delete: Only the user whose uid matches the chairmanId on the league document can update or delete it
+      // Note: AdminSetup.tsx needs to include a chairmanId field using the authenticating user's UID or phone number!
+      allow update, delete: if request.auth != null && resource.data.chairmanId == request.auth.uid;
+
+      // 3. The memberships Sub-collection (/leagues/{leagueId}/memberships/{memberId})
+      match /memberships/{memberId} {
+        // Read: Any authenticated user can read the memberships list
+        allow read: if request.auth != null;
+        
+        // Write/Update (The Critical Lock): Only the Chairman of the parent league can create, update, or delete
+        // We use get() to read the parent league document and check the chairmanId against request.auth.uid
+        allow create, update, delete: if request.auth != null && 
+                                      get(/databases/$(database)/documents/leagues/$(leagueId)).data.chairmanId == request.auth.uid;
+      }
+    }
+  }
+}

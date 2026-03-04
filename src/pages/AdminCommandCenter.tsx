@@ -1,45 +1,185 @@
-import { Bell, Search, Download, Megaphone, Share2, RefreshCw, Banknote, TrendingUp, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, Search, Download, Megaphone, Share2, RefreshCw, Banknote, TrendingUp, ChevronDown, CheckCircle2, Trophy, AlertTriangle } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useStore } from '../store/useStore';
+import clsx from 'clsx';
+import confetti from 'canvas-confetti';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function AdminCommandCenter() {
-    const mockLedgerData = [
-        {
-            id: 1,
-            name: 'Felix Kamau',
-            email: 'felix.k@gmail.com',
-            txCode: 'RHJB9L2M5X',
-            amount: '5,000.00',
-            status: 'Pending',
-            verified: false,
-            avatarUrl: 'https://i.pravatar.cc/150?u=1'
-        },
-        {
-            id: 2,
-            name: 'Sarah Wandia',
-            email: 's.wandia@outlook.com',
-            txCode: 'QK72X9J1P2',
-            amount: '12,500.00',
-            status: 'Verified',
-            verified: true,
-            avatarUrl: 'https://i.pravatar.cc/150?u=2'
-        },
-        {
-            id: 3,
-            name: 'David Otieno',
-            email: 'd.otieno@chama.org',
-            txCode: 'BM98Q3V7K1',
-            amount: '7,200.00',
-            status: 'Failed',
-            verified: false,
-            avatarUrl: 'https://i.pravatar.cc/150?u=3'
-        },
-    ];
+    const navigate = useNavigate();
+    const activeLeagueId = localStorage.getItem('activeLeagueId');
+
+    const [leagueName, setLeagueName] = useState('');
+    const [inviteCode, setInviteCode] = useState('');
+    const [monthlyContribution, setMonthlyContribution] = useState(0);
+    const [rules, setRules] = useState({ weekly: 70, vault: 30 });
+    const [isLoading, setIsLoading] = useState(true);
+    const [toastMessage, setToastMessage] = useState('');
+    const [showResolveModal, setShowResolveModal] = useState(false);
+    const [isResolving, setIsResolving] = useState(false);
+
+    const members = useStore(state => state.members);
+    const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+    const togglePaymentStatusGlobal = useStore(state => state.togglePaymentStatus);
+
+    useEffect(() => {
+        if (!activeLeagueId) {
+            navigate('/setup');
+            return;
+        }
+
+        const initDashboard = async () => {
+            try {
+                // Fetch the main League document
+                const leagueRef = doc(db, 'leagues', activeLeagueId);
+                const leagueSnap = await getDoc(leagueRef);
+
+                if (leagueSnap.exists()) {
+                    const data = leagueSnap.data();
+                    setLeagueName(data.leagueName || 'Unnamed League');
+                    setInviteCode(data.inviteCode || '------');
+                    setMonthlyContribution(data.monthlyContribution || 0);
+                    if (data.rules) setRules(data.rules);
+                }
+
+                // Initialize Live Ledger
+                listenToLeagueMembers(activeLeagueId);
+                setIsLoading(false);
+            } catch (err) {
+                console.error("Error fetching league:", err);
+                navigate('/setup');
+            }
+        };
+
+        initDashboard();
+    }, [activeLeagueId, navigate, listenToLeagueMembers]);
+
+    const handleTogglePayment = async (memberId: string, currentStatus: boolean, memberName: string) => {
+        if (!activeLeagueId) return;
+        try {
+            await togglePaymentStatusGlobal(activeLeagueId, memberId, currentStatus);
+            showToast(`Payment updated for ${memberName}`);
+        } catch (error) {
+            console.error("Error toggling payment", error);
+        }
+    };
+
+    const showToast = (message: string) => {
+        setToastMessage(message);
+        setTimeout(() => setToastMessage(''), 3000);
+    };
+
+    // Dynamic Calculations
+    const paidMembersCount = members.filter(m => m.hasPaid).length;
+    const totalCollected = paidMembersCount * monthlyContribution;
+    const weeklyPot = totalCollected * (rules.weekly / 100);
+    const seasonVault = totalCollected * (rules.vault / 100);
+
+    const handleResolveGameweek = async () => {
+        if (!activeLeagueId) return;
+        setIsResolving(true);
+        try {
+            // 1. Fetch live FPL Standings (Using hardcoded generic ID since we don't have user's custom ID here, or 314)
+            const fplLeagueId = 314;
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const res = await fetch(`${apiUrl}/api/fpl/standings/${fplLeagueId}`);
+            if (!res.ok) throw new Error("Failed to fetch standings");
+            const data = await res.json();
+
+            const standings = data.standings.results || [];
+            // Sort by GW points (event_total)
+            const sortedStandings = standings.sort((a: any, b: any) => b.event_total - a.event_total);
+
+            // 2. Chama Rule: Filter the top scorer against Firebase memberships list.
+            let winner: any = null;
+
+            for (const fplManager of sortedStandings) {
+                // Match via displayName or fplTeamName
+                const dbMember = members.find(m =>
+                    m.displayName === fplManager.player_name || (m as any).fplTeamName === fplManager.entry_name
+                );
+
+                if (dbMember) {
+                    if (dbMember.hasPaid) {
+                        winner = dbMember;
+                        break;
+                    }
+                }
+            }
+
+            // Fallback for simulation
+            if (!winner) {
+                winner = members.find(m => m.hasPaid);
+            }
+
+            if (!winner) {
+                showToast("No eligible paid members found in the league!");
+                setIsResolving(false);
+                setShowResolveModal(false);
+                return;
+            }
+
+            // 3. Simulated B2C Payout
+            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const payoutRes = await fetch(`${payoutApiUrl}/api/mpesa/b2c-payout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    winnerName: winner.displayName,
+                    phoneNumber: winner.phone,
+                    amount: weeklyPot
+                })
+            });
+            const payoutData = await payoutRes.json();
+
+            if (payoutData.success) {
+                // 4. Audit Log Write
+                const txRef = collection(db, 'leagues', activeLeagueId, 'transactions');
+                await addDoc(txRef, {
+                    type: 'payout',
+                    winnerName: winner.displayName,
+                    amount: weeklyPot,
+                    gameweek: 26,
+                    timestamp: serverTimestamp(),
+                    receiptId: payoutData.simulatedReceipt
+                });
+
+                setShowResolveModal(false);
+                showToast(`${weeklyPot.toLocaleString()} KES Dispatched to ${winner.displayName}!`);
+
+                confetti({
+                    particleCount: 150,
+                    spread: 80,
+                    origin: { y: 0.6 },
+                    colors: ['#10B981', '#FBBF24', '#FFFFFF']
+                });
+            }
+        } catch (error) {
+            console.error("Resolution Error:", error);
+            showToast("Gameweek Resolution Failed");
+        } finally {
+            setIsResolving(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[#0d1316] text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase">
+                <RefreshCw className="w-8 h-8 animate-spin mb-4" />
+                Syncing Ledger...
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#0d1316] text-white p-6 md:p-10 font-sans max-w-7xl mx-auto space-y-10">
             {/* Top Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6 flex-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Command Center</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">Command Center <span className="text-[#10B981] text-lg font-medium tracking-normal ml-2 hidden sm:inline-block">({leagueName})</span></h1>
                     <div className="relative max-w-md w-full hidden md:block">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -67,10 +207,13 @@ export default function AdminCommandCenter() {
             <section className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
-                        <h2 className="text-3xl font-extrabold tracking-tight mb-1">Generate League Access</h2>
-                        <p className="text-gray-400 text-sm">Control your league entry and synchronize member records.</p>
+                        <h2 className="text-3xl font-extrabold tracking-tight mb-1">League Access & Economy</h2>
+                        <p className="text-gray-400 text-sm">Control your league entry and monitor the live vault deposits.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <button onClick={() => setShowResolveModal(true)} className="flex items-center gap-2 px-6 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-black text-sm font-black tracking-wide rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.5)] uppercase">
+                            <Trophy className="w-4 h-4" /> Resolve Gameweek
+                        </button>
                         <button className="flex items-center gap-2 px-4 py-2.5 bg-[#1a232b] hover:bg-[#232f3a] text-sm font-bold rounded-xl transition-colors border border-white/5 disabled:opacity-50">
                             <Download className="w-4 h-4" /> Export CSV
                         </button>
@@ -83,31 +226,41 @@ export default function AdminCommandCenter() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Invitation Key Card */}
                     <div className="col-span-1 md:col-span-2 bg-[#161d24] border border-white/5 rounded-2xl flex flex-col sm:flex-row overflow-hidden">
-                        <div className="p-8 flex-1 flex flex-col justify-center">
-                            <span className="text-[#10B981] text-xs font-bold tracking-widest uppercase mb-4">Current Invitation Key</span>
-                            <div className="text-6xl font-black text-[#FBBF24] tracking-tight mb-6 tabular-nums">882 941</div>
+                        <div className="p-8 flex-1 flex flex-col justify-center relative">
+                            {/* Toast Notification */}
+                            <div className={clsx(
+                                "absolute top-4 right-4 bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-lg transition-all duration-300 pointer-events-none",
+                                toastMessage ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
+                            )}>
+                                <CheckCircle2 className="w-4 h-4" /> {toastMessage}
+                            </div>
+
+                            <span className="text-[#10B981] text-xs font-bold tracking-widest uppercase mb-4">Master Invite Code</span>
+                            <div className="text-6xl font-black text-[#FBBF24] tracking-tight mb-6 tabular-nums">{inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}</div>
                             <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm">
-                                Share this 6-digit PIN with verified members to grant them access to the Vault Gold League. PIN expires in 24 hours.
+                                Share this 6-digit PIN with verified members to grant them access to <strong>{leagueName}</strong>. PIN expires at the start of season.
                             </p>
                             <div className="flex items-center gap-4 mt-auto">
-                                <button className="flex items-center gap-2 px-4 py-2 text-[#10B981] hover:bg-[#10B981]/10 rounded-lg text-sm font-bold transition-colors">
+                                <button className="flex items-center gap-2 px-4 py-2 text-[#10B981] hover:bg-[#10B981]/10 rounded-lg text-sm font-bold transition-colors disabled:opacity-50" disabled>
                                     <RefreshCw className="w-4 h-4" /> Regenerate PIN
                                 </button>
-                                <button className="flex items-center gap-2 px-6 py-2 bg-[#1a232b] hover:bg-white/10 border border-white/5 text-white rounded-lg text-sm font-bold transition-colors">
+                                <button onClick={() => navigator.clipboard.writeText(inviteCode)} className="flex items-center gap-2 px-6 py-2 bg-[#1a232b] hover:bg-white/10 border border-white/5 text-white rounded-lg text-sm font-bold transition-colors">
                                     <Share2 className="w-4 h-4" /> Share Key
                                 </button>
                             </div>
                         </div>
-                        <div className="bg-[#11171a] p-8 flex flex-col items-center justify-center border-l border-white/5 min-w-[240px]">
-                            <div className="bg-white p-3 rounded-xl mb-4 h-32 w-32 flex items-center justify-center shadow-lg">
-                                {/* Mock QR Code visual */}
-                                <div className="grid grid-cols-3 gap-1 w-full h-full opacity-30">
-                                    {[...Array(9)].map((_, i) => (
-                                        <div key={i} className={`bg-black rounded-sm ${i === 4 ? 'opacity-0' : ''}`}></div>
-                                    ))}
+                        <div className="hidden lg:flex bg-[#11171a] p-8 flex-col items-center justify-center border-l border-white/5 min-w-[200px]">
+                            <div className="w-full text-center space-y-4">
+                                <div>
+                                    <p className="text-xl font-bold text-[#FBBF24] tabular-nums hover:scale-105 transition-transform">KES {weeklyPot.toLocaleString()}</p>
+                                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mt-1">Weekly Pot ({rules.weekly}%)</p>
+                                </div>
+                                <div className="h-px bg-white/5 w-full"></div>
+                                <div>
+                                    <p className="text-xl font-bold text-[#22c55e] tabular-nums hover:scale-105 transition-transform">KES {seasonVault.toLocaleString()}</p>
+                                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mt-1">Season Vault ({rules.vault}%)</p>
                                 </div>
                             </div>
-                            <span className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Scan to Join</span>
                         </div>
                     </div>
 
@@ -125,10 +278,10 @@ export default function AdminCommandCenter() {
                             </div>
 
                             <div className="mt-8">
-                                <span className="text-gray-400 text-sm font-medium block mb-2">Total League Collections</span>
-                                <div className="text-3xl font-black text-white tracking-tight mb-3">KES 142,500.00</div>
+                                <span className="text-gray-400 text-sm font-medium block mb-2">Total Live Collections</span>
+                                <div className="text-3xl font-black text-white tracking-tight mb-3">KES {totalCollected.toLocaleString()}</div>
                                 <div className="flex items-center gap-2 text-[#10B981] text-xs font-bold bg-[#10B981]/10 w-fit px-2.5 py-1 rounded-md">
-                                    <TrendingUp className="w-3 h-3" /> +12% from last week
+                                    <TrendingUp className="w-3 h-3" /> {paidMembersCount} members fully paid
                                 </div>
                             </div>
                         </div>
@@ -160,44 +313,58 @@ export default function AdminCommandCenter() {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-white/5">
-                            {mockLedgerData.map((row) => (
-                                <tr key={row.id} className="hover:bg-white/[0.02] transition-colors group">
+                            {members.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="p-12 text-center text-gray-500 font-medium">
+                                        No members enrolled in the live ledger yet.
+                                    </td>
+                                </tr>
+                            ) : members.map((row) => (
+                                <tr key={row.id} className={clsx(
+                                    "transition-colors group",
+                                    row.hasPaid ? "bg-[#10B981]/5 border-l-2 border-[#10B981]" : "hover:bg-white/[0.02] border-l-2 border-transparent"
+                                )}>
                                     <td className="p-4 pl-6">
                                         <div className="flex items-center gap-3">
-                                            <img src={row.avatarUrl} alt={row.name} className="w-10 h-10 rounded-full border border-white/10" />
+                                            <div className={clsx(
+                                                "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg",
+                                                row.hasPaid ? "bg-[#10B981]/20 text-[#10B981]" : "bg-gray-800 text-gray-400"
+                                            )}>
+                                                {row.displayName.charAt(0).toUpperCase()}
+                                            </div>
                                             <div>
-                                                <div className="font-bold text-white leading-tight mb-1">{row.name}</div>
-                                                <div className="text-xs text-gray-500 leading-none">{row.email}</div>
+                                                <div className="font-bold text-white leading-tight mb-1">{row.displayName}</div>
+                                                <div className="text-xs text-gray-400 leading-none">{row.phone}</div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <span className="bg-[#11171a] border border-white/5 px-3 py-1.5 rounded-md text-gray-400 font-mono text-xs">{row.txCode}</span>
+                                        <span className="bg-[#11171a] border border-white/5 px-3 py-1.5 rounded-md text-gray-400 font-mono text-xs">M-PESA / BANK</span>
                                     </td>
-                                    <td className="p-4 font-bold text-[#FBBF24]">
-                                        {row.amount}
+                                    <td className={clsx("p-4 font-bold tabular-nums", row.hasPaid ? "text-[#10B981]" : "text-[#FBBF24]")}>
+                                        KES {monthlyContribution.toLocaleString()}
                                     </td>
                                     <td className="p-4">
-                                        {row.status === 'Pending' && (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a232b] text-[#FBBF24] border border-white/5 text-xs font-bold">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div> Pending
+                                        {!row.hasPaid && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a232b] text-[#FBBF24] border border-white/5 text-xs font-bold shadow-sm">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div> Red Zone (Unpaid)
                                             </span>
                                         )}
-                                        {row.status === 'Verified' && (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-bold">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div> Verified
-                                            </span>
-                                        )}
-                                        {row.status === 'Failed' && (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-bold">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div> Failed
+                                        {row.hasPaid && (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-bold shadow-sm">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div> Green Zone (Verified)
                                             </span>
                                         )}
                                     </td>
                                     <td className="p-4 pr-6 text-right">
                                         {/* Custom Toggle Switch */}
                                         <label className="relative inline-flex items-center cursor-pointer ml-auto">
-                                            <input type="checkbox" className="sr-only peer" defaultChecked={row.verified} />
+                                            <input
+                                                type="checkbox"
+                                                className="sr-only peer"
+                                                checked={row.hasPaid}
+                                                onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
+                                            />
                                             <div className="w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10"></div>
                                         </label>
                                     </td>
@@ -209,13 +376,52 @@ export default function AdminCommandCenter() {
 
                 {/* Table Footer */}
                 <div className="p-4 px-6 border-t border-white/5 flex items-center justify-between text-sm text-gray-500">
-                    <span>Showing 3 of 152 members</span>
+                    <span>Showing {members.length} members</span>
                     <div className="flex gap-2">
                         <button className="px-4 py-2 bg-[#1a232b] border border-white/5 hover:bg-white/5 hover:text-white rounded-lg transition-colors font-medium">Prev</button>
                         <button className="px-4 py-2 bg-[#1a232b] border border-white/5 hover:bg-white/5 hover:text-white rounded-lg transition-colors font-medium">Next</button>
                     </div>
                 </div>
             </section>
+
+            {/* Gameweek Resolution Modal */}
+            {showResolveModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
+                        <div className="w-12 h-12 rounded-full bg-[#FBBF24]/10 flex items-center justify-center mb-6 border border-[#FBBF24]/20">
+                            <AlertTriangle className="w-6 h-6 text-[#FBBF24]" />
+                        </div>
+
+                        <h3 className="text-xl font-bold text-white mb-2">
+                            End-of-Gameweek Resolution
+                        </h3>
+                        <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                            <strong className="text-[#FBBF24] font-bold">Are you sure?</strong> This will calculate the top scorer, simulate an M-Pesa B2C payout, dispatch <span className="text-white font-bold tracking-tight">KES {weeklyPot.toLocaleString()}</span> to the winner, and record the gameweek in the audit log permanently.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 sm:gap-4 mt-8">
+                            <button
+                                onClick={() => setShowResolveModal(false)}
+                                disabled={isResolving}
+                                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleResolveGameweek}
+                                disabled={isResolving}
+                                className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-white text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isResolving ? (
+                                    <><RefreshCw className="w-4 h-4 animate-spin" /> Disbursing...</>
+                                ) : (
+                                    <><Banknote className="w-4 h-4" /> Disburse Funds</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

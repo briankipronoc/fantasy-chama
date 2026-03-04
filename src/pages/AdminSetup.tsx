@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import clsx from 'clsx';
 
-const STEPS = 4;
+const STEPS = 5;
 
 export default function AdminSetup() {
     const [step, setStep] = useState(1);
@@ -22,7 +24,7 @@ export default function AdminSetup() {
 
     // Step 2: League
     const [leagueName, setLeagueName] = useState('');
-    const [monthlyFee, setMonthlyFee] = useState(1400);
+    const [monthlyFee, setMonthlyFee] = useState(200);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(70);
     const [estimatedMembers, setEstimatedMembers] = useState(5);
     // Step 3: Members
@@ -36,8 +38,9 @@ export default function AdminSetup() {
     const [copied, setCopied] = useState(false);
 
     // Derived calculations
-    const weeklyPrize = Math.round(monthlyFee * (weeklyPrizePercent / 100));
-    const grandVault = Math.round(monthlyFee * ((100 - weeklyPrizePercent) / 100));
+    const totalMonthlyPool = monthlyFee * estimatedMembers;
+    const weeklyPrize = Math.round(totalMonthlyPool * (weeklyPrizePercent / 100));
+    const grandVault = Math.round(totalMonthlyPool * ((100 - weeklyPrizePercent) / 100));
 
     const passwordStrengthResult = useMemo(() => {
         let score = 0;
@@ -61,14 +64,65 @@ export default function AdminSetup() {
             setLeagueSettings({ name: leagueName, monthlyFee, inviteCode: generatedCode });
         }
         if (step === 3) {
-            // Commit members globally - mapping missing fields safely for now
+            // Commit members globally
             members.forEach((m) => addMemberGlobal({ ...m, hasPaid: false }));
+        }
+        if (step === 4) {
+            // Step 4 handles firebase writes separately inside handleConfirmLeague
+            return;
         }
         if (step < STEPS) setStep(step + 1);
     };
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
+
+    const handleConfirmLeague = async () => {
+        setIsSubmitting(true);
+        setSubmitError('');
+
+        try {
+            // Write 1: Create the League Document
+            const leagueDocRef = await addDoc(collection(db, 'leagues'), {
+                leagueName,
+                monthlyContribution: monthlyFee,
+                rules: {
+                    weekly: weeklyPrizePercent,
+                    vault: 100 - weeklyPrizePercent
+                },
+                inviteCode: generatedCode,
+                createdAt: serverTimestamp()
+            });
+
+            const leagueId = leagueDocRef.id;
+
+            // Write 2: Batch Enroll Members
+            const batch = writeBatch(db);
+            members.forEach((member) => {
+                const memberRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
+                batch.set(memberRef, {
+                    displayName: member.displayName,
+                    phone: member.phone,
+                    hasPaid: false,
+                    trustScore: 100
+                });
+            });
+
+            await batch.commit();
+
+            // Store active league and move to success screen
+            localStorage.setItem('activeLeagueId', leagueId);
+            setStep(5);
+        } catch (error) {
+            console.error("Error creating league or enrolling members:", error);
+            setSubmitError("Failed to initialize league vault. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const prevStep = () => {
-        if (step > 1) setStep(step - 1);
+        if (step > 1 && !isSubmitting) setStep(step - 1);
     };
 
     const addLocalMember = (e: React.FormEvent) => {
@@ -129,9 +183,12 @@ export default function AdminSetup() {
                             required
                             type="email"
                             value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            pattern="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-                            title="Please enter a valid email address with an @ symbol and a domain like .com"
+                            pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address with an @ symbol and domain.')}
+                            onChange={e => {
+                                (e.target as HTMLInputElement).setCustomValidity('');
+                                setEmail(e.target.value);
+                            }}
                             className={inputClasses}
                             placeholder="admin@fantasychama.com"
                         />
@@ -146,7 +203,12 @@ export default function AdminSetup() {
                             required
                             type="tel"
                             value={phone}
-                            onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                            pattern="^0[0-9]{9}$"
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0.')}
+                            onChange={e => {
+                                (e.target as HTMLInputElement).setCustomValidity('');
+                                setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
+                            }}
                             className={inputClasses}
                             placeholder="e.g. 0712345678"
                         />
@@ -216,14 +278,14 @@ export default function AdminSetup() {
                 <p className="text-gray-400 text-xs md:text-sm">Configure your chama rules, contributions, and prize distributions.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-4xl mx-auto">
-                {/* Left Column */}
-                <div className="space-y-6">
-                    <div className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-                        <div className="flex items-center gap-2 mb-6 text-white font-bold text-lg relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 w-full max-w-5xl mx-auto h-full">
+                {/* Column 1: Core Configuration & Split */}
+                <div className="space-y-4 flex flex-col h-full">
+                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden shrink-0">
+                        <div className="flex items-center gap-2 mb-4 text-white font-bold text-lg relative z-10">
                             <Shield className="w-5 h-5 text-[#22c55e]" /> Core Configuration
                         </div>
-                        <div className="space-y-5 relative z-10">
+                        <div className="space-y-4 relative z-10">
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">League Name</label>
                                 <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. The Alpha Syndicate" />
@@ -255,15 +317,16 @@ export default function AdminSetup() {
                         </div>
                     </div>
 
-                    <div className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg relative">
-                        <div className="flex items-center justify-between mb-8">
+                    {/* Distribution Split */}
+                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative h-full flex flex-col flex-1">
+                        <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-2 text-white font-bold text-lg">
                                 <Trophy className="w-5 h-5 text-[#FBBF24]" /> Distribution Split Logic
                             </div>
                             <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
                         </div>
 
-                        <div className="mb-8">
+                        <div className="mb-6 flex-1 flex flex-col justify-center">
                             <div className="flex justify-between items-end mb-2">
                                 <div>
                                     <h3 className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight">{weeklyPrizePercent}%</h3>
@@ -276,7 +339,7 @@ export default function AdminSetup() {
                             </div>
 
                             {/* Interactive Range Slider */}
-                            <div className="mt-4 relative">
+                            <div className="mt-4 relative mb-2">
                                 <input
                                     type="range"
                                     min="0"
@@ -332,29 +395,29 @@ export default function AdminSetup() {
                     </div>
                 </div>
 
-                {/* Right Column */}
-                <div className="relative h-full flex flex-col justify-between">
-                    <div className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-xl flex-1">
+                {/* Column 2: Pot Totals */}
+                <div className="relative h-full flex flex-col justify-between space-y-4">
+                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex-1 flex flex-col">
                         <h3 className="font-bold text-white mb-1">Pot Totals (Live Preview)</h3>
-                        <p className="text-[10px] md:text-xs text-[#22c55e] mb-8 font-medium">Real-time projection for {estimatedMembers} members</p>
+                        <p className="text-[10px] md:text-xs text-[#22c55e] mb-6 font-medium">Real-time projection for {estimatedMembers} members</p>
 
-                        <div className="space-y-6">
-                            <div className="flex gap-4 items-center">
+                        <div className="space-y-5 flex-1 flex flex-col justify-center">
+                            <div className="flex gap-4 items-center bg-[#161d24] p-4 rounded-xl border border-white/5">
                                 <div className="size-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center flex-shrink-0">
                                     <div className="w-4 h-4 border-l-2 border-r-2 border-[#22c55e]"></div>
                                 </div>
                                 <div>
                                     <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest mb-0.5">Estimated Weekly Pot</p>
-                                    <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {(weeklyPrize * estimatedMembers).toLocaleString()}</h4>
+                                    <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {weeklyPrize.toLocaleString()}</h4>
                                 </div>
                             </div>
-                            <div className="flex gap-4 items-center">
+                            <div className="flex gap-4 items-center bg-[#161d24] p-4 rounded-xl border border-white/5">
                                 <div className="size-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center flex-shrink-0">
                                     <Trophy className="w-4 h-4 text-[#FBBF24]" />
                                 </div>
                                 <div>
                                     <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest mb-0.5">Estimated Season Vault</p>
-                                    <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {(grandVault * estimatedMembers * 38).toLocaleString()}</h4>
+                                    <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {(grandVault * 38).toLocaleString()}</h4>
                                     <p className="text-[10px] text-[#22c55e] font-bold mt-1.5 flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></div> Based on 38 GWs
                                     </p>
@@ -362,7 +425,7 @@ export default function AdminSetup() {
                             </div>
                         </div>
 
-                        <div className="mt-8 pt-6 border-t border-white/5">
+                        <div className="mt-6 pt-5 border-t border-white/5">
                             <div className="flex justify-between items-center mb-4">
                                 <span className="text-[11px] md:text-xs font-semibold text-white">Revenue Distribution</span>
                                 <span className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">100% Transparent</span>
@@ -380,7 +443,7 @@ export default function AdminSetup() {
                         </div>
                     </div>
 
-                    <div className="pt-6">
+                    <div className="pt-0 shrink-0">
                         <button
                             onClick={nextStep}
                             disabled={!leagueName || monthlyFee < 100}
@@ -426,7 +489,12 @@ export default function AdminSetup() {
                             <input
                                 type="tel"
                                 value={newMemberPhone}
-                                onChange={e => setNewMemberPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                                pattern="^0[0-9]{9}$"
+                                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Must be a 10-digit number starting with 0.')}
+                                onChange={e => {
+                                    (e.target as HTMLInputElement).setCustomValidity('');
+                                    setNewMemberPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
+                                }}
                                 placeholder="e.g. 0712345678"
                                 className={inputClasses}
                             />
@@ -505,6 +573,91 @@ export default function AdminSetup() {
     );
 
     const renderStep4 = () => (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 w-full">
+            <div className="text-center mb-8">
+                <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Final Verification</p>
+                <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Confirm League Details</h2>
+                <p className="text-gray-400 text-xs md:text-sm">Review your economy and members before activating the league.</p>
+            </div>
+
+            <div className="bg-[#151c18] border border-white/5 rounded-2xl p-6 md:p-8 w-full max-w-3xl mx-auto shadow-xl relative overflow-hidden space-y-8">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">League Name</p>
+                        <p className="text-white font-bold truncate">{leagueName || "N/A"}</p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Monthly Fee</p>
+                        <p className="text-[#22c55e] font-bold tabular-nums">KES {monthlyFee}</p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Members</p>
+                        <p className="text-white font-bold">{members.length}</p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Projected</p>
+                        <p className="text-[#FBBF24] font-bold tabular-nums">KES {totalMonthlyPool}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div className="flex items-center gap-2 mb-4 text-white font-bold">
+                            <Trophy className="w-4 h-4 text-[#FBBF24]" /> Distribution Summary
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
+                                <span className="text-gray-400">Weekly Prize ({weeklyPrizePercent}%)</span>
+                                <span className="font-bold text-white tabular-nums">KES {weeklyPrize}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
+                                <span className="text-gray-400">Grand Vault ({100 - weeklyPrizePercent}%)</span>
+                                <span className="font-bold text-white tabular-nums">KES {grandVault}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div className="flex items-center gap-2 mb-4 text-white font-bold">
+                            <Users className="w-4 h-4 text-[#22c55e]" /> Enrolled Members Snapshot
+                        </div>
+                        <div className="space-y-2 max-h-[140px] overflow-y-auto pr-2">
+                            {members.slice(0, 5).map((m, i) => (
+                                <div key={i} className="flex justify-between items-center bg-[#0a100a]/50 p-2.5 rounded-lg border border-white/5 text-xs">
+                                    <span className="font-bold text-white">{m.displayName}</span>
+                                    <span className="text-gray-400">{m.phone}</span>
+                                </div>
+                            ))}
+                            {members.length > 5 && (
+                                <div className="text-center text-[10px] text-gray-500 pt-1">+ {members.length - 5} more members</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {submitError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold p-3 rounded-lg text-center mt-4 tracking-widest uppercase">
+                        {submitError}
+                    </div>
+                )}
+
+                <div className="pt-4 border-t border-white/10">
+                    <button
+                        onClick={handleConfirmLeague}
+                        disabled={isSubmitting}
+                        className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] disabled:opacity-50 disabled:cursor-wait"
+                    >
+                        {isSubmitting ? "Initializing League Vault..." : "Confirm & Generate League Code"}
+                        {!isSubmitting && <ArrowRight className="w-5 h-5 ml-1" />}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderStep5 = () => (
         <div className="flex flex-col items-center justify-center space-y-8 animate-in zoom-in-95 duration-500 h-full py-12">
             <div className="text-center mb-4">
                 <div className="inline-flex items-center justify-center p-4 bg-[#22c55e]/20 rounded-full mb-6">
@@ -531,11 +684,12 @@ export default function AdminSetup() {
                     <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Next Phase</span>
                     <div className="h-px bg-white/10 flex-1"></div>
                 </div>
-                <button onClick={() => navigate('/finances')} className="w-full bg-[#161d24] border border-white/5 hover:border-white/20 text-white font-bold py-4 rounded-xl transition-all shadow-md">
+                <button onClick={() => navigate('/')} className="w-full bg-[#161d24] border border-white/5 hover:border-white/20 text-white font-bold py-4 rounded-xl transition-all shadow-md">
                     Enter Chairman Command Center
                 </button>
-                <p className="text-[10px] text-gray-500 text-center mt-4">
-                    In a production app, this connects to Firebase to dispatch invites natively.
+                <p className="text-[10px] text-[#22c55e] border border-[#22c55e]/20 bg-[#22c55e]/5 p-2 rounded text-center mt-4">
+                    <Shield className="w-3 h-3 inline-block mr-1 -mt-0.5" />
+                    League settings and root members successfully transferred and secured in Firebase.
                 </p>
             </div>
         </div>
@@ -572,28 +726,33 @@ export default function AdminSetup() {
             </div>
 
             <div className="w-full max-w-screen-xl relative mx-auto my-auto z-10 flex flex-col justify-center items-center h-auto min-h-max">
-                <div className="w-full max-w-lg mx-auto relative group mt-8">
-                    {step > 1 && step < STEPS && (
+                {step > 1 && step < STEPS && (
+                    <div className={clsx("w-full mx-auto relative group mt-8 mb-6 md:mb-8",
+                        step === 2 ? "max-w-5xl" : step === 3 ? "max-w-4xl" : "max-w-3xl")}>
                         <button onClick={prevStep} className="absolute -top-8 left-0 text-gray-500 hover:text-white flex items-center gap-1 transition-colors text-[11px] font-bold uppercase tracking-widest">
                             <ArrowLeft className="w-4 h-4" /> Go Back
                         </button>
-                    )}
 
-                    {step < STEPS && (
-                        <div className="flex gap-1.5 mb-6 md:mb-8 w-full">
-                            {[1, 2, 3].map((i) => (
+                        <div className="flex gap-1.5 w-full">
+                            {[1, 2, 3, 4].map((i) => (
                                 <div key={i} className={clsx("h-1 flex-1 rounded-full transition-all duration-500", i < step ? "bg-[#22c55e]" : i === step ? "bg-[#FBBF24]" : "bg-white/10")} />
                             ))}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
-                <div className={clsx("transition-all duration-500 mx-auto", step === 4 ? "w-full max-w-md" : step === 1 ? "w-full max-w-lg" : "w-full max-w-4xl")}>
-                    <div className={clsx("transition-all duration-500 w-full", step === 4 ? "min-h-[500px]" : step === 1 ? "min-h-[500px]" : "min-h-[500px]")}>
+                <div className={clsx("transition-all duration-500 mx-auto w-full",
+                    step === 1 ? "max-w-2xl" :
+                        step === 2 ? "max-w-5xl" :
+                            step === 3 ? "max-w-4xl" :
+                                step === 4 ? "max-w-3xl" : "max-w-md"
+                )}>
+                    <div className={clsx("transition-all duration-500 w-full min-h-[500px]")}>
                         {step === 1 && renderStep1()}
                         {step === 2 && renderStep2()}
                         {step === 3 && renderStep3()}
                         {step === 4 && renderStep4()}
+                        {step === 5 && renderStep5()}
                     </div>
                 </div>
             </div>

@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone } from 'lucide-react';
+import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { db } from '../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function Login() {
     const location = useLocation();
@@ -10,6 +12,8 @@ export default function Login() {
     // Member State
     const [phone, setPhone] = useState('');
     const [code, setCode] = useState(['', '', '', '', '', '']);
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     // Admin State
@@ -18,8 +22,6 @@ export default function Login() {
 
     const navigate = useNavigate();
     const setRole = useStore((state) => state.setRole);
-    const league = useStore((state) => state.league);
-    const members = useStore((state) => state.members);
 
     const handleCodeChange = (index: number, value: string) => {
         if (!/^\d*$/.test(value)) return; // Only allow digits
@@ -40,27 +42,54 @@ export default function Login() {
         }
     };
 
-    const handleJoin = (e: React.FormEvent) => {
+    const handleJoin = async (e: React.FormEvent) => {
         e.preventDefault();
         const fullCode = code.join('');
-        if (phone && fullCode.length === 6) {
-            if (!league) {
-                alert("No league exists yet. A Chairman must initialize one first.");
-                return;
-            }
-            if (league.inviteCode !== fullCode) {
-                alert("Invalid Invite Code. Please check and try again.");
-                return;
-            }
-            const memberExists = members.some(m => m.phone === phone);
-            if (!memberExists) {
-                alert("Member not found. Ensure the Chairman has enrolled you to the Master Ledger with this phone number.");
+
+        if (!phone || fullCode.length !== 6) return;
+
+        setError('');
+        setIsLoading(true);
+
+        try {
+            // 1. Find the League by the 6-Digit Code
+            const leaguesRef = collection(db, 'leagues');
+            const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode));
+            const leagueSnapshot = await getDocs(qLeague);
+
+            if (leagueSnapshot.empty) {
+                setError("Invalid Invite Code. Ask your Chairman.");
                 return;
             }
 
-            // All checks passed
+            const leagueData = leagueSnapshot.docs[0];
+            const leagueId = leagueData.id;
+
+            // 2. Check if the user's phone number is on the Chairman's pre-approved list
+            const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
+            const qMember = query(membershipsRef, where("phone", "==", phone));
+            const memberSnapshot = await getDocs(qMember);
+
+            if (memberSnapshot.empty) {
+                setError("Your number isn't registered for this league. Contact the Chairman.");
+                return;
+            }
+
+            // 3. Success! Log them in and send them to the War Room
+            const memberData = memberSnapshot.docs[0].data();
+            alert(`Welcome back, ${memberData.displayName}!`);
+
+            // Save leagueId to local storage or context so the app knows which dashboard to load
+            localStorage.setItem('activeLeagueId', leagueId);
+            localStorage.setItem('memberPhone', phone);
             setRole('member');
             navigate('/');
+
+        } catch (err) {
+            console.error(err);
+            setError("Something went wrong connecting to the vault.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -118,6 +147,13 @@ export default function Login() {
 
                 {!isAdminView ? (
                     <form onSubmit={handleJoin} className="space-y-6 relative z-10 animate-in fade-in duration-300">
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] md:text-xs font-medium p-3 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Phone Number</label>
                             <div className="relative">
@@ -125,8 +161,13 @@ export default function Login() {
                                 <input
                                     type="tel"
                                     required
+                                    pattern="^0[0-9]{9}$"
                                     value={phone}
-                                    onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0 (e.g. 0712345678)')}
+                                    onChange={(e) => {
+                                        (e.target as HTMLInputElement).setCustomValidity('');
+                                        setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
+                                    }}
                                     placeholder="e.g. 0712345678"
                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all font-medium"
                                 />
@@ -154,9 +195,10 @@ export default function Login() {
 
                         <button
                             type="submit"
-                            className="w-full bg-[#22C55E] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] mt-2"
+                            disabled={isLoading || !phone || code.join('').length !== 6}
+                            className="w-full bg-[#22C55E] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            JOIN LEAGUE <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
+                            {isLoading ? "AUTHENTICATING..." : <>{'JOIN LEAGUE'} <ArrowRight className="w-5 h-5 md:w-6 md:h-6" /></>}
                         </button>
                     </form>
                 ) : (
@@ -168,8 +210,13 @@ export default function Login() {
                                 <input
                                     type="email"
                                     required
+                                    pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address (e.g. name@domain.com)')}
+                                    onChange={(e) => {
+                                        (e.target as HTMLInputElement).setCustomValidity('');
+                                        setEmail(e.target.value);
+                                    }}
                                     placeholder="chairman@fantasychama.co.ke"
                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium"
                                 />

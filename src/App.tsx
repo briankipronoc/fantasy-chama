@@ -1,7 +1,9 @@
 import { Routes, Route } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
 import Login from './pages/Login';
-import Dashboard from './pages/AdminCommandCenter';
+import AdminCommandCenter from './pages/AdminCommandCenter';
+import MemberDashboard from './pages/MemberDashboard';
+import { useStore } from './store/useStore';
 import Finances from './pages/Finances';
 import AdminSetup from './pages/AdminSetup';
 import MemberEnrollment from './pages/MemberEnrollment';
@@ -11,6 +13,11 @@ import Standings from './pages/Standings';
 import Deposit from './pages/Deposit';
 import Profile from './pages/Profile';
 
+const DashboardRenderer = () => {
+  const role = useStore(state => state.role);
+  return role === 'admin' ? <AdminCommandCenter /> : <MemberDashboard />;
+};
+
 function App() {
   return (
     <Routes>
@@ -18,7 +25,7 @@ function App() {
       <Route path="/setup" element={<AdminSetup />} />
       <Route path="/invite" element={<InviteHub />} />
       <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<DashboardRenderer />} />
         <Route path="/finances" element={<Finances />} />
         <Route path="/access" element={<MemberEnrollment />} />
         <Route path="/rules" element={<PayoutRules />} />

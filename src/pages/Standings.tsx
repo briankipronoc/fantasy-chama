@@ -1,15 +1,76 @@
-import { Search, Download, Trophy, Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, Trophy, Star, Zap, Circle } from 'lucide-react';
+import { useStore } from '../store/useStore';
+import clsx from 'clsx';
 
 export default function Standings() {
-    const standingsData = [
-        { rank: 1, name: 'Alex Mwangi', team: 'Krypton FC', gwPts: 82, totalPts: 1450, payout: '45,000', type: 'Grand Vault Share', avatar: 'https://i.pravatar.cc/150?u=a' },
-        { rank: 2, name: 'Sarah J.', team: 'Red Devils', gwPts: 75, totalPts: 1422, payout: '30,000', type: 'Projected', avatar: 'https://i.pravatar.cc/150?u=b' },
-        { rank: 3, name: 'Brian O.', team: 'The Gunners', gwPts: 68, totalPts: 1395, payout: '20,000', type: '', avatar: 'https://i.pravatar.cc/150?u=c' },
-        { rank: 4, name: 'David K.', team: 'City Zen', gwPts: 71, totalPts: 1380, payout: '15,000', type: '', avatar: 'https://i.pravatar.cc/150?u=d' },
-        { rank: 5, name: 'Elena W.', team: 'Blues Army', gwPts: 64, totalPts: 1365, payout: '10,000', type: '', avatar: 'https://i.pravatar.cc/150?u=e' },
-        { rank: 6, name: 'John Doe', team: 'United Pro', gwPts: 55, totalPts: 1290, payout: '—', type: '', avatar: 'https://i.pravatar.cc/150?u=f' },
-        { rank: 7, name: 'Michael S.', team: 'Villa Boys', gwPts: 49, totalPts: 1275, payout: '—', type: '', avatar: 'https://i.pravatar.cc/150?u=g' },
-    ];
+    const [standingsData, setStandingsData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Fallback/test FPL League ID if not tied to the Chama yet
+    const fplLeagueId = 314;
+
+    const members = useStore(state => state.members);
+    const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+
+    useEffect(() => {
+        if (activeLeagueId && members.length === 0) {
+            listenToLeagueMembers(activeLeagueId);
+        }
+
+        const fetchFPLStandings = async () => {
+            try {
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const response = await fetch(`${apiUrl}/api/fpl/standings/${fplLeagueId}`);
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch FPL standings');
+                }
+
+                const data = await response.json();
+
+                if (data && data.standings && data.standings.results) {
+                    setStandingsData(data.standings.results);
+                } else {
+                    setStandingsData([]);
+                }
+            } catch (err: any) {
+                console.error("FPL Fetch Error:", err);
+                setError(err.message || 'Could not connect to FPL servers.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchFPLStandings();
+    }, [activeLeagueId, listenToLeagueMembers, members.length]);
+
+    // Matching logic to bridge FPL data to Firebase Ledger
+    const getMemberStatus = (playerName: string, entryName: string) => {
+        const normalizedPlayerName = playerName.toLowerCase().trim();
+        const normalizedEntryName = entryName.toLowerCase().trim();
+
+        // 1. Try to match by display name closely
+        const matchedMember = members.find(m => {
+            const dbName = m.displayName.toLowerCase().trim();
+            return normalizedPlayerName.includes(dbName) || dbName.includes(normalizedPlayerName) ||
+                normalizedEntryName.includes(dbName);
+        });
+
+        return matchedMember;
+    };
+
+    if (isLoading) {
+        return (
+            <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full flex flex-col items-center justify-center bg-[#111613]">
+                <Zap className="w-10 h-10 animate-pulse text-[#22C55E] mb-4" />
+                <h2 className="text-xl font-bold tracking-widest uppercase text-[#22C55E]">Syncing with Premier League Servers...</h2>
+                <p className="text-gray-500 mt-2 text-sm font-bold tracking-tight">Fetching live Gameweek data from London.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#111613]">
@@ -39,79 +100,96 @@ export default function Standings() {
                 </div>
             </div>
 
-            <div className="w-full overflow-x-auto bg-[#151c18] border border-white/5 rounded-2xl shadow-lg">
-                <table className="w-full min-w-[800px] text-left">
-                    <thead>
-                        <tr className="border-b border-white/5 bg-[#0a100a]/50">
-                            <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase">RANK</th>
-                            <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase">MEMBER NAME</th>
-                            <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase">FPL TEAM</th>
-                            <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase text-center">GW PTS</th>
-                            <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase text-center">TOTAL PTS</th>
-                            <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase text-right">PROJECTED PAYOUT</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                        {standingsData.map((row, index) => {
-                            const isTop1 = index === 0;
-                            const isOut = index >= 5;
+            {error ? (
+                <div className="w-full bg-red-500/10 border border-red-500/20 p-6 rounded-2xl text-center shadow-lg">
+                    <p className="text-red-500 font-bold uppercase tracking-widest">{error}</p>
+                    <p className="text-gray-400 text-sm mt-2">The official FPL API may be updating or CORS proxy failed.</p>
+                </div>
+            ) : (
+                <div className="w-full overflow-x-auto bg-[#151c18] border border-white/5 rounded-2xl shadow-lg">
+                    <table className="w-full min-w-[800px] text-left">
+                        <thead>
+                            <tr className="border-b border-white/5 bg-[#0a100a]/50">
+                                <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase">RANK</th>
+                                <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase">MEMBER NAME</th>
+                                <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase">FPL TEAM</th>
+                                <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase text-center">GW PTS</th>
+                                <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase text-center">TOTAL PTS</th>
+                                <th className="px-6 py-5 font-bold text-[11px] text-[#22c55e] tracking-widest uppercase text-right">PROJECTED PAYOUT</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {standingsData.map((row, index) => {
+                                const isTop1 = index === 0;
+                                const isOut = index >= 5;
+                                const matchedMember = getMemberStatus(row.player_name, row.entry_name);
+                                const hasPaid = matchedMember ? matchedMember.hasPaid : null;
 
-                            return (
-                                <tr key={row.rank} className={`hover:bg-white/[0.02] transition-colors ${isTop1 ? 'bg-[#22c55e]/5' : ''}`}>
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`font-extrabold text-xl ${isTop1 ? 'text-[#22c55e]' : isOut ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                {row.rank}
-                                            </span>
-                                            {isTop1 && <Star className="w-5 h-5 fill-[#22c55e] text-[#22c55e]" />}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center gap-3">
-                                            <img src={row.avatar} alt={row.name} className={`w-8 h-8 rounded-full border ${isTop1 ? 'border-[#22c55e]' : 'border-white/10'} ${isOut ? 'grayscale opacity-60' : ''}`} />
-                                            <span className={`font-bold ${isOut ? 'text-gray-400' : 'text-white'}`}>{row.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-5 italic text-gray-500 font-medium">
-                                        {row.team}
-                                    </td>
-                                    <td className="px-6 py-5 text-center">
-                                        <span className={`px-3 py-1.5 font-bold rounded-lg text-xs ${isTop1 ? 'bg-[#22c55e] text-[#0a100a]' : isOut ? 'bg-[#1e293b] text-gray-500' : 'bg-[#eab308]/20 text-[#eab308]'}`}>
-                                            {row.gwPts}
-                                        </span>
-                                    </td>
-                                    <td className={`px-6 py-5 text-center font-bold ${isOut ? 'text-gray-500' : 'text-white'}`}>
-                                        {row.totalPts.toLocaleString()}
-                                    </td>
-                                    <td className="px-6 py-5 text-right flex flex-col items-end justify-center">
-                                        {row.payout !== '—' ? (
-                                            <>
-                                                <span className={`font-extrabold text-base ${isTop1 ? 'text-[#22c55e]' : 'text-[#eab308]'}`}>
-                                                    KES {row.payout}
+                                return (
+                                    <tr key={row.id} className={clsx(
+                                        "hover:bg-white/[0.02] transition-colors",
+                                        isTop1 && "bg-[#22c55e]/5",
+                                        hasPaid === false && "opacity-60" // Dim row if unpaid in Red Zone
+                                    )}>
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-extrabold text-xl ${isTop1 ? 'text-[#22c55e]' : isOut ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                    {row.rank}
                                                 </span>
-                                                {row.type && (
-                                                    <span className={`text-[9px] uppercase font-bold tracking-widest ${isTop1 ? 'text-[#22c55e]/60' : 'text-gray-500'}`}>
-                                                        {row.type}
+                                                {isTop1 && <Star className="w-5 h-5 fill-[#22c55e] text-[#22c55e]" />}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs uppercase
+                                                ${isTop1 ? 'border-[#22c55e] bg-[#22c55e]/20 text-[#22c55e]' : 'border-white/10 bg-[#161d24] text-gray-400'} 
+                                                ${isOut ? 'grayscale opacity-60' : ''}`}
+                                                >
+                                                    {row.player_name.charAt(0)}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className={`font-bold flex items-center gap-1.5 ${isOut ? 'text-gray-400' : 'text-white'}`}>
+                                                        {row.player_name}
+                                                        {/* The Chama Integration - Money Status Indicator */}
+                                                        {hasPaid !== null && (
+                                                            <Circle className={clsx("w-2 h-2 fill-current", hasPaid ? "text-[#22c55e]" : "text-red-500")} />
+                                                        )}
                                                     </span>
-                                                )}
-                                            </>
-                                        ) : (
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5 italic text-gray-400 font-medium">
+                                            {row.entry_name}
+                                        </td>
+                                        <td className="px-6 py-5 text-center">
+                                            <span className={clsx(
+                                                "px-3 py-1.5 font-bold rounded-lg text-xs tabular-nums border",
+                                                isTop1 ? "bg-[#22c55e] text-[#0a100a] border-transparent"
+                                                    : "bg-[#161d24] text-[#FBBF24] border-white/5"
+                                            )}>
+                                                {row.event_total}
+                                            </span>
+                                        </td>
+                                        <td className={`px-6 py-5 text-center font-extrabold tabular-nums tracking-tight ${isOut ? 'text-gray-500' : 'text-white'}`}>
+                                            {row.total.toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-5 text-right flex flex-col items-end justify-center">
                                             <span className="font-medium text-gray-600">—</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Bottom Stats Grid */}
             <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="p-6 bg-[#151c18] border border-white/5 rounded-2xl flex items-center justify-between shadow-lg">
                     <div>
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p>
-                        <p className="text-2xl font-extrabold text-white">42 Players</p>
+                        <p className="text-2xl font-extrabold text-white">{standingsData.length || '--'} Players</p>
                     </div>
                     <Trophy className="w-8 h-8 text-gray-700" />
                 </div>
@@ -133,7 +211,6 @@ export default function Standings() {
                     </div>
                 </div>
             </div>
-
         </div>
     );
 }
