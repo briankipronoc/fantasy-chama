@@ -12,6 +12,7 @@ import PayoutRules from './pages/PayoutRules';
 import Standings from './pages/Standings';
 import Deposit from './pages/Deposit';
 import Profile from './pages/Profile';
+import Terms from './pages/Terms';
 
 const DashboardRenderer = () => {
   const role = useStore(state => state.role);
@@ -32,6 +33,7 @@ function App() {
         <Route path="/standings" element={<Standings />} />
         <Route path="/deposit" element={<Deposit />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/terms" element={<Terms />} />
       </Route>
     </Routes>
   );

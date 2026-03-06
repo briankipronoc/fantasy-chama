@@ -124,8 +124,8 @@ export default function Finances() {
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                                         <ReceiptText className="w-10 h-10 mx-auto text-gray-600 mb-3 opacity-50" />
-                                        <p className="font-medium text-white/70">No Gameweek payouts recorded yet.</p>
-                                        <p className="text-sm mt-1 opacity-50">When the admin resolves a gameweek, B2C receipts will appear here.</p>
+                                        <p className="font-medium text-white/70">No financial transactions recorded yet.</p>
+                                        <p className="text-sm mt-1 opacity-50">When you deposit funds or the admin resolves a gameweek, receipts will appear here.</p>
                                     </td>
                                 </tr>
                             )}

@@ -2,8 +2,9 @@ import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 export default function Login() {
     const location = useLocation();
@@ -24,10 +25,10 @@ export default function Login() {
     const setRole = useStore((state) => state.setRole);
 
     const handleCodeChange = (index: number, value: string) => {
-        if (!/^\d*$/.test(value)) return; // Only allow digits
+        if (!/^[A-Za-z0-9]*$/.test(value)) return; // Allow alphanumeric
 
         const newCode = [...code];
-        newCode[index] = value;
+        newCode[index] = value.toUpperCase();
         setCode(newCode);
 
         // Focus next input
@@ -52,12 +53,21 @@ export default function Login() {
         setIsLoading(true);
 
         try {
+            console.log("1. Member Login Initiated with code:", fullCode);
             // 1. Find the League by the 6-Digit Code
             const leaguesRef = collection(db, 'leagues');
             const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode));
-            const leagueSnapshot = await getDocs(qLeague);
+
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Database connection timeout. Ensure you are not blocking Firebase (e.g. Brave Shields, Adblocker).")), 10000));
+            const fetchPromise = getDocs(qLeague);
+
+            console.log("2. Querying master ledger for invite code...");
+            const leagueSnapshot = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
+            console.log("3. Query returned snapshot size:", leagueSnapshot.size);
 
             if (leagueSnapshot.empty) {
+                console.warn("Invalid Invite Code verified on DB.");
                 setError("Invalid Invite Code. Ask your Chairman.");
                 return;
             }
@@ -77,13 +87,12 @@ export default function Login() {
 
             // 3. Success! Log them in and send them to the War Room
             const memberData = memberSnapshot.docs[0].data();
-            alert(`Welcome back, ${memberData.displayName}!`);
 
             // Save leagueId to local storage or context so the app knows which dashboard to load
             localStorage.setItem('activeLeagueId', leagueId);
             localStorage.setItem('memberPhone', phone);
             setRole('member');
-            navigate('/');
+            navigate('/', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` } });
 
         } catch (err) {
             console.error(err);
@@ -93,11 +102,54 @@ export default function Login() {
         }
     };
 
-    const handleAdminLogin = (e: React.FormEvent) => {
+    const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (email && password) {
+        if (!email || !password) {
+            setError('Please enter both email and password.');
+            return;
+        }
+
+        setError('');
+        setIsLoading(true);
+
+        try {
+            console.log("1. Authenticating Chairman with Firebase Auth...");
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            console.log("2. Auth Success! User UID:", user.uid);
+
+            console.log("3. Creating connection to master ledger...");
+            const leaguesRef = collection(db, 'leagues');
+            const qLeague = query(leaguesRef, where("chairmanId", "==", user.uid));
+
+            // Firebase Firestore sometimes hangs infinitely if the connection is blocked by adblockers.
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Database connection timeout. Ensure you are not blocking Firebase (e.g. Brave Shields, Adblocker).")), 10000));
+            const fetchPromise = getDocs(qLeague);
+
+            const leagueSnapshot = await Promise.race([fetchPromise, timeoutPromise]) as any;
+
+            console.log("4. Connection established. Returned snapshot size:", leagueSnapshot.size);
+
+            if (!leagueSnapshot.empty) {
+                const leagueData = leagueSnapshot.docs[0];
+                localStorage.setItem('activeLeagueId', leagueData.id);
+                console.log("5. Active League ID bound to session:", leagueData.id);
+            } else {
+                console.log("5. No active league ID found for Chairman!");
+            }
+
+            console.log("6. Opening War Room portal...");
             setRole('admin');
             navigate('/');
+        } catch (err: any) {
+            console.error(err);
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                setError('Invalid Chairman credentials.');
+            } else {
+                setError('Authentication failed. Please try again.');
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -210,7 +262,7 @@ export default function Login() {
                                 <input
                                     type="email"
                                     required
-                                    pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                                    pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                                     value={email}
                                     onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address (e.g. name@domain.com)')}
                                     onChange={(e) => {
@@ -239,7 +291,19 @@ export default function Login() {
                             <div className="flex justify-end mt-2">
                                 <button
                                     type="button"
-                                    onClick={() => alert(`A password reset link has been dispatched to ${email || 'your registered contact'}. Check your SMS/Email.`)}
+                                    onClick={async () => {
+                                        if (!email) {
+                                            setError('Please enter your email first to receive a password reset link.');
+                                            return;
+                                        }
+                                        try {
+                                            await sendPasswordResetEmail(auth, email);
+                                            setError('');
+                                            alert(`A secure password reset link has been dispatched to ${email}. Check your inbox.`);
+                                        } catch (err: any) {
+                                            setError(err.message || 'Failed to dispatch reset link.');
+                                        }
+                                    }}
                                     className="text-[10px] md:text-xs text-[#FBBF24] font-bold hover:underline opacity-80 transition-opacity"
                                 >
                                     Forgot password?
@@ -247,11 +311,19 @@ export default function Login() {
                             </div>
                         </div>
 
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] md:text-xs font-medium p-3 rounded-lg flex items-start gap-2 mb-4">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
-                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(251,191,36,0.15)] mt-2"
+                            disabled={isLoading || !email || !password}
+                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(251,191,36,0.15)] mt-2 disabled:opacity-50 disabled:cursor-wait"
                         >
-                            AUTHENTICATE <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
+                            {isLoading ? "AUTHENTICATING..." : <>AUTHENTICATE <ArrowRight className="w-5 h-5 md:w-6 md:h-6" /></>}
                         </button>
 
                         <div className="mt-4 text-center">
@@ -270,7 +342,10 @@ export default function Login() {
             </div>
 
             <button
-                onClick={() => setIsAdminView(!isAdminView)}
+                onClick={() => {
+                    setError('');
+                    setIsAdminView(!isAdminView);
+                }}
                 className="mt-8 flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-xs md:text-sm font-bold uppercase tracking-wider z-10"
             >
                 {isAdminView ? <User className="w-4 h-4" /> : <Shield className="w-4 h-4" />}

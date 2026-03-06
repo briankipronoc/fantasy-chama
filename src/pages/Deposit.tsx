@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Smartphone, Shield, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import clsx from 'clsx';
 
 export default function Deposit() {
@@ -9,13 +11,22 @@ export default function Deposit() {
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
 
     const [phoneNumber, setPhoneNumber] = useState('254700000000');
-    const [amountDue] = useState('1,400');
+    const [amountDue, setAmountDue] = useState('Loading...');
     const [isLoading, setIsLoading] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
         if (activeLeagueId && members.length === 0) {
             listenToLeagueMembers(activeLeagueId);
+        }
+
+        // Fetch dynamic amount due
+        if (activeLeagueId) {
+            getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
+                if (snap.exists() && snap.data().settings?.monthlyContribution) {
+                    setAmountDue(snap.data().settings.monthlyContribution.toString());
+                }
+            });
         }
     }, [activeLeagueId, listenToLeagueMembers, members.length]);
 

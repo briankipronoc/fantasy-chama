@@ -9,6 +9,7 @@ export interface Member {
     displayName: string;
     phone: string;
     hasPaid: boolean;
+    role?: string;
 }
 
 export interface LeagueSettings {

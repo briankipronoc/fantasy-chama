@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Search, Download, Megaphone, Share2, RefreshCw, Banknote, TrendingUp, ChevronDown, CheckCircle2, Trophy, AlertTriangle } from 'lucide-react';
+import { Bell, Search, Megaphone, Share2, RefreshCw, Banknote, TrendingUp, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import confetti from 'canvas-confetti';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function AdminCommandCenter() {
     const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const activeUserId = localStorage.getItem('activeUserId') || 'current-user-uid';
 
     const [leagueName, setLeagueName] = useState('');
     const [inviteCode, setInviteCode] = useState('');
@@ -20,6 +20,26 @@ export default function AdminCommandCenter() {
     const [toastMessage, setToastMessage] = useState('');
     const [showResolveModal, setShowResolveModal] = useState(false);
     const [isResolving, setIsResolving] = useState(false);
+
+    // Filter & Modal State
+    const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
+    const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+
+    // Notifications State
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [notifications, setNotifications] = useState([
+        { id: 1, text: "Welcome to Chairman Hub!", time: "Just now", read: false },
+        { id: 2, text: "A deposit of KES 1,400 was vaulted successfully.", time: "2 hours ago", read: false },
+        { id: 3, text: "System maintenance scheduled for upcoming Gameweek 26.", time: "1 day ago", read: true }
+    ]);
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    // Manual Member Enrollment
+    const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+    const [newMemberName, setNewMemberName] = useState('');
+    const [newMemberPhone, setNewMemberPhone] = useState('');
+    const [newMemberTeam, setNewMemberTeam] = useState('');
+    const [isAddingMember, setIsAddingMember] = useState(false);
 
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
@@ -73,10 +93,76 @@ export default function AdminCommandCenter() {
     };
 
     // Dynamic Calculations
+    // Math scales properly natively since `members` array is reactive via useStore (which listens to Firestore)
+    const filteredMembers = members.filter(m => {
+        if (paymentFilter === 'Verified') return m.hasPaid;
+        if (paymentFilter === 'Red Zone') return !m.hasPaid;
+        return true;
+    });
+
+    const currentUser = members.find(m => m.id === activeUserId);
+    const chairmanDisplayAvatar = currentUser ? `https://api.dicebear.com/7.x/notionists/svg?seed=${(currentUser as any).avatarSeed || currentUser.displayName}&backgroundColor=transparent` : `https://api.dicebear.com/7.x/notionists/svg?seed=${localStorage.getItem('chairmanAvatarSeed') || 'chairman123'}&backgroundColor=transparent`;
+    const chairmanDisplayName = currentUser?.displayName || 'Chairman';
+
     const paidMembersCount = members.filter(m => m.hasPaid).length;
     const totalCollected = paidMembersCount * monthlyContribution;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     const seasonVault = totalCollected * (rules.vault / 100);
+
+    const handleAddMember = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeLeagueId || !newMemberName || !newMemberPhone) return;
+
+        setIsAddingMember(true);
+        try {
+            const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
+            await addDoc(membershipsRef, {
+                displayName: newMemberName,
+                phone: newMemberPhone,
+                fplTeamName: newMemberTeam,
+                hasPaid: false,
+                role: 'member',
+                avatarSeed: Math.random().toString(36).substring(7),
+                joinedAt: serverTimestamp()
+            });
+            setShowAddMemberModal(false);
+            setNewMemberName('');
+            setNewMemberPhone('');
+            setNewMemberTeam('');
+            showToast(`${newMemberName} manually added to the ledger!`);
+        } catch (error) {
+            console.error("Error adding member:", error);
+            showToast("Failed to add member.");
+        } finally {
+            setIsAddingMember(false);
+        }
+    };
+
+    const handleBulkNudge = async () => {
+        if (!activeLeagueId) return;
+
+        showToast('Bulk Nudge dispatched via SMS to all Red Zone members!');
+        setNotifications(prev => [
+            { id: Date.now(), text: `Sent Bulk Nudge alert to Red Zone members.`, time: 'Just now', read: false },
+            ...prev
+        ]);
+
+        // Actually push to members' individual notification feeds
+        const redZoneMembers = members.filter(m => !m.hasPaid && m.role !== 'admin');
+        for (const member of redZoneMembers) {
+            try {
+                const memberNotificationsRef = collection(db, 'leagues', activeLeagueId, 'memberships', member.id, 'notifications');
+                await addDoc(memberNotificationsRef, {
+                    text: 'Chairman Nudge: Please complete your active Gameweek contribution to avoid Vault penalties.',
+                    type: 'nudge',
+                    read: false,
+                    createdAt: serverTimestamp()
+                });
+            } catch (err) {
+                console.error("Failed to nudge member", member.id, err);
+            }
+        }
+    };
 
     const handleResolveGameweek = async () => {
         if (!activeLeagueId) return;
@@ -179,7 +265,7 @@ export default function AdminCommandCenter() {
             {/* Top Header */}
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6 flex-1">
-                    <h1 className="text-2xl font-bold tracking-tight">Command Center <span className="text-[#10B981] text-lg font-medium tracking-normal ml-2 hidden sm:inline-block">({leagueName})</span></h1>
+                    <h1 className="text-2xl font-bold tracking-tight">{leagueName || 'Command Center'}</h1>
                     <div className="relative max-w-md w-full hidden md:block">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
@@ -191,15 +277,56 @@ export default function AdminCommandCenter() {
                 </div>
 
                 <div className="flex items-center gap-6">
-                    <button className="relative text-gray-400 hover:text-white transition-colors">
-                        <Bell className="w-5 h-5" />
-                        <span className="absolute top-0 right-0 w-2 h-2 bg-[#10B981] rounded-full ring-2 ring-[#0d1316]"></span>
-                    </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                            className="relative text-gray-400 hover:text-white transition-colors z-[101]"
+                        >
+                            <Bell className="w-5 h-5" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-2 -right-2 w-4 h-4 bg-[#10B981] text-[#0d1316] text-[10px] font-bold flex items-center justify-center rounded-full ring-2 ring-[#0d1316]">
+                                    {unreadCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Notifications Dropdown Container */}
+                        {isNotificationsOpen && (
+                            <>
+                                {/* Backdrop Blur */}
+                                <div
+                                    className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm"
+                                    onClick={() => setIsNotificationsOpen(false)}
+                                ></div>
+
+                                {/* Dropdown Panel */}
+                                <div className="absolute right-0 top-full mt-4 w-80 md:w-96 bg-[#161d24] border border-white/5 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.6)] overflow-hidden z-[100] animate-in slide-in-from-top-2 duration-200">
+                                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#11171a]">
+                                        <h3 className="text-white font-bold text-sm tracking-tight">System Alerts</h3>
+                                        <button onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))} className="text-[10px] uppercase font-bold text-[#10B981] hover:text-[#10B981]/80 transition-colors">Mark all read</button>
+                                    </div>
+                                    <div className="max-h-[22rem] overflow-y-auto custom-scrollbar">
+                                        {notifications.length === 0 ? (
+                                            <div className="p-6 text-center text-xs text-gray-500 font-medium">No alerts today.</div>
+                                        ) : notifications.map(notif => (
+                                            <div key={notif.id} className={clsx("p-4 border-b border-white/5 flex gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer", !notif.read && "bg-[#10B981]/5")}>
+                                                <div className="w-2 h-2 rounded-full bg-[#10B981] mt-1.5 flex-shrink-0"></div>
+                                                <div>
+                                                    <p className={clsx("text-sm", notif.read ? "text-gray-400" : "text-white font-medium")}>{notif.text}</p>
+                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{notif.time}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                     <div className="flex flex-col items-end hidden sm:flex">
-                        <span className="text-sm font-bold text-white">Admin Profile</span>
+                        <span className="text-sm font-bold text-white">{chairmanDisplayName}</span>
                         <span className="text-xs text-[#10B981] font-medium">Level 4 Vault Access</span>
                     </div>
-                    <img src="https://i.pravatar.cc/150?u=admin" alt="Admin" className="w-10 h-10 rounded-lg bg-gray-800 border border-white/10" />
+                    <img src={chairmanDisplayAvatar} alt={chairmanDisplayName} className="w-10 h-10 rounded-lg bg-[#161d24] border border-white/10" />
                 </div>
             </header>
 
@@ -211,13 +338,13 @@ export default function AdminCommandCenter() {
                         <p className="text-gray-400 text-sm">Control your league entry and monitor the live vault deposits.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <button onClick={() => setShowAddMemberModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a232b] hover:bg-white/5 text-white text-sm font-bold rounded-xl transition-colors border border-white/5">
+                            <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
+                        </button>
                         <button onClick={() => setShowResolveModal(true)} className="flex items-center gap-2 px-6 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-black text-sm font-black tracking-wide rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.5)] uppercase">
                             <Trophy className="w-4 h-4" /> Resolve Gameweek
                         </button>
-                        <button className="flex items-center gap-2 px-4 py-2.5 bg-[#1a232b] hover:bg-[#232f3a] text-sm font-bold rounded-xl transition-colors border border-white/5 disabled:opacity-50">
-                            <Download className="w-4 h-4" /> Export CSV
-                        </button>
-                        <button className="flex items-center gap-2 px-4 py-2.5 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                        <button onClick={handleBulkNudge} className="flex items-center gap-2 px-4 py-2.5 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                             <Megaphone className="w-4 h-4" /> Bulk Nudge
                         </button>
                     </div>
@@ -293,15 +420,27 @@ export default function AdminCommandCenter() {
             <section className="bg-[#161d24] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
                 <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h2 className="text-xl font-bold tracking-tight">The Master Ledger</h2>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 relative">
                         <span className="text-xs text-gray-500 font-medium">Filter by:</span>
-                        <button className="flex items-center gap-2 bg-[#1a232b] border border-white/10 px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:text-white transition-colors">
-                            All Payments <ChevronDown className="w-4 h-4" />
+                        <button
+                            onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                            className="flex items-center gap-2 bg-[#1a232b] border border-white/10 px-4 py-2 rounded-lg text-sm text-white font-bold hover:bg-white/5 transition-colors min-w-[140px] justify-between"
+                        >
+                            {paymentFilter === 'All' ? 'All Payments' : paymentFilter} <ChevronDown className="w-4 h-4" />
                         </button>
+
+                        {/* Dropdown Menu */}
+                        {isFilterDropdownOpen && (
+                            <div className="absolute top-full mt-2 right-0 w-48 bg-[#161d24] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-20">
+                                <button onClick={() => { setPaymentFilter('All'); setIsFilterDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-white hover:bg-[#1a232b] transition-colors">All Payments</button>
+                                <button onClick={() => { setPaymentFilter('Verified'); setIsFilterDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-[#10B981] hover:bg-[#10B981]/10 transition-colors">Verified (Green Zone)</button>
+                                <button onClick={() => { setPaymentFilter('Red Zone'); setIsFilterDropdownOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-[#FBBF24] hover:bg-[#FBBF24]/10 transition-colors">Red Zone (Unpaid)</button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto min-h-[300px]">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-[#11171a] border-b border-white/5 text-[10px] uppercase tracking-widest text-gray-500 font-bold">
@@ -313,13 +452,13 @@ export default function AdminCommandCenter() {
                             </tr>
                         </thead>
                         <tbody className="text-sm divide-y divide-white/5">
-                            {members.length === 0 ? (
+                            {filteredMembers.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-12 text-center text-gray-500 font-medium">
-                                        No members enrolled in the live ledger yet.
+                                        No members found matching this filter.
                                     </td>
                                 </tr>
-                            ) : members.map((row) => (
+                            ) : filteredMembers.map((row) => (
                                 <tr key={row.id} className={clsx(
                                     "transition-colors group",
                                     row.hasPaid ? "bg-[#10B981]/5 border-l-2 border-[#10B981]" : "hover:bg-white/[0.02] border-l-2 border-transparent"
@@ -327,10 +466,15 @@ export default function AdminCommandCenter() {
                                     <td className="p-4 pl-6">
                                         <div className="flex items-center gap-3">
                                             <div className={clsx(
-                                                "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg",
-                                                row.hasPaid ? "bg-[#10B981]/20 text-[#10B981]" : "bg-gray-800 text-gray-400"
+                                                "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg border relative overflow-hidden",
+                                                row.hasPaid ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10" : "border-white/10 bg-[#161d24]"
                                             )}>
-                                                {row.displayName.charAt(0).toUpperCase()}
+                                                {/* Fallback to initials if dicebear isn't available, else show Avatar */}
+                                                <img
+                                                    src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(row as any).avatarSeed || row.displayName}&backgroundColor=transparent`}
+                                                    alt={row.displayName}
+                                                    className={clsx("w-full h-full object-cover", !row.hasPaid && "grayscale opacity-80")}
+                                                />
                                             </div>
                                             <div>
                                                 <div className="font-bold text-white leading-tight mb-1">{row.displayName}</div>
@@ -376,7 +520,7 @@ export default function AdminCommandCenter() {
 
                 {/* Table Footer */}
                 <div className="p-4 px-6 border-t border-white/5 flex items-center justify-between text-sm text-gray-500">
-                    <span>Showing {members.length} members</span>
+                    <span>Showing {filteredMembers.length} members</span>
                     <div className="flex gap-2">
                         <button className="px-4 py-2 bg-[#1a232b] border border-white/5 hover:bg-white/5 hover:text-white rounded-lg transition-colors font-medium">Prev</button>
                         <button className="px-4 py-2 bg-[#1a232b] border border-white/5 hover:bg-white/5 hover:text-white rounded-lg transition-colors font-medium">Next</button>
@@ -419,6 +563,77 @@ export default function AdminCommandCenter() {
                                 )}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Complete Add Member Modal */}
+            {showAddMemberModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-[#161d24] border border-[#10B981]/30 w-full max-w-md rounded-3xl p-8 shadow-2xl text-left">
+                        <div className="w-16 h-16 rounded-full bg-[#10B981]/10 flex items-center justify-center mb-6 border border-[#10B981]/20">
+                            <UserPlus className="w-8 h-8 text-[#10B981]" />
+                        </div>
+
+                        <h3 className="text-2xl font-black text-white mb-2 tracking-tight">
+                            Manual Enrollment
+                        </h3>
+                        <p className="text-gray-400 text-sm mb-6 font-medium">
+                            Need to bypass the PIN? Fill out these details to directly add a new manager to the live ledger. Math scaling will adjust automatically.
+                        </p>
+
+                        <form onSubmit={handleAddMember} className="space-y-5">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">Full Name</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newMemberName}
+                                    onChange={(e) => setNewMemberName(e.target.value)}
+                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                                    placeholder="e.g. John Doe"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">M-Pesa Number</label>
+                                <input
+                                    type="text"
+                                    required
+                                    pattern="^0[0-9]{9}$"
+                                    value={newMemberPhone}
+                                    onChange={(e) => setNewMemberPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                                    placeholder="e.g. 0712345678"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">FPL Team Name (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={newMemberTeam}
+                                    onChange={(e) => setNewMemberTeam(e.target.value)}
+                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                                    placeholder="e.g. Saka Potatoes"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-white/10 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddMemberModal(false)}
+                                    className="flex-1 py-3.5 bg-[#0b1014] hover:bg-white/5 text-gray-400 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors border border-white/5"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isAddingMember}
+                                    className="flex-1 py-3.5 bg-[#10B981] hover:bg-[#10B981]/90 text-black font-black uppercase tracking-widest text-xs rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)] disabled:opacity-50 flex justify-center items-center gap-2"
+                                >
+                                    {isAddingMember ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Enroll Member'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

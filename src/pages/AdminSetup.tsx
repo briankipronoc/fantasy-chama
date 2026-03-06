@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import clsx from 'clsx';
 
 const STEPS = 5;
@@ -34,7 +35,14 @@ export default function AdminSetup() {
     const [newMemberPhone, setNewMemberPhone] = useState('');
 
     // Step 4: Code
-    const generatedCode = useMemo(() => Math.floor(100000 + Math.random() * 900000).toString(), []);
+    const generatedCode = useMemo(() => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }, []);
     const [copied, setCopied] = useState(false);
 
     // Derived calculations
@@ -82,10 +90,16 @@ export default function AdminSetup() {
         setSubmitError('');
 
         try {
-            // Write 1: Create the League Document
+            // Write 1: Create Admin User
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(userCredential.user, { displayName: fullName });
+
+            // Write 2: Create the League Document
             const leagueDocRef = await addDoc(collection(db, 'leagues'), {
                 leagueName,
                 monthlyContribution: monthlyFee,
+                chairmanId: userCredential.user.uid,
+                chairmanEmail: email,
                 rules: {
                     weekly: weeklyPrizePercent,
                     vault: 100 - weeklyPrizePercent
@@ -96,8 +110,19 @@ export default function AdminSetup() {
 
             const leagueId = leagueDocRef.id;
 
-            // Write 2: Batch Enroll Members
+            // Write 2: Batch Enroll Members (including Chairman implicitly)
             const batch = writeBatch(db);
+
+            // Enroll Chairman First
+            const chairmanRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
+            batch.set(chairmanRef, {
+                displayName: fullName,
+                phone: phone,
+                hasPaid: false,
+                trustScore: 100
+            });
+
+            // Enroll Other Members
             members.forEach((member) => {
                 const memberRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
                 batch.set(memberRef, {
@@ -113,9 +138,14 @@ export default function AdminSetup() {
             // Store active league and move to success screen
             localStorage.setItem('activeLeagueId', leagueId);
             setStep(5);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating league or enrolling members:", error);
-            setSubmitError("Failed to initialize league vault. Please try again.");
+            console.error("FIREBASE ERROR details:", error);
+            if (error.code === 'auth/email-already-in-use') {
+                setSubmitError("Email is already registered. Please log in instead.");
+            } else {
+                setSubmitError(`Creation Failed: ${error.message || "Unknown error occurred"}`);
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -138,7 +168,11 @@ export default function AdminSetup() {
     };
 
     const handleCopyCode = () => {
-        navigator.clipboard.writeText(`Join our Fantasy Chama! Code: ${generatedCode}. Use your name to login. Monthly: ${monthlyFee} KES.`);
+        const fullShareList = [{ displayName: fullName + " (Chairman)", phone }, ...members]
+            .map(m => `• ${m.displayName}: ${m.phone}`)
+            .join("\n");
+
+        navigator.clipboard.writeText(`🏆 The Big League is Official! 🏆\n\nLeague Code: *${generatedCode}*\nMonthly Fee: KES ${monthlyFee}\n\nSeason Distribution:\nWeekly Pot: KES ${weeklyPrize}\nEnd-of-Season Vault: KES ${grandVault * 38}\n\nEnrolled Members (${members.length + 1}):\n${fullShareList}\n\nJoin at: https://fantasychama.co.ke`);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -183,7 +217,7 @@ export default function AdminSetup() {
                             required
                             type="email"
                             value={email}
-                            pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                            pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                             onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address with an @ symbol and domain.')}
                             onChange={e => {
                                 (e.target as HTMLInputElement).setCustomValidity('');
@@ -594,7 +628,7 @@ export default function AdminSetup() {
                     </div>
                     <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
                         <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Members</p>
-                        <p className="text-white font-bold">{members.length}</p>
+                        <p className="text-white font-bold">{members.length + 1} <span className="text-xs text-gray-500 font-normal border border-gray-500/30 px-1 py-[1px] rounded inline-flex ml-1">inc. Chairman</span></p>
                     </div>
                     <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
                         <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Projected</p>
@@ -613,8 +647,8 @@ export default function AdminSetup() {
                                 <span className="font-bold text-white tabular-nums">KES {weeklyPrize}</span>
                             </div>
                             <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
-                                <span className="text-gray-400">Grand Vault ({100 - weeklyPrizePercent}%)</span>
-                                <span className="font-bold text-white tabular-nums">KES {grandVault}</span>
+                                <span className="text-gray-400 text-xs">Season Vault ({100 - weeklyPrizePercent}%)</span>
+                                <span className="font-bold text-[#FBBF24] tabular-nums text-sm">KES {grandVault * 38} <span className="text-[9px] text-gray-500 font-normal">/38GWs</span></span>
                             </div>
                         </div>
                     </div>
@@ -624,14 +658,21 @@ export default function AdminSetup() {
                             <Users className="w-4 h-4 text-[#22c55e]" /> Enrolled Members Snapshot
                         </div>
                         <div className="space-y-2 max-h-[140px] overflow-y-auto pr-2">
-                            {members.slice(0, 5).map((m, i) => (
+                            {/* Chairman row */}
+                            <div className="flex justify-between items-center bg-[#22c55e]/10 p-2.5 rounded-lg border border-[#22c55e]/20 text-xs shadow-sm">
+                                <span className="font-bold text-white flex items-center gap-1.5"><Shield className="w-3 h-3 text-[#FBBF24]" /> {fullName}</span>
+                                <span className="text-[#22c55e] tabular-nums font-semibold">{phone}</span>
+                            </div>
+
+                            {/* Enrolled row */}
+                            {members.slice(0, 4).map((m, i) => (
                                 <div key={i} className="flex justify-between items-center bg-[#0a100a]/50 p-2.5 rounded-lg border border-white/5 text-xs">
-                                    <span className="font-bold text-white">{m.displayName}</span>
-                                    <span className="text-gray-400">{m.phone}</span>
+                                    <span className="font-medium text-gray-200">{m.displayName}</span>
+                                    <span className="text-gray-400 tabular-nums">{m.phone}</span>
                                 </div>
                             ))}
-                            {members.length > 5 && (
-                                <div className="text-center text-[10px] text-gray-500 pt-1">+ {members.length - 5} more members</div>
+                            {members.length > 4 && (
+                                <div className="text-center text-[10px] text-gray-500 pt-1 font-bold tracking-widest uppercase">+ {members.length - 4} more members</div>
                             )}
                         </div>
                     </div>
