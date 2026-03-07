@@ -175,7 +175,7 @@ export default function Profile() {
                     {/* Member View (Personal Settings) */}
                     <div className={clsx(
                         "bg-[#161d24] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col h-full",
-                        role === 'admin' ? "xl:col-span-4" : "xl:col-span-6"
+                        role === 'admin' ? "xl:col-span-5" : "xl:col-span-6"
                     )}>
                         <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-white">
                             <User className="w-5 h-5 text-[#3b82f6]" /> Personal Details
@@ -267,7 +267,7 @@ export default function Profile() {
 
                     {/* Admin View (League Command & Invite Hub) */}
                     {role === 'admin' && (
-                        <div className="xl:col-span-8 bg-[#161d24] border border-[#FBBF24]/20 p-5 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col">
+                        <div className="xl:col-span-7 bg-[#161d24] border border-[#FBBF24]/20 p-5 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
 
                             <h2 className="text-xl font-bold flex items-center gap-2 mb-6">

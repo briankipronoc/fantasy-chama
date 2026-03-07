@@ -198,18 +198,27 @@ export default function MemberDashboard() {
             </div>
 
             {/* Top Navigation Frame */}
-            <div className="pt-6 px-4 md:pt-10 md:px-8 w-full max-w-6xl mx-auto z-50">
+            <div className="pt-6 px-4 md:pt-10 md:px-8 w-full max-w-6xl mx-auto z-50 space-y-3">
                 <Header
                     role="member"
                     title={leagueName || 'The Big League'}
-                    subtitle={
-                        <span className="flex items-center gap-2">
-                            <span>{greetingText}, <span className="font-bold text-white">{firstName}!</span></span>
-                            <span className="text-gray-600">·</span>
-                            <span>War Room</span>
-                        </span>
-                    }
+                    subtitle="Member Hub"
                 />
+                {/* Personalised greeting row */}
+                <div className="flex items-center gap-2.5 pl-1">
+                    <span className="text-lg md:text-xl">
+                        {greetingText === 'Good morning' ? '🌅' : greetingText === 'Good afternoon' ? '☀️' : '🌙'}
+                    </span>
+                    <p className="text-base md:text-lg font-semibold text-gray-300 tracking-tight">
+                        {greetingText},{' '}
+                        <span className="text-white font-extrabold bg-gradient-to-r from-[#FBBF24] to-[#f59e0b] bg-clip-text text-transparent">
+                            {firstName}!
+                        </span>
+                    </p>
+                    <span className="hidden sm:block text-[10px] font-bold text-gray-600 uppercase tracking-widest border border-white/5 bg-white/[0.03] px-2 py-0.5 rounded-full">
+                        GW 26 Active
+                    </span>
+                </div>
             </div>
 
             {/* Main Content — Dense Grid Layout */}
