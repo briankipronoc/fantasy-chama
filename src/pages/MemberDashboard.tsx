@@ -153,7 +153,15 @@ export default function MemberDashboard() {
         { name: 'GW25', Points: isRecentWinner ? 95 : 68, Average: 52 },
     ];
 
-    // Dynamic Greeting Setup complete
+    // Greeting for member header
+    const getGreeting = () => {
+        const h = new Date().getHours();
+        if (h < 12) return 'Good morning';
+        if (h < 17) return 'Good afternoon';
+        return 'Good evening';
+    };
+    const greetingText = getGreeting();
+    const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
 
     if (isLoading) {
         return (
@@ -194,7 +202,13 @@ export default function MemberDashboard() {
                 <Header
                     role="member"
                     title={leagueName || 'The Big League'}
-                    subtitle="War Room"
+                    subtitle={
+                        <span className="flex items-center gap-2">
+                            <span>{greetingText}, <span className="font-bold text-white">{firstName}!</span></span>
+                            <span className="text-gray-600">·</span>
+                            <span>War Room</span>
+                        </span>
+                    }
                 />
             </div>
 

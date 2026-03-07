@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { Settings, User, Trophy, Share2, AlertTriangle, CheckCircle2, Copy, Lock, Unlock, Users } from 'lucide-react';
-import { db } from '../firebase';
+import { Settings, User, Trophy, Share2, AlertTriangle, CheckCircle2, Copy, Lock, Unlock, Users, Mail } from 'lucide-react';
+import { db, auth } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import clsx from 'clsx';
 
@@ -32,6 +32,7 @@ export default function Profile() {
     const [isFinancialsLocked, setIsFinancialsLocked] = useState(true);
 
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const [userEmail, setUserEmail] = useState('');
 
     useEffect(() => {
         if (activeLeagueId) {
@@ -54,6 +55,14 @@ export default function Profile() {
             }
         }
     }, [activeLeagueId, listenToLeagueMembers, role]);
+
+    // Grab email from Firebase Auth
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user?.email) setUserEmail(user.email);
+        });
+        return unsubscribe;
+    }, []);
 
     useEffect(() => {
         // Find current member to prepopulate
@@ -231,6 +240,21 @@ export default function Profile() {
                                 />
                             </div>
 
+                            {/* Email — read-only from Firebase Auth */}
+                            <div>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Mail className="w-3 h-3" /> Email Address
+                                </label>
+                                <input
+                                    type="email"
+                                    value={userEmail}
+                                    disabled
+                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm text-gray-500 outline-none font-medium cursor-not-allowed opacity-60"
+                                    placeholder="Loading..."
+                                />
+                                <p className="text-[10px] text-gray-600 font-medium mt-1.5">Managed by Firebase Auth. Cannot be changed here.</p>
+                            </div>
+
                             <button
                                 type="submit"
                                 disabled={isSavingMember}
@@ -243,7 +267,7 @@ export default function Profile() {
 
                     {/* Admin View (League Command & Invite Hub) */}
                     {role === 'admin' && (
-                        <div className="xl:col-span-8 bg-[#161d24] border border-[#FBBF24]/20 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col">
+                        <div className="xl:col-span-8 bg-[#161d24] border border-[#FBBF24]/20 p-5 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
 
                             <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
@@ -251,13 +275,13 @@ export default function Profile() {
                             </h2>
 
                             {/* Invite Hub Section */}
-                            <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-6 mb-8 shadow-inner">
+                            <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Share Invite</h3>
                                     <span className="px-2 py-1 bg-[#10B981]/10 text-[#10B981] text-[9px] uppercase font-bold tracking-widest rounded border border-[#10B981]/20">Active</span>
                                 </div>
-                                <div className="text-center mb-6">
-                                    <span className="text-5xl font-black text-white tracking-widest block mb-2">{inviteCode || '------'}</span>
+                                <div className="text-center mb-4">
+                                    <span className="text-4xl font-black text-white tracking-widest block mb-1">{inviteCode || '------'}</span>
                                     <p className="text-xs text-gray-500 font-medium tracking-wide">Unique access code for your league.</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
@@ -271,7 +295,7 @@ export default function Profile() {
                             </div>
 
                             {/* Rule Modification Form */}
-                            <form onSubmit={handleSaveAdmin} className="space-y-6 flex-1 flex flex-col justify-end">
+                            <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
                                 <div>
                                     <div className="flex justify-between items-center mb-2">
                                         <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
@@ -285,7 +309,7 @@ export default function Profile() {
                                         disabled={isFinancialsLocked}
                                         value={monthlyContribution}
                                         onChange={(e) => setMonthlyContribution(Number(e.target.value))}
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
                                 </div>
 
@@ -302,7 +326,7 @@ export default function Profile() {
                                         value={fplLeagueId}
                                         onChange={(e) => setFplLeagueId(e.target.value)}
                                         placeholder="e.g. 123456"
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
                                 </div>
 
