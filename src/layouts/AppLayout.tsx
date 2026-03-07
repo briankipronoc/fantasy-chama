@@ -78,7 +78,7 @@ export default function AppLayout() {
             </nav>
 
             {/* Main Content Area */}
-            <main className="flex-1 w-full bg-[#111613] relative overflow-hidden flex flex-col h-screen">
+            <main className="flex-1 w-full bg-[#0A0E17] relative overflow-hidden flex flex-col h-screen">
                 <div className="flex-1 overflow-y-auto pb-24 lg:pb-0 scroll-smooth">
                     <Outlet />
                 </div>
