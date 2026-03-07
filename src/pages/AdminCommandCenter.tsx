@@ -121,8 +121,13 @@ export default function AdminCommandCenter() {
                 readBy: []
             });
             showToast(`✅ Dispute approved for ${dispute.memberName}`);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Dispute approve error:', err);
+            if (err?.code === 'permission-denied') {
+                showToast('🔒 Permission Denied: Only admins can approve disputes.');
+            } else {
+                showToast('Failed to approve dispute. Please try again.');
+            }
         } finally {
             setProcessingDispute(null);
         }
@@ -141,8 +146,13 @@ export default function AdminCommandCenter() {
                 readBy: []
             });
             showToast(`Dispute rejected for ${dispute.memberName}`);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Dispute reject error:', err);
+            if (err?.code === 'permission-denied') {
+                showToast('🔒 Permission Denied: Only admins can reject disputes.');
+            } else {
+                showToast('Failed to reject dispute. Please try again.');
+            }
         } finally {
             setProcessingDispute(null);
         }

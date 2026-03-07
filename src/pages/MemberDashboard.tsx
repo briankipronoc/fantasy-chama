@@ -168,8 +168,11 @@ export default function MemberDashboard() {
             });
             setClaimSubmitted(true);
             setTimeout(() => { setShowClaimModal(false); setClaimSubmitted(false); setClaimReceiptCode(''); }, 3000);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Claim submit error:', err);
+            if (err?.code === 'permission-denied') {
+                showToast('🔒 Permission Denied: Could not submit claim.');
+            }
         } finally {
             setIsSubmittingClaim(false);
         }
@@ -183,8 +186,11 @@ export default function MemberDashboard() {
                 status: 'confirmed'
             });
             showToast('✅ Payout confirmed! Thank you.');
-        } catch (err) {
+        } catch (err: any) {
             console.error('Confirm error:', err);
+            if (err?.code === 'permission-denied') {
+                showToast('🔒 Permission Denied: You can only confirm your own payout.');
+            }
         }
     };
 
