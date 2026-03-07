@@ -6,7 +6,7 @@ import { useStore } from '../store/useStore';
 
 export interface Notification {
     id: string;
-    type: 'success' | 'warning' | 'info';
+    type: 'success' | 'warning' | 'info' | 'transactionSuccess';
     message: string;
     timestamp: any;
     readBy: string[];
@@ -16,6 +16,7 @@ export interface Notification {
     points?: number;
     gw?: number;
     prize?: number;
+    targetMemberId?: string;
 }
 
 interface NotificationContextProps {
@@ -32,6 +33,9 @@ const NotificationContext = createContext<NotificationContextProps>({
 
 export const useNotifications = () => useContext(NotificationContext);
 
+// Financial receipt types that deserve an immediate toast
+const TOAST_TYPES: Notification['type'][] = ['transactionSuccess'];
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
@@ -41,13 +45,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
 
-    // Capture the mount timestamp — only show toasts for notifications NEWER than this
+    // Capture mount timestamp — only show toasts for notifications NEWER than this
     const mountTimeRef = useRef<Date>(new Date());
 
     useEffect(() => {
         if (!activeLeagueId) return;
 
-        // Request Push OS Notification Permission
+        // Request OS Push Notification Permission
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
@@ -56,49 +60,52 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const q = query(notifRef, orderBy('timestamp', 'desc'), limit(50));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const notifs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+            const notifs = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
             })) as Notification[];
 
             setNotifications(notifs);
 
-            // Only toast genuinely new notifications (server timestamp > mount time)
+            // Phase 10.5 Toast Rules:
+            // - Only fire for 'transactionSuccess' type (financial confirmations)
+            // - Only if the notification was created AFTER this session mounted
+            // - Only if not already read by this user
             snapshot.docChanges().forEach((change) => {
-                if (change.type === 'added') {
-                    const newNotif = change.doc.data() as Notification;
+                if (change.type !== 'added') return;
+                const newNotif = change.doc.data() as Notification;
 
-                    // Guard: skip if already read by this user
-                    if (newNotif.readBy?.includes(realActiveUser)) return;
+                // Silently ignore — route to inbox only
+                if (!TOAST_TYPES.includes(newNotif.type)) return;
 
-                    // Guard: only fire toasts for docs with a timestamp AFTER we mounted
-                    const notifDate = newNotif.timestamp?.toDate ? newNotif.timestamp.toDate() : new Date(0);
-                    if (notifDate <= mountTimeRef.current) return;
+                // Already read → skip
+                if (newNotif.readBy?.includes(realActiveUser)) return;
 
-                    // It's a truly new notification — display it
-                    if (newNotif.type === 'success') {
-                        toast.success(newNotif.message, {
-                            style: { background: '#10B981', color: '#0b1014' }
-                        });
-                    } else if (newNotif.type === 'warning') {
-                        toast.error(newNotif.message, {
-                            style: { background: '#1a1205', color: '#FBBF24', borderColor: '#FBBF24', border: '1px solid' }
-                        });
-                    } else {
-                        toast(newNotif.message, {
-                            icon: '🏆',
-                            style: { background: '#161d24', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' }
-                        });
-                    }
+                // Old notification from a previous session → skip
+                const notifDate = newNotif.timestamp?.toDate ? newNotif.timestamp.toDate() : new Date(0);
+                if (notifDate <= mountTimeRef.current) return;
 
-                    // Native OS Push Notification
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        try {
-                            new window.Notification('FantasyChama', { body: newNotif.message });
-                        } catch (e) {
-                            // ServiceWorker context needed for PWA push
-                        }
-                    }
+                // Targeted notification — only for the specific member
+                if (newNotif.targetMemberId && newNotif.targetMemberId !== realActiveUser) return;
+
+                // 🔔 Financial confirmation toast — slide up from bottom-right
+                toast.success(newNotif.message, {
+                    id: 'financial-toast', // ensures only 1 shown at a time (replaces previous)
+                    style: {
+                        background: '#0e1419',
+                        color: '#10B981',
+                        border: '1px solid rgba(16,185,129,0.25)',
+                        borderRadius: '14px',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        padding: '14px 18px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    },
+                });
+
+                // OS push (best-effort)
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    try { new window.Notification('FantasyChama', { body: newNotif.message }); } catch { }
                 }
             });
         });
@@ -108,18 +115,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const unreadCount = notifications.filter(n => !n.readBy?.includes(realActiveUser)).length;
 
-    // Write to Firestore — appends user ID to each unread notification's readBy array
     const markAllAsRead = async () => {
         if (!activeLeagueId) return;
         const unread = notifications.filter(n => !n.readBy?.includes(realActiveUser));
 
-        // Optimistic local update first for instant UI feedback
+        // Optimistic local update for instant UI feedback
         setNotifications(prev => prev.map(n => ({
             ...n,
             readBy: n.readBy?.includes(realActiveUser) ? n.readBy : [...(n.readBy || []), realActiveUser]
         })));
 
-        // Persist to Firestore in the background
+        // Persist to Firestore in background
         await Promise.allSettled(
             unread.map(n =>
                 updateDoc(doc(db, 'leagues', activeLeagueId, 'notifications', n.id), {
@@ -132,12 +138,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return (
         <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead }}>
             {children}
+            {/* Phase 10.5: Strict Toaster — bottom-right, max 1, 4s, financial only */}
             <Toaster
-                position="bottom-center"
+                position="bottom-right"
                 toastOptions={{
-                    className: 'font-bold text-sm shadow-xl rounded-xl border border-white/10',
-                    duration: 5000,
+                    duration: 4000,
+                    style: {
+                        fontFamily: 'inherit',
+                    },
+                    success: {
+                        iconTheme: { primary: '#10B981', secondary: '#0e1419' },
+                    },
                 }}
+                containerStyle={{ bottom: 80 }} // clear the mobile nav bar
             />
         </NotificationContext.Provider>
     );

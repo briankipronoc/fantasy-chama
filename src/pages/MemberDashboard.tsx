@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
@@ -35,6 +35,9 @@ export default function MemberDashboard() {
 
     // Module 4A: Winner confirmation state
     const [winnerConfirmation, setWinnerConfirmation] = useState<any>(null);
+
+    // Phase 10.5: Live Escrow Feed
+    const [liveEvents, setLiveEvents] = useState<any[]>([]);
 
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
@@ -73,6 +76,17 @@ export default function MemberDashboard() {
 
         return () => unsubscribeLeague();
     }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, location.state]);
+
+    // Phase 10.5: Real-time Live Escrow Feed from league_events
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
+        const q = query(eventsRef, orderBy('timestamp', 'desc'), limit(20));
+        const unsub = onSnapshot(q, snap => {
+            setLiveEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        return () => unsub();
+    }, [activeLeagueId]);
 
     // Module 4A: Listen for pending winner confirmations — moved below currentUser declaration
 
@@ -282,6 +296,41 @@ export default function MemberDashboard() {
                         GW 26 Active
                     </span>
                 </div>
+
+                {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
+                {(winnerConfirmation || !hasPaid) && (
+                    <div className={clsx(
+                        "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
+                        winnerConfirmation
+                            ? "bg-[#1c1a09] border-[#FBBF24]/40 shadow-[0_0_20px_rgba(251,191,36,0.1)]"
+                            : "bg-red-950/40 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.08)]"
+                    )}>
+                        <span className="text-xl flex-shrink-0">{winnerConfirmation ? '🏆' : '⚠️'}</span>
+                        <div className="flex-1 min-w-0">
+                            <p className={clsx(
+                                "font-extrabold text-sm leading-tight",
+                                winnerConfirmation ? "text-[#FBBF24]" : "text-red-400"
+                            )}>
+                                {winnerConfirmation
+                                    ? `ACTION REQUIRED: Confirm receipt of KES ${winnerConfirmation.amount?.toLocaleString()}`
+                                    : 'ACTION REQUIRED: Red Zone — Pay before the FPL deadline'}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                {winnerConfirmation
+                                    ? 'Tap below once you receive the funds in your M-Pesa'
+                                    : `Your wallet balance is empty. Pay KES ${monthlyContribution.toLocaleString()} to stay eligible.`}
+                            </p>
+                        </div>
+                        {winnerConfirmation && (
+                            <button
+                                onClick={handleConfirmWinnings}
+                                className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-3 py-2 rounded-xl transition-colors"
+                            >
+                                Confirm ✓
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Main Content — Dense Grid Layout */}
@@ -467,6 +516,43 @@ export default function MemberDashboard() {
                                 </span>
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* === ROW 4: Live Escrow Feed === */}
+                <div className="w-full bg-[#0d1117] border border-white/5 rounded-[1.5rem] overflow-hidden">
+                    <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-[#10B981]" />
+                        <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Live Escrow Feed</h4>
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
+                        <span className="ml-auto font-mono text-[10px] text-gray-700">{leagueName}</span>
+                    </div>
+                    <div
+                        className="h-48 overflow-y-auto divide-y divide-white/[0.03] font-mono"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
+                    >
+                        {liveEvents.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-700">
+                                <Terminal className="w-6 h-6 mb-2 opacity-40" />
+                                <span className="text-[11px] tracking-widest uppercase">Standing by...</span>
+                            </div>
+                        ) : liveEvents.map(ev => {
+                            const ts = ev.timestamp?.toDate ? ev.timestamp.toDate() : new Date();
+                            const timeStr = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const tagColor = ev.eventType === 'payment' ? 'text-[#10B981] bg-[#10B981]/10' :
+                                ev.eventType === 'resolution' ? 'text-[#FBBF24] bg-[#FBBF24]/10' :
+                                    ev.eventType === 'rules' ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 bg-white/5';
+                            return (
+                                <div key={ev.id} className="px-5 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors animate-in fade-in duration-500">
+                                    <span className="text-gray-700 text-[10px] w-12 flex-shrink-0">{timeStr}</span>
+                                    <span className={clsx('text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex-shrink-0', tagColor)}>
+                                        {ev.eventType || 'SYS'}
+                                    </span>
+                                    <span className="text-[11px] text-gray-400 truncate">{ev.message}</span>
+                                    {ev.actor && <span className="ml-auto text-[10px] text-gray-700 flex-shrink-0">@{ev.actor}</span>}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             </main>

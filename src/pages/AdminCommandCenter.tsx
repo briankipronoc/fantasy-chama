@@ -369,6 +369,14 @@ export default function AdminCommandCenter() {
                     readBy: []
                 });
 
+                // Log to Live Escrow Feed
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                    eventType: 'resolution',
+                    message: `GW26 resolved — ${winner.displayName} leads with ${winningPoints} pts. Payout pending Co-Admin approval.`,
+                    actor: auth.currentUser?.displayName || 'Chairman',
+                    timestamp: serverTimestamp()
+                });
+
                 setShowResolveModal(false);
                 showToast(`Gameweek 26 calculated. Payout sent to Co-Admin for Approval!`);
             } else {
@@ -397,6 +405,14 @@ export default function AdminCommandCenter() {
 
                     setShowResolveModal(false);
                     showToast(`B2C Dispatch Sent! Safaricom is processing KES ${weeklyPot.toLocaleString()} to ${winner.displayName}.`);
+
+                    // Log to Live Escrow Feed
+                    await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                        eventType: 'resolution',
+                        message: `GW26 resolved — KES ${weeklyPot.toLocaleString()} dispatched to ${winner.displayName} (${winningPoints} pts).`,
+                        actor: auth.currentUser?.displayName || 'Chairman',
+                        timestamp: serverTimestamp()
+                    });
 
                     confetti({
                         particleCount: 150,
