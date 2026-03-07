@@ -216,276 +216,249 @@ export default function MemberDashboard() {
                 } />
             </div>
 
-            {/* Main Content Area */}
-            <main className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-8 flex flex-col mt-0 md:mt-0 space-y-6 z-10 relative">
+            {/* Main Content — Dense Grid Layout */}
+            <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-6 z-10 relative mt-2">
 
-                {/* Personal Status Highlight */}
-                {currentUser && (
-                    <div className={clsx(
-                        "w-full rounded-[2rem] p-6 border relative overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-500",
-                        isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_40px_rgba(251,191,36,0.15)]" : (hasPaid ? "bg-[#22C55E]/5 border-[#22C55E]/20" : "bg-red-500/5 border-red-500/20")
-                    )}>
-                        {isRecentWinner && (
-                            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#FBBF24] to-transparent"></div>
-                        )}
-                        <div className="flex justify-between items-center sm:items-start flex-col sm:flex-row gap-4">
-                            <div className="w-full">
-                                <div className="flex justify-between items-center w-full mb-1">
-                                    <span className={clsx(
-                                        "text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5",
-                                        hasPaid ? "text-[#10B981]" : "text-red-400"
+                {/* === ROW 1: Vault (8) + Weekly Pot Status (4) === */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
+                    {/* Vault / Pot Swapper */}
+                    <div className="lg:col-span-8">
+                        <PotVaultSwapper
+                            weeklyPot={weeklyPot}
+                            seasonVault={seasonVaultProjected}
+                            weeklyRulesPercent={rules.weekly}
+                            isStealthMode={isStealthMode}
+                        />
+                    </div>
+
+                    {/* Winner's Circle — compact */}
+                    <div className="lg:col-span-4 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col gap-3 overflow-hidden">
+                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                            <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle
+                        </h4>
+                        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                            {winnerEvents.length === 0 ? (
+                                <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 w-full text-center">No winners yet</div>
+                            ) : winnerEvents.slice(0, 5).map((winner: any, idx: number) => {
+                                const winnerMember = members.find(m => m.id === winner.winnerId) || { avatarSeed: winner.winnerName };
+                                return (
+                                    <div key={idx} className={clsx(
+                                        "flex flex-col items-center justify-center min-w-[80px] rounded-xl p-3 shrink-0 border transition-all",
+                                        winner.winnerId === activeUserId ? "border-[#FBBF24]/40 bg-[#FBBF24]/5" : "border-white/5 bg-white/[0.02]"
                                     )}>
-                                        <div className={clsx("w-1.5 h-1.5 rounded-full animate-pulse", hasPaid ? "bg-[#10B981]" : "bg-red-500")} />
-                                        Your Gameweek Status
-                                    </span>
-                                </div>
-                                <h3 className={clsx("text-xl md:text-2xl font-black tracking-tight mb-2", isRecentWinner ? "text-[#FBBF24]" : "text-white")}>
-                                    {isRecentWinner ? "Champion of the Week 🏆" : (hasPaid ? "Verified & Active" : "Action Required")}
-                                </h3>
-                                <p className="text-sm md:text-base text-gray-400 leading-snug">
-                                    {isRecentWinner
-                                        ? "Incredible performance! You secured the highest points in the last Gameweek. Your vault payout is processing."
-                                        : (hasPaid
-                                            ? "Your M-Pesa contribution has been secured. You are eligible for this gameweek's pot payout."
-                                            : "Your contribution for this gameweek is missing. Ensure your M-Pesa clears before the FPL deadline.")}
-                                </p>
-                            </div>
+                                        <div className="w-9 h-9 rounded-full border-2 border-[#FBBF24]/60 p-0.5 mb-1.5 bg-[#0b1014]">
+                                            <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(winnerMember as any).avatarSeed}&backgroundColor=transparent`} alt={winner.winnerName} className="w-full h-full rounded-full object-cover" />
+                                        </div>
+                                        <span className="font-bold text-[11px] text-white leading-tight text-center">{winner.winnerName?.split(' ')[0]}</span>
+                                        <span className="text-[10px] text-[#eab308] font-bold">GW{winner.gw}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* === ROW 2: Personal Status (4) + Chart (8) === */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
+                    {/* Personal Status + Pay Action */}
+                    {currentUser && (
+                        <div className={clsx(
+                            "lg:col-span-5 rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50",
+                            isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
+                                (hasPaid ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")
+                        )}>
+                            {isRecentWinner && (
+                                <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-[#FBBF24] to-transparent" />
+                            )}
+                            {/* Status Label */}
+                            <span className={clsx(
+                                "text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 mb-2",
+                                hasPaid ? "text-[#10B981]" : "text-red-400"
+                            )}>
+                                <span className={clsx("w-1.5 h-1.5 rounded-full animate-pulse", hasPaid ? "bg-[#10B981]" : "bg-red-500")} />
+                                Your Gameweek Status
+                            </span>
+                            <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : "text-white")}>
+                                {isRecentWinner ? "Champion of the Week 🏆" : (hasPaid ? "Verified & Active" : "Action Required")}
+                            </h3>
+                            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                                {isRecentWinner
+                                    ? "Incredible! You secured the highest points this GW. Payout processing."
+                                    : (hasPaid
+                                        ? "Your M-Pesa contribution is secured. Eligible for this GW's pot."
+                                        : "Your contribution is missing. Pay before the FPL deadline.")}
+                            </p>
 
                             {!hasPaid && (
-                                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                                <div className="flex flex-col gap-2">
                                     <button
                                         onClick={handleMpesaSTKPush}
                                         disabled={isPushingMpesa}
-                                        className="w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-sm bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors whitespace-nowrap shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
                                         {isPushingMpesa ? <Zap className="w-4 h-4 animate-pulse" /> : <Banknote className="w-4 h-4" />}
                                         {isPushingMpesa ? "Awaiting PIN..." : "Pay with M-Pesa"}
                                     </button>
                                     <button
                                         onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
-                                        className="text-xs text-gray-500 hover:text-gray-300 underline underline-offset-2 transition-colors"
+                                        className="text-[11px] text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors text-center"
                                     >
-                                        Missing payment?
+                                        Missing payment? Enter receipt →
                                     </button>
                                 </div>
                             )}
-                        </div>
-
-                        {/* Background structural graphic */}
-                        <div className="absolute -right-4 -bottom-4 opacity-[0.03] pointer-events-none">
-                            {isRecentWinner ? <Trophy className="w-40 h-40 text-[#FBBF24] opacity-20" /> : (hasPaid ? <ShieldCheck className="w-32 h-32" /> : <AlertCircle className="w-32 h-32" />)}
-                        </div>
-                    </div>
-                )}
-
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full mt-4">
-                    <div className="xl:col-span-8 flex flex-col gap-6 w-full">
-                        <div className="w-full">
-                            <PotVaultSwapper
-                                weeklyPot={weeklyPot}
-                                seasonVault={seasonVaultProjected}
-                                weeklyRulesPercent={rules.weekly}
-                                isStealthMode={isStealthMode}
-                            />
-                        </div>
-
-                        {/* Leaderboard Chart */}
-                        <div className="w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
-                            <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-6">
-                                <BarChart3 className="w-4 h-4" /> Performance Trajectory
-                            </h4>
-                            <div className="h-64 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={performanceData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                        <XAxis dataKey="name" stroke="#ffffff50" fontSize={10} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#ffffff50" fontSize={10} tickLine={false} axisLine={false} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#161d24', borderColor: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}
-                                            itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
-                                        />
-                                        <Line type="monotone" dataKey="Points" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                                        <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={3} strokeDasharray="5 5" dot={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Recent Notifications Feed */}
-                        <div className="w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
-                            <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-6">
-                                <Bell className="w-4 h-4" /> Operations Feed
-                            </h4>
-                            <div className="space-y-4">
-                                {notifications.slice(0, 5).map((notif: any) => (
-                                    <div key={notif.id} className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
-                                        <div className={clsx(
-                                            "w-10 h-10 rounded-full border flex items-center justify-center shrink-0",
-                                            notif.type === 'success' ? "bg-[#10B981]/10 border-[#10B981]/20 text-[#10B981]" :
-                                                notif.type === 'warning' ? "bg-red-500/10 border-red-500/20 text-red-500" :
-                                                    "bg-[#FBBF24]/10 border-[#FBBF24]/20 text-[#FBBF24]"
-                                        )}>
-                                            {notif.type === 'success' ? <Check className="w-5 h-5" /> :
-                                                notif.type === 'warning' ? <AlertCircle className="w-5 h-5" /> :
-                                                    <Bell className="w-5 h-5" />}
-                                        </div>
-                                        <div>
-                                            <h5 className="text-sm font-bold text-white tracking-wide">
-                                                {notif.isWinnerEvent ? `Payout Dispatched` : (notif.type === 'success' ? 'Ledger Updated' : 'System Alert')}
-                                            </h5>
-                                            <p className="text-xs text-gray-400 mt-1">{notif.message}</p>
-                                            <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">
-                                                {timeAgo(notif.timestamp)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                                {notifications.length === 0 && (
-                                    <p className="text-xs text-gray-500 font-medium">No recent operations broadcasted.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[600px]">
-                        <div className="p-6 md:p-8 border-b border-white/5 flex flex-col justify-between gap-2 bg-[#0b1014]/50">
-                            <div>
-                                <h4 className="flex items-center gap-2 text-lg md:text-xl font-bold text-white tracking-tight">
-                                    <ShieldCheck className="w-5 h-5 text-[#10B981]" /> Verification Ledger
-                                </h4>
-                            </div>
-                            <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] md:text-xs font-bold px-3 py-1.5 rounded-lg uppercase tracking-widest self-start w-full text-center mt-2">
-                                {paidMembersCount} / {members.length} VERIFIED PAID
-                            </span>
-                        </div>
-
-                        <div className="divide-y divide-white/5 overflow-y-auto custom-scrollbar flex-1">
-                            {members.length === 0 ? (
-                                <div className="p-10 text-center text-gray-500 text-xs font-bold uppercase tracking-widest">No members enrolled</div>
-                            ) : members.map((member) => (
-                                <div key={member.id} className={clsx(
-                                    "p-4 md:p-5 flex items-center justify-between transition-colors",
-                                    member.id === currentUser?.id ? "bg-white/[0.03]" : "hover:bg-white/[0.01]"
-                                )}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={clsx(
-                                            "w-10 h-10 rounded-full flex items-center justify-center p-0.5 border shadow-sm",
-                                            member.hasPaid ? "bg-gradient-to-b from-[#10B981] to-[#047857] border-[#10B981]" : "bg-[#1c272c] border-white/10 opacity-50 grayscale"
-                                        )}>
-                                            <img
-                                                src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(member as any).avatarSeed || member.displayName}&backgroundColor=transparent`}
-                                                alt="Avatar"
-                                                className="w-full h-full object-cover rounded-full bg-[#0b1014]"
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-white text-sm tracking-tight flex items-center gap-2">
-                                                {member.displayName}
-                                            </div>
-                                            <div className="text-[10px] text-gray-500 font-mono mt-0.5 uppercase tracking-widest flex items-center gap-1">
-                                                <div className={clsx("w-1.5 h-1.5 rounded-full", member.hasPaid ? "bg-[#10B981]" : "bg-red-500")} />
-                                                {member.hasPaid ? "Funded" : "Red Zone"}
-                                            </div>
-                                        </div>
-                                    </div>
+                            {hasPaid && (
+                                <div className="flex items-center gap-2 text-[#10B981]/70 text-xs font-bold mt-auto">
+                                    <Check className="w-4 h-4" /> Contribution confirmed
                                 </div>
-                            ))}
+                            )}
+
+                            {/* BG graphic */}
+                            <div className="absolute -right-3 -bottom-3 opacity-[0.04] pointer-events-none">
+                                {isRecentWinner ? <Trophy className="w-28 h-28 text-[#FBBF24]" /> : (hasPaid ? <ShieldCheck className="w-24 h-24" /> : <AlertCircle className="w-24 h-24" />)}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Performance Chart */}
+                    <div className="lg:col-span-7 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5">
+                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                            <BarChart3 className="w-3.5 h-3.5" /> Performance Trajectory
+                            <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
+                        </h4>
+                        <div className="h-52 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={performanceData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} width={28} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#0e1419', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '12px' }}
+                                        itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                    />
+                                    <Line type="monotone" dataKey="Points" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
 
-                {/* Previous Gameweek Winners */}
-                <div className="w-full pt-4">
-                    <h4 className="flex items-center gap-2 text-[12px] font-bold text-white uppercase tracking-widest mb-4">
-                        <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle
-                    </h4>
-
-                    <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-                        {winnerEvents.length === 0 ? (
-                            <div className="text-xs text-gray-500 font-bold tracking-widest uppercase">No verified winners yet.</div>
-                        ) : winnerEvents.slice(0, 10).map((winner: any, idx: number) => {
-                            const winnerMember = members.find(m => m.id === winner.winnerId) || { avatarSeed: winner.winnerName };
-
-                            return (
-                                <div key={idx} className={clsx(
-                                    "bg-[#131b22] border rounded-2xl p-5 flex flex-col items-center justify-center min-w-[140px] shrink-0 shadow-md relative overflow-hidden transition-all",
-                                    winner.winnerId === activeUserId ? "border-[#FBBF24]/50 shadow-[0_0_20px_rgba(251,191,36,0.15)] bg-gradient-to-b from-[#FBBF24]/10 to-transparent" : "border-white/5"
-                                )}>
-                                    {winner.winnerId === activeUserId && <Star className="absolute top-2 right-2 w-3 h-3 text-[#FBBF24] opacity-50" />}
-                                    <div className="w-12 h-12 rounded-full border-2 border-[#FBBF24] p-0.5 mb-3 shadow-[0_0_10px_rgba(251,191,36,0.3)] bg-[#0b1014]">
-                                        <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(winnerMember as any).avatarSeed}&backgroundColor=transparent`} alt={winner.winnerName} className="w-full h-full rounded-full object-cover" />
+                {/* === ROW 3: Full-width Red Zone / Verification Ledger === */}
+                <div className="w-full bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] overflow-hidden">
+                    <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" /> Verification Ledger
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
+                        </h4>
+                        <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest">
+                            {paidMembersCount}/{members.length} Paid
+                        </span>
+                    </div>
+                    <div
+                        className="max-h-56 overflow-y-auto divide-y divide-white/[0.04]"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
+                    >
+                        {members.length === 0 ? (
+                            <div className="p-8 text-center text-gray-600 text-xs font-bold uppercase tracking-widest">No members enrolled</div>
+                        ) : members.map((member) => (
+                            <div key={member.id} className={clsx(
+                                "px-5 py-3 flex items-center justify-between transition-colors",
+                                member.id === currentUser?.id ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"
+                            )}>
+                                <div className="flex items-center gap-3">
+                                    <div className={clsx(
+                                        "w-8 h-8 rounded-full border p-0.5 flex-shrink-0",
+                                        member.hasPaid ? "border-[#10B981]/50 bg-[#10B981]/10" : "border-white/10 opacity-40 grayscale"
+                                    )}>
+                                        <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(member as any).avatarSeed || member.displayName}&backgroundColor=transparent`} alt="Avatar" className="w-full h-full rounded-full" />
                                     </div>
-                                    <span className="font-bold text-[14px] text-white tracking-wide">{winner.winnerName}</span>
-                                    <span className="font-bold text-[13px] text-[#eab308] my-1 tracking-tight">{winner.prize ? winner.prize.toLocaleString() + ' KES' : 'Winner'}</span>
-                                    <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-1 bg-white/5 px-2 py-0.5 rounded">GW {winner.gw}</span>
+                                    <div>
+                                        <div className="font-bold text-white text-sm leading-tight">{member.displayName}
+                                            {member.id === currentUser?.id && <span className="ml-1.5 text-[10px] text-gray-500 font-medium">(you)</span>}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 font-mono">{member.phone}</div>
+                                    </div>
                                 </div>
-                            );
-                        })}
+                                <span className={clsx(
+                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border",
+                                    member.hasPaid
+                                        ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20"
+                                        : "bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20"
+                                )}>
+                                    <span className={clsx("w-1.5 h-1.5 rounded-full", member.hasPaid ? "bg-[#10B981]" : "bg-[#FBBF24]")} />
+                                    {member.hasPaid ? "Funded" : "Red Zone"}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </main>
 
-            {/* Bottom Actions repositioned strictly to avoid AppLayout overlap */}
-            <div className="fixed bottom-[65px] lg:bottom-0 left-0 lg:left-64 xl:left-72 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-8 lg:pb-6">
-                <div className="flex gap-4 w-full max-w-4xl mx-auto pointer-events-auto">
-                    <button className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                        <Banknote className="w-5 h-5" /> Deposit (M-Pesa)
-                    </button>
-                    <button onClick={() => navigate('/standings')} className="flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg">
-                        <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings & Vault
-                    </button>
-                </div>
+            {/* Personal Status Highlight */}
+            {currentUser && (
+
+                {/* Fixed Bottom Actions */ }
+                < div className="fixed bottom-[65px] lg:bottom-0 left-0 lg:left-64 xl:left-72 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-8 lg:pb-6">
+            <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
+                <button onClick={handleMpesaSTKPush} disabled={isPushingMpesa || hasPaid} className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-50 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                    <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
+                </button>
+                <button onClick={() => navigate('/standings')} className="flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg">
+                    <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings & Vault
+                </button>
             </div>
-            {/* Missing Payment? Receipt Query Modal */}
-            {showReceiptModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="w-full max-w-md bg-[#111c14]/90 border border-white/10 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
-                        <div className="mb-5">
-                            <h3 className="text-xl font-extrabold text-white mb-1 flex items-center gap-2">
-                                🔍 Verify Your Payment
-                            </h3>
-                            <p className="text-sm text-gray-400">
-                                Paid but still showing Red Zone? Enter your M-Pesa confirmation code from your SMS to self-reconcile.
-                            </p>
+        </div>
+
+            {/* Missing Payment? Receipt Query Modal */ }
+    {
+        showReceiptModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-md bg-[#111c14]/90 border border-white/10 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                    <div className="mb-5">
+                        <h3 className="text-xl font-extrabold text-white mb-1 flex items-center gap-2">
+                            🔍 Verify Your Payment
+                        </h3>
+                        <p className="text-sm text-gray-400">
+                            Paid but still showing Red Zone? Enter your M-Pesa confirmation code from your SMS to self-reconcile.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
+                            <input
+                                type="text"
+                                value={receiptCode}
+                                onChange={e => setReceiptCode(e.target.value.toUpperCase())}
+                                placeholder="e.g. SCL90XXXXXX"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
+                            />
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
-                                <input
-                                    type="text"
-                                    value={receiptCode}
-                                    onChange={e => setReceiptCode(e.target.value.toUpperCase())}
-                                    placeholder="e.g. SCL90XXXXXX"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
-                                />
+                        {receiptResult && (
+                            <div className={`p-3 rounded-xl text-sm font-medium border ${receiptResult.success ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+                                {receiptResult.message}
                             </div>
+                        )}
 
-                            {receiptResult && (
-                                <div className={`p-3 rounded-xl text-sm font-medium border ${receiptResult.success ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                                    {receiptResult.message}
-                                </div>
-                            )}
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowReceiptModal(false)}
-                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleReceiptQuery}
-                                    disabled={isQueryingReceipt || !receiptCode.trim()}
-                                    className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {isQueryingReceipt ? <><Zap className="w-4 h-4 animate-pulse" /> Verifying...</> : <><Check className="w-4 h-4" /> Verify Payment</>}
-                                </button>
-                            </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setShowReceiptModal(false)} className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReceiptQuery}
+                                disabled={isQueryingReceipt || !receiptCode.trim()}
+                                className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isQueryingReceipt ? <><Zap className="w-4 h-4 animate-pulse" /> Verifying...</> : <><Check className="w-4 h-4" /> Verify Payment</>}
+                            </button>
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            </div>
+        )
+    }
+        </div >
     );
 }

@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { db } from '../firebase';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { toast, Toaster } from 'react-hot-toast';
 import { useStore } from '../store/useStore';
 
@@ -21,27 +21,28 @@ export interface Notification {
 interface NotificationContextProps {
     notifications: Notification[];
     unreadCount: number;
-    markAsRead: () => void;
+    markAllAsRead: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextProps>({
     notifications: [],
     unreadCount: 0,
-    markAsRead: () => { }
+    markAllAsRead: () => { }
 });
 
 export const useNotifications = () => useContext(NotificationContext);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
-    const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id'; // using fallback to avoid crashing if empty MVP
+    const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
     const members = useStore(state => state.members);
 
-    // We need a stable activeUserId from members if falling back
     const realActiveUser = members.find(m => m.id === activeUserId)?.id || members[0]?.id || activeUserId;
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [initialLoad, setInitialLoad] = useState(true);
+
+    // Capture the mount timestamp — only show toasts for notifications NEWER than this
+    const mountTimeRef = useRef<Date>(new Date());
 
     useEffect(() => {
         if (!activeLeagueId) return;
@@ -62,54 +63,82 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
             setNotifications(notifs);
 
-            // Toast new notifications if not initial load
-            if (!initialLoad) {
-                snapshot.docChanges().forEach((change) => {
-                    if (change.type === 'added') {
-                        const newNotif = change.doc.data() as Notification;
-                        // Avoid toasting our own nudges or things we've already read
-                        if (!newNotif.readBy?.includes(realActiveUser)) {
-                            if (newNotif.type === 'success') toast.success(newNotif.message, { style: { background: '#10B981', color: '#0b1014' } });
-                            else if (newNotif.type === 'warning') toast.error(newNotif.message, { style: { background: '#EF4444', color: '#fff' } });
-                            else toast(newNotif.message, { icon: '🏆', style: { background: '#FBBF24', color: '#0b1014' } });
+            // Only toast genuinely new notifications (server timestamp > mount time)
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    const newNotif = change.doc.data() as Notification;
 
-                            // Native OS Push Notification
-                            if ('Notification' in window && Notification.permission === 'granted') {
-                                try {
-                                    new window.Notification('The Big League', {
-                                        body: newNotif.message,
-                                    });
-                                } catch (e) {
-                                    console.log('Mobile PWA Native Push required ServiceWorker context:', e);
-                                }
-                            }
+                    // Guard: skip if already read by this user
+                    if (newNotif.readBy?.includes(realActiveUser)) return;
+
+                    // Guard: only fire toasts for docs with a timestamp AFTER we mounted
+                    const notifDate = newNotif.timestamp?.toDate ? newNotif.timestamp.toDate() : new Date(0);
+                    if (notifDate <= mountTimeRef.current) return;
+
+                    // It's a truly new notification — display it
+                    if (newNotif.type === 'success') {
+                        toast.success(newNotif.message, {
+                            style: { background: '#10B981', color: '#0b1014' }
+                        });
+                    } else if (newNotif.type === 'warning') {
+                        toast.error(newNotif.message, {
+                            style: { background: '#1a1205', color: '#FBBF24', borderColor: '#FBBF24', border: '1px solid' }
+                        });
+                    } else {
+                        toast(newNotif.message, {
+                            icon: '🏆',
+                            style: { background: '#161d24', color: '#fff', border: '1px solid rgba(255,255,255,0.08)' }
+                        });
+                    }
+
+                    // Native OS Push Notification
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        try {
+                            new window.Notification('FantasyChama', { body: newNotif.message });
+                        } catch (e) {
+                            // ServiceWorker context needed for PWA push
                         }
                     }
-                });
-            } else {
-                setInitialLoad(false);
-            }
+                }
+            });
         });
 
         return () => unsubscribe();
-    }, [activeLeagueId, realActiveUser, initialLoad]);
+    }, [activeLeagueId, realActiveUser]);
 
     const unreadCount = notifications.filter(n => !n.readBy?.includes(realActiveUser)).length;
 
-    const markAsRead = () => {
-        // In a real app, update Firestore readBy array here.
-        // For MVP, we can locally mark them read by adding user to local state, 
-        // to avoid mass writes.
+    // Write to Firestore — appends user ID to each unread notification's readBy array
+    const markAllAsRead = async () => {
+        if (!activeLeagueId) return;
+        const unread = notifications.filter(n => !n.readBy?.includes(realActiveUser));
+
+        // Optimistic local update first for instant UI feedback
         setNotifications(prev => prev.map(n => ({
             ...n,
-            readBy: [...(n.readBy || []), realActiveUser]
+            readBy: n.readBy?.includes(realActiveUser) ? n.readBy : [...(n.readBy || []), realActiveUser]
         })));
+
+        // Persist to Firestore in the background
+        await Promise.allSettled(
+            unread.map(n =>
+                updateDoc(doc(db, 'leagues', activeLeagueId, 'notifications', n.id), {
+                    readBy: arrayUnion(realActiveUser)
+                })
+            )
+        );
     };
 
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead }}>
+        <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead }}>
             {children}
-            <Toaster position="bottom-center" toastOptions={{ className: 'font-bold text-sm shadow-xl rounded-xl border border-white/10' }} />
+            <Toaster
+                position="bottom-center"
+                toastOptions={{
+                    className: 'font-bold text-sm shadow-xl rounded-xl border border-white/10',
+                    duration: 5000,
+                }}
+            />
         </NotificationContext.Provider>
     );
 }

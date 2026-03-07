@@ -432,7 +432,7 @@ export default function AdminCommandCenter() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-[#0d1316] text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase">
+            <div className="min-h-screen bg-[#0A0E17] text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase">
                 <RefreshCw className="w-8 h-8 animate-spin mb-4" />
                 Syncing Ledger...
             </div>
@@ -440,7 +440,9 @@ export default function AdminCommandCenter() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0d1316] text-white p-6 md:p-10 font-sans max-w-7xl mx-auto space-y-10">
+        <div className="min-h-screen text-white p-6 md:p-10 font-sans max-w-7xl mx-auto space-y-10 relative"
+            style={{ background: 'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(251,191,36,0.07) 0%, rgba(10,14,23,0) 60%), #0A0E17' }}
+        >
             {/* Top Header */}
             <Header role="admin" title={leagueName || 'Command Center'} subtitle="Chairman Hub" />
 
