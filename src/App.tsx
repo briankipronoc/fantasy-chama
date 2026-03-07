@@ -1,6 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
 import Login from './pages/Login';
+import LandingPage from './pages/LandingPage';
 import AdminCommandCenter from './pages/AdminCommandCenter';
 import MemberDashboard from './pages/MemberDashboard';
 import { useStore } from './store/useStore';
@@ -15,9 +16,30 @@ import Profile from './pages/Profile';
 import Terms from './pages/Terms';
 import { NotificationProvider } from './components/NotificationProvider';
 
+// Renders the correct dashboard based on role — used inside the AppLayout
 const DashboardRenderer = () => {
   const role = useStore(state => state.role);
   return role === 'admin' ? <AdminCommandCenter /> : <MemberDashboard />;
+};
+
+// Smart root route:
+//   - Unauthenticated visitor  → LandingPage (the public storefront)
+//   - Authenticated member     → /dashboard → MemberDashboard (inside AppLayout)
+//   - Authenticated admin      → /dashboard → AdminCommandCenter (inside AppLayout)
+const RootRoute = () => {
+  const role = useStore(state => state.role);
+
+  // Same auth detection pattern used across all pages:
+  // login persists activeLeagueId + memberPhone to localStorage
+  const leagueId = localStorage.getItem('activeLeagueId');
+  const phone = localStorage.getItem('memberPhone');
+  const isAuthenticated = !!(leagueId && phone && role);
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <LandingPage />;
 };
 
 const AppLayoutWrapper = () => (
@@ -30,11 +52,15 @@ function App() {
   return (
     <>
       <Routes>
+        {/* Public routes — no AppLayout shell */}
+        <Route path="/" element={<RootRoute />} />
         <Route path="/login" element={<Login />} />
         <Route path="/setup" element={<AdminSetup />} />
         <Route path="/invite" element={<InviteHub />} />
+
+        {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
         <Route element={<AppLayoutWrapper />}>
-          <Route path="/" element={<DashboardRenderer />} />
+          <Route path="/dashboard" element={<DashboardRenderer />} />
           <Route path="/finances" element={<Finances />} />
           <Route path="/access" element={<MemberEnrollment />} />
           <Route path="/rules" element={<PayoutRules />} />
