@@ -101,10 +101,9 @@ export default function Standings() {
 
     return (
         <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#0b1014]">
-
             <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight mb-2">Gameweek Rankings</h1>
+                    <h1 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center gap-3"><Trophy className="w-8 h-8 md:w-10 md:h-10 text-[#FBBF24]" /> Gameweek Rankings</h1>
                     <p className="text-gray-400 font-medium tracking-wide max-w-xl">
                         Real-time FPL performance integrated with the Chama's prize pool. Payouts are projected based on the current <span className="text-[#10B981] font-bold">Grand Vault</span> holdings.
                     </p>
@@ -146,7 +145,7 @@ export default function Standings() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {standingsData.map((row, index) => {
+                            {standingsData.filter((row: any) => getMemberStatus(row.player_name, row.entry_name)).map((row: any, index: number) => {
                                 const isTop1 = index === 0;
                                 const isOut = index >= 5;
                                 const matchedMember = getMemberStatus(row.player_name, row.entry_name);

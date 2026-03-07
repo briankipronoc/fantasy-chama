@@ -30,7 +30,7 @@ export default function AppLayout() {
     ];
 
     const navItems = role === 'admin' ? adminNavItems : memberNavItems;
-    const headerTitle = role === 'admin' ? 'Chairman Hub' : 'Member Portal';
+    const headerTitle = role === 'admin' ? 'Chairman Hub' : 'Member Hub';
 
     return (
         <div className="flex xl:h-screen w-full bg-[#111613] text-white font-sans relative overflow-hidden">
@@ -69,7 +69,7 @@ export default function AppLayout() {
                 <div className="mt-auto">
                     <button
                         onClick={logout}
-                        className="flex items-center gap-4 w-full px-4 py-3.5 rounded-xl transition-all font-bold text-sm bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white"
+                        className="flex items-center gap-4 w-full px-4 py-3.5 rounded-xl transition-all font-bold text-sm bg-[#EF4444] text-white hover:bg-red-600 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
                     >
                         <LogOut className="h-5 w-5" />
                         <span>Sign Out</span>
@@ -105,7 +105,7 @@ export default function AppLayout() {
                 })}
                 <button
                     onClick={logout}
-                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all flex-1 basis-0 max-w-[80px] text-red-500/80 hover:text-red-500 active:scale-95"
+                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all flex-1 basis-0 max-w-[80px] bg-[#EF4444] text-white hover:bg-red-600 active:scale-95 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
                 >
                     <LogOut className="w-5 h-5 sm:w-6 sm:h-6" />
                     <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight truncate w-full">Sign Out</span>

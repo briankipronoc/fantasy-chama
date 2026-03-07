@@ -27,12 +27,14 @@ export default function AdminSetup() {
     const [leagueName, setLeagueName] = useState('');
     const [monthlyFee, setMonthlyFee] = useState(200);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(70);
+    const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
     const [estimatedMembers, setEstimatedMembers] = useState(5);
     // Step 3: Members
     // Note: FPL Team Name removed as per user request
     const [members, setMembers] = useState<{ displayName: string; phone: string }[]>([]);
     const [newMemberName, setNewMemberName] = useState('');
     const [newMemberPhone, setNewMemberPhone] = useState('');
+    const [coAdminIndex, setCoAdminIndex] = useState<number | null>(null);
 
     // Step 4: Code
     const generatedCode = useMemo(() => {
@@ -102,7 +104,8 @@ export default function AdminSetup() {
                 chairmanEmail: email,
                 rules: {
                     weekly: weeklyPrizePercent,
-                    vault: 100 - weeklyPrizePercent
+                    vault: 100 - weeklyPrizePercent,
+                    seasonWinnersCount: seasonWinnersCount
                 },
                 inviteCode: generatedCode,
                 createdAt: serverTimestamp()
@@ -119,19 +122,36 @@ export default function AdminSetup() {
                 displayName: fullName,
                 phone: phone,
                 hasPaid: false,
+                role: 'admin',
                 trustScore: 100
             });
 
             // Enroll Other Members
-            members.forEach((member) => {
+            let coAdminDocId = null;
+            members.forEach((member, index) => {
                 const memberRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
+                const isCoAdmin = index === coAdminIndex;
+
+                if (isCoAdmin) {
+                    coAdminDocId = memberRef.id;
+                }
+
                 batch.set(memberRef, {
                     displayName: member.displayName,
                     phone: member.phone,
                     hasPaid: false,
+                    role: isCoAdmin ? 'co-admin' : 'member',
                     trustScore: 100
                 });
             });
+
+            // If a co-admin was selected, explicitly link them to the root league document
+            if (coAdminDocId) {
+                const leagueUpdateRef = doc(db, 'leagues', leagueId);
+                batch.update(leagueUpdateRef, {
+                    coAdminId: coAdminDocId
+                });
+            }
 
             await batch.commit();
 
@@ -412,6 +432,29 @@ export default function AdminSetup() {
                                     </p>
                                 )}
                             </div>
+                            {/* Season Winners Selector */}
+                            <div className="mt-8 mb-4">
+                                <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">
+                                    <Users className="w-4 h-4 text-[#22c55e]" /> End of Season Winners
+                                </label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[1, 3, 5].map(count => (
+                                        <button
+                                            key={count}
+                                            onClick={() => setSeasonWinnersCount(count)}
+                                            className={clsx(
+                                                "py-2 rounded-xl border text-xs font-bold transition-all",
+                                                seasonWinnersCount === count
+                                                    ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
+                                                    : "bg-[#161d24] border-white/5 text-gray-400 hover:bg-white/[0.02]"
+                                            )}
+                                        >
+                                            Top {count}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[9px] text-gray-500 mt-2">The Grand Vault will be split among the top {seasonWinnersCount} player{seasonWinnersCount > 1 ? 's' : ''}.</p>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -452,11 +495,37 @@ export default function AdminSetup() {
                                 <div>
                                     <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest mb-0.5">Estimated Season Vault</p>
                                     <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {(grandVault * 38).toLocaleString()}</h4>
-                                    <p className="text-[10px] text-[#22c55e] font-bold mt-1.5 flex items-center gap-1.5">
+                                    <div className="text-[10px] text-[#22c55e] font-bold mt-1.5 flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></div> Based on 38 GWs
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-2">Season Projections</h4>
+                            {seasonWinnersCount === 1 ? [100].map((percent, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
+                                    <span className="flex items-center gap-2 text-gray-400">
+                                        <span className="w-5 text-center font-black text-[#FBBF24] opacity-80 backdrop-blur-sm bg-black/20 px-1 py-0.5 rounded border border-[#FBBF24]/30">#1</span> Champion Takes All
+                                    </span>
+                                    <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
+                                </div>
+                            )) : seasonWinnersCount === 5 ? [45, 25, 15, 10, 5].map((percent, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
+                                    <span className="flex items-center gap-2 text-gray-400">
+                                        <span className={clsx("w-5 text-center font-black opacity-80 backdrop-blur-sm bg-black/20 px-1 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : idx === 2 ? "text-amber-600 border-amber-600/30" : "text-gray-500 border-gray-500/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
+                                    </span>
+                                    <span className="font-bold tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
+                                </div>
+                            )) : [50, 30, 20].map((percent, idx) => (
+                                <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
+                                    <span className="flex items-center gap-2 text-gray-400">
+                                        <span className={clsx("w-5 text-center font-black opacity-80 backdrop-blur-sm bg-black/20 px-1 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : "text-amber-600 border-amber-600/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
+                                    </span>
+                                    <span className="font-bold tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
+                                </div>
+                            ))}
                         </div>
 
                         <div className="mt-6 pt-5 border-t border-white/5">
@@ -569,20 +638,44 @@ export default function AdminSetup() {
                             </div>
                         ) : (
                             members.map((m, i) => (
-                                <div key={i} className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5">
+                                <div key={i} className={clsx(
+                                    "flex justify-between items-center p-3 rounded-xl border transition-colors",
+                                    coAdminIndex === i ? "bg-[#FBBF24]/10 border-[#FBBF24]/30" : "bg-[#0a100a]/50 border-white/5"
+                                )}>
                                     <div className="flex items-center gap-3">
-                                        <div className="size-10 rounded-full bg-[#22c55e]/20 flex items-center justify-center font-bold text-[#22c55e] border border-[#22c55e]/30">
+                                        <div className={clsx(
+                                            "size-10 rounded-full flex items-center justify-center font-bold text-sm border",
+                                            coAdminIndex === i ? "bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30" : "bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/30"
+                                        )}>
                                             {m.displayName.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
-                                            <p className="font-bold text-sm text-white">{m.displayName}</p>
+                                            <p className="font-bold text-sm text-white flex items-center gap-2">
+                                                {m.displayName}
+                                                {coAdminIndex === i && <Shield className="w-3 h-3 text-[#FBBF24]" />}
+                                            </p>
                                             <p className="text-[10px] text-gray-400">{m.phone}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
                                         <button
-                                            onClick={() => removeLocalMember(i)}
-                                            className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest px-2 py-1 border border-red-400/20 rounded hover:bg-red-400/10 flex items-center gap-1"
+                                            type="button"
+                                            onClick={() => setCoAdminIndex(coAdminIndex === i ? null : i)}
+                                            className={clsx(
+                                                "text-[10px] font-bold uppercase tracking-widest px-2 py-1 border rounded transition-colors flex items-center gap-1",
+                                                coAdminIndex === i ? "bg-[#FBBF24] text-black border-[#FBBF24]" : "text-gray-400 border-gray-600 hover:text-white"
+                                            )}
+                                        >
+                                            {coAdminIndex === i ? "Co-Admin" : "Make Co-Admin"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                removeLocalMember(i);
+                                                if (coAdminIndex === i) setCoAdminIndex(null);
+                                                else if (coAdminIndex !== null && coAdminIndex > i) setCoAdminIndex(coAdminIndex - 1);
+                                            }}
+                                            className="text-[10px] font-bold text-red-500 hover:text-red-400 transition-colors uppercase tracking-widest px-2 py-1 border border-red-500/20 rounded hover:bg-red-500/10 flex items-center gap-1"
                                         >
                                             Unenroll
                                         </button>

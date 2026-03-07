@@ -39,7 +39,9 @@ export default function Deposit() {
 
         try {
             const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            const response = await fetch(`${apiUrl}/api/mpesa/deposit`, {
+            const activeUserId = localStorage.getItem('activeUserId') || members.find(m => m.phone === phoneNumber)?.id || 'guest';
+
+            const response = await fetch(`${apiUrl}/api/mpesa/stkpush`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -48,19 +50,19 @@ export default function Deposit() {
                     phoneNumber,
                     amount: amountDue,
                     leagueId: activeLeagueId,
-                    userId: 'current-user-uid' // Would come from auth context in future
+                    userId: activeUserId
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                setToast({ message: data.message, type: 'success' });
+                setToast({ message: data.message || 'Awaiting M-Pesa PIN...', type: 'success' });
             } else {
-                throw new Error('Payment failed');
+                throw new Error(data.message || 'Payment failed');
             }
-        } catch (error) {
-            setToast({ message: 'Failed to initiate M-Pesa push. Is the backend running?', type: 'error' });
+        } catch (error: any) {
+            setToast({ message: error.message || 'Failed to initiate M-Pesa push. Is the backend running?', type: 'error' });
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -120,7 +122,7 @@ export default function Deposit() {
                             {isLoading ? (
                                 <>
                                     <div className="w-5 h-5 border-2 border-[#0a100a] border-t-transparent rounded-full animate-spin"></div>
-                                    Triggering STK Push...
+                                    Awaiting PIN...
                                 </>
                             ) : (
                                 <>

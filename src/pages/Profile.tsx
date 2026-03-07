@@ -22,6 +22,7 @@ export default function Profile() {
     // State for Admin Settings
     const [monthlyContribution, setMonthlyContribution] = useState<number>(0);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState<number>(70);
+    const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
     const [fplLeagueId, setFplLeagueId] = useState('');
     const [inviteCode, setInviteCode] = useState('');
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
@@ -44,6 +45,7 @@ export default function Profile() {
                         const data = docSnap.data();
                         setMonthlyContribution(data.monthlyContribution || 1400);
                         setWeeklyPrizePercent(data.rules?.weekly || 70);
+                        setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
                         setFplLeagueId(data.fplLeagueId || '');
                         setInviteCode(data.inviteCode || 'N/A');
                     }
@@ -109,6 +111,7 @@ export default function Profile() {
                 monthlyContribution: Number(monthlyContribution),
                 'rules.weekly': Number(weeklyPrizePercent),
                 'rules.vault': 100 - Number(weeklyPrizePercent),
+                'rules.seasonWinnersCount': seasonWinnersCount,
                 fplLeagueId: fplLeagueId
             });
             localStorage.setItem('chairmanAvatarSeed', avatarSeed);
@@ -149,7 +152,6 @@ export default function Profile() {
 
     return (
         <div className="min-h-full p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white bg-[#0b1014]">
-
             <div className="max-w-5xl mx-auto space-y-8">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center gap-3">
@@ -330,6 +332,33 @@ export default function Profile() {
                                     <div className="flex justify-between text-[10px] text-gray-500 mt-[-10px] font-bold uppercase tracking-widest px-1">
                                         <span className="text-[#FBBF24]">Weekly Pot</span>
                                         <span className="text-[#10B981]">Season Vault</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            End of Season Winners
+                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                                        </label>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[1, 3, 5].map(count => (
+                                            <button
+                                                key={count}
+                                                type="button"
+                                                disabled={isFinancialsLocked}
+                                                onClick={() => setSeasonWinnersCount(count)}
+                                                className={clsx(
+                                                    "py-3 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+                                                    seasonWinnersCount === count
+                                                        ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
+                                                        : "bg-[#161d24] border-white/5 text-gray-400 hover:bg-white/[0.02]"
+                                                )}
+                                            >
+                                                Top {count}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 

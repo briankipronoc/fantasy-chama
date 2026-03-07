@@ -22,8 +22,10 @@ interface AppState {
     role: Role;
     league: LeagueSettings | null;
     members: Member[];
+    isStealthMode: boolean;
     setRole: (role: Role) => void;
     setLeagueSettings: (settings: LeagueSettings) => void;
+    toggleStealthMode: () => void;
     addMember: (member: Omit<Member, 'id'>) => void;
     logout: () => void;
 
@@ -37,8 +39,10 @@ export const useStore = create<AppState>((set) => ({
     role: null, // Initially not logged in
     league: null,
     members: [],
+    isStealthMode: false,
     setRole: (role) => set({ role }),
     setLeagueSettings: (settings) => set({ league: settings }),
+    toggleStealthMode: () => set((state) => ({ isStealthMode: !state.isStealthMode })),
     addMember: (member) =>
         set((state) => ({
             members: [
