@@ -209,6 +209,14 @@ app.post('/api/mpesa/callback', async (req, res) => {
                     // 4. Update request status
                     await reqDoc.ref.update({ status: 'completed', mpesaReceipt, confirmedAmount });
                     console.log(`✅ Wallet incremented +${confirmedAmount} KES for User ${userId} in League ${leagueId}`);
+
+                    // 5. Write to Live Escrow Feed (Phase 10.5)
+                    await db.collection(`leagues/${leagueId}/league_events`).add({
+                        eventType: 'payment',
+                        message: `Deposit confirmed — KES ${confirmedAmount.toLocaleString()} received. M-Pesa: ${mpesaReceipt}.`,
+                        actor: data.phoneNumber || userId,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp()
+                    });
                 } else {
                     console.log('⚠️ Received Payment but could not find CheckoutRequestID in Firestore.');
                 }
@@ -422,6 +430,174 @@ app.post('/api/mpesa/b2c/result', async (req, res) => {
 app.post('/api/mpesa/b2c/timeout', async (req, res) => {
     console.log("---- B2C Timeout Webhook Hit ----", req.body);
     res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+});
+
+// ============================================================
+// PHASE 12 — WALLET DEDUCTION ROUTE
+// POST /api/league/deduct-gw-cost
+// Called by the admin after a GW is resolved.
+// Iterates all memberships, deducts gwCostPerRound from walletBalance.
+// Flags hasPaid: false if balance drops to 0 or below.
+// Writes summary to Live Escrow Feed.
+// ============================================================
+app.post('/api/league/deduct-gw-cost', async (req, res) => {
+    try {
+        const { leagueId, gwCostPerRound, gwNumber, winnerName } = req.body;
+
+        if (!leagueId || !gwCostPerRound || isNaN(Number(gwCostPerRound))) {
+            return res.status(400).json({ success: false, message: 'Missing leagueId or gwCostPerRound' });
+        }
+
+        if (!db) return res.status(503).json({ success: false, message: 'Firestore not initialised' });
+
+        const cost = Number(gwCostPerRound);
+        const gwLabel = gwNumber ? `GW${gwNumber}` : 'Gameweek';
+
+        // Fetch all memberships in the league
+        const membersSnap = await db.collection(`leagues/${leagueId}/memberships`).get();
+
+        const batch = db.batch();
+        const summary = { deducted: 0, redZone: [], greenZone: [] };
+
+        for (const mDoc of membersSnap.docs) {
+            const data = mDoc.data();
+            const currentBalance = Number(data.walletBalance) || 0;
+            const newBalance = currentBalance - cost;
+            const isDelinquent = newBalance < 0;
+
+            batch.update(mDoc.ref, {
+                walletBalance: admin.firestore.FieldValue.increment(-cost),
+                hasPaid: !isDelinquent,
+                // Cap at -cost to avoid runaway debt (optional debt floor)
+                // If you want to allow negative balances (debt tracking): leave as is
+            });
+
+            summary.deducted++;
+            if (isDelinquent) {
+                summary.redZone.push(data.displayName || mDoc.id);
+            } else {
+                summary.greenZone.push(data.displayName || mDoc.id);
+            }
+
+            console.log(`[DEDUCT] ${data.displayName || mDoc.id}: ${currentBalance} → ${newBalance} KES`);
+        }
+
+        await batch.commit();
+
+        // Write resolution summary to Live Escrow Feed
+        const redZoneList = summary.redZone.length > 0
+            ? ` ⚠️ Red Zone: ${summary.redZone.join(', ')}.`
+            : ' All members fully funded.';
+
+        await db.collection(`leagues/${leagueId}/league_events`).add({
+            eventType: 'resolution',
+            message: `${gwLabel} stake of KES ${cost.toLocaleString()} deducted from ${summary.deducted} members.${winnerName ? ` Winner: ${winnerName}.` : ''}${redZoneList}`,
+            actor: 'system',
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Notify Red Zone members with targeted warning
+        for (const memberSnap of membersSnap.docs) {
+            const m = memberSnap.data();
+            const currentBal = Number(m.walletBalance) || 0;
+            if (currentBal - cost < 0) {
+                await db.collection(`leagues/${leagueId}/notifications`).add({
+                    type: 'warning',
+                    message: `⚠️ ${gwLabel} deducted KES ${cost.toLocaleString()} from your wallet. Your balance is now negative — top up before the next gameweek to stay eligible.`,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    readBy: [],
+                    targetMemberId: memberSnap.id
+                });
+            }
+        }
+
+        console.log(`✅ [DEDUCT] ${gwLabel} complete. Deducted KES ${cost} from ${summary.deducted} members. Red Zone: [${summary.redZone.join(', ')}]`);
+
+        res.json({
+            success: true,
+            message: `${gwLabel} stake deducted successfully.`,
+            summary
+        });
+
+    } catch (error) {
+        console.error('[DEDUCT] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================================
+// PHASE 12 — SIMULATION ENDPOINT (LOCAL TEST HARNESS ONLY)
+// POST /api/simulate/stk-callback
+// Fires the same wallet-increment logic as the real Safaricom
+// STK callback, without needing ngrok or a live M-Pesa connection.
+// REMOVE or gate behind NODE_ENV !== 'production' before live launch.
+// ============================================================
+app.post('/api/simulate/stk-callback', async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ success: false, message: 'Simulation endpoint disabled in production.' });
+    }
+
+    try {
+        const { userId, leagueId, amount, phoneNumber } = req.body;
+
+        if (!userId || !leagueId || !amount) {
+            return res.status(400).json({ success: false, message: 'userId, leagueId, amount required' });
+        }
+
+        if (!db) return res.status(503).json({ success: false, message: 'Firestore not initialised' });
+
+        const confirmedAmount = Number(amount);
+        const mockReceipt = `SIM${Date.now().toString().slice(-8)}`;
+
+        console.log(`🧪 [SIM] Simulating STK callback: +${confirmedAmount} KES for ${userId} in ${leagueId}`);
+
+        // 1. Increment wallet (same as real callback)
+        await db.doc(`leagues/${leagueId}/memberships/${userId}`).update({
+            hasPaid: true,
+            walletBalance: admin.firestore.FieldValue.increment(confirmedAmount)
+        });
+
+        // 2. Write transaction record
+        await db.collection(`leagues/${leagueId}/transactions`).add({
+            type: 'deposit',
+            amount: confirmedAmount,
+            receiptId: mockReceipt,
+            phoneNumber: phoneNumber || 'SIM_PHONE',
+            userId,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 3. Write to Live Escrow Feed
+        await db.collection(`leagues/${leagueId}/league_events`).add({
+            eventType: 'payment',
+            message: `[SIMULATED] KES ${confirmedAmount.toLocaleString()} deposited. Receipt: ${mockReceipt}.`,
+            actor: phoneNumber || userId,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 4. Write transactionSuccess notification (fires premium toast on client)
+        await db.collection(`leagues/${leagueId}/notifications`).add({
+            type: 'transactionSuccess',
+            message: `✅ KES ${confirmedAmount.toLocaleString()} deposit confirmed! Your wallet is funded.`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            readBy: [],
+            targetMemberId: userId
+        });
+
+        console.log(`✅ [SIM] Simulation complete. Receipt: ${mockReceipt}`);
+
+        res.json({
+            success: true,
+            message: `Simulation successful! +${confirmedAmount} KES credited.`,
+            mockReceipt,
+            userId,
+            leagueId
+        });
+
+    } catch (error) {
+        console.error('[SIM] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
 });
 
 /**

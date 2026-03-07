@@ -26,6 +26,7 @@ export default function AdminCommandCenter() {
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
+    const [whatsappReceipt, setWhatsappReceipt] = useState<string | null>(null);
 
     // Module 3B: Dispute/Claim alerts
     const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
@@ -406,15 +407,42 @@ export default function AdminCommandCenter() {
                 const payoutData = await payoutRes.json();
 
                 if (payoutData.success) {
-                    const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
-                    const p = members.map(m => {
-                        const memberDoc = doc(membershipsRef, m.id);
-                        return updateDoc(memberDoc, { hasPaid: false });
-                    });
-                    await Promise.all(p);
+                    // Phase 12: Call backend to atomically drain all member wallets
+                    const gwApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                    try {
+                        const deductRes = await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                leagueId: activeLeagueId,
+                                gwCostPerRound: monthlyContribution,
+                                gwNumber: 26,
+                                winnerName: winner.displayName
+                            })
+                        });
+                        const deductData = await deductRes.json();
+                        const redNames = deductData.summary?.redZone || [];
+                        const greenNames = deductData.summary?.greenZone || [];
+
+                        // Build WhatsApp share receipt
+                        const lines = [
+                            `*FantasyChama — GW26 Results*`,
+                            ``,
+                            `Winner: *${winner.displayName}* (${winningPoints} pts)`,
+                            `Payout: *KES ${weeklyPot.toLocaleString()}* dispatched`,
+                            ``,
+                            greenNames.length > 0 ? `Green Zone (${greenNames.length}): ${greenNames.join(', ')}` : null,
+                            redNames.length > 0 ? `Red Zone (${redNames.length}): ${redNames.join(', ')} - UNPAID` : null,
+                            ``,
+                            `_Powered by FantasyChama_`
+                        ].filter(Boolean).join('\n');
+                        setWhatsappReceipt(lines);
+                    } catch (deductErr) {
+                        console.error('[DEDUCT] Deduction call failed:', deductErr);
+                    }
 
                     setShowResolveModal(false);
-                    showToast(`B2C Dispatch Sent! Safaricom is processing KES ${weeklyPot.toLocaleString()} to ${winner.displayName}.`);
+                    showToast(`B2C Dispatch Sent! Safaricom processing KES ${weeklyPot.toLocaleString()} to ${winner.displayName}.`);
 
                     // Log to Live Escrow Feed
                     await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
@@ -633,21 +661,49 @@ export default function AdminCommandCenter() {
                                 </div>
                             </div>
 
-                            {/* Recent Notifications Feed (Placeholder for layout parity) */}
+                            {/* Operations Feed — WhatsApp Share Banner appears post-resolution */}
                             <div className="w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
-                                <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-6">
+                                <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-5">
                                     <Bell className="w-4 h-4" /> Operations Feed
                                 </h4>
-                                <div className="space-y-4">
-                                    <div className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
-                                        <div className="w-10 h-10 rounded-full bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center shrink-0">
-                                            <UserPlus className="w-5 h-5 text-[#10B981]" />
+
+                                {/* WhatsApp Receipt Share Card — appears after GW resolution */}
+                                {whatsappReceipt && (
+                                    <div className="mb-4 bg-[#0a1f12] border border-green-600/30 rounded-2xl p-4 animate-in slide-in-from-top-2 duration-300">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-lg">📲</span>
+                                            <span className="text-green-400 text-xs font-black uppercase tracking-widest">GW Resolution Receipt Ready</span>
                                         </div>
-                                        <div>
-                                            <h5 className="text-sm font-bold text-white tracking-wide">League Open for Gameweek</h5>
-                                            <p className="text-xs text-gray-400 mt-1">Accepting deposits for Gameweek 26. Deadline approaches.</p>
-                                            <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">System</span>
+                                        <pre className="text-[10px] text-gray-300 whitespace-pre-wrap font-mono bg-black/30 rounded-xl p-3 mb-3 leading-relaxed border border-white/5 max-h-40 overflow-y-auto">
+                                            {whatsappReceipt}
+                                        </pre>
+                                        <div className="flex gap-2">
+                                            <a
+                                                href={`https://wa.me/?text=${encodeURIComponent(whatsappReceipt)}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-500 text-white text-xs font-black rounded-xl transition-colors"
+                                            >
+                                                Share to WhatsApp Group
+                                            </a>
+                                            <button
+                                                onClick={() => setWhatsappReceipt(null)}
+                                                className="px-3 py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-bold rounded-xl transition-colors border border-white/5"
+                                            >
+                                                Dismiss
+                                            </button>
                                         </div>
+                                    </div>
+                                )}
+
+                                <div className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center shrink-0">
+                                        <UserPlus className="w-5 h-5 text-[#10B981]" />
+                                    </div>
+                                    <div>
+                                        <h5 className="text-sm font-bold text-white tracking-wide">League Open for Gameweek</h5>
+                                        <p className="text-xs text-gray-400 mt-1">Accepting deposits for Gameweek 26. Deadline approaches.</p>
+                                        <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">System</span>
                                     </div>
                                 </div>
                             </div>
