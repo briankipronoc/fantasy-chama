@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
@@ -26,6 +26,15 @@ export default function MemberDashboard() {
     const [receiptCode, setReceiptCode] = useState('');
     const [isQueryingReceipt, setIsQueryingReceipt] = useState(false);
     const [receiptResult, setReceiptResult] = useState<{ success: boolean; message: string } | null>(null);
+
+    // Module 3B: Dispute/Claim state
+    const [showClaimModal, setShowClaimModal] = useState(false);
+    const [claimReceiptCode, setClaimReceiptCode] = useState('');
+    const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
+    const [claimSubmitted, setClaimSubmitted] = useState(false);
+
+    // Module 4A: Winner confirmation state
+    const [winnerConfirmation, setWinnerConfirmation] = useState<any>(null);
 
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
@@ -64,6 +73,8 @@ export default function MemberDashboard() {
 
         return () => unsubscribeLeague();
     }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, location.state]);
+
+    // Module 4A: Listen for pending winner confirmations — moved below currentUser declaration
 
     const showToast = (msg: string) => {
         setToastMessage(msg);
@@ -127,9 +138,61 @@ export default function MemberDashboard() {
         }
     };
 
+    // Module 3B: Submit a payment dispute
+    const handleClaimPayment = async () => {
+        if (!claimReceiptCode.trim() || !activeLeagueId || !currentUser) return;
+        setIsSubmittingClaim(true);
+        try {
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'disputes'), {
+                memberId: currentUser.id,
+                memberName: currentUser.displayName,
+                phone: currentUser.phone,
+                receiptCode: claimReceiptCode.trim().toUpperCase(),
+                amount: monthlyContribution,
+                status: 'pending',
+                timestamp: serverTimestamp()
+            });
+            setClaimSubmitted(true);
+            setTimeout(() => { setShowClaimModal(false); setClaimSubmitted(false); setClaimReceiptCode(''); }, 3000);
+        } catch (err) {
+            console.error('Claim submit error:', err);
+        } finally {
+            setIsSubmittingClaim(false);
+        }
+    };
+
+    // Module 4A: Confirm receipt
+    const handleConfirmWinnings = async () => {
+        if (!activeLeagueId || !winnerConfirmation) return;
+        try {
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'winner_confirmations', winnerConfirmation.id), {
+                status: 'confirmed'
+            });
+            showToast('✅ Payout confirmed! Thank you.');
+        } catch (err) {
+            console.error('Confirm error:', err);
+        }
+    };
+
     const currentUser = members.find(m => m.phone === memberPhone);
     const hasPaid = currentUser?.hasPaid || false;
     const activeUserId = currentUser?.id || 'dummy';
+
+    // Module 4A: Listen for pending winner confirmations for this user
+    useEffect(() => {
+        if (!activeLeagueId || !currentUser?.id) return;
+        const q = query(
+            collection(db, 'leagues', activeLeagueId, 'winner_confirmations'),
+            where('winnerId', '==', currentUser.id),
+            where('status', '==', 'pending_confirmation')
+        );
+        const unsub = onSnapshot(q, snap => {
+            if (!snap.empty) setWinnerConfirmation({ id: snap.docs[0].id, ...snap.docs[0].data() });
+            else setWinnerConfirmation(null);
+        });
+        return () => unsub();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeLeagueId, currentUser?.id]);
 
     // Dynamic Calculations
     const paidMembersCount = members.filter(m => m.hasPaid).length;
@@ -304,12 +367,20 @@ export default function MemberDashboard() {
                                         {isPushingMpesa ? <Zap className="w-4 h-4 animate-pulse" /> : <Banknote className="w-4 h-4" />}
                                         {isPushingMpesa ? "Awaiting PIN..." : "Pay with M-Pesa"}
                                     </button>
-                                    <button
-                                        onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
-                                        className="text-[11px] text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors text-center"
-                                    >
-                                        Missing payment? Enter receipt →
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
+                                            className="flex-1 text-[11px] text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors text-center"
+                                        >
+                                            Already paid? Verify →
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowClaimModal(true); setClaimSubmitted(false); setClaimReceiptCode(''); }}
+                                            className="flex-1 text-[11px] text-[#FBBF24]/60 hover:text-[#FBBF24] underline underline-offset-2 transition-colors text-center"
+                                        >
+                                            Dispute payment →
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                             {hasPaid && (
@@ -463,6 +534,87 @@ export default function MemberDashboard() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Module 4A: Winner Confirmation Banner */}
+            {winnerConfirmation && (
+                <div className="fixed bottom-36 lg:bottom-24 left-0 lg:left-64 xl:left-72 right-0 px-4 md:px-8 z-40 flex justify-center">
+                    <div className="w-full max-w-2xl bg-[#1c1a09] border border-[#FBBF24]/40 rounded-2xl p-4 shadow-[0_0_30px_rgba(251,191,36,0.15)] flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-500">
+                        <div className="w-10 h-10 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/30 flex items-center justify-center flex-shrink-0">
+                            <Trophy className="w-5 h-5 text-[#FBBF24]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-extrabold text-white text-sm">Chairman disbursed KES {winnerConfirmation.amount?.toLocaleString()} to your M-Pesa</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">Tap confirm once you receive the funds</p>
+                        </div>
+                        <button
+                            onClick={handleConfirmWinnings}
+                            className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-4 py-2.5 rounded-xl transition-colors"
+                        >
+                            Confirm Receipt ✓
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Module 3B: Claim Payment Modal */}
+            {showClaimModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-[#111820]/95 border border-[#FBBF24]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                        {claimSubmitted ? (
+                            <div className="text-center py-4">
+                                <div className="w-14 h-14 rounded-full bg-[#FBBF24]/10 border border-[#FBBF24]/30 flex items-center justify-center mx-auto mb-4">
+                                    <Check className="w-7 h-7 text-[#FBBF24]" />
+                                </div>
+                                <h3 className="text-xl font-extrabold text-white mb-2">Dispute Lodged! 🚨</h3>
+                                <p className="text-sm text-gray-400">Your claim has been flagged to the Chairman for review. You'll be updated within 24 hours.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="mb-5">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-[#FBBF24] text-lg">🚨</span>
+                                        <h3 className="text-xl font-extrabold text-white">Claim Payment</h3>
+                                    </div>
+                                    <p className="text-sm text-gray-400">
+                                        Paid via M-Pesa but still Red Zone? Submit your receipt and the Chairman will verify it within 24h.
+                                    </p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
+                                        <input
+                                            type="text"
+                                            value={claimReceiptCode}
+                                            onChange={e => setClaimReceiptCode(e.target.value.toUpperCase())}
+                                            placeholder="e.g. SCL90XXXXXX"
+                                            className="w-full bg-white/5 border border-[#FBBF24]/20 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#FBBF24]/50 transition-colors"
+                                        />
+                                    </div>
+                                    <div className="bg-[#FBBF24]/5 border border-[#FBBF24]/15 rounded-xl p-3 text-xs text-gray-400 leading-relaxed">
+                                        The Chairman will receive an alert to cross-check your M-Pesa receipt with their records. False claims may result in suspension.
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setShowClaimModal(false)}
+                                            className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleClaimPayment}
+                                            disabled={isSubmittingClaim || !claimReceiptCode.trim()}
+                                            className="flex-1 px-4 py-3 bg-[#FBBF24] hover:bg-[#eab308] text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isSubmittingClaim ? <Zap className="w-4 h-4 animate-pulse" /> : null}
+                                            {isSubmittingClaim ? 'Submitting...' : 'Submit Claim 🚨'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}

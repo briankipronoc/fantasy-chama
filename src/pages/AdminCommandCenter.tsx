@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import confetti from 'canvas-confetti';
@@ -26,6 +26,10 @@ export default function AdminCommandCenter() {
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
+
+    // Module 3B: Dispute/Claim alerts
+    const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
+    const [processingDispute, setProcessingDispute] = useState<string | null>(null);
 
     // Filter & Modal State
     const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
@@ -86,6 +90,63 @@ export default function AdminCommandCenter() {
         });
         return () => unsub();
     }, [activeLeagueId]);
+
+    // Module 3B: Listen to pending disputes
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const disputesRef = collection(db, 'leagues', activeLeagueId, 'disputes');
+        const q = query(disputesRef, where('status', '==', 'pending'));
+        const unsub = onSnapshot(q, snap => {
+            setPendingDisputes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        });
+        return () => unsub();
+    }, [activeLeagueId]);
+
+    // Module 3B: Approve a dispute claim
+    const handleApproveDispute = async (dispute: any) => {
+        if (!activeLeagueId) return;
+        setProcessingDispute(dispute.id);
+        try {
+            // Increment wallet and mark as paid
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', dispute.memberId), {
+                hasPaid: true,
+                walletBalance: increment(dispute.amount),
+            });
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'disputes', dispute.id), { status: 'approved' });
+            // Notify the member
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'success',
+                message: `✅ Your payment dispute for KES ${dispute.amount?.toLocaleString()} has been approved by the Chairman. You are now in the Green Zone.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+            showToast(`✅ Dispute approved for ${dispute.memberName}`);
+        } catch (err) {
+            console.error('Dispute approve error:', err);
+        } finally {
+            setProcessingDispute(null);
+        }
+    };
+
+    // Module 3B: Reject a dispute claim
+    const handleRejectDispute = async (dispute: any) => {
+        if (!activeLeagueId) return;
+        setProcessingDispute(dispute.id);
+        try {
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'disputes', dispute.id), { status: 'rejected' });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                message: `⚠️ Your payment dispute (Receipt: ${dispute.receiptCode}) was reviewed and rejected. Contact your Chairman for more info.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+            showToast(`Dispute rejected for ${dispute.memberName}`);
+        } catch (err) {
+            console.error('Dispute reject error:', err);
+        } finally {
+            setProcessingDispute(null);
+        }
+    };
 
     // Admin Tour
     useEffect(() => {
@@ -593,6 +654,53 @@ export default function AdminCommandCenter() {
                         </div>
                     </div>
                 </section>
+
+                {/* Module 3B: Dispute Claim Alerts */}
+                {pendingDisputes.length > 0 && (
+                    <section className="bg-[#1a1500] border border-[#FBBF24]/25 rounded-2xl overflow-hidden shadow-2xl">
+                        <div className="p-4 px-6 border-b border-[#FBBF24]/20 flex items-center gap-3">
+                            <AlertTriangle className="w-4 h-4 text-[#FBBF24]" />
+                            <h3 className="font-bold text-[#FBBF24] text-sm tracking-wide">Payment Dispute Claims</h3>
+                            <span className="ml-auto bg-[#FBBF24]/20 text-[#FBBF24] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#FBBF24]/30">
+                                {pendingDisputes.length} pending
+                            </span>
+                        </div>
+                        <div className="divide-y divide-[#FBBF24]/10">
+                            {pendingDisputes.map((dispute) => (
+                                <div key={dispute.id} className="p-4 px-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="font-bold text-white text-sm">{dispute.memberName}</span>
+                                            <span className="text-[10px] text-gray-500">{dispute.phone}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-wrap">
+                                            <span className="text-xs text-gray-400">Claims receipt:</span>
+                                            <span className="font-mono text-xs bg-[#FBBF24]/10 text-[#FBBF24] px-2 py-0.5 rounded border border-[#FBBF24]/20">{dispute.receiptCode}</span>
+                                            <span className="text-xs text-gray-400">for KES {dispute.amount?.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={() => handleRejectDispute(dispute)}
+                                            disabled={processingDispute === dispute.id}
+                                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl border border-red-500/20 transition-colors disabled:opacity-50"
+                                        >
+                                            Reject
+                                        </button>
+                                        <button
+                                            onClick={() => handleApproveDispute(dispute)}
+                                            disabled={processingDispute === dispute.id}
+                                            className="px-4 py-2 bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] text-xs font-bold rounded-xl border border-[#10B981]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                                        >
+                                            {processingDispute === dispute.id ? <span className="animate-pulse">...</span> : <ShieldCheck className="w-3.5 h-3.5" />}
+                                            Approve & Grant Access
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {/* The Master Ledger Section */}
                 <section className="bg-[#161d24] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">

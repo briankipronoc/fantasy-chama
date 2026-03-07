@@ -768,6 +768,82 @@ cron.schedule('*/15 * * * 0,6', () => {
 
 console.log('🤖 FPL Autopilot Cron Jobs registered.');
 
+// ============================================================
+// MODULE 4B: Automated Daily Balance Reminder
+// Runs at 10:00 AM EAT (07:00 UTC) every day.
+// Checks if the next FPL event deadline is within 24 hours.
+// If so, sends a Firestore notification to every Red Zone member.
+// ============================================================
+const runDailyReminder = async () => {
+    try {
+        console.log('[REMINDER] Running daily balance check...');
+        if (!db) return;
+
+        // 1. Fetch upcoming FPL deadlines
+        const fplRes = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/', {
+            headers: { 'User-Agent': 'FantasyChama/1.0' },
+            timeout: 10000
+        });
+        const events = fplRes.data.events || [];
+        const nextEvent = events.find(e => !e.finished && e.deadline_time);
+        if (!nextEvent) {
+            console.log('[REMINDER] No upcoming event found. Skipping.');
+            return;
+        }
+
+        const deadline = new Date(nextEvent.deadline_time);
+        const hoursLeft = (deadline - Date.now()) / (1000 * 60 * 60);
+
+        if (hoursLeft > 24) {
+            console.log(`[REMINDER] Deadline in ${hoursLeft.toFixed(1)}h — outside 24h window. Skipping.`);
+            return;
+        }
+
+        console.log(`[REMINDER] ⚡ Deadline in ${hoursLeft.toFixed(1)}h! Sending nudges to Red Zone members.`);
+
+        // 2. Find all leagues
+        const leaguesSnap = await db.collection('leagues').get();
+
+        let nudgesSent = 0;
+        for (const leagueDoc of leaguesSnap.docs) {
+            const leagueId = leagueDoc.id;
+            try {
+                // 3. Find Red Zone members (walletBalance <= 0 OR hasPaid === false)
+                const membersSnap = await db.collection(`leagues/${leagueId}/memberships`)
+                    .where('hasPaid', '==', false)
+                    .get();
+
+                for (const memberDoc of membersSnap.docs) {
+                    const member = memberDoc.data();
+                    await db.collection(`leagues/${leagueId}/notifications`).add({
+                        type: 'warning',
+                        message: `⏰ REMINDER: ${nextEvent.name} deadline is in ${Math.ceil(hoursLeft)}h! Your wallet balance is empty. Pay via M-Pesa now to stay eligible for the pot.`,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        readBy: [],
+                        targetMemberId: memberDoc.id
+                    });
+                    nudgesSent++;
+                    console.log(`[REMINDER] Nudged ${member.displayName} in league ${leagueId}`);
+                }
+            } catch (leagueErr) {
+                console.error(`[REMINDER] Error nudging league ${leagueId}:`, leagueErr.message);
+            }
+        }
+
+        console.log(`[REMINDER] Complete! Sent ${nudgesSent} automated nudges.`);
+    } catch (err) {
+        console.error('[REMINDER] Error:', err.message);
+    }
+};
+
+// Run daily at 07:00 UTC (10:00 AM Nairobi time)
+cron.schedule('0 7 * * *', () => {
+    console.log('[CRON] Daily balance reminder fired.');
+    runDailyReminder();
+});
+
+console.log('⏰ Daily Balance Reminder Cron registered (07:00 UTC daily).');
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 FantasyChama M-Pesa Engine running on http://localhost:${PORT}`);
