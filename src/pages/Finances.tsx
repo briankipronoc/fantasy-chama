@@ -53,10 +53,38 @@ export default function Finances() {
     const currentUser = members.find(m => m.phone === memberPhone);
     const isAdmin = role === 'admin';
 
-    // Member Personal Stats
-    const myGameweeksWon = transactions.filter(tx => tx.type === 'payout' && tx.winnerName === currentUser?.displayName).length;
-    // Fallback to currently paid stat if no deposit transactions exist yet
-    const depositTxSum = transactions.filter(tx => tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone).reduce((acc, tx) => acc + (tx.amount || 0), 0);
+    // My winnings received via B2C payouts
+    const myWinnings = transactions
+        .filter(tx => tx.type === 'payout' && (
+            tx.winnerPhone === currentUser?.phone ||
+            tx.winnerName === currentUser?.displayName
+        ))
+        .reduce((acc, tx) => acc + (tx.amount || 0), 0);
+
+    // Toggle between 'GW Won' count and 'Total Winnings'
+    const [showWinnings, setShowWinnings] = useState(false);
+    useEffect(() => {
+        const interval = setInterval(() => setShowWinnings(prev => !prev), 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Member-only transaction log: their deposits + payout wins only
+    const myTransactions = isAdmin ? transactions : transactions.filter(tx =>
+        (tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone) ||
+        (tx.type === 'payout' && (
+            tx.winnerPhone === currentUser?.phone ||
+            tx.winnerName === currentUser?.displayName
+        ))
+    );
+
+    // Personal stats still needed for the card and contributed total
+    const myGameweeksWon = transactions.filter(tx => tx.type === 'payout' && (
+        tx.winnerPhone === currentUser?.phone ||
+        tx.winnerName === currentUser?.displayName
+    )).length;
+    const depositTxSum = transactions
+        .filter(tx => tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone)
+        .reduce((acc, tx) => acc + (tx.amount || 0), 0);
     const myTotalContributed = depositTxSum || (currentUser?.hasPaid ? (monthlyContribution || 1400) : 0);
 
     // Distribution Logic Array
@@ -125,17 +153,28 @@ export default function Finances() {
                         </div>
                     )}
 
-                    <div className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg">
+                    <div
+                        className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg overflow-hidden relative cursor-default"
+                        title="Toggles every 5 seconds"
+                    >
+                        {/* Flip indicator dot */}
+                        <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-[#FBBF24] animate-pulse" />
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-full bg-[#3b82f6]/10 flex items-center justify-center">
                                 <ReceiptText className="w-5 h-5 text-[#3b82f6]" />
                             </div>
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">
-                                {isAdmin ? 'Historical Payouts' : 'My Gameweeks Won'}
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest transition-all duration-500">
+                                {isAdmin ? 'Historical Payouts' : (showWinnings ? 'Total Winnings' : 'Gameweeks Won')}
                             </h3>
                         </div>
-                        <p className="text-3xl font-black tabular-nums tracking-tighter text-white">
-                            {isAdmin ? transactions.length : myGameweeksWon}
+                        <p className="text-3xl font-black tabular-nums tracking-tighter transition-all duration-500">
+                            {isAdmin ? (
+                                <span className="text-white">{transactions.length}</span>
+                            ) : showWinnings ? (
+                                <span className="text-[#FBBF24]">KES {isStealthMode ? '****' : myWinnings.toLocaleString()}</span>
+                            ) : (
+                                <span className="text-white">{myGameweeksWon} <span className="text-base font-bold text-gray-500">GW{myGameweeksWon !== 1 ? 's' : ''}</span></span>
+                            )}
                         </p>
                     </div>
                 </div>
@@ -158,36 +197,51 @@ export default function Finances() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {transactions.length > 0 ? (
-                                    transactions.map((tx: any, _idx: number) => (
-                                        <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
-                                            <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                                {tx.receiptId || `TXN${tx.id.substring(0, 8).toUpperCase()}`}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm font-bold text-white">
-                                                    {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleDateString() : 'Just now'}
-                                                </div>
-                                                <div className="text-[11px] text-gray-500">
-                                                    {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-sm font-bold text-white">
-                                                    {tx.type === 'payout' ? 'B2C Payout (Weekly Winner)' : 'Deposit'}
-                                                </div>
-                                                <div className="text-xs text-gray-400">@{tx.winnerName || 'System'} • GW {tx.gameweek || 'N/A'}</div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <span className="font-bold text-[#FBBF24]">- KES {tx.amount.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="inline-block px-3 py-1 bg-[#10B981]/10 text-[#10B981] text-[10px] font-bold uppercase tracking-widest rounded-md border border-[#10B981]/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                                                    Dispatched
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))
+                                {myTransactions.length > 0 ? (
+                                    myTransactions.map((tx: any) => {
+                                        const isWinning = tx.type === 'payout';
+                                        return (
+                                            <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
+                                                <td className="px-6 py-4 text-xs font-mono text-gray-500">
+                                                    {tx.receiptId || `TXN${tx.id.substring(0, 8).toUpperCase()}`}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-bold text-white">
+                                                        {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleDateString() : 'Just now'}
+                                                    </div>
+                                                    <div className="text-[11px] text-gray-500">
+                                                        {tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-bold text-white">
+                                                        {isWinning ? '🏆 GW Payout (Winner)' : 'M-Pesa Deposit'}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400">
+                                                        {isWinning ? `GW ${tx.gameweek || 'N/A'}` : `Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={clsx(
+                                                        'font-bold text-sm',
+                                                        isWinning ? 'text-[#FBBF24]' : 'text-[#10B981]'
+                                                    )}>
+                                                        {isWinning ? '+' : '-'} KES {tx.amount?.toLocaleString()}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={clsx(
+                                                        'inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-md border',
+                                                        isWinning
+                                                            ? 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
+                                                            : 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                                                    )}>
+                                                        {isWinning ? 'Received' : 'Verified'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 ) : (
                                     <tr>
                                         <td colSpan={5} className="px-6 py-12 text-center text-gray-500">

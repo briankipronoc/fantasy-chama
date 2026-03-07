@@ -77,6 +77,10 @@ export default function Profile() {
         }
     }, [members, activeUserId, role]);
 
+    // Red Zone: is current user unpaid?
+    const currentMember = members.find(m => m.id === activeUserId) || members[0];
+    const hasPaid = currentMember?.hasPaid ?? true; // default true to avoid false red on load
+
     const handleSaveMember = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeLeagueId) return;
@@ -174,9 +178,19 @@ export default function Profile() {
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                     {/* Member View (Personal Settings) */}
                     <div className={clsx(
-                        "bg-[#161d24] border border-white/5 p-8 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col h-full",
-                        role === 'admin' ? "xl:col-span-5" : "xl:col-span-6"
+                        "border p-8 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col h-full transition-all duration-500",
+                        role === 'admin' ? 'xl:col-span-5' : 'xl:col-span-6',
+                        !hasPaid && role !== 'admin'
+                            ? 'bg-red-950/40 border-red-500/40 shadow-[0_0_40px_rgba(239,68,68,0.08)]'
+                            : 'bg-[#161d24] border-white/5'
                     )}>
+                        {/* Red Zone banner */}
+                        {!hasPaid && role !== 'admin' && (
+                            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-5 text-red-400 text-xs font-bold uppercase tracking-widest">
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                                Red Zone — Contribution Outstanding
+                            </div>
+                        )}
                         <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-white">
                             <User className="w-5 h-5 text-[#3b82f6]" /> Personal Details
                         </h2>
