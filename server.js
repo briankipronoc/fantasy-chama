@@ -185,25 +185,30 @@ app.post('/api/mpesa/callback', async (req, res) => {
 
                 if (reqDoc.exists) {
                     const data = reqDoc.data();
-                    const { userId, leagueId, amount } = data;
+                    const { userId, leagueId } = data;
 
-                    // 2. Mark member as PAID in the specific league
+                    // Extract the exact TransAmount Safaricom confirmed
+                    const transAmountItem = meta.find(item => item.Name === 'Amount');
+                    const confirmedAmount = transAmountItem ? Number(transAmountItem.Value) : Number(data.amount);
+
+                    // 2. MODULE 2: Increment walletBalance by real confirmed amount + set hasPaid: true
                     await db.doc(`leagues/${leagueId}/memberships/${userId}`).update({
-                        hasPaid: true
+                        hasPaid: true,
+                        walletBalance: admin.firestore.FieldValue.increment(confirmedAmount)
                     });
 
                     // 3. Write permanent receipt to Ledger transactions
                     await db.collection(`leagues/${leagueId}/transactions`).add({
                         type: 'deposit',
-                        amount: amount,
+                        amount: confirmedAmount,
                         receiptId: mpesaReceipt,
                         phoneNumber: data.phoneNumber,
                         timestamp: admin.firestore.FieldValue.serverTimestamp()
                     });
 
                     // 4. Update request status
-                    await reqDoc.ref.update({ status: 'completed', mpesaReceipt });
-                    console.log(`Linked Payment to User ${userId} in League ${leagueId}`);
+                    await reqDoc.ref.update({ status: 'completed', mpesaReceipt, confirmedAmount });
+                    console.log(`✅ Wallet incremented +${confirmedAmount} KES for User ${userId} in League ${leagueId}`);
                 } else {
                     console.log('⚠️ Received Payment but could not find CheckoutRequestID in Firestore.');
                 }

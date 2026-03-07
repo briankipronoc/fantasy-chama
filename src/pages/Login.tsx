@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -25,16 +25,11 @@ export default function Login() {
     const setRole = useStore((state) => state.setRole);
 
     const handleCodeChange = (index: number, value: string) => {
-        if (!/^[A-Za-z0-9]*$/.test(value)) return; // Allow alphanumeric
-
+        if (!/^[A-Za-z0-9]*$/.test(value)) return;
         const newCode = [...code];
         newCode[index] = value.toUpperCase();
         setCode(newCode);
-
-        // Focus next input
-        if (value && index < 5) {
-            inputRefs.current[index + 1]?.focus();
-        }
+        if (value && index < 5) inputRefs.current[index + 1]?.focus();
     };
 
     const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -42,6 +37,29 @@ export default function Login() {
             inputRefs.current[index - 1]?.focus();
         }
     };
+
+    // OTP Paste handler — distributes a pasted 6-char string across all cells
+    const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const pasted = e.clipboardData.getData('text').replace(/\s/g, '').toUpperCase().slice(0, 6);
+        if (!/^[A-Za-z0-9]+$/.test(pasted)) return;
+        const newCode = ['', '', '', '', '', ''];
+        pasted.split('').forEach((char, i) => { newCode[i] = char; });
+        setCode(newCode);
+        // Focus the last filled box
+        const lastIdx = Math.min(pasted.length - 1, 5);
+        setTimeout(() => inputRefs.current[lastIdx]?.focus(), 0);
+    };
+
+    // Auto-fill from URL ?code= param (for expiring invite links)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const urlCode = params.get('code');
+        if (urlCode && urlCode.length === 6) {
+            const chars = urlCode.toUpperCase().split('');
+            setCode(chars);
+        }
+    }, []);
 
     const handleJoin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -234,14 +252,18 @@ export default function Login() {
                                         key={index}
                                         ref={(el) => inputRefs.current[index] = el}
                                         type="text"
+                                        inputMode="text"
+                                        autoComplete={index === 0 ? 'one-time-code' : 'off'}
                                         maxLength={1}
                                         value={digit}
                                         onChange={(e) => handleCodeChange(index, e.target.value)}
                                         onKeyDown={(e) => handleKeyDown(index, e)}
-                                        className="w-10 h-12 md:w-12 md:h-14 bg-[#161d24] border border-white/5 rounded-xl text-center text-xl md:text-2xl font-bold text-white focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all shadow-inner"
+                                        onPaste={handlePaste}
+                                        className="w-10 h-12 md:w-12 md:h-14 bg-[#161d24] border border-white/5 rounded-xl text-center text-xl md:text-2xl font-bold text-white focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all shadow-inner uppercase"
                                     />
                                 ))}
                             </div>
+                            <p className="text-center text-gray-600 text-[9px] mt-2">Tip: paste a copied code to auto-fill all boxes instantly</p>
                             <p className="text-center text-[#FBBF24] text-[9px] md:text-[10px] font-bold mt-4 uppercase tracking-widest">Required for Entry</p>
                         </div>
 

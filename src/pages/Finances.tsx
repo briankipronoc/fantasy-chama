@@ -185,7 +185,47 @@ export default function Finances() {
                         <h3 className="font-bold text-lg">Recent Activity</h3>
                     </div>
 
-                    <div className="w-full overflow-x-auto">
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y divide-white/5">
+                        {myTransactions.length > 0 ? myTransactions.map((tx: any) => {
+                            const isWinning = tx.type === 'payout';
+                            return (
+                                <div key={tx.id} className="p-4 flex flex-col gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className={clsx(
+                                            'text-sm font-extrabold',
+                                            isWinning ? 'text-[#FBBF24]' : 'text-[#10B981]'
+                                        )}>
+                                            {isWinning ? '+' : '-'} KES {tx.amount?.toLocaleString()}
+                                        </span>
+                                        <span className={clsx(
+                                            'text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border',
+                                            isWinning
+                                                ? 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
+                                                : 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
+                                        )}>
+                                            {isWinning ? 'Won' : 'Verified'}
+                                        </span>
+                                    </div>
+                                    <div className="font-bold text-white text-sm">
+                                        {isWinning ? '🏆 GW Payout (Winner)' : 'M-Pesa Deposit'}
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                        <span>{tx.receiptId || `TXN${tx.id.substring(0, 8).toUpperCase()}`}</span>
+                                        <span>{tx.timestamp ? new Date(tx.timestamp.toDate()).toLocaleDateString() : 'Just now'}</span>
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="p-10 text-center text-gray-500">
+                                <ReceiptText className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                <p className="text-sm">No transactions yet</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block w-full overflow-x-auto">
                         <table className="w-full min-w-[700px] text-left">
                             <thead>
                                 <tr className="border-b border-white/5 bg-[#0a100a]/50">

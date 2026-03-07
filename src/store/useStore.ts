@@ -8,7 +8,8 @@ export interface Member {
     id: string;
     displayName: string;
     phone: string;
-    hasPaid: boolean;
+    hasPaid: boolean;           // kept for backward compat; derive from walletBalance >= gwCostPerRound
+    walletBalance: number;      // KES balance — Module 2 Wallet Architecture
     role?: string;
 }
 
@@ -33,6 +34,7 @@ interface AppState {
     setMembers: (members: Member[]) => void;
     listenToLeagueMembers: (leagueId: string) => void;
     togglePaymentStatus: (leagueId: string, memberId: string, currentStatus: boolean) => Promise<void>;
+    updateWalletBalance: (leagueId: string, memberId: string, delta: number) => Promise<void>;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -71,5 +73,11 @@ export const useStore = create<AppState>((set) => ({
         await updateDoc(memberRef, {
             hasPaid: !currentStatus
         });
-    }
+    },
+
+    updateWalletBalance: async (leagueId, memberId, delta) => {
+        const { increment } = await import('firebase/firestore');
+        const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
+        await updateDoc(memberRef, { walletBalance: increment(delta) });
+    },
 }));

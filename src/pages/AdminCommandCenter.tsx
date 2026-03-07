@@ -623,10 +623,10 @@ export default function AdminCommandCenter() {
                             <thead>
                                 <tr className="bg-[#11171a] border-b border-white/5 text-[10px] uppercase tracking-widest text-gray-500 font-bold">
                                     <th className="p-4 pl-6 font-medium">Member</th>
-                                    <th className="p-4 font-medium">M-Pesa Transaction Code</th>
-                                    <th className="p-4 font-medium">Amount (KES)</th>
+                                    <th className="p-4 font-medium hidden sm:table-cell">M-Pesa Transaction Code</th>
+                                    <th className="p-4 font-medium">Wallet Balance</th>
                                     <th className="p-4 font-medium">Status</th>
-                                    <th className="p-4 pr-6 text-right font-medium">Verify Payment</th>
+                                    <th className="p-4 pr-6 text-right font-medium">Verify</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm divide-y divide-white/5">
@@ -636,62 +636,71 @@ export default function AdminCommandCenter() {
                                             No members found matching this filter.
                                         </td>
                                     </tr>
-                                ) : filteredMembers.map((row) => (
-                                    <tr key={row.id} className={clsx(
-                                        "transition-colors group",
-                                        row.hasPaid ? "bg-[#10B981]/5 border-l-2 border-[#10B981]" : "hover:bg-white/[0.02] border-l-2 border-transparent"
-                                    )}>
-                                        <td className="p-4 pl-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className={clsx(
-                                                    "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg border relative overflow-hidden",
-                                                    row.hasPaid ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10" : "border-white/10 bg-[#161d24]"
-                                                )}>
-                                                    {/* Fallback to initials if dicebear isn't available, else show Avatar */}
-                                                    <img
-                                                        src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(row as any).avatarSeed || row.displayName}&backgroundColor=transparent`}
-                                                        alt={row.displayName}
-                                                        className={clsx("w-full h-full object-cover", !row.hasPaid && "grayscale opacity-80")}
+                                ) : filteredMembers.map((row) => {
+                                    const wallet = (row as any).walletBalance ?? 0;
+                                    const gwCost = monthlyContribution; // fallback until gwCostPerRound is set
+                                    const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
+                                    const walletColor = wallet <= 0 ? 'text-red-400' : gwsLeft >= 2 ? 'text-[#10B981]' : 'text-[#FBBF24]';
+                                    return (
+                                        <tr key={row.id} className={clsx(
+                                            "transition-colors group",
+                                            row.hasPaid ? "bg-[#10B981]/5 border-l-2 border-[#10B981]" : "hover:bg-white/[0.02] border-l-2 border-transparent"
+                                        )}>
+                                            <td className="p-4 pl-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={clsx(
+                                                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg border relative overflow-hidden",
+                                                        row.hasPaid ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10" : "border-white/10 bg-[#161d24]"
+                                                    )}>
+                                                        <img
+                                                            src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(row as any).avatarSeed || row.displayName}&backgroundColor=transparent`}
+                                                            alt={row.displayName}
+                                                            className={clsx("w-full h-full object-cover", !row.hasPaid && "grayscale opacity-80")}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-white leading-tight mb-1">{row.displayName}</div>
+                                                        <div className="text-xs text-gray-400 leading-none">{row.phone}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 hidden sm:table-cell">
+                                                <span className="bg-[#11171a] border border-white/5 px-3 py-1.5 rounded-md text-gray-400 font-mono text-xs">M-PESA / BANK</span>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className={clsx('font-bold tabular-nums text-sm', walletColor)}>
+                                                    {isStealthMode ? '****' : `KES ${wallet.toLocaleString()}`}
+                                                </div>
+                                                <div className="text-[10px] text-gray-600 font-medium mt-0.5">
+                                                    {gwsLeft > 0 ? `${gwsLeft} GW${gwsLeft !== 1 ? 's' : ''} covered` : 'Top up needed'}
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                {!row.hasPaid && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a232b] text-[#FBBF24] border border-white/5 text-xs font-bold shadow-sm">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div> Red Zone (Unpaid)
+                                                    </span>
+                                                )}
+                                                {row.hasPaid && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-bold shadow-sm">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div> Green Zone (Verified)
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 pr-6 text-right">
+                                                <label className="relative inline-flex items-center cursor-pointer ml-auto">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={row.hasPaid}
+                                                        onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
                                                     />
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-white leading-tight mb-1">{row.displayName}</div>
-                                                    <div className="text-xs text-gray-400 leading-none">{row.phone}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="bg-[#11171a] border border-white/5 px-3 py-1.5 rounded-md text-gray-400 font-mono text-xs">M-PESA / BANK</span>
-                                        </td>
-                                        <td className={clsx("p-4 font-bold tabular-nums", row.hasPaid ? "text-[#10B981]" : "text-[#FBBF24]")}>
-                                            KES {isStealthMode ? '****' : monthlyContribution.toLocaleString()}
-                                        </td>
-                                        <td className="p-4">
-                                            {!row.hasPaid && (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a232b] text-[#FBBF24] border border-white/5 text-xs font-bold shadow-sm">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div> Red Zone (Unpaid)
-                                                </span>
-                                            )}
-                                            {row.hasPaid && (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-bold shadow-sm">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div> Green Zone (Verified)
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 pr-6 text-right">
-                                            {/* Custom Toggle Switch */}
-                                            <label className="relative inline-flex items-center cursor-pointer ml-auto">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={row.hasPaid}
-                                                    onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
-                                                />
-                                                <div className="w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10"></div>
-                                            </label>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                    <div className="w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10"></div>
+                                                </label>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
