@@ -190,13 +190,12 @@ export default function MemberDashboard() {
             </div>
 
             {/* Top Navigation Frame */}
-            <div className="pt-6 px-4 md:pt-10 md:px-8 w-full max-w-4xl mx-auto z-50">
-                <Header role="member" title={undefined} subtitle={
-                    <div className="flex flex-col mt-0.5">
-                        <span className="text-white text-[15px] font-bold tracking-tight mb-0.5">{leagueName || 'The Big League'}</span>
-                        <span>War Room</span>
-                    </div>
-                } />
+            <div className="pt-6 px-4 md:pt-10 md:px-8 w-full max-w-6xl mx-auto z-50">
+                <Header
+                    role="member"
+                    title={leagueName || 'The Big League'}
+                    subtitle="War Room"
+                />
             </div>
 
             {/* Main Content — Dense Grid Layout */}
