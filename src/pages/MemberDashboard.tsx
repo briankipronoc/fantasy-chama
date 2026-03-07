@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { Bell, Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Star } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -143,23 +143,6 @@ export default function MemberDashboard() {
     const mostRecentWinner = winnerEvents.length > 0 ? winnerEvents[0] : null;
     const isRecentWinner = mostRecentWinner?.winnerId === currentUser?.id;
 
-    // Format feed timestamps
-    const timeAgo = (dateInput: any) => {
-        if (!dateInput) return 'Just now';
-        const date = dateInput.toDate ? dateInput.toDate() : new Date(dateInput);
-        const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-        let interval = seconds / 31536000;
-        if (interval > 1) return Math.floor(interval) + " years ago";
-        interval = seconds / 2592000;
-        if (interval > 1) return Math.floor(interval) + " months ago";
-        interval = seconds / 86400;
-        if (interval > 1) return Math.floor(interval) + " days ago";
-        interval = seconds / 3600;
-        if (interval > 1) return Math.floor(interval) + " hours ago";
-        interval = seconds / 60;
-        if (interval > 1) return Math.floor(interval) + " minutes ago";
-        return Math.floor(seconds) + " seconds ago";
-    };
 
     // Mock Performance Data for Trajectory
     const performanceData = [
@@ -395,70 +378,72 @@ export default function MemberDashboard() {
                 </div>
             </main>
 
-            {/* Personal Status Highlight */}
-            {currentUser && (
-
-                {/* Fixed Bottom Actions */ }
-                < div className="fixed bottom-[65px] lg:bottom-0 left-0 lg:left-64 xl:left-72 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-8 lg:pb-6">
-            <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
-                <button onClick={handleMpesaSTKPush} disabled={isPushingMpesa || hasPaid} className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-50 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                    <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
-                </button>
-                <button onClick={() => navigate('/standings')} className="flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg">
-                    <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings & Vault
-                </button>
+            {/* Fixed Bottom Actions */}
+            <div className="fixed bottom-[65px] lg:bottom-0 left-0 lg:left-64 xl:left-72 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-8 lg:pb-6">
+                <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
+                    <button
+                        onClick={handleMpesaSTKPush}
+                        disabled={isPushingMpesa || hasPaid}
+                        className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-60 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                    >
+                        <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
+                    </button>
+                    <button
+                        onClick={() => navigate('/standings')}
+                        className="flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+                    >
+                        <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings &amp; Vault
+                    </button>
+                </div>
             </div>
-        </div>
 
-            {/* Missing Payment? Receipt Query Modal */ }
-    {
-        showReceiptModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                <div className="w-full max-w-md bg-[#111c14]/90 border border-white/10 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
-                    <div className="mb-5">
-                        <h3 className="text-xl font-extrabold text-white mb-1 flex items-center gap-2">
-                            🔍 Verify Your Payment
-                        </h3>
-                        <p className="text-sm text-gray-400">
-                            Paid but still showing Red Zone? Enter your M-Pesa confirmation code from your SMS to self-reconcile.
-                        </p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
-                            <input
-                                type="text"
-                                value={receiptCode}
-                                onChange={e => setReceiptCode(e.target.value.toUpperCase())}
-                                placeholder="e.g. SCL90XXXXXX"
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
-                            />
+            {/* Missing Payment? Receipt Query Modal */}
+            {showReceiptModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-[#111c14]/90 border border-white/10 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                        <div className="mb-5">
+                            <h3 className="text-xl font-extrabold text-white mb-1 flex items-center gap-2">
+                                🔍 Verify Your Payment
+                            </h3>
+                            <p className="text-sm text-gray-400">
+                                Paid but still showing Red Zone? Enter your M-Pesa confirmation code to self-reconcile.
+                            </p>
                         </div>
-
-                        {receiptResult && (
-                            <div className={`p-3 rounded-xl text-sm font-medium border ${receiptResult.success ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                                {receiptResult.message}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
+                                <input
+                                    type="text"
+                                    value={receiptCode}
+                                    onChange={e => setReceiptCode(e.target.value.toUpperCase())}
+                                    placeholder="e.g. SCL90XXXXXX"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
+                                />
                             </div>
-                        )}
-
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowReceiptModal(false)} className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10">
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleReceiptQuery}
-                                disabled={isQueryingReceipt || !receiptCode.trim()}
-                                className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                {isQueryingReceipt ? <><Zap className="w-4 h-4 animate-pulse" /> Verifying...</> : <><Check className="w-4 h-4" /> Verify Payment</>}
-                            </button>
+                            {receiptResult && (
+                                <div className={`p-3 rounded-xl text-sm font-medium border ${receiptResult?.success ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
+                                    {receiptResult?.message}
+                                </div>
+                            )}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowReceiptModal(false)}
+                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleReceiptQuery}
+                                    disabled={isQueryingReceipt || !receiptCode.trim()}
+                                    className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isQueryingReceipt ? <><Zap className="w-4 h-4 animate-pulse" /> Verifying...</> : <><Check className="w-4 h-4" /> Verify Payment</>}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        )
-    }
-        </div >
+            )}
+        </div>
     );
 }
