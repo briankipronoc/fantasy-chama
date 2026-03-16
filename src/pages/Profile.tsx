@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useStore } from '../store/useStore';
-import { Settings, User, Trophy, Share2, AlertTriangle, CheckCircle2, Copy, Lock, Unlock, Users, Mail } from 'lucide-react';
+import { Camera, LogOut, ShieldCheck, Trophy, Banknote, Users, Activity, ExternalLink, Moon, Settings, Zap, CheckCircle2, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, FileSpreadsheet, Send, Search, Loader2, ShieldAlert } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import clsx from 'clsx';
@@ -11,6 +10,7 @@ export default function Profile() {
     const role = useStore(state => state.role);
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+    const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
 
     // Form states
     const [displayName, setDisplayName] = useState('');
@@ -25,6 +25,8 @@ export default function Profile() {
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
     const [fplLeagueId, setFplLeagueId] = useState('');
     const [inviteCode, setInviteCode] = useState('');
+    const [coAdminId, setCoAdminId] = useState('');
+    const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
 
@@ -49,6 +51,8 @@ export default function Profile() {
                         setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
                         setFplLeagueId(data.fplLeagueId || '');
                         setInviteCode(data.inviteCode || 'N/A');
+                        setCoAdminId(data.coAdminId || '');
+                        if (data.chairmanId) setChairmanId(data.chairmanId);
                     }
                 };
                 fetchLeague();
@@ -125,7 +129,8 @@ export default function Profile() {
                 'rules.weekly': Number(weeklyPrizePercent),
                 'rules.vault': 100 - Number(weeklyPrizePercent),
                 'rules.seasonWinnersCount': seasonWinnersCount,
-                fplLeagueId: fplLeagueId
+                fplLeagueId: fplLeagueId ? Number(fplLeagueId) : null,
+                coAdminId: coAdminId || null
             });
             localStorage.setItem('chairmanAvatarSeed', avatarSeed);
             setToast({ message: 'League rules updated successfully!', type: 'success' });
@@ -161,6 +166,17 @@ export default function Profile() {
         navigator.clipboard.writeText(link);
         setToast({ message: 'Invite link copied to clipboard!', type: 'success' });
         setTimeout(() => setToast(null), 3000);
+    };
+
+    const handleToggleActive = async (memberId: string, currentStatus: boolean) => {
+        if (!activeLeagueId) return;
+        try {
+            await toggleMemberActiveStatus(activeLeagueId, memberId, !currentStatus);
+            setToast({ message: `Member ${currentStatus ? 'deactivated' : 'reactivated'} successfully.`, type: 'success' });
+        } catch (err) {
+            console.error(err);
+            setToast({ message: 'Failed to update member status.', type: 'error' });
+        }
     };
 
     return (
@@ -338,10 +354,33 @@ export default function Profile() {
                                         type="text"
                                         disabled={isFinancialsLocked}
                                         value={fplLeagueId}
-                                        onChange={(e) => setFplLeagueId(e.target.value)}
+                                        onChange={(e) => setFplLeagueId(e.target.value.replace(/\D/g, ''))}
                                         placeholder="e.g. 123456"
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
+                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">Found in your official FPL League URL (e.g. /leagues/[ID]/standings/c)</p>
+                                </div>
+
+                                {/* Co-Admin Designation */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            Designate Co-Admin
+                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                                        </label>
+                                    </div>
+                                    <select
+                                        disabled={isFinancialsLocked}
+                                        value={coAdminId}
+                                        onChange={(e) => setCoAdminId(e.target.value)}
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
+                                    >
+                                        <option value="">-- No Co-Admin Selected --</option>
+                                        {members.filter(m => m.id !== activeUserId).map(m => (
+                                            <option key={m.id} value={m.authUid || m.id}>{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
                                 </div>
 
                                 <div>
@@ -440,23 +479,52 @@ export default function Profile() {
                         </div>
 
                         <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-                            {members.map(member => (
-                                <div key={member.id} className="flex flex-col items-center flex-shrink-0 w-24 gap-3 group">
-                                    <div className="w-16 h-16 rounded-full bg-gradient-to-b from-[#1c272c] to-[#0b1014] p-0.5 shadow-lg border border-white/5 group-hover:border-[#10B981]/50 transition-colors">
+                            {members.map(member => {
+                                const isActive = member.isActive !== false;
+                                return (
+                                <div key={member.id} className="flex flex-col items-center flex-shrink-0 w-24 gap-3 group relative">
+                                    <div className={clsx("w-16 h-16 rounded-full bg-gradient-to-b from-[#1c272c] to-[#0b1014] p-0.5 shadow-lg border border-white/5 group-hover:border-[#10B981]/50 transition-all", 
+                                        !isActive && "opacity-30 grayscale"
+                                    )}>
                                         <img
                                             src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(member as any).avatarSeed || member.displayName}&backgroundColor=transparent`}
                                             alt={member.displayName}
                                             className="w-full h-full rounded-full object-cover bg-[#161d24]"
                                         />
                                     </div>
-                                    <div className="text-center">
-                                        <span className="text-xs font-bold text-white block truncate w-full px-1">{member.displayName}</span>
-                                        <span className={clsx("text-[9px] font-black uppercase tracking-widest mt-0.5 block", member.hasPaid ? "text-[#10B981]" : "text-red-500")}>
-                                            {member.hasPaid ? "Funded" : "Red Zone"}
-                                        </span>
+                                    <div className="text-center mt-2 flex flex-col items-center gap-1">
+                                        <span className={clsx("text-xs font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
+                                        <div className="flex flex-col items-center gap-1.5 h-10 justify-start">
+                                            {member.id === chairmanId && (
+                                                <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30 flex items-center gap-1">
+                                                    <ShieldAlert className="w-2.5 h-2.5" /> Chairman
+                                                </span>
+                                            )}
+                                            {member.id === coAdminId && (
+                                                <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
+                                                    <ShieldCheck className="w-2.5 h-2.5" /> Co-Admin
+                                                </span>
+                                            )}
+                                            {!member.id.match(chairmanId || 'null_chairman') && !member.id.match(coAdminId || 'null_coadmin') && (
+                                                <span className={clsx("text-[9px] font-black uppercase tracking-widest block", 
+                                                    !isActive ? "text-gray-600" : (member.hasPaid ? "text-[#10B981]" : "text-red-500")
+                                                )}>
+                                                    {!isActive ? "Inactive" : (member.hasPaid ? "Funded" : "Red Zone")}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
+                                    {role === 'admin' && member.id !== activeUserId && (
+                                        <button 
+                                            onClick={() => handleToggleActive(member.id, isActive)}
+                                            className="absolute -top-1 -right-1 bg-[#161d24] border border-white/10 rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
+                                            title={isActive ? "Deactivate User" : "Reactivate User"}
+                                        >
+                                            {isActive ? <UserMinus className="w-3 h-3 text-red-400" /> : <UserPlus className="w-3 h-3 text-[#10B981]" />}
+                                        </button>
+                                    )}
                                 </div>
-                            ))}
+                            )})}
                         </div>
                     </div>
 

@@ -33,9 +33,14 @@ export default function MemberEnrollment() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#111820] text-white font-sans flex flex-col">
+        <div className="min-h-screen bg-[#0A0E17] text-white font-sans flex flex-col relative overflow-hidden">
+            {/* ── Ambient background grid ─────────────────────────── */}
+            <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
+            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
+
             {/* Top Navigation Bar specific to this page layout */}
-            <header className="flex items-center justify-between p-6 md:px-10 border-b border-white/5 bg-[#161d24]">
+            <header className="relative z-50 flex items-center justify-between p-6 md:px-10 border-b border-white/5 bg-[#161d24]/80 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                     <Shield className="h-6 w-6 text-[#10B981]" />
                     <span className="font-bold text-lg tracking-tight">Fantasy Chama</span>
@@ -55,7 +60,7 @@ export default function MemberEnrollment() {
             </header>
 
             {/* Main Content */}
-            <main className="flex-1 max-w-6xl mx-auto w-full p-6 md:p-10 space-y-10">
+            <main className="relative z-10 flex-1 max-w-6xl mx-auto w-full p-6 md:p-10 space-y-10">
 
                 {/* Page Header */}
                 <div className="max-w-2xl">
@@ -203,7 +208,7 @@ export default function MemberEnrollment() {
             </main>
 
             {/* Global Footer */}
-            <footer className="mt-auto border-t border-white/5 p-6 md:px-10 bg-[#0d1316] flex flex-col md:flex-row items-center justify-between gap-4">
+            <footer className="relative z-10 mt-auto border-t border-white/5 p-6 md:px-10 bg-[#0d1316]/80 backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Shield className="w-4 h-4 text-[#10B981]" />
                     <span>© 2024 Fantasy Chama. Encrypted & Secure.</span>

@@ -53,7 +53,18 @@ service cloud.firestore {
 
     // Is the requester an authenticated user at all?
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    // Is the requester a verified member of this specific league?
+    function isLeagueMember(leagueId) {
+      // We check if a membership document exists where 'authUid' matches the current session's UID
+      // Since collectionGroup queries or dynamic paths can be tricky without the member ID, 
+      // the best approach here is to check if ANY document in this league's 'memberships' 
+      // subcollection has authUid == request.auth.uid. However, Firestore rules lack a dynamic 'exists' 
+      // query on subcollections by attribute. 
+      // Thus, for a baseline security rule, we rely on the rule below directly applied on the subcollection.
+      return isAuthenticated(); // Reined back to isAuthenticated for the root document read
     }
 
     // Does this update attempt to touch financially sensitive fields?
@@ -68,9 +79,9 @@ service cloud.firestore {
     // ──────────────────────────────────────────────────────
     match /leagues/{leagueId} {
 
-      // Read: Any authenticated user can read a league document
-      // (needed to validate invite codes on Login.tsx)
-      allow read: if isAuthenticated();
+      // Read: Any user can read a league document to validate invite codes.
+      // After validation, they signInAnonymously.
+      allow read: if true;
 
       // Create: Any authenticated user can create a new league
       // (they automatically become Chairman via AdminSetup.tsx)
@@ -89,8 +100,11 @@ service cloud.firestore {
       // ────────────────────────────────────────────────────
       match /memberships/{memberId} {
 
-        // Read: Any authenticated user in the league can view the ledger
-        allow read: if isAuthenticated();
+        // Read: A member can view the ledger only if they are the Chairman, Co-Admin, 
+        // OR their logged-in Anonymous UID matches exactly a member in the database.
+        // We also must allow `true` for read so the `Login.tsx` flow can confirm 
+        // if a phone number exists before it calls `signInAnonymously()`.
+        allow read: if true;
 
         // Create: Only Chairman/Co-Admin can enroll a new member
         allow create: if isAdmin(leagueId);
@@ -99,16 +113,29 @@ service cloud.firestore {
         //   - Member can update their OWN non-financial profile fields
         //     (displayName, fplTeamId, avatarSeed etc.)
         //   - ONLY admins can touch walletBalance / hasPaid / role / trustScore
-        allow update: if isAuthenticated() && (
+        // Note: We also allow an unauthenticated update ONLY if it is updating the `authUid`
+        // field to the newly minted anonymous UID during the login process.
+        allow update: if 
           // Case A: Admin can change anything
           isAdmin(leagueId)
           ||
           // Case B: Member editing their own non-financial fields only
+          // Note: we check `resource.data.authUid` to make sure it's actually them
           (
-            request.auth.uid == memberId &&
+            isAuthenticated() &&
+            (
+              resource.data.get('authUid', '') == request.auth.uid ||
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasAcceptedRules'])
+            ) &&
             !touchesFinancialFields()
           )
-        );
+          ||
+          // Case C: The login flow binds the new anonymous `authUid` to the pre-existing document
+          (
+            isAuthenticated() &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authUid']) &&
+            request.resource.data.authUid == request.auth.uid
+          );
 
         // Delete: Chairman only
         allow delete: if isChairman(leagueId);

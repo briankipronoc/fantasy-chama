@@ -194,7 +194,8 @@ export default function AdminCommandCenter() {
                     type: 'success',
                     message: `Deposit verified for ${memberName}. Account is now in the Green Zone.`,
                     timestamp: serverTimestamp(),
-                    readBy: [adminId] // Admin has already read it basically
+                    readBy: [adminId], // Admin has already read it basically
+                    targetMemberId: memberId
                 });
 
                 // Write Deposit Transaction to Ledger
@@ -222,12 +223,13 @@ export default function AdminCommandCenter() {
     // Dynamic Calculations
     // Math scales properly natively since `members` array is reactive via useStore (which listens to Firestore)
     const filteredMembers = members.filter(m => {
+        if (m.isActive === false) return false;
         if (paymentFilter === 'Verified') return m.hasPaid;
         if (paymentFilter === 'Red Zone') return !m.hasPaid;
         return true;
     });
 
-    const paidMembersCount = members.filter(m => m.hasPaid).length;
+    const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
     const totalCollected = paidMembersCount * monthlyContribution;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     // Formula: Active members * Monthly Contribution * 38 GWs * Vault Percentage
@@ -278,29 +280,17 @@ export default function AdminCommandCenter() {
         showToast('Bulk Nudge dispatched via SMS to all Red Zone members!');
 
         // Actually push to members' individual notification feeds
-        const redZoneMembers = members.filter(m => !m.hasPaid && m.role !== 'admin');
-        const readByArray = members.filter(m => m.hasPaid || m.role === 'admin').map(m => m.id);
-
-        try {
-            const notifsRef = collection(db, 'leagues', activeLeagueId, 'notifications');
-            await addDoc(notifsRef, {
-                type: 'warning',
-                message: `URGENT: Gameweek Deadline approaching. All Red Zone members must secure their vault targets immediately.`,
-                timestamp: serverTimestamp(),
-                readBy: readByArray // Paid members ignore this notification
-            });
-        } catch (err) {
-            console.error("Failed to send bulk nudge", err);
-        }
+        const redZoneMembers = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false);
 
         for (const member of redZoneMembers) {
             try {
-                const memberNotificationsRef = collection(db, 'leagues', activeLeagueId, 'memberships', member.id, 'notifications');
-                await addDoc(memberNotificationsRef, {
-                    text: 'Chairman Nudge: Please complete your active Gameweek contribution to avoid Vault penalties.',
-                    type: 'nudge',
-                    read: false,
-                    createdAt: serverTimestamp()
+                const notifsRef = collection(db, 'leagues', activeLeagueId, 'notifications');
+                await addDoc(notifsRef, {
+                    type: 'warning',
+                    message: `URGENT Chairman Nudge: Gameweek Deadline approaching. Please complete your active Gameweek contribution to avoid being locked out.`,
+                    timestamp: serverTimestamp(),
+                    readBy: [],
+                    targetMemberId: member.id
                 });
             } catch (err) {
                 console.error("Failed to nudge member", member.id, err);
@@ -525,7 +515,7 @@ export default function AdminCommandCenter() {
      * Creates a rich formatted summary of the GW result for sharing to the group.
      */
     const generateWhatsAppReceipt = (payout: any) => {
-        const unpaidCount = members.filter(m => !m.hasPaid && m.role !== 'admin').length;
+        const unpaidCount = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false).length;
         const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app';
 
         const message = [
@@ -652,7 +642,7 @@ export default function AdminCommandCenter() {
                                             </div>
                                             <span className="text-[10px] font-bold tracking-widest text-[#10B981] uppercase bg-[#10B981]/10 px-2.5 py-1 rounded-md border border-[#10B981]/20">Live Sync</span>
                                         </div>
-                                        <p className="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mb-2">Total Vault Balance</p>
+                                        <p className="text-gray-400 text-[10px] md:text-xs font-bold uppercase tracking-widest mb-2">Current GW Collections</p>
                                         <div className="text-3xl md:text-4xl font-black text-white tracking-tight mb-3">KES {isStealthMode ? '****' : totalCollected.toLocaleString()}</div>
                                         <div className="flex items-center gap-2 text-[#10B981] text-[10px] md:text-xs font-bold mt-4">
                                             {paidMembersCount} members fully paid

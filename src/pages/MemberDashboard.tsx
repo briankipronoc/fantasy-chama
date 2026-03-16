@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -19,8 +19,10 @@ export default function MemberDashboard() {
     const [monthlyContribution, setMonthlyContribution] = useState(0);
     const [leagueName, setLeagueName] = useState('');
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
+    const [coAdminId, setCoAdminId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [toastMessage, setToastMessage] = useState('');
+    const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
     const [isPushingMpesa, setIsPushingMpesa] = useState(false);
     const [showReceiptModal, setShowReceiptModal] = useState(false);
     const [receiptCode, setReceiptCode] = useState('');
@@ -39,10 +41,18 @@ export default function MemberDashboard() {
     // Phase 10.5: Live Escrow Feed
     const [liveEvents, setLiveEvents] = useState<any[]>([]);
 
+    // Co-Admin State
+    const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
+    const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
+
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const isStealthMode = useStore(state => state.isStealthMode);
     const { notifications } = useNotifications();
+
+    const currentUser = members.find(m => m.phone === memberPhone);
+    const hasPaid = currentUser?.hasPaid || false;
+    const activeUserId = currentUser?.id || 'dummy';
 
     useEffect(() => {
         if (!activeLeagueId || !memberPhone) {
@@ -58,6 +68,7 @@ export default function MemberDashboard() {
                 setMonthlyContribution(data.monthlyContribution || 0);
                 setLeagueName(data.leagueName || '');
                 if (data.rules) setRules(data.rules);
+                if (data.coAdminId) setCoAdminId(data.coAdminId);
             }
         }, (err: any) => {
             console.error("Error listening to league:", err);
@@ -70,6 +81,7 @@ export default function MemberDashboard() {
 
         if (location.state?.welcomeMsg) {
             setToastMessage(location.state.welcomeMsg);
+            setToastType('success');
             setTimeout(() => setToastMessage(''), 4000);
             window.history.replaceState({}, document.title);
         }
@@ -88,10 +100,24 @@ export default function MemberDashboard() {
         return () => unsub();
     }, [activeLeagueId]);
 
+    // Co-Admin: Listen for Pending Payouts
+    useEffect(() => {
+        if (!activeLeagueId || currentUser?.id !== coAdminId) return;
+        const q = query(
+            collection(db, 'leagues', activeLeagueId, 'pending_payouts'),
+            where('status', '==', 'pending_approval')
+        );
+        const unsub = onSnapshot(q, snap => {
+            setPendingPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        });
+        return () => unsub();
+    }, [activeLeagueId, currentUser?.id, coAdminId]);
+
     // Module 4A: Listen for pending winner confirmations — moved below currentUser declaration
 
-    const showToast = (msg: string) => {
+    const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToastMessage(msg);
+        setToastType(type);
         setTimeout(() => setToastMessage(''), 3000);
     };
 
@@ -99,7 +125,8 @@ export default function MemberDashboard() {
         if (!activeLeagueId || !currentUser || !memberPhone) return;
         setIsPushingMpesa(true);
         try {
-            const response = await fetch('http://localhost:5000/api/mpesa/stkpush', {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const response = await fetch(`${apiUrl}/api/mpesa/stkpush`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -112,13 +139,13 @@ export default function MemberDashboard() {
 
             const data = await response.json();
             if (data.success) {
-                showToast("STK Push sent! Awaiting M-Pesa PIN...");
+                showToast("STK Push sent! Awaiting M-Pesa PIN...", "success");
             } else {
-                showToast(data.message || "Failed to initiate M-Pesa STK Push.");
+                showToast(data.message || "Failed to initiate M-Pesa STK Push.", "error");
             }
         } catch (error) {
             console.error("STK Push Error:", error);
-            showToast("Network Error: Could not reach payment server.");
+            showToast("Network Error: Could not reach payment server.", "error");
         } finally {
             setIsPushingMpesa(false);
         }
@@ -142,7 +169,7 @@ export default function MemberDashboard() {
             const data = await res.json();
             setReceiptResult({ success: data.success && data.verified !== false, message: data.message });
             if (data.success && data.verified === true) {
-                showToast('✅ Payment verified! Your status has been updated.');
+                showToast('✅ Payment verified! Your status has been updated.', 'success');
                 setTimeout(() => setShowReceiptModal(false), 2000);
             }
         } catch (err) {
@@ -171,11 +198,80 @@ export default function MemberDashboard() {
         } catch (err: any) {
             console.error('Claim submit error:', err);
             if (err?.code === 'permission-denied') {
-                showToast('🔒 Permission Denied: Could not submit claim.');
+                showToast('🔒 Permission Denied: Could not submit claim.', 'error');
             }
         } finally {
             setIsSubmittingClaim(false);
         }
+    };
+
+    // Co-Admin: Approve Payout
+    const handleApprovePayout = async (payout: any) => {
+        if (!activeLeagueId) return;
+        setIsApprovingPayout(payout.id);
+        try {
+            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: payout.winnerPhone,
+                    amount: payout.amount,
+                    remarks: `FantasyChama GW${payout.gw} Approved Payout`,
+                    userId: payout.winnerId,
+                    leagueId: activeLeagueId
+                })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.message);
+
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payout.id), {
+                status: 'approved',
+                approvedBy: currentUser?.displayName || 'Co-Admin',
+                approvedAt: serverTimestamp()
+            });
+
+            // Reset all members to Red Zone
+            const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
+            await Promise.all(members.map(m => updateDoc(doc(membershipsRef, m.id), { hasPaid: false })));
+
+            showToast(`✅ Approved! KES ${payout.amount.toLocaleString()} dispatched to ${payout.winnerName}.`);
+        } catch (err: any) {
+            showToast(`Approval failed: ${err.message}`, 'error');
+        } finally {
+            setIsApprovingPayout(null);
+        }
+    };
+
+    const handleRejectPayout = async (payoutId: string) => {
+        if (!activeLeagueId) return;
+        await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payoutId), {
+            status: 'rejected',
+            rejectedBy: currentUser?.displayName || 'Co-Admin',
+            rejectedAt: serverTimestamp()
+        });
+        showToast('Payout request rejected. Chairman will be notified.');
+    };
+
+    const generateWhatsAppReceipt = (payout: any) => {
+        const unpaidCount = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false).length;
+        const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app';
+
+        const message = [
+            `🏆 *${leagueName} — ${payout.gwName || `GW${payout.gw}`} Results*`,
+            ``,
+            `🥇 *Winner:* ${payout.winnerName} (${payout.points} pts)`,
+            `💰 *Payout:* KES ${Number(payout.amount).toLocaleString()} _(Dispatched via M-Pesa ✅)_`,
+            `🚨 *Red Zone:* ${unpaidCount} member${unpaidCount !== 1 ? 's' : ''} yet to deposit for next GW.`,
+            ``,
+            `📊 Check live standings & vault:`,
+            `🔗 ${appUrl}`,
+            ``,
+            `_Powered by FantasyChama — Your Chama runs itself._ ⚡`,
+        ].join('\n');
+
+        const encoded = encodeURIComponent(message);
+        window.open(`whatsapp://send?text=${encoded}`, '_blank');
     };
 
     // Module 4A: Confirm receipt
@@ -185,18 +281,14 @@ export default function MemberDashboard() {
             await updateDoc(doc(db, 'leagues', activeLeagueId, 'winner_confirmations', winnerConfirmation.id), {
                 status: 'confirmed'
             });
-            showToast('✅ Payout confirmed! Thank you.');
+            showToast('✅ Payout confirmed! Thank you.', 'success');
         } catch (err: any) {
             console.error('Confirm error:', err);
             if (err?.code === 'permission-denied') {
-                showToast('🔒 Permission Denied: You can only confirm your own payout.');
+                showToast('🔒 Permission Denied: You can only confirm your own payout.', 'error');
             }
         }
     };
-
-    const currentUser = members.find(m => m.phone === memberPhone);
-    const hasPaid = currentUser?.hasPaid || false;
-    const activeUserId = currentUser?.id || 'dummy';
 
     // Module 4A: Listen for pending winner confirmations for this user
     useEffect(() => {
@@ -215,7 +307,7 @@ export default function MemberDashboard() {
     }, [activeLeagueId, currentUser?.id]);
 
     // Dynamic Calculations
-    const paidMembersCount = members.filter(m => m.hasPaid).length;
+    const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
     const totalCollected = paidMembersCount * monthlyContribution;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     // Formula: Active members * Monthly Contribution * 38 GWs * Vault Percentage
@@ -274,10 +366,18 @@ export default function MemberDashboard() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed top-20 left-1/2 -translate-x-1/2 bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] px-5 py-3 rounded-xl text-xs md:text-sm font-bold flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all duration-500 pointer-events-none z-50",
-                toastMessage ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"
+                "fixed top-20 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-xs md:text-sm font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-50",
+                toastMessage ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4",
+                toastType === 'error'
+                    ? "bg-red-500/10 border border-red-500/20 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
+                    : "bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             )}>
-                <Check className="w-5 h-5 bg-[#10B981]/20 rounded-full p-0.5" /> {toastMessage}
+                {toastType === 'error' ? (
+                    <AlertCircle className="w-5 h-5 bg-red-500/20 rounded-full p-0.5" />
+                ) : (
+                    <Check className="w-5 h-5 bg-[#10B981]/20 rounded-full p-0.5" />
+                )}
+                {toastMessage}
             </div>
 
             {/* Top Navigation Frame */}
@@ -381,6 +481,51 @@ export default function MemberDashboard() {
                     </div>
                 </div>
 
+                {/* === ROW 1.5: Co-Admin Maker/Checker (Conditional) === */}
+                {currentUser?.id === coAdminId && pendingPayouts.length > 0 && (
+                    <div className="mb-4 bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-[1.5rem] p-5 shadow-2xl overflow-hidden">
+                        <div className="flex items-center gap-2 mb-4">
+                            <AlertTriangle className="w-5 h-5 text-[#FBBF24] animate-pulse" />
+                            <h3 className="text-xl font-black text-[#FBBF24] tracking-tight">Co-Admin Duty: Awaiting Approval</h3>
+                        </div>
+                        <div className="space-y-3">
+                            {pendingPayouts.map((payout) => (
+                                <div key={payout.id} className="bg-black/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-white font-bold text-sm tracking-wide">{payout.gwName || `GW${payout.gw}`} Payout Request</p>
+                                        <p className="text-gray-300 text-sm mt-1">
+                                            <span className="text-[#FBBF24] font-black tracking-tight">KES {Number(payout.amount).toLocaleString()}</span> → {payout.winnerName} ({payout.winnerPhone})
+                                        </p>
+                                        <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
+                                    </div>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <button
+                                            onClick={() => handleRejectPayout(payout.id)}
+                                            className="flex-1 sm:flex-none px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors"
+                                        >
+                                            Reject
+                                        </button>
+                                        <button
+                                            onClick={() => handleApprovePayout(payout)}
+                                            disabled={isApprovingPayout === payout.id}
+                                            className="flex-1 sm:flex-none px-5 py-2.5 bg-[#10B981] hover:bg-[#10b981]/90 text-black text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-60 flex items-center justify-center gap-2 active:scale-95"
+                                        >
+                                            {isApprovingPayout === payout.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                            {isApprovingPayout === payout.id ? 'Approving...' : 'Approve & Pay'}
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={() => generateWhatsAppReceipt(payout)}
+                                        className="sm:hidden lg:flex px-4 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors items-center justify-center gap-1.5 active:scale-95 text-center w-full sm:w-auto"
+                                    >
+                                        <Share2 className="w-3.5 h-3.5" /> Share
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* === ROW 2: Personal Status (4) + Chart (8) === */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
                     {/* Personal Status + Pay Action */}
@@ -408,18 +553,26 @@ export default function MemberDashboard() {
                                 {isRecentWinner
                                     ? "Incredible! You secured the highest points this GW. Payout processing."
                                     : (hasPaid
-                                        ? "Your M-Pesa contribution is secured. Eligible for this GW's pot."
-                                        : "Your contribution is missing. Pay before the FPL deadline.")}
+                                        ? "Your contribution is secured. Eligible for this GW's pot."
+                                        : (currentUser?.missedGameweeks === 1
+                                            ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
+                                            : "Your contribution is missing. Pay before the FPL deadline."))}
                             </p>
 
                             {!hasPaid && (
                                 <div className="flex flex-col gap-2">
+                                    <div className="flex items-baseline justify-center gap-1.5 mb-2 mt-1">
+                                        <span className="text-3xl font-black text-white tracking-tight tabular-nums">
+                                            {monthlyContribution.toLocaleString()}
+                                        </span>
+                                        <span className="text-white text-xs font-bold tracking-widest uppercase">KES</span>
+                                    </div>
                                     <button
                                         onClick={handleMpesaSTKPush}
                                         disabled={isPushingMpesa}
                                         className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
-                                        {isPushingMpesa ? <Zap className="w-4 h-4 animate-pulse" /> : <Banknote className="w-4 h-4" />}
+                                        <Banknote className="w-5 h-5 group-hover:-rotate-6 transition-transform" />
                                         {isPushingMpesa ? "Awaiting PIN..." : "Pay with M-Pesa"}
                                     </button>
                                     <div className="flex gap-2">
@@ -482,7 +635,7 @@ export default function MemberDashboard() {
                             <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" /> Verification Ledger
                             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
                         </h4>
-                        <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest">
+                        <span className="bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 text-[10px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest">
                             {paidMembersCount}/{members.length} Paid
                         </span>
                     </div>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 
 export type Role = 'member' | 'admin' | null;
 
@@ -11,6 +12,10 @@ export interface Member {
     hasPaid: boolean;           // kept for backward compat; derive from walletBalance >= gwCostPerRound
     walletBalance: number;      // KES balance — Module 2 Wallet Architecture
     role?: string;
+    authUid?: string; // Added to map the Co-Admin strictly by Auth UID
+    isActive?: boolean;         // Determines if a user has been deactivated from the league
+    missedGameweeks?: number;   // Consecutive missed gameweeks (delinquent)
+    hasAcceptedRules?: boolean;
 }
 
 export interface LeagueSettings {
@@ -23,6 +28,7 @@ interface AppState {
     role: Role;
     league: LeagueSettings | null;
     members: Member[];
+    transactions: any[];
     isStealthMode: boolean;
     setRole: (role: Role) => void;
     setLeagueSettings: (settings: LeagueSettings) => void;
@@ -33,14 +39,17 @@ interface AppState {
     // Firebase Additions
     setMembers: (members: Member[]) => void;
     listenToLeagueMembers: (leagueId: string) => void;
+    listenToLeagueTransactions: (leagueId: string) => void;
     togglePaymentStatus: (leagueId: string, memberId: string, currentStatus: boolean) => Promise<void>;
     updateWalletBalance: (leagueId: string, memberId: string, delta: number) => Promise<void>;
+    toggleMemberActiveStatus: (leagueId: string, memberId: string, newStatus: boolean) => Promise<void>;
 }
 
 export const useStore = create<AppState>((set) => ({
     role: null, // Initially not logged in
     league: null,
     members: [],
+    transactions: [],
     isStealthMode: false,
     setRole: (role) => set({ role }),
     setLeagueSettings: (settings) => set({ league: settings }),
@@ -52,7 +61,16 @@ export const useStore = create<AppState>((set) => ({
                 { ...member, id: crypto.randomUUID() },
             ]
         })),
-    logout: () => set({ role: null }),
+    logout: () => {
+        // Clear local storage
+        localStorage.removeItem('activeLeagueId');
+        localStorage.removeItem('memberPhone');
+        // Sign out from Firebase Auth
+        signOut(auth).catch(console.error);
+        
+        // Reset state
+        set({ role: null, league: null, members: [], transactions: [] });
+    },
 
     // Firebase Methods
     setMembers: (members) => set({ members }),
@@ -68,10 +86,30 @@ export const useStore = create<AppState>((set) => ({
         });
     },
 
+    listenToLeagueTransactions: (leagueId) => {
+        const { query, orderBy } = require('firebase/firestore');
+        const txRef = collection(db, 'leagues', leagueId, 'transactions');
+        const q = query(txRef, orderBy('timestamp', 'desc'));
+        onSnapshot(q, (snapshot: any) => {
+            const liveTxs = snapshot.docs.map((doc: any) => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            set({ transactions: liveTxs });
+        });
+    },
+
     togglePaymentStatus: async (leagueId, memberId, currentStatus) => {
         const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
         await updateDoc(memberRef, {
             hasPaid: !currentStatus
+        });
+    },
+
+    toggleMemberActiveStatus: async (leagueId, memberId, newStatus) => {
+        const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
+        await updateDoc(memberRef, {
+            isActive: newStatus
         });
     },
 

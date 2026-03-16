@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Download, Trophy, Star, Zap, Circle } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import clsx from 'clsx';
 import Header from '../components/Header';
 
@@ -15,8 +15,13 @@ export default function Standings() {
     const [monthlyContribution, setMonthlyContribution] = useState(0);
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
     const [leagueName, setLeagueName] = useState('');
+    const [chairmanId, setChairmanId] = useState<string | null>(null);
+    const [coAdminId, setCoAdminId] = useState<string | null>(null);
+    const [dbFplLeagueId, setDbFplLeagueId] = useState<number | null>(null);
+    const [inputFplLeagueId, setInputFplLeagueId] = useState('');
+    const [isSavingFplId, setIsSavingFplId] = useState(false);
 
-    const fplLeagueId = 314;
+    const fallbackFplLeagueId = 314;
 
     const members = useStore(state => state.members);
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -30,14 +35,21 @@ export default function Standings() {
             try {
                 const leagueRef = doc(db, 'leagues', activeLeagueId);
                 const leagueSnap = await getDoc(leagueRef);
+                let targetFplId = fallbackFplLeagueId;
                 if (leagueSnap.exists()) {
                     const lData = leagueSnap.data();
                     if (lData.monthlyContribution) setMonthlyContribution(lData.monthlyContribution);
                     if (lData.rules) setRules(lData.rules);
                     if (lData.name) setLeagueName(lData.name);
+                    if (lData.chairmanId) setChairmanId(lData.chairmanId);
+                    if (lData.coAdminId) setCoAdminId(lData.coAdminId);
+                    if (lData.fplLeagueId) {
+                        setDbFplLeagueId(lData.fplLeagueId);
+                        targetFplId = lData.fplLeagueId;
+                    }
                 }
 
-                const fplUrl = `https://fantasy.premierleague.com/api/leagues-classic/${fplLeagueId}/standings/`;
+                const fplUrl = `https://fantasy.premierleague.com/api/leagues-classic/${targetFplId}/standings/`;
                 const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(fplUrl)}`);
 
                 if (!response.ok) throw new Error('Failed to fetch FPL standings');
@@ -69,11 +81,27 @@ export default function Standings() {
         });
     };
 
+    const handleSaveFplId = async () => {
+        if (!inputFplLeagueId || isNaN(Number(inputFplLeagueId))) return;
+        if (!activeLeagueId) return;
+        setIsSavingFplId(true);
+        try {
+            const leagueRef = doc(db, 'leagues', activeLeagueId);
+            await updateDoc(leagueRef, { fplLeagueId: Number(inputFplLeagueId) });
+            setDbFplLeagueId(Number(inputFplLeagueId));
+            window.location.reload(); 
+        } catch (err) {
+            console.error("Failed to save FPL ID", err);
+        } finally {
+            setIsSavingFplId(false);
+        }
+    };
+
     const currentGwAverage = standingsData.length > 0
         ? (standingsData.reduce((sum, row) => sum + row.event_total, 0) / standingsData.length).toFixed(1)
         : '0.0';
 
-    const paidMembersCount = members.filter(m => m.hasPaid).length;
+    const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
     const totalCollected = paidMembersCount * monthlyContribution;
     const grandVaultTotal = totalCollected * (rules.vault / 100);
     const weeklyPot = totalCollected * (rules.weekly / 100);
@@ -91,10 +119,16 @@ export default function Standings() {
 
     return (
         <div
-            className="min-h-screen w-full font-sans text-white"
-            style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%), #0A0E17' }}
+            className="min-h-screen w-full font-sans text-white relative overflow-hidden"
+            style={{ background: '#0A0E17' }}
         >
-            <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-8 pb-28">
+            {/* ── Ambient background grid ─────────────────────────── */}
+            <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
+            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
+            <div className="fixed bottom-0 left-0 w-full h-[600px] pointer-events-none z-0" style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%)' }} />
+
+            <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-8 pb-28">
                 {/* Header — matches other pages */}
                 <Header role={role} title={leagueName || 'The Big League'} subtitle="Gameweek Rankings" />
 
@@ -128,6 +162,32 @@ export default function Standings() {
                 </div>
 
                 {/* Stats Cards */}
+                {role === 'admin' && !dbFplLeagueId && (
+                    <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div>
+                            <h3 className="font-bold text-[#10B981] flex items-center gap-2 mb-1">
+                                <Zap className="w-5 h-5" /> Link Official FPL League
+                            </h3>
+                            <p className="text-sm text-gray-300">Enter your official FPL League ID to sync live points automatically.</p>
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <input
+                                type="text"
+                                placeholder="e.g. 314"
+                                value={inputFplLeagueId}
+                                onChange={(e) => setInputFplLeagueId(e.target.value.replace(/\D/g, ''))}
+                                className="w-full sm:w-48 bg-[#161d24] border border-[#10B981]/30 rounded-xl px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#10B981]"
+                            />
+                            <button
+                                onClick={handleSaveFplId}
+                                disabled={isSavingFplId || !inputFplLeagueId}
+                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex flex-shrink-0 items-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors"
+                            >
+                                <Save className="w-4 h-4" /> Save ID
+                            </button>
+                        </div>
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-[#161d24] border border-white/5 rounded-2xl p-5 shadow-2xl shadow-black/50 flex items-center justify-between">
                         <div>
@@ -199,10 +259,20 @@ export default function Standings() {
                                                     )}>
                                                         {row.player_name.charAt(0)}
                                                     </div>
-                                                    <span className="font-bold text-white flex items-center gap-1.5">
+                                                    <span className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                                                         {row.player_name}
+                                                        {matchedMember?.id === chairmanId && (
+                                                            <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[9px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30 flex items-center gap-1">
+                                                                <ShieldAlert className="w-2.5 h-2.5" /> Chairman
+                                                            </span>
+                                                        )}
+                                                        {matchedMember?.id === coAdminId && (
+                                                            <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[9px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
+                                                                <ShieldCheck className="w-2.5 h-2.5" /> Co-Admin
+                                                            </span>
+                                                        )}
                                                         {hasPaid !== null && (
-                                                            <Circle className={clsx('w-2 h-2 fill-current', hasPaid ? 'text-[#10B981]' : 'text-red-500')} />
+                                                            <Circle className={clsx('w-2 h-2 fill-current ml-1', hasPaid ? 'text-[#10B981]' : 'text-red-500')} />
                                                         )}
                                                     </span>
                                                 </div>

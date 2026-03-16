@@ -46,7 +46,7 @@ export default function Finances() {
         }
     }, [activeLeagueId, listenToLeagueMembers, members.length]);
 
-    const paidMembers = members.filter(m => m.hasPaid);
+    const paidMembers = members.filter(m => m.hasPaid && m.isActive !== false);
     const totalSecured = paidMembers.length * (monthlyContribution || 1400);
     const seasonVault = totalSecured * (rules.vault / 100);
 

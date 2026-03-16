@@ -1,18 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Scroll } from 'lucide-react';
 import clsx from 'clsx';
+import LeagueRulesModal from './LeagueRulesModal';
 
 export default function Header({ role, title, subtitle }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
     const members = useStore(state => state.members);
     const { isStealthMode, toggleStealthMode } = useStore();
-    const { notifications, unreadCount, markAllAsRead } = useNotifications();
+    const { notifications, markAllAsRead } = useNotifications();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'personal' | 'system'>('personal');
+    const [showConstitution, setShowConstitution] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
+
+    useEffect(() => {
+        if (currentMember && currentMember.hasAcceptedRules !== true && currentMember.role !== 'admin') {
+            setShowConstitution(true);
+        }
+    }, [currentMember]);
     const fullDisplayName = currentMember?.displayName || (role === 'admin' ? 'Chairman' : 'Manager');
     const displayName = fullDisplayName.split(' ')[0];
     const avatarSeed = (currentMember as any)?.avatarSeed || fullDisplayName;
@@ -55,6 +64,13 @@ export default function Header({ role, title, subtitle }: { role: string, title?
         return 'Good evening';
     };
 
+    const personalNotifs = notifications.filter(n => n.targetMemberId === activeUserId || n.type === 'transactionSuccess');
+    const systemNotifs = notifications.filter(n => !(n.targetMemberId === activeUserId || n.type === 'transactionSuccess'));
+
+    const displayNotifs = activeTab === 'personal' ? personalNotifs : systemNotifs;
+    const unreadPersonalCount = personalNotifs.filter(n => !n.readBy?.includes(activeUserId)).length;
+    const unreadSystemCount = systemNotifs.filter(n => !n.readBy?.includes(activeUserId)).length;
+
     return (
         <div className="flex justify-between items-center mb-8 md:mb-10 w-full relative z-50">
             <div>
@@ -93,6 +109,15 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
 
+                {/* Constitution Icon Button */}
+                <button
+                    onClick={() => setShowConstitution(true)}
+                    className="p-2.5 md:p-3 bg-[#161d24] border border-white/5 rounded-xl text-gray-400 hover:text-emerald-400 transition-all hover:bg-emerald-500/5 hover:border-emerald-500/20 active:scale-95"
+                    title="League Constitution"
+                >
+                    <Scroll className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
+
                 {/* Notifications Bell */}
                 <div className="relative">
                     <button
@@ -103,7 +128,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                         )}
                     >
                         <Bell className="w-5 h-5 md:w-6 md:h-6" />
-                        {unreadCount > 0 && (
+                        {(unreadPersonalCount + unreadSystemCount) > 0 && (
                             <span className="absolute top-2 right-2 md:top-2.5 md:right-2.5 w-2.5 h-2.5 bg-[#FBBF24] rounded-full border-2 border-[#0b1014] animate-pulse" />
                         )}
                     </button>
@@ -115,15 +140,8 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                             <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#0e1419]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[100] animate-in slide-in-from-top-2 fade-in duration-200">
                                 {/* Header row with Mark All Read */}
                                 <div className="px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/20">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="font-bold text-sm">Operations Feed</h3>
-                                        {unreadCount > 0 && (
-                                            <span className="text-[10px] font-bold bg-[#FBBF24]/15 text-[#FBBF24] px-2 py-0.5 rounded-full border border-[#FBBF24]/20">
-                                                {unreadCount} new
-                                            </span>
-                                        )}
-                                    </div>
-                                    {unreadCount > 0 && (
+                                    <h3 className="font-bold text-sm tracking-wide">Mission Control</h3>
+                                    {(unreadPersonalCount > 0 || unreadSystemCount > 0) && (
                                         <button
                                             onClick={handleMarkAllRead}
                                             className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-emerald-400 transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
@@ -133,6 +151,44 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                             Mark all read
                                         </button>
                                     )}
+                                </div>
+
+                                {/* Tabs */}
+                                <div className="flex border-b border-white/5">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setActiveTab('personal'); }}
+                                        className={clsx(
+                                            "flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
+                                            activeTab === 'personal' ? "text-emerald-400" : "text-gray-500 hover:text-gray-300"
+                                        )}
+                                    >
+                                        Personal
+                                        {unreadPersonalCount > 0 && (
+                                            <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
+                                                {unreadPersonalCount}
+                                            </span>
+                                        )}
+                                        {activeTab === 'personal' && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setActiveTab('system'); }}
+                                        className={clsx(
+                                            "flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
+                                            activeTab === 'system' ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
+                                        )}
+                                    >
+                                        System
+                                        {unreadSystemCount > 0 && (
+                                            <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
+                                                {unreadSystemCount}
+                                            </span>
+                                        )}
+                                        {activeTab === 'system' && (
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                                        )}
+                                    </button>
                                 </div>
 
                                 {/* Notification list with dark scrollbar */}
@@ -147,7 +203,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                         .notif-scroll::-webkit-scrollbar-thumb:hover { background: #2d3f4f; }
                                     `}</style>
                                     <div className="notif-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.04]">
-                                        {notifications.length > 0 ? notifications.map((notif) => {
+                                        {displayNotifs.length > 0 ? displayNotifs.map((notif) => {
                                             const isRead = notif.readBy?.includes(activeUserId);
                                             return (
                                                 <div
@@ -159,14 +215,16 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                                 >
                                                     <div className="mt-0.5 flex-shrink-0">
                                                         {notif.type === 'success' && <CheckCircle2 className="w-4 h-4 text-[#10B981]" />}
-                                                        {notif.type === 'warning' && <AlertTriangle className="w-4 h-4 text-[#FBBF24]" />}
+                                                        {notif.type === 'transactionSuccess' && <CheckCircle2 className="w-4 h-4 text-[#10B981]" />}
+                                                        {notif.type === 'warning' && <AlertTriangle className="w-4 h-4 text-[#ef4444]" />}
                                                         {notif.type === 'info' && <Info className="w-4 h-4 text-[#60a5fa]" />}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className={clsx(
                                                             "text-xs leading-relaxed",
                                                             notif.type === 'success' ? "text-emerald-300" :
-                                                                notif.type === 'warning' ? "text-amber-300" : "text-blue-300"
+                                                                notif.type === 'transactionSuccess' ? "text-emerald-300" :
+                                                                notif.type === 'warning' ? "text-red-300" : "text-blue-300"
                                                         )}>
                                                             {notif.message}
                                                         </p>
@@ -175,7 +233,10 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                                         </p>
                                                     </div>
                                                     {!isRead && (
-                                                        <div className="w-2 h-2 bg-[#FBBF24] rounded-full flex-shrink-0 mt-1.5" />
+                                                        <div className={clsx(
+                                                            "w-2 h-2 rounded-full flex-shrink-0 mt-1.5",
+                                                            activeTab === 'personal' ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" : "bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.5)]"
+                                                        )} />
                                                     )}
                                                 </div>
                                             );
@@ -192,6 +253,13 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     )}
                 </div>
             </div>
+
+            {/* League Constitution Modal */}
+            <LeagueRulesModal
+                isOpen={showConstitution}
+                onClose={() => setShowConstitution(false)}
+                currentMember={currentMember}
+            />
         </div>
     );
 }

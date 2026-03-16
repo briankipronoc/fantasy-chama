@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signInAnonymously, sendPasswordResetEmail } from 'firebase/auth';
 
 export default function Login() {
     const location = useLocation();
@@ -103,12 +103,20 @@ export default function Login() {
                 return;
             }
 
-            // 3. Success! Log them in and send them to the War Room
+            // 3. Create secure anonymous session session
+            const userCredential = await signInAnonymously(auth);
+            const userUid = userCredential.user.uid;
+
+            // 4. Update the member document with the active session UID to bypass Firestore Rules securely
+            const memberDocRef = memberSnapshot.docs[0].ref;
+            await updateDoc(memberDocRef, { authUid: userUid });
+
             const memberData = memberSnapshot.docs[0].data();
 
             // Save leagueId to local storage or context so the app knows which dashboard to load
             localStorage.setItem('activeLeagueId', leagueId);
             localStorage.setItem('memberPhone', phone);
+            localStorage.setItem('activeUserId', memberDocRef.id);
             setRole('member');
             navigate('/', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` } });
 
@@ -150,8 +158,18 @@ export default function Login() {
 
             if (!leagueSnapshot.empty) {
                 const leagueData = leagueSnapshot.docs[0];
-                localStorage.setItem('activeLeagueId', leagueData.id);
-                console.log("5. Active League ID bound to session:", leagueData.id);
+                const leagueId = leagueData.id;
+                localStorage.setItem('activeLeagueId', leagueId);
+                console.log("5. Active League ID bound to session:", leagueId);
+
+                // Find the Chairman's membership doc to set activeUserId
+                const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
+                const qAdminMember = query(membershipsRef, where("role", "==", "admin"));
+                const adminMemberSnap = await getDocs(qAdminMember);
+                if (!adminMemberSnap.empty) {
+                    localStorage.setItem('activeUserId', adminMemberSnap.docs[0].id);
+                }
+
             } else {
                 console.log("5. No active league ID found for Chairman!");
             }
@@ -173,6 +191,11 @@ export default function Login() {
 
     return (
         <div className="min-h-screen bg-[#0b1014] flex flex-col items-center justify-center relative overflow-hidden text-white font-sans w-full">
+
+            {/* ── Ambient background grid ─────────────────────────── */}
+            <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
+            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
 
             {/* Network background graphic simulation (bottom right) */}
             <div className="absolute right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none">

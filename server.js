@@ -45,7 +45,7 @@ try {
     console.log('⚠️ Firebase Admin SDK not initialized natively. Ensure serviceAccountKey.json is present if writing to Firestore.');
 }
 
-const db = admin.firestore?.() || null;
+const db = admin.apps.length > 0 ? admin.firestore() : null;
 
 // Daraja Constants
 const CONSUMER_KEY = process.env.DARAJA_CONSUMER_KEY;
@@ -457,37 +457,59 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
         const membersSnap = await db.collection(`leagues/${leagueId}/memberships`).get();
 
         const batch = db.batch();
-        const summary = { deducted: 0, redZone: [], greenZone: [] };
+        const summary = { deducted: 0, redZone: [], greenZone: [], deactivated: [] };
 
         for (const mDoc of membersSnap.docs) {
             const data = mDoc.data();
+            
+            // Do not deduct or penalize members who are already inactive
+            if (data.isActive === false) continue;
+
             const currentBalance = Number(data.walletBalance) || 0;
             const newBalance = currentBalance - cost;
             const isDelinquent = newBalance < 0;
 
+            let missedGameweeks = data.missedGameweeks || 0;
+            if (isDelinquent) {
+                missedGameweeks += 1;
+            } else {
+                missedGameweeks = 0;
+            }
+
+            let isActive = true;
+            if (missedGameweeks >= 2) {
+                isActive = false;
+            }
+
             batch.update(mDoc.ref, {
                 walletBalance: admin.firestore.FieldValue.increment(-cost),
                 hasPaid: !isDelinquent,
-                // Cap at -cost to avoid runaway debt (optional debt floor)
-                // If you want to allow negative balances (debt tracking): leave as is
+                missedGameweeks,
+                isActive
             });
 
             summary.deducted++;
-            if (isDelinquent) {
+            if (!isActive) {
+                summary.deactivated.push(data.displayName || mDoc.id);
+            } else if (isDelinquent) {
                 summary.redZone.push(data.displayName || mDoc.id);
             } else {
                 summary.greenZone.push(data.displayName || mDoc.id);
             }
 
-            console.log(`[DEDUCT] ${data.displayName || mDoc.id}: ${currentBalance} → ${newBalance} KES`);
+            console.log(`[DEDUCT] ${data.displayName || mDoc.id}: ${currentBalance} → ${newBalance} KES. Missed: ${missedGameweeks}`);
         }
 
         await batch.commit();
 
         // Write resolution summary to Live Escrow Feed
-        const redZoneList = summary.redZone.length > 0
+        let redZoneList = summary.redZone.length > 0
             ? ` ⚠️ Red Zone: ${summary.redZone.join(', ')}.`
             : ' All members fully funded.';
+            
+        if (summary.deactivated.length > 0) {
+            redZoneList += ` 🛑 Deactivated: ${summary.deactivated.join(', ')}.`;
+        }
 
         await db.collection(`leagues/${leagueId}/league_events`).add({
             eventType: 'resolution',
@@ -1020,7 +1042,7 @@ cron.schedule('0 7 * * *', () => {
 
 console.log('⏰ Daily Balance Reminder Cron registered (07:00 UTC daily).');
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
     console.log(`🚀 FantasyChama M-Pesa Engine running on http://localhost:${PORT}`);
 });

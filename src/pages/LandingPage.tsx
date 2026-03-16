@@ -143,7 +143,7 @@ export default function LandingPage() {
             <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
 
             {/* ── Navbar ─────────────────────────────────────────── */}
-            <nav className="relative z-50 w-full px-6 md:px-10 py-5 flex items-center justify-between border-b border-white/[0.04] backdrop-blur-md bg-[#0A0E17]/80">
+            <nav className="fixed top-0 z-50 w-full px-6 md:px-10 py-5 flex items-center justify-between border-b border-white/[0.04] backdrop-blur-xl bg-[#0A0E17]/50 transition-all duration-300">
                 <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
                         <Trophy className="w-4 h-4 text-emerald-400" />
@@ -166,7 +166,7 @@ export default function LandingPage() {
             </nav>
 
             {/* ── Hero ────────────────────────────────────────────── */}
-            <section className="relative z-10 pt-20 pb-16 md:pt-32 md:pb-28 px-6 md:px-10">
+            <section className="relative z-10 pt-32 pb-16 md:pt-40 md:pb-28 px-6 md:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
@@ -400,9 +400,9 @@ export default function LandingPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-6 text-xs font-medium text-gray-500">
                         <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-                        <Link to="/terms" className="hover:text-white transition-colors">Privacy Policy</Link>
-                        <a href="mailto:hello@fantasychama.app" className="hover:text-white transition-colors">Contact</a>
-                        <a href="#" className="hover:text-white transition-colors">@FantasyChama</a>
+                        <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                        <a href="mailto:support@fantasychama.co.ke" className="hover:text-white transition-colors">Contact</a>
+                        <a href="https://x.com/FantasyChama" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">@FantasyChama</a>
                     </div>
                     <p className="text-[10px] text-gray-700 font-medium">
                         © 2026 FantasyChama · Powered by Safaricom Daraja & Firebase

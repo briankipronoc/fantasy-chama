@@ -75,7 +75,7 @@ export default function AdminSetup() {
         }
         if (step === 3) {
             // Commit members globally
-            members.forEach((m) => addMemberGlobal({ ...m, hasPaid: false }));
+            members.forEach((m) => addMemberGlobal({ ...m, hasPaid: false, walletBalance: 0 }));
         }
         if (step === 4) {
             // Step 4 handles firebase writes separately inside handleConfirmLeague
@@ -831,6 +831,11 @@ export default function AdminSetup() {
 
     return (
         <div className="min-h-[100dvh] bg-[#0b1014] flex flex-col items-center justify-center relative !overflow-x-hidden overflow-y-auto text-white font-sans w-full py-16 md:py-20">
+            {/* ── Ambient background grid ─────────────────────────── */}
+            <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
+            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
+
             {/* Network background graphic simulation */}
             <div className="fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">

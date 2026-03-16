@@ -25,7 +25,7 @@ export default function GlobalPotBanner() {
         return () => unsubscribe();
     }, [activeLeagueId]);
 
-    const paidMembersCount = members.filter(m => m.hasPaid).length;
+    const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
     const totalCollected = paidMembersCount * monthlyContribution;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     const seasonVaultProjected = members.length * monthlyContribution * 38 * (rules.vault / 100);

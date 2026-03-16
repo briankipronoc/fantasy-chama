@@ -1,6 +1,6 @@
 import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function AppLayout() {
@@ -12,21 +12,20 @@ export default function AppLayout() {
         return <Navigate to="/login" replace />;
     }
 
+
     // Navigation Items
     const adminNavItems = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { name: 'League Table', path: '/standings', icon: BarChart3 },
         { name: 'Red Zone & Finances', path: '/finances', icon: AlertTriangle },
         { name: 'Settings & Profile', path: '/profile', icon: Settings },
-        { name: 'League Rules', path: '/terms', icon: ShieldCheck },
     ];
 
     const memberNavItems = [
-        { name: 'War Room', path: '/', icon: LayoutDashboard },
+        { name: 'War Room', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', path: '/standings', icon: BarChart3 },
         { name: 'Finances & Payouts', path: '/finances', icon: AlertTriangle },
         { name: 'My Profile', path: '/profile', icon: Settings },
-        { name: 'League Rules', path: '/terms', icon: ShieldCheck },
     ];
 
     const navItems = role === 'admin' ? adminNavItems : memberNavItems;
@@ -84,11 +83,11 @@ export default function AppLayout() {
                 </div>
             </main>
 
-            {/* Mobile Native Bottom Nav (Only visible on small/medium screens) */}
+            {/* Mobile Bottom Nav */}
             <nav className="fixed bottom-0 left-0 right-0 border-t border-white/5 bg-[#0a100a]/90 backdrop-blur-xl flex lg:hidden items-center justify-around p-2.5 z-[100] pb-safe shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
                 {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location.pathname === item.path || (location.pathname === '/' && item.path === '/');
+                    const isActive = location.pathname === item.path;
                     return (
                         <Link
                             key={item.path}

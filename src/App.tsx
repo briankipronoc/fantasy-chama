@@ -14,6 +14,7 @@ import Standings from './pages/Standings';
 import Deposit from './pages/Deposit';
 import Profile from './pages/Profile';
 import Terms from './pages/Terms';
+import PrivacyPolicy from './pages/PrivacyPolicy';
 import { NotificationProvider } from './components/NotificationProvider';
 
 // Renders the correct dashboard based on role — used inside the AppLayout
@@ -57,6 +58,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/setup" element={<AdminSetup />} />
         <Route path="/invite" element={<InviteHub />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
 
         {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
         <Route element={<AppLayoutWrapper />}>
@@ -67,7 +70,6 @@ function App() {
           <Route path="/standings" element={<Standings />} />
           <Route path="/deposit" element={<Deposit />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/terms" element={<Terms />} />
         </Route>
       </Routes>
     </>

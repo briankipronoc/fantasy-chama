@@ -33,8 +33,8 @@ const NotificationContext = createContext<NotificationContextProps>({
 
 export const useNotifications = () => useContext(NotificationContext);
 
-// Financial receipt types that deserve an immediate toast
-const TOAST_TYPES: Notification['type'][] = ['transactionSuccess'];
+// Financial receipts and personal success events that deserve an immediate toast
+const TOAST_TYPES: Notification['type'][] = ['transactionSuccess', 'success'];
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -85,10 +85,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 const notifDate = newNotif.timestamp?.toDate ? newNotif.timestamp.toDate() : new Date(0);
                 if (notifDate <= mountTimeRef.current) return;
 
-                // Targeted notification — only for the specific member
+                // Targeted notification — must match current user to show a toast
                 if (newNotif.targetMemberId && newNotif.targetMemberId !== realActiveUser) return;
 
-                // 🔔 Financial confirmation toast — slide up from bottom-right
+                // Avoid aggressive toasts for general system announcements (unless it's an overarching transaction success)
+                if (!newNotif.targetMemberId && newNotif.type !== 'transactionSuccess') return;
+
+                // 🔔 Financial/Personal confirmation toast — slide up from bottom-right
                 toast.success(newNotif.message, {
                     id: 'financial-toast', // ensures only 1 shown at a time (replaces previous)
                     style: {
