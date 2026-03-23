@@ -61,13 +61,6 @@ export default function Finances() {
         ))
         .reduce((acc, tx) => acc + (tx.amount || 0), 0);
 
-    // Toggle between 'GW Won' count and 'Total Winnings'
-    const [showWinnings, setShowWinnings] = useState(false);
-    useEffect(() => {
-        const interval = setInterval(() => setShowWinnings(prev => !prev), 5000);
-        return () => clearInterval(interval);
-    }, []);
-
     // Member-only transaction log: their deposits + payout wins only
     const myTransactions = isAdmin ? transactions : transactions.filter(tx =>
         (tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone) ||
@@ -78,10 +71,6 @@ export default function Finances() {
     );
 
     // Personal stats still needed for the card and contributed total
-    const myGameweeksWon = transactions.filter(tx => tx.type === 'payout' && (
-        tx.winnerPhone === currentUser?.phone ||
-        tx.winnerName === currentUser?.displayName
-    )).length;
     const depositTxSum = transactions
         .filter(tx => tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone)
         .reduce((acc, tx) => acc + (tx.amount || 0), 0);
@@ -129,7 +118,7 @@ export default function Finances() {
                         </div>
                     </div>
 
-                    {isAdmin && (
+                    {isAdmin ? (
                         <div className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center">
@@ -139,41 +128,32 @@ export default function Finances() {
                             </div>
                             <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : totalSecured.toLocaleString()}</p>
                         </div>
-                    )}
-
-                    {!isAdmin && (
+                    ) : (
                         <div className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center">
+                                <div className="w-10 h-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center border border-[#22c55e]/20">
                                     <ShieldCheck className="w-5 h-5 text-[#22c55e]" />
                                 </div>
-                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">My Total Contributed</h3>
+                                <h3 className="text-[10px] font-bold text-[#22c55e] uppercase tracking-widest bg-[#22c55e]/10 px-2.5 py-1 rounded-md border border-[#22c55e]/20">My Total Contributed</h3>
                             </div>
                             <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : myTotalContributed.toLocaleString()}</p>
                         </div>
                     )}
 
-                    <div
-                        className="bg-[#151c18] border border-white/5 p-6 rounded-2xl shadow-lg overflow-hidden relative cursor-default"
-                        title="Toggles every 5 seconds"
-                    >
-                        {/* Flip indicator dot */}
-                        <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-[#FBBF24] animate-pulse" />
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-[#3b82f6]/10 flex items-center justify-center">
-                                <ReceiptText className="w-5 h-5 text-[#3b82f6]" />
+                    <div className="bg-[#151c18] border border-[#FBBF24]/20 bg-gradient-to-br from-[#151c18] to-[#FBBF24]/5 p-6 rounded-2xl shadow-[0_0_20px_rgba(251,191,36,0.05)] overflow-hidden relative">
+                        <div className="flex items-center gap-3 mb-4 relative z-10">
+                            <div className="w-10 h-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20 shadow-lg">
+                                <Trophy className="w-5 h-5 text-[#FBBF24]" />
                             </div>
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest transition-all duration-500">
-                                {isAdmin ? 'Historical Payouts' : (showWinnings ? 'Total Winnings' : 'Gameweeks Won')}
+                            <h3 className="text-[10px] font-bold text-[#FBBF24] uppercase tracking-widest bg-[#FBBF24]/10 px-2.5 py-1 rounded-md border border-[#FBBF24]/20">
+                                {isAdmin ? 'Total Payouts Yielded' : 'My Total Winnings'}
                             </h3>
                         </div>
-                        <p className="text-3xl font-black tabular-nums tracking-tighter transition-all duration-500">
+                        <p className="text-3xl font-black tabular-nums tracking-tighter text-[#FBBF24] relative z-10">
                             {isAdmin ? (
-                                <span className="text-white">{transactions.length}</span>
-                            ) : showWinnings ? (
-                                <span className="text-[#FBBF24]">KES {isStealthMode ? '****' : myWinnings.toLocaleString()}</span>
+                                <span>KES {isStealthMode ? '****' : transactions.filter(t => t.type === 'payout').reduce((acc, t) => acc + (t.amount || 0), 0).toLocaleString()}</span>
                             ) : (
-                                <span className="text-white">{myGameweeksWon} <span className="text-base font-bold text-gray-500">GW{myGameweeksWon !== 1 ? 's' : ''}</span></span>
+                                <span>KES {isStealthMode ? '****' : myWinnings.toLocaleString()}</span>
                             )}
                         </p>
                     </div>

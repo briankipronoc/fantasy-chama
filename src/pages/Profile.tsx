@@ -19,6 +19,8 @@ export default function Profile() {
     const [fplTeamName, setFplTeamName] = useState('');
     const [avatarSeed, setAvatarSeed] = useState('chairman');
     const [isSavingMember, setIsSavingMember] = useState(false);
+    const [fplStandings, setFplStandings] = useState<any[]>([]);
+    const [isFetchingFpl, setIsFetchingFpl] = useState(false);
 
     // State for Admin Settings
     const [gameweekStake, setMonthlyContribution] = useState<number>(0);
@@ -40,24 +42,46 @@ export default function Profile() {
     useEffect(() => {
         if (activeLeagueId) {
             listenToLeagueMembers(activeLeagueId);
-            // Fetch League Details for Admin
-            if (role === 'admin') {
-                const fetchLeague = async () => {
-                    const docRef = doc(db, 'leagues', activeLeagueId);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
+            
+            // Fetch League Details for everyone so we get fplLeagueId
+            const fetchLeagueAndFpl = async () => {
+                const docRef = doc(db, 'leagues', activeLeagueId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (role === 'admin') {
                         setMonthlyContribution(data.gameweekStake || 1400);
                         setWeeklyPrizePercent(data.rules?.weekly || 70);
                         setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
-                        setFplLeagueId(data.fplLeagueId || '');
                         setInviteCode(data.inviteCode || 'N/A');
                         setCoAdminId(data.coAdminId || '');
-                        if (data.chairmanId) setChairmanId(data.chairmanId);
                     }
-                };
-                fetchLeague();
-            }
+                    if (data.chairmanId) setChairmanId(data.chairmanId);
+                    
+                    const fplId = data.fplLeagueId;
+                    setFplLeagueId(fplId || '');
+
+                    // If league has an FPL ID, fetch the standings list to let user sync their exact team
+                    if (fplId) {
+                        try {
+                            setIsFetchingFpl(true);
+                            const STANDINGS_API_URL = `https://fantasy.premierleague.com/api/leagues-classic/${fplId}/standings/`;
+                            const response = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(STANDINGS_API_URL)}`);
+                            if (response.ok) {
+                                const payload = await response.json();
+                                if (payload.standings && payload.standings.results) {
+                                    setFplStandings(payload.standings.results);
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Failed to sync FPL Teams:", err);
+                        } finally {
+                            setIsFetchingFpl(false);
+                        }
+                    }
+                }
+            };
+            fetchLeagueAndFpl();
         }
     }, [activeLeagueId, listenToLeagueMembers, role]);
 
@@ -76,7 +100,7 @@ export default function Profile() {
             if (currentMember) {
                 setDisplayName(currentMember.displayName || '');
                 setPhoneNumber(currentMember.phone || '');
-                setFplTeamName((currentMember as any).fplTeamName || '');
+                setFplTeamName((currentMember as any).fplTeamId ? String((currentMember as any).fplTeamId) : '');
                 setAvatarSeed((currentMember as any).avatarSeed || (role === 'admin' ? 'chairman' : currentMember.displayName));
             }
         }
@@ -99,12 +123,24 @@ export default function Profile() {
 
             if (targetMemberId) {
                 const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', targetMemberId);
-                await updateDoc(memberRef, {
+                const updates: any = {
                     displayName: displayName,
                     phone: phoneNumber,
-                    fplTeamName: fplTeamName,
                     avatarSeed: avatarSeed
-                });
+                };
+
+                // The dropdown stores the numeric FPL entry ID. Only update if valid.
+                if (fplTeamName !== '') {
+                    updates.fplTeamId = Number(fplTeamName);
+                    
+                    // Also find the real name and save it locally just in case
+                    const matchedTeam = fplStandings.find((t: any) => String(t.entry) === String(fplTeamName));
+                    if (matchedTeam) {
+                        updates.fplTeamName = matchedTeam.entry_name;
+                    }
+                }
+
+                await updateDoc(memberRef, updates);
                 setToast({ message: 'Profile updated successfully!', type: 'success' });
             }
         } catch (error) {
@@ -260,15 +296,38 @@ export default function Profile() {
 
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">
-                                    FPL Team ID / Name
+                                    Link FPL Team
                                 </label>
-                                <input
-                                    type="text"
-                                    value={fplTeamName}
-                                    onChange={(e) => setFplTeamName(e.target.value)}
-                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium placeholder:text-gray-600"
-                                    placeholder="Enter your FPL Team details"
-                                />
+                                {isFetchingFpl ? (
+                                    <div className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm text-gray-500 italic">
+                                        Syncing with Fantasy Premier League Server...
+                                    </div>
+                                ) : fplStandings.length > 0 ? (
+                                    <select
+                                        value={fplTeamName}
+                                        onChange={(e) => setFplTeamName(e.target.value)}
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium text-left appearance-none"
+                                    >
+                                        <option value="" disabled className="text-gray-500">Select your actual FPL Team</option>
+                                        {fplStandings.map((team: any) => (
+                                            <option key={team.entry} value={team.entry}>
+                                                {team.entry_name} — (Mgr: {team.player_name})
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={fplTeamName}
+                                        onChange={(e) => setFplTeamName(e.target.value)}
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3.5 px-4 text-sm text-gray-500 outline-none font-medium cursor-not-allowed opacity-60"
+                                        placeholder="League Standings unavailable."
+                                        disabled
+                                    />
+                                )}
+                                <p className="text-[10px] text-gray-400 font-medium mt-2">
+                                    Resolves FPL vs M-Pesa name mismatches perfectly.
+                                </p>
                             </div>
 
                             {/* Email — read-only from Firebase Auth */}

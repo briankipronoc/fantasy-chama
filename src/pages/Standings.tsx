@@ -12,7 +12,7 @@ export default function Standings() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [gameweekStake, setMonthlyContribution] = useState(0);
-    const [rules, setRules] = useState({ weekly: 70, vault: 30 });
+    const [rules, setRules] = useState({ weekly: 70, vault: 30, seasonWinnersCount: 3 });
     const [leagueName, setLeagueName] = useState('');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
@@ -71,9 +71,10 @@ export default function Standings() {
         fetchFPLStandings();
     }, [activeLeagueId, listenToLeagueMembers, members.length]);
 
-    const getMemberStatus = (playerName: string, entryName: string) => {
+    const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
         const norm = (s: string) => s.toLowerCase().trim();
         return members.find(m => {
+            if (m.fplTeamId && Number(m.fplTeamId) === Number(entryId)) return true;
             const db = norm(m.displayName);
             return norm(playerName).includes(db) || db.includes(norm(playerName)) || norm(entryName).includes(db);
         });
@@ -103,6 +104,19 @@ export default function Standings() {
     const totalCollected = paidMembersCount * gameweekStake;
     const grandVaultTotal = totalCollected * (rules.vault / 100);
     const weeklyPot = totalCollected * (rules.weekly / 100);
+
+    const gwWinner = standingsData.length > 0
+        ? standingsData.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current)
+        : null;
+
+    // End of Season Payout Projections — dynamic based on seasonWinnersCount
+    const getDistributionRanges = (count: number) => {
+        if (count === 1) return [100];
+        if (count === 5) return [45, 25, 15, 10, 5];
+        return [50, 30, 20]; // fallback top 3
+    };
+    const seasonSplitPercentages = getDistributionRanges(rules.seasonWinnersCount || 3);
+    const seasonPayouts = seasonSplitPercentages.map(p => grandVaultTotal * (p / 100));
 
     if (isLoading) {
         return (
@@ -219,6 +233,74 @@ export default function Standings() {
                     </div>
                 </div>
 
+                {/* VISUALIZATIONS ROW: GW Winner + End of Season Pot */}
+                {!error && standingsData.length > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                        {/* Live Gameweek Winner Gold UI */}
+                        {gwWinner && (
+                            <div className="bg-gradient-to-br from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 shadow-[0_0_30px_rgba(251,191,36,0.05)] relative overflow-hidden flex flex-col justify-between hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 min-h-[180px]">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
+                                <div className="relative z-10 flex items-start gap-4 mb-4">
+                                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
+                                        <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
+                                            <Trophy className="w-6 h-6 text-[#FBBF24]" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                            <Star className="w-3 h-3 fill-current" /> Gameweek Champion
+                                        </p>
+                                        <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
+                                        <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} </p>
+                                    </div>
+                                </div>
+
+                                <div className="relative z-10 flex items-center justify-between bg-[#0b1014]/50 p-4 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">GW Score</p>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-[#10B981] font-black text-lg bg-[#10B981]/10 px-3 py-1 rounded-xl border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* End of Season Projections */}
+                        <div className="bg-[#161d24] border border-[#10B981]/20 rounded-[2rem] p-6 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[180px]">
+                            <div className="absolute top-0 right-1/2 translate-x-1/2 w-64 h-64 bg-[#10B981] blur-[120px] opacity-10 pointer-events-none"></div>
+                            
+                            <div className="relative z-10 flex items-center justify-between mb-4">
+                                <div>
+                                    <p className="text-[10px] font-black text-[#10B981] uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                        <Zap className="w-3 h-3 text-[#10B981]" /> The Grand Vault
+                                    </p>
+                                    <h3 className="text-xl font-black text-white">End of Season Projections</h3>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-sm font-bold text-gray-500">Total Pot</span>
+                                    <p className="text-xl font-black text-[#10B981] tabular-nums">KES {grandVaultTotal.toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            <div className={`relative z-10 grid grid-cols-${seasonPayouts.length} gap-2 mt-auto`}>
+                                {seasonPayouts.map((payout, idx) => {
+                                    const positionColors = ['#FBBF24', '#C0C0C0', '#B45309', '#10B981', '#3B82F6'];
+                                    const positionLabels = ['1st Place', '2nd Place', '3rd Place', '4th Place', '5th Place'];
+                                    const color = positionColors[idx] || '#10B981';
+                                    return (
+                                        <div key={idx} className="bg-black/40 border rounded-xl p-3 text-center" style={{ borderColor: `${color}40` }}>
+                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{positionLabels[idx]}</p>
+                                            <p className="text-sm font-black tabular-nums" style={{ color }}>
+                                                KES {payout.toLocaleString()}
+                                            </p>
+                                            <p className="text-[9px] text-gray-600 font-bold mt-0.5">{seasonSplitPercentages[idx]}%</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Table */}
                 {error ? (
                     <div className="w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center shadow-2xl relative overflow-hidden mt-6">
@@ -246,14 +328,15 @@ export default function Standings() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.04]">
-                                {standingsData.filter((row: any) => getMemberStatus(row.player_name, row.entry_name)).map((row: any, index: number) => {
+                                {standingsData.filter((row: any) => getMemberStatus(row.player_name, row.entry_name, row.entry)).map((row: any, index: number) => {
                                     const isTop1 = index === 0;
-                                    const matchedMember = getMemberStatus(row.player_name, row.entry_name);
+                                    const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
                                     const hasPaid = matchedMember ? matchedMember.hasPaid : null;
                                     return (
                                         <tr key={row.id} className={clsx(
                                             'transition-colors',
                                             isTop1 ? 'bg-[#10B981]/5' : 'hover:bg-white/[0.02]',
+                                            gwWinner && row.id === gwWinner.id && !isTop1 ? 'bg-[#FBBF24]/5' : '',
                                             hasPaid === false && 'opacity-50'
                                         )}>
                                             <td className="px-5 py-4">
@@ -301,8 +384,8 @@ export default function Standings() {
                                             </td>
                                             <td className="px-5 py-4 text-center font-extrabold text-white tabular-nums">{row.total.toLocaleString()}</td>
                                             <td className="px-5 py-4 text-right">
-                                                {isTop1
-                                                    ? <span className="font-black text-[#FBBF24] text-sm">KES {weeklyPot.toLocaleString()}</span>
+                                                {gwWinner && row.id === gwWinner.id
+                                                    ? <span className="font-black text-[#FBBF24] text-sm tracking-tight border border-[#FBBF24]/20 bg-[#FBBF24]/10 px-2 py-1 rounded-lg">GW WIN: KES {weeklyPot.toLocaleString()}</span>
                                                     : <span className="text-gray-600">—</span>
                                                 }
                                             </td>

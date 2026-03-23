@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck } from 'lucide-react';
+import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
@@ -31,6 +31,9 @@ export default function AdminCommandCenter() {
     // Module 3B: Dispute/Claim alerts
     const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
     const [processingDispute, setProcessingDispute] = useState<string | null>(null);
+
+    // Phase 29: FPL GW Winner logic
+    const [gwWinner, setGwWinner] = useState<any>(null);
 
     // Filter & Modal State
     const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
@@ -79,6 +82,20 @@ export default function AdminCommandCenter() {
                     setMonthlyContribution(data.gameweekStake || 0);
                     setCoAdminId(data.coAdminId || null);
                     if (data.rules) setRules(data.rules);
+
+                    // Fetch Live GW Winner
+                    if (data.fplLeagueId) {
+                        fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
+                            .then(res => res.json())
+                            .then(fplData => {
+                                const results = fplData?.standings?.results;
+                                if (results && results.length > 0) {
+                                    const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
+                                    setGwWinner(winner);
+                                }
+                            })
+                            .catch(err => console.error("Could not fetch FPL winner:", err));
+                    }
                 }
 
                 // Initialize Live Ledger
@@ -382,6 +399,14 @@ export default function AdminCommandCenter() {
                     readBy: []
                 });
 
+                // Notify Everyone that the GW is locked
+                await addDoc(notifsRef, {
+                    type: 'info',
+                    message: `🏆 Gameweek Finalized! ${winner.displayName} took the crown with ${winningPoints} pts. Payout of KES ${weeklyPot.toLocaleString()} scheduled for tomorrow morning (pending approval).`,
+                    timestamp: serverTimestamp(),
+                    readBy: []
+                });
+
                 // Log to Live Escrow Feed
                 await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
                     eventType: 'resolution',
@@ -452,6 +477,14 @@ export default function AdminCommandCenter() {
                         message: `GW26 resolved — KES ${weeklyPot.toLocaleString()} dispatched to ${winner.displayName} (${winningPoints} pts).`,
                         actor: auth.currentUser?.displayName || 'Chairman',
                         timestamp: serverTimestamp()
+                    });
+
+                    // General Notification
+                    await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                        type: 'success',
+                        message: `🏆 Gameweek Finalized! ${winner.displayName} dominated with ${winningPoints} pts. Payout of KES ${weeklyPot.toLocaleString()} is scheduled for tomorrow morning.`,
+                        timestamp: serverTimestamp(),
+                        readBy: []
                     });
 
                     confetti({
@@ -566,6 +599,34 @@ export default function AdminCommandCenter() {
             <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-10">
                 {/* Top Header */}
                 <Header role="admin" title={leagueName || 'Command Center'} subtitle="Chairman Hub" />
+
+                {/* Live Gameweek Winner Gold UI */}
+                {gwWinner && (
+                    <div className="bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 shadow-[0_0_30px_rgba(251,191,36,0.05)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
+                        
+                        <div className="relative z-10 flex items-center gap-5 w-full md:w-auto">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
+                                <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
+                                    <Trophy className="w-7 h-7 text-[#FBBF24]" />
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                    <Star className="w-3 h-3 fill-current" /> Gameweek Champion
+                                </p>
+                                <h3 className="text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
+                                <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>
+                            </div>
+                        </div>
+
+                        <div className="relative z-10 flex flex-row md:flex-col items-center flex-shrink-0 md:items-end justify-between w-full md:w-auto bg-[#0b1014]/50 p-4 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm gap-2">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Projected Payout</p>
+                            <p className="text-2xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Co-Admin: Pending Payout Approval Panel */}
                 {pendingPayouts.length > 0 && (

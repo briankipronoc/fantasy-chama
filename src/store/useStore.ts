@@ -13,6 +13,7 @@ export interface Member {
     walletBalance: number;      // KES balance — Module 2 Wallet Architecture
     role?: string;
     authUid?: string; // Added to map the Co-Admin strictly by Auth UID
+    fplTeamId?: number; // Binds the FPL Entry ID directly to the user
     isActive?: boolean;         // Determines if a user has been deactivated from the league
     missedGameweeks?: number;   // Consecutive missed gameweeks (delinquent)
     hasAcceptedRules?: boolean;

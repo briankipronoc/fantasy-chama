@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2 } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -41,6 +41,12 @@ export default function MemberDashboard() {
     // Phase 10.5: Live Escrow Feed
     const [liveEvents, setLiveEvents] = useState<any[]>([]);
 
+    // Phase 29: Winner's Circle logic
+    const [gwWinner, setGwWinner] = useState<any>(null);
+
+    // Phase 30: Expanded Winner's Circle
+    const [showAllWinners, setShowAllWinners] = useState(false);
+
     // Co-Admin State
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
@@ -70,6 +76,20 @@ export default function MemberDashboard() {
                 setLeagueName(data.leagueName || '');
                 if (data.rules) setRules(data.rules);
                 if (data.coAdminId) setCoAdminId(data.coAdminId);
+
+                // Phase 29: Fetch FPL GW Winner continuously
+                if (data.fplLeagueId) {
+                    fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
+                        .then(res => res.json())
+                        .then(fplData => {
+                            const results = fplData?.standings?.results;
+                            if (results && results.length > 0) {
+                                const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
+                                setGwWinner(winner);
+                            }
+                        })
+                        .catch(err => console.error("Could not fetch FPL winner:", err));
+                }
             }
         }, (err: any) => {
             console.error("Error listening to league:", err);
@@ -336,6 +356,13 @@ export default function MemberDashboard() {
     const mostRecentWinner = winnerEvents.length > 0 ? winnerEvents[0] : null;
     const isRecentWinner = mostRecentWinner?.winnerId === currentUser?.id;
 
+    // Phase 30: Is the logged-in user the current GW Winner?
+    const isCurrentUserGwWinner = gwWinner && currentUser && (
+        (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
+        currentUser.displayName?.toLowerCase().includes(gwWinner.player_name?.toLowerCase()) ||
+        gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
+    );
+
 
     // Mock Performance Data for Trajectory
     const performanceData = [
@@ -368,17 +395,26 @@ export default function MemberDashboard() {
     return (
         <div className={clsx(
             "min-h-[100dvh] text-white flex flex-col font-sans relative pb-28 w-full overflow-x-hidden transition-colors duration-1000",
-            hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]"
+            isCurrentUserGwWinner
+                ? "bg-gradient-to-br from-[#0b1014] via-[#1a1608] to-[#2a1f05]"
+                : hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]"
         )}>
+            {/* Golden Glow Overlay for GW Winner */}
+            {isCurrentUserGwWinner && (
+                <div className="fixed inset-0 pointer-events-none z-0">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#FBBF24] blur-[200px] opacity-[0.06]"></div>
+                    <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#F59E0B] blur-[150px] opacity-[0.04]"></div>
+                </div>
+            )}
             {/* Background Element */}
             <div className="fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none z-0">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" d="M10,100 L190,100 M100,10 L100,190 M30,30 L170,170 M30,170 L170,30" />
-                    <circle cx="10" cy="100" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="190" cy="100" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="100" cy="10" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="100" cy="190" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="100" cy="100" r="3" fill="rgba(255,255,255,0.5)" />
+                    <path fill="none" stroke={isCurrentUserGwWinner ? "rgba(251,191,36,0.15)" : "rgba(255,255,255,0.1)"} strokeWidth="0.5" d="M10,100 L190,100 M100,10 L100,190 M30,30 L170,170 M30,170 L170,30" />
+                    <circle cx="10" cy="100" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
+                    <circle cx="190" cy="100" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
+                    <circle cx="100" cy="10" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
+                    <circle cx="100" cy="190" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
+                    <circle cx="100" cy="100" r="3" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.6)" : "rgba(255,255,255,0.5)"} />
                 </svg>
             </div>
 
@@ -421,39 +457,97 @@ export default function MemberDashboard() {
                     </span>
                 </div>
 
-                {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
-                {(winnerConfirmation || !hasPaid) && (
-                    <div className={clsx(
-                        "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
-                        winnerConfirmation
-                            ? "bg-[#1c1a09] border-[#FBBF24]/40 shadow-[0_0_20px_rgba(251,191,36,0.1)]"
-                            : "bg-red-950/40 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.08)]"
-                    )}>
-                        <span className="text-xl flex-shrink-0">{winnerConfirmation ? '🏆' : '⚠️'}</span>
-                        <div className="flex-1 min-w-0">
-                            <p className={clsx(
-                                "font-extrabold text-sm leading-tight",
-                                winnerConfirmation ? "text-[#FBBF24]" : "text-red-400"
-                            )}>
-                                {winnerConfirmation
-                                    ? `ACTION REQUIRED: Confirm receipt of KES ${winnerConfirmation.amount?.toLocaleString()}`
-                                    : 'ACTION REQUIRED: Red Zone — Pay before the FPL deadline'}
+                {/* Phase 30: Golden Winner Celebration OR Normal Action Banner */}
+                {isCurrentUserGwWinner ? (
+                    <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-80 h-80 bg-[#FBBF24] blur-[120px] opacity-10 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
+                        <div className="relative z-10 w-20 h-20 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[3px] shadow-[0_0_30px_rgba(251,191,36,0.3)] flex-shrink-0 animate-pulse">
+                            <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center">
+                                <Trophy className="w-9 h-9 text-[#FBBF24]" />
+                            </div>
+                        </div>
+                        <div className="relative z-10 text-center sm:text-left flex-1">
+                            <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5 justify-center sm:justify-start">
+                                <Star className="w-3 h-3 fill-current" /> You Are This Gameweek's Champion!
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-0.5">
-                                {winnerConfirmation
-                                    ? 'Tap below once you receive the funds in your M-Pesa'
-                                    : `Your wallet balance is empty. Pay KES ${gameweekStake.toLocaleString()} to stay eligible.`}
+                            <h3 className="text-2xl md:text-3xl font-black text-white leading-tight tracking-tight">
+                                Congratulations, {firstName}!
+                            </h3>
+                            <p className="text-sm font-bold text-gray-300 mt-1">
+                                You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
                             </p>
                         </div>
-                        {winnerConfirmation && (
-                            <button
-                                onClick={handleConfirmWinnings}
-                                className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-3 py-2 rounded-xl transition-colors"
-                            >
-                                Confirm ✓
-                            </button>
-                        )}
+                        <div className="relative z-10 bg-[#0b1014]/60 backdrop-blur-sm p-4 rounded-2xl border border-[#FBBF24]/30 text-center flex-shrink-0">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
+                            <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                        </div>
                     </div>
+                ) : (
+                    <>
+                        {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
+                        {(winnerConfirmation || !hasPaid) && (
+                            <div className={clsx(
+                                "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
+                                winnerConfirmation
+                                    ? "bg-[#1c1a09] border-[#FBBF24]/40 shadow-[0_0_20px_rgba(251,191,36,0.1)]"
+                                    : "bg-red-950/40 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.08)]"
+                            )}>
+                                <span className="text-xl flex-shrink-0">{winnerConfirmation ? '🏆' : '⚠️'}</span>
+                                <div className="flex-1 min-w-0">
+                                    <p className={clsx(
+                                        "font-extrabold text-sm leading-tight",
+                                        winnerConfirmation ? "text-[#FBBF24]" : "text-red-400"
+                                    )}>
+                                        {winnerConfirmation
+                                            ? `ACTION REQUIRED: Confirm receipt of KES ${winnerConfirmation.amount?.toLocaleString()}`
+                                            : 'ACTION REQUIRED: Red Zone — Pay before the FPL deadline'}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 mt-0.5">
+                                        {winnerConfirmation
+                                            ? 'Tap below once you receive the funds in your M-Pesa'
+                                            : `Your wallet balance is empty. Pay KES ${gameweekStake.toLocaleString()} to stay eligible.`}
+                                    </p>
+                                </div>
+                                {winnerConfirmation && (
+                                    <button
+                                        onClick={handleConfirmWinnings}
+                                        className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-3 py-2 rounded-xl transition-colors"
+                                    >
+                                        Confirm ✓
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Live Gameweek Winner Gold UI */}
+                        {gwWinner && (
+                            <div className="bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 shadow-[0_0_30px_rgba(251,191,36,0.05)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
+                                <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
+                                
+                                <div className="relative z-10 flex items-center gap-5 w-full md:w-auto">
+                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
+                                        <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
+                                            <Trophy className="w-7 h-7 text-[#FBBF24]" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                            <Star className="w-3 h-3 fill-current" /> Gameweek Champion
+                                        </p>
+                                        <h3 className="text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
+                                        <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>
+                                    </div>
+                                </div>
+
+                                <div className="relative z-10 flex flex-row md:flex-col items-center flex-shrink-0 md:items-end justify-between w-full md:w-auto bg-[#0b1014]/50 p-4 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm gap-2">
+                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Projected Payout</p>
+                                    <p className="text-2xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -472,30 +566,57 @@ export default function MemberDashboard() {
                         />
                     </div>
 
-                    {/* Winner's Circle — compact */}
+                    {/* Winner's Circle — expandable */}
                     <div className="lg:col-span-4 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col gap-3 overflow-hidden">
-                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
-                            <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle
-                        </h4>
-                        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                        <div className="flex items-center justify-between">
+                            <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                                <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle
+                            </h4>
+                            {winnerEvents.length > 3 && (
+                                <button
+                                    onClick={() => setShowAllWinners(!showAllWinners)}
+                                    className="text-[10px] font-bold text-[#FBBF24] hover:text-[#eab308] uppercase tracking-widest transition-colors"
+                                >
+                                    {showAllWinners ? 'Collapse' : `View All (${winnerEvents.length})`}
+                                </button>
+                            )}
+                        </div>
+                        <div className={clsx(
+                            "flex gap-3 pb-1 transition-all duration-300",
+                            showAllWinners ? "flex-wrap" : "overflow-x-auto"
+                        )} style={showAllWinners ? {} : { scrollbarWidth: 'none' }}>
                             {winnerEvents.length === 0 ? (
                                 <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 w-full text-center">No winners yet</div>
-                            ) : winnerEvents.slice(0, 5).map((winner: any, idx: number) => {
+                            ) : (showAllWinners ? winnerEvents : winnerEvents.slice(0, 5)).map((winner: any, idx: number) => {
                                 const winnerMember = members.find(m => m.id === winner.winnerId) || { avatarSeed: winner.winnerName };
                                 return (
                                     <div key={idx} className={clsx(
                                         "flex flex-col items-center justify-center min-w-[80px] rounded-xl p-3 shrink-0 border transition-all",
-                                        winner.winnerId === activeUserId ? "border-[#FBBF24]/40 bg-[#FBBF24]/5" : "border-white/5 bg-white/[0.02]"
+                                        winner.winnerId === activeUserId ? "border-[#FBBF24]/40 bg-[#FBBF24]/5 shadow-[0_0_10px_rgba(251,191,36,0.1)]" : "border-white/5 bg-white/[0.02]"
                                     )}>
                                         <div className="w-9 h-9 rounded-full border-2 border-[#FBBF24]/60 p-0.5 mb-1.5 bg-[#0b1014]">
                                             <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(winnerMember as any).avatarSeed}&backgroundColor=transparent`} alt={winner.winnerName} className="w-full h-full rounded-full object-cover" />
                                         </div>
                                         <span className="font-bold text-[11px] text-white leading-tight text-center">{winner.winnerName?.split(' ')[0]}</span>
                                         <span className="text-[10px] text-[#eab308] font-bold">GW{winner.gw}</span>
+                                        {winner.points && <span className="text-[9px] text-gray-500 font-bold tabular-nums">{winner.points} pts</span>}
                                     </div>
                                 );
                             })}
                         </div>
+                        {/* Stats Summary */}
+                        {showAllWinners && winnerEvents.length > 0 && (
+                            <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-white/5">
+                                <div className="bg-black/30 rounded-xl p-2.5 text-center">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Total GWs Won</p>
+                                    <p className="text-lg font-black text-white tabular-nums">{winnerEvents.length}</p>
+                                </div>
+                                <div className="bg-black/30 rounded-xl p-2.5 text-center">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Unique Winners</p>
+                                    <p className="text-lg font-black text-[#FBBF24] tabular-nums">{new Set(winnerEvents.map((w: any) => w.winnerId)).size}</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
