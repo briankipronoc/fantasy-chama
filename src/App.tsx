@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationProvider';
 
 // Renders the correct dashboard based on role — used inside the AppLayout
@@ -53,6 +54,7 @@ const AppLayoutWrapper = () => (
 function App() {
   return (
     <>
+      <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe — please retry.">
       <Routes>
         {/* Public routes — no AppLayout shell */}
         <Route path="/" element={<RootRoute />} />
@@ -74,6 +76,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
+      </ErrorBoundary>
     </>
   );
 }

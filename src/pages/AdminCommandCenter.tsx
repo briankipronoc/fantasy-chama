@@ -631,9 +631,29 @@ export default function AdminCommandCenter() {
                 {/* Co-Admin: Pending Payout Approval Panel */}
                 {pendingPayouts.length > 0 && (
                     <section className="space-y-4">
-                        <h2 className="text-xl font-extrabold flex items-center gap-2 text-[#FBBF24]">
-                            <AlertTriangle className="w-5 h-5" /> Maker/Checker: Awaiting Approval
-                        </h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-extrabold flex items-center gap-2 text-[#FBBF24]">
+                                <AlertTriangle className="w-5 h-5" /> Maker/Checker: Awaiting Approval
+                            </h2>
+                            {coAdminId && (
+                                <button
+                                    onClick={async () => {
+                                        if (!activeLeagueId) return;
+                                        await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                                            type: 'warning',
+                                            message: `⚡ The Chairman is nudging you to review and approve ${pendingPayouts.length} pending payout(s)! Please action ASAP.`,
+                                            timestamp: serverTimestamp(),
+                                            readBy: [],
+                                            targetMemberId: coAdminId
+                                        });
+                                        showToast('Nudge sent to Co-Admin!');
+                                    }}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95"
+                                >
+                                    <Bell className="w-3 h-3" /> Nudge Co-Admin
+                                </button>
+                            )}
+                        </div>
                         <div className="space-y-3">
                             {pendingPayouts.map((payout) => (
                                 <div key={payout.id} className="bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

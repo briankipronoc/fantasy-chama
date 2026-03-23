@@ -9,6 +9,7 @@ import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { DashboardSkeleton } from '../components/Skeleton';
 
 export default function MemberDashboard() {
     const navigate = useNavigate();
@@ -384,12 +385,7 @@ export default function MemberDashboard() {
     const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
 
     if (isLoading) {
-        return (
-            <div className="min-h-screen bg-[#0b1014] text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase">
-                <Zap className="w-8 h-8 animate-pulse mb-4 text-[#10B981]" />
-                Initializing War Room...
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     return (

@@ -129,7 +129,9 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     >
                         <Bell className="w-5 h-5 md:w-6 md:h-6" />
                         {(unreadPersonalCount + unreadSystemCount) > 0 && (
-                            <span className="absolute top-2 right-2 md:top-2.5 md:right-2.5 w-2.5 h-2.5 bg-[#FBBF24] rounded-full border-2 border-[#0b1014] animate-pulse" />
+                            <span className="absolute -top-0.5 -right-0.5 md:top-0 md:right-0 min-w-[18px] h-[18px] bg-[#FBBF24] rounded-full border-2 border-[#0b1014] flex items-center justify-center animate-pulse">
+                                <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
+                            </span>
                         )}
                     </button>
 
