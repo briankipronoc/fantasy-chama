@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -662,6 +662,34 @@ export default function MemberDashboard() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {/* Member Nudge: If pending payouts exist but user is NOT co-admin, show a nudge button */}
+                {pendingPayouts.length > 0 && currentUser?.id !== coAdminId && (
+                    <div className="mb-4 bg-[#FBBF24]/5 border border-[#FBBF24]/20 rounded-[1.5rem] p-4 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <Trophy className="w-5 h-5 text-[#FBBF24] flex-shrink-0" />
+                            <div>
+                                <p className="text-sm font-bold text-[#FBBF24]">Payout Awaiting Approval</p>
+                                <p className="text-[10px] text-gray-500 font-medium">The Co-Admin needs to approve the payout before it's dispatched.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (!activeLeagueId) return;
+                                await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                                    type: 'warning',
+                                    message: `🔔 ${currentUser?.displayName || 'A member'} is nudging the Co-Admin to approve the pending payout! Please review ASAP.`,
+                                    timestamp: serverTimestamp(),
+                                    readBy: []
+                                });
+                                showToast('Nudge sent! The Co-Admin has been notified.', 'success');
+                            }}
+                            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95"
+                        >
+                            <Send className="w-3 h-3" /> Nudge
+                        </button>
                     </div>
                 )}
 

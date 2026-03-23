@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star } from 'lucide-react';
+import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Wallet } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
@@ -672,6 +672,69 @@ export default function AdminCommandCenter() {
                         </div>
                     </section>
                 )}
+
+                {/* Chairman/Co-Admin Earnings Panel */}
+                {(() => {
+                    const authUid = auth.currentUser?.uid;
+                    const currentAdmin = members.find(m => m.authUid === authUid || m.role === 'admin');
+                    if (!currentAdmin) return null;
+
+                    const totalCollectedGross = members.filter(m => m.isActive !== false).length * gameweekStake;
+                    const escrowRake = totalCollectedGross * 0.10;
+                    const isChairman = currentAdmin.authUid === authUid;
+                    const hasCoAdmin = !!coAdminId;
+
+                    const chairmanRate = hasCoAdmin ? 0.025 : 0.035;
+                    const coAdminRate = hasCoAdmin ? 0.01 : 0;
+                    const myRate = isChairman ? chairmanRate : coAdminRate;
+                    const myEarningsThisGW = totalCollectedGross * myRate;
+                    const myRoleLabel = isChairman ? 'Chairman' : 'Co-Admin';
+                    const myWalletBalance = currentAdmin.walletBalance || 0;
+
+                    return (
+                        <section className="bg-gradient-to-br from-[#161d24] to-[#1a1608]/50 border border-[#FBBF24]/20 rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-[#FBBF24] blur-[120px] opacity-[0.04] pointer-events-none"></div>
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="w-10 h-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
+                                    <Wallet className="w-5 h-5 text-[#FBBF24]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-[#FBBF24] uppercase tracking-widest">My Earnings ({myRoleLabel})</h3>
+                                    <p className="text-[10px] text-gray-500 font-bold">Auto-credited from the 10% Escrow Rake every Gameweek</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">My Rate</p>
+                                    <p className="text-xl font-black text-[#FBBF24] tabular-nums">{(myRate * 100).toFixed(1)}%</p>
+                                </div>
+                                <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">This GW Est.</p>
+                                    <p className="text-xl font-black text-[#FBBF24] tabular-nums">
+                                        KES {isStealthMode ? '****' : Math.round(myEarningsThisGW).toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="bg-black/30 rounded-xl p-4 text-center border border-[#FBBF24]/20">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Wallet Balance</p>
+                                    <p className="text-xl font-black text-white tabular-nums">
+                                        KES {isStealthMode ? '****' : myWalletBalance.toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Escrow Pool</p>
+                                    <p className="text-xl font-black text-gray-400 tabular-nums">
+                                        KES {isStealthMode ? '****' : Math.round(escrowRake).toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <p className="text-[10px] text-gray-600 font-medium mt-4">
+                                Kickbacks are deposited automatically during GW resolution. Withdraw via M-Pesa B2C from the Finances page.
+                            </p>
+                        </section>
+                    );
+                })()}
 
                 {/* Generate League Access Section */}
                 <section className="space-y-6">
