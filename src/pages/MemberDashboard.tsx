@@ -16,7 +16,7 @@ export default function MemberDashboard() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
 
-    const [monthlyContribution, setMonthlyContribution] = useState(0);
+    const [gameweekStake, setMonthlyContribution] = useState(0);
     const [leagueName, setLeagueName] = useState('');
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
@@ -51,7 +51,8 @@ export default function MemberDashboard() {
     const { notifications } = useNotifications();
 
     const currentUser = members.find(m => m.phone === memberPhone);
-    const hasPaid = currentUser?.hasPaid || false;
+    const walletBalance = currentUser?.walletBalance || 0;
+    const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
     const activeUserId = currentUser?.id || 'dummy';
 
     useEffect(() => {
@@ -65,7 +66,7 @@ export default function MemberDashboard() {
         const unsubscribeLeague = onSnapshot(leagueRef, (docSnap: any) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                setMonthlyContribution(data.monthlyContribution || 0);
+                setMonthlyContribution(data.gameweekStake || 0);
                 setLeagueName(data.leagueName || '');
                 if (data.rules) setRules(data.rules);
                 if (data.coAdminId) setCoAdminId(data.coAdminId);
@@ -78,6 +79,14 @@ export default function MemberDashboard() {
         // Initialize Live Ledger for Members
         listenToLeagueMembers(activeLeagueId);
         setIsLoading(false);
+
+        // Update lastLoginAt for retention tracking
+        if (activeUserId && activeUserId !== 'dummy') {
+            const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', activeUserId);
+            updateDoc(memberRef, { 
+                lastLoginAt: serverTimestamp() 
+            }).catch(e => console.error("Failed to update last login", e));
+        }
 
         if (location.state?.welcomeMsg) {
             setToastMessage(location.state.welcomeMsg);
@@ -131,7 +140,7 @@ export default function MemberDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phoneNumber: memberPhone,
-                    amount: monthlyContribution,
+                    amount: gameweekStake,
                     userId: activeUserId,
                     leagueId: activeLeagueId
                 })
@@ -189,7 +198,7 @@ export default function MemberDashboard() {
                 memberName: currentUser.displayName,
                 phone: currentUser.phone,
                 receiptCode: claimReceiptCode.trim().toUpperCase(),
-                amount: monthlyContribution,
+                amount: gameweekStake,
                 status: 'pending',
                 timestamp: serverTimestamp()
             });
@@ -257,12 +266,21 @@ export default function MemberDashboard() {
         const unpaidCount = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false).length;
         const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app';
 
+        const grossPot = payout.amount / 0.9;
+        const totalFee = grossPot * 0.1;
+        const chairmanCut = coAdminId ? grossPot * 0.025 : grossPot * 0.035;
+        const coAdminCut = coAdminId ? grossPot * 0.01 : 0;
+
         const message = [
             `🏆 *${leagueName} — ${payout.gwName || `GW${payout.gw}`} Results*`,
             ``,
             `🥇 *Winner:* ${payout.winnerName} (${payout.points} pts)`,
             `💰 *Payout:* KES ${Number(payout.amount).toLocaleString()} _(Dispatched via M-Pesa ✅)_`,
             `🚨 *Red Zone:* ${unpaidCount} member${unpaidCount !== 1 ? 's' : ''} yet to deposit for next GW.`,
+            ``,
+            `🛡️ *Admin/Escrow Fee (10%):* KES ${Math.round(totalFee).toLocaleString()}`,
+            `👑 *Chairman Cut:* KES ${Math.round(chairmanCut).toLocaleString()}`,
+            `👁️ *Co-Admin Cut:* KES ${Math.round(coAdminCut).toLocaleString()}`,
             ``,
             `📊 Check live standings & vault:`,
             `🔗 ${appUrl}`,
@@ -308,10 +326,10 @@ export default function MemberDashboard() {
 
     // Dynamic Calculations
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
-    const totalCollected = paidMembersCount * monthlyContribution;
+    const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
-    // Formula: Active members * Monthly Contribution * 38 GWs * Vault Percentage
-    const seasonVaultProjected = members.length * monthlyContribution * 38 * (rules.vault / 100);
+    // Formula: Active members * Gameweek Stake * 38 GWs * Vault Percentage
+    const seasonVaultProjected = members.length * gameweekStake * 38 * (rules.vault / 100);
 
     // Dynamic Winner calculation from recent notification feed using the structured isWinnerEvent objects
     const winnerEvents = notifications.filter((n: any) => n.isWinnerEvent);
@@ -424,7 +442,7 @@ export default function MemberDashboard() {
                             <p className="text-[11px] text-gray-500 mt-0.5">
                                 {winnerConfirmation
                                     ? 'Tap below once you receive the funds in your M-Pesa'
-                                    : `Your wallet balance is empty. Pay KES ${monthlyContribution.toLocaleString()} to stay eligible.`}
+                                    : `Your wallet balance is empty. Pay KES ${gameweekStake.toLocaleString()} to stay eligible.`}
                             </p>
                         </div>
                         {winnerConfirmation && (
@@ -553,7 +571,7 @@ export default function MemberDashboard() {
                                 {isRecentWinner
                                     ? "Incredible! You secured the highest points this GW. Payout processing."
                                     : (hasPaid
-                                        ? "Your contribution is secured. Eligible for this GW's pot."
+                                        ? `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`
                                         : (currentUser?.missedGameweeks === 1
                                             ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
                                             : "Your contribution is missing. Pay before the FPL deadline."))}
@@ -563,7 +581,7 @@ export default function MemberDashboard() {
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-baseline justify-center gap-1.5 mb-2 mt-1">
                                         <span className="text-3xl font-black text-white tracking-tight tabular-nums">
-                                            {monthlyContribution.toLocaleString()}
+                                            {gameweekStake.toLocaleString()}
                                         </span>
                                         <span className="text-white text-xs font-bold tracking-widest uppercase">KES</span>
                                     </div>
@@ -575,7 +593,7 @@ export default function MemberDashboard() {
                                         <Banknote className="w-5 h-5 group-hover:-rotate-6 transition-transform" />
                                         {isPushingMpesa ? "Awaiting PIN..." : "Pay with M-Pesa"}
                                     </button>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-2">
                                         <button
                                             onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
                                             className="flex-1 text-[11px] text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors text-center"

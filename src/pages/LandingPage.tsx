@@ -121,17 +121,26 @@ export default function LandingPage() {
             description: 'Built-in anti-fraud — every payout requires Co-Admin approval before a single shilling moves. No single point of failure.',
             tags: ['Co-Admin Approval', 'Dispute System', 'Audit Trail'],
         },
+        {
+            icon: <Trophy className="w-6 h-6 text-[#FBBF24]" />,
+            color: 'gold',
+            title: 'Earn as You Lead. (The Chairman\'s Cut)',
+            description: 'Stop chasing friends for free. Fantasy Chama automatically pays the League Admin a 3.5% kickback on every Gameweek pot for managing the league. Build a big league, earn passive income.',
+            tags: ['Passive Income', '3.5% Kickbacks', 'Creator Economy'],
+        },
     ];
 
     const bgMap: Record<string, string> = {
         emerald: 'bg-emerald-500/10 border-emerald-500/20',
         amber: 'bg-amber-500/10 border-amber-500/20',
         blue: 'bg-blue-500/10 border-blue-500/20',
+        gold: 'bg-[#FBBF24]/10 border-[#FBBF24]/20',
     };
     const tagMap: Record<string, string> = {
         emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
         amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
         blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        gold: 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20',
     };
 
     return (
@@ -296,7 +305,7 @@ export default function LandingPage() {
                         <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-4 block">Why FantasyChama</span>
                         <h2 className="text-3xl md:text-4xl font-black tracking-tight">Built for Trust. Engineered for Speed.</h2>
                     </div>
-                    <div className="grid md:grid-cols-3 gap-6">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {valueProps.map((vp) => (
                             <div
                                 key={vp.title}

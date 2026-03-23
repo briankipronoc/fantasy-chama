@@ -41,6 +41,7 @@ interface AppState {
     listenToLeagueMembers: (leagueId: string) => void;
     listenToLeagueTransactions: (leagueId: string) => void;
     togglePaymentStatus: (leagueId: string, memberId: string, currentStatus: boolean) => Promise<void>;
+    toggleAdminStatus: (leagueId: string, memberId: string, currentRole: string | undefined) => Promise<void>;
     updateWalletBalance: (leagueId: string, memberId: string, delta: number) => Promise<void>;
     toggleMemberActiveStatus: (leagueId: string, memberId: string, newStatus: boolean) => Promise<void>;
 }
@@ -103,6 +104,13 @@ export const useStore = create<AppState>((set) => ({
         const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
         await updateDoc(memberRef, {
             hasPaid: !currentStatus
+        });
+    },
+
+    toggleAdminStatus: async (leagueId, memberId, currentRole) => {
+        const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
+        await updateDoc(memberRef, {
+            role: currentRole === 'admin' ? 'member' : 'admin'
         });
     },
 

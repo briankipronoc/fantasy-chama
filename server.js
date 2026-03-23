@@ -401,6 +401,15 @@ app.post('/api/mpesa/b2c/result', async (req, res) => {
                         readBy: []
                     });
 
+                    // Trigger winner confirmation prompt on their dashboard
+                    await db.collection(`leagues/${leagueId}/winner_confirmations`).add({
+                        winnerId: userId,
+                        amount: amount,
+                        receiptId: receipt,
+                        status: 'pending_confirmation',
+                        timestamp: admin.firestore.FieldValue.serverTimestamp()
+                    });
+
                 } else {
                     console.log('⚠️ Received B2C Callback but could not find ConversationID in Firestore.');
                 }
@@ -455,9 +464,12 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
 
         // Fetch all memberships in the league
         const membersSnap = await db.collection(`leagues/${leagueId}/memberships`).get();
+        const leagueDocSnap = await db.doc(`leagues/${leagueId}`).get();
+        const leagueData = leagueDocSnap.data();
 
         const batch = db.batch();
         const summary = { deducted: 0, redZone: [], greenZone: [], deactivated: [] };
+        let grossPot = 0;
 
         for (const mDoc of membersSnap.docs) {
             const data = mDoc.data();
@@ -467,10 +479,12 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
 
             const currentBalance = Number(data.walletBalance) || 0;
             const newBalance = currentBalance - cost;
-            const isDelinquent = newBalance < 0;
+            const isDelinquentForNextGW = newBalance < cost;
+            
+            grossPot += cost;
 
             let missedGameweeks = data.missedGameweeks || 0;
-            if (isDelinquent) {
+            if (newBalance < 0) {
                 missedGameweeks += 1;
             } else {
                 missedGameweeks = 0;
@@ -483,7 +497,7 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
 
             batch.update(mDoc.ref, {
                 walletBalance: admin.firestore.FieldValue.increment(-cost),
-                hasPaid: !isDelinquent,
+                hasPaid: !isDelinquentForNextGW,
                 missedGameweeks,
                 isActive
             });
@@ -491,7 +505,7 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
             summary.deducted++;
             if (!isActive) {
                 summary.deactivated.push(data.displayName || mDoc.id);
-            } else if (isDelinquent) {
+            } else if (isDelinquentForNextGW) {
                 summary.redZone.push(data.displayName || mDoc.id);
             } else {
                 summary.greenZone.push(data.displayName || mDoc.id);
@@ -499,6 +513,70 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
 
             console.log(`[DEDUCT] ${data.displayName || mDoc.id}: ${currentBalance} → ${newBalance} KES. Missed: ${missedGameweeks}`);
         }
+
+        // --- PLATFORM TREASURY & KICKBACK DISTRIBUTION ---
+        const coAdminId = leagueData.coAdminId;
+        const chairmanId = leagueData.chairmanId;
+
+        let chairman_kickback = 0;
+        let co_admin_kickback = 0;
+
+        // Split Math Update
+        if (coAdminId) {
+             chairman_kickback = grossPot * 0.025;
+             co_admin_kickback = grossPot * 0.01;
+        } else {
+             chairman_kickback = grossPot * 0.035;
+             co_admin_kickback = 0;
+        }
+
+        const platformNetRevenue = grossPot * 0.05;
+        const mpesaFee = grossPot * 0.015;
+
+        // The Ledger Distribution for Chairman
+        if (chairmanId) {
+            batch.update(db.doc(`leagues/${leagueId}/memberships/${chairmanId}`), {
+                walletBalance: admin.firestore.FieldValue.increment(chairman_kickback)
+            });
+            batch.set(db.collection(`leagues/${leagueId}/transactions`).doc(), {
+                type: 'deposit',
+                amount: chairman_kickback,
+                receiptId: 'SYS_BONUS_GW' + (gwNumber || 'X'),
+                phoneNumber: 'SYSTEM',
+                userId: chairmanId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                note: `Chairman Bonus (GW Resolution): +${chairman_kickback} KES`
+            });
+        }
+
+        // The Ledger Distribution for Co-Admin
+        if (coAdminId) {
+             batch.update(db.doc(`leagues/${leagueId}/memberships/${coAdminId}`), {
+                walletBalance: admin.firestore.FieldValue.increment(co_admin_kickback)
+            });
+            batch.set(db.collection(`leagues/${leagueId}/transactions`).doc(), {
+                type: 'deposit',
+                amount: co_admin_kickback,
+                receiptId: 'SYS_AUDIT_GW' + (gwNumber || 'X'),
+                phoneNumber: 'SYSTEM',
+                userId: coAdminId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                note: `Co-Admin Auditor Fee: +${co_admin_kickback} KES`
+            });
+        }
+
+        // Global Treasury Logging
+        batch.set(db.collection('platform_treasury').doc(), {
+             leagueId,
+             leagueName: leagueData.leagueName || 'Unknown League',
+             gameweek: gwNumber || 'Unknown GW',
+             grossPot,
+             mpesaFee,
+             chairmanCut: chairman_kickback,
+             coAdminCut: co_admin_kickback,
+             platformNetRevenue,
+             timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
 
         await batch.commit();
 
@@ -891,7 +969,7 @@ const runFPLAutopilot = async () => {
                 // Calculate weekly pot
                 const paidCount = members.length;
                 const weeklyPct = (league.rules?.weekly || 70) / 100;
-                const weeklyPot = Math.round((league.monthlyContribution || 0) * paidCount * weeklyPct);
+                const weeklyPot = Math.round((league.gameweekStake || 0) * paidCount * weeklyPct);
 
                 // Check if there's already a pending payout for this GW to prevent duplicates
                 const existingPayoutsSnap = await db.collection(`leagues/${leagueId}/pending_payouts`)
@@ -1041,6 +1119,71 @@ cron.schedule('0 7 * * *', () => {
 });
 
 console.log('⏰ Daily Balance Reminder Cron registered (07:00 UTC daily).');
+
+// ============================================================
+// MODULE 6: Churn Reduction (10-Day Inactivity Email)
+// Runs daily. Finds any member who hasn't logged in for > 10 days
+// ============================================================
+const runRetentionEmailJob = async () => {
+    try {
+        console.log('[RETENTION] Checking for inactive members (> 10 days)...');
+        if (!db) return;
+
+        const tenDaysAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 24 * 60 * 60 * 1000);
+        const leaguesSnap = await db.collection('leagues').get();
+
+        let emailsSent = 0;
+        for (const leagueDoc of leaguesSnap.docs) {
+            const leagueId = leagueDoc.id;
+            try {
+                // Find members whose lastLoginAt is older than 10 days
+                // Only targeting active members to avoid spamming permanently deactivated ones
+                const membersSnap = await db.collection(`leagues/${leagueId}/memberships`)
+                    .where('isActive', '!=', false)
+                    .where('lastLoginAt', '<', tenDaysAgo)
+                    .get();
+
+                for (const memberDoc of membersSnap.docs) {
+                    const member = memberDoc.data();
+                    
+                    // --- MOCK EMAIL SENDING ---
+                    // Replace this block with Resend / SendGrid / Nodemailer
+                    console.log(`[RETENTION] 📧 Email dispatched to ${member.displayName || member.phone}: "Hey, still there? Don't miss out on this week's pot in ${leagueDoc.data().leagueName || 'FantasyChama'}!"`);
+                    // --------------------------
+
+                    // Also push an in-app notification so they see it if they log in
+                    await db.collection(`leagues/${leagueId}/notifications`).add({
+                        type: 'info',
+                        message: `Hey ${member.displayName ? member.displayName.split(' ')[0] : 'Manager'}! It's been a while. Top up your wallet & set your squad for the upcoming gameweek! ⚽`,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        readBy: [],
+                        targetMemberId: memberDoc.id
+                    });
+                    
+                    // Update lastLoginAt slightly so we don't spam them every single day
+                    // Resetting it to 'now' means they won't get another email for 10 days
+                    await memberDoc.ref.update({
+                        lastLoginAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    emailsSent++;
+                }
+            } catch (leagueErr) {
+                console.error(`[RETENTION] Error processing league ${leagueId}:`, leagueErr.message);
+            }
+        }
+        console.log(`[RETENTION] Complete! Sent ${emailsSent} retention emails.`);
+    } catch (err) {
+        console.error('[RETENTION] Error:', err.message);
+    }
+};
+
+// Run daily at 12:00 UTC (15:00 Nairobi time)
+cron.schedule('0 12 * * *', () => {
+    console.log('[CRON] Retention job fired.');
+    runRetentionEmailJob();
+});
+console.log('⏰ Retention/Churn Cron registered (12:00 UTC daily).');
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {

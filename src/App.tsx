@@ -15,6 +15,7 @@ import Deposit from './pages/Deposit';
 import Profile from './pages/Profile';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import { NotificationProvider } from './components/NotificationProvider';
 
 // Renders the correct dashboard based on role — used inside the AppLayout
@@ -60,6 +61,7 @@ function App() {
         <Route path="/invite" element={<InviteHub />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/hq" element={<SuperAdminDashboard />} />
 
         {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
         <Route element={<AppLayoutWrapper />}>

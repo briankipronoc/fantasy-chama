@@ -9,7 +9,7 @@ export default function GlobalPotBanner() {
     const isStealthMode = useStore(state => state.isStealthMode);
     const members = useStore(state => state.members);
 
-    const [monthlyContribution, setMonthlyContribution] = useState(0);
+    const [gameweekStake, setMonthlyContribution] = useState(0);
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
 
     useEffect(() => {
@@ -18,7 +18,7 @@ export default function GlobalPotBanner() {
         const unsubscribe = onSnapshot(leagueRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                setMonthlyContribution(data.monthlyContribution || 0);
+                setMonthlyContribution(data.gameweekStake || 0);
                 if (data.rules) setRules(data.rules);
             }
         });
@@ -26,9 +26,9 @@ export default function GlobalPotBanner() {
     }, [activeLeagueId]);
 
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
-    const totalCollected = paidMembersCount * monthlyContribution;
+    const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
-    const seasonVaultProjected = members.length * monthlyContribution * 38 * (rules.vault / 100);
+    const seasonVaultProjected = members.length * gameweekStake * 38 * (rules.vault / 100);
 
     if (!activeLeagueId) return null;
 

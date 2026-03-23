@@ -17,7 +17,7 @@ export default function AdminCommandCenter() {
 
     const [leagueName, setLeagueName] = useState('');
     const [inviteCode, setInviteCode] = useState('');
-    const [monthlyContribution, setMonthlyContribution] = useState(0);
+    const [gameweekStake, setMonthlyContribution] = useState(0);
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
     const [isLoading, setIsLoading] = useState(true);
     const [toastMessage, setToastMessage] = useState('');
@@ -48,6 +48,18 @@ export default function AdminCommandCenter() {
     const togglePaymentStatusGlobal = useStore(state => state.togglePaymentStatus);
     const isStealthMode = useStore(state => state.isStealthMode);
 
+    const handleToggleAdmin = async (memberId: string, currentRole: string | undefined) => {
+        if (!activeLeagueId) return;
+        try {
+            await useStore.getState().toggleAdminStatus(activeLeagueId, memberId, currentRole);
+            setToastMessage(currentRole === 'admin' ? "Admin role revoked 📉" : "Promoted to Admin 👑");
+            setTimeout(() => setToastMessage(''), 3000);
+        } catch (error) {
+            console.error("Failed to toggle admin role:", error);
+            setToastMessage("Error updating role");
+            setTimeout(() => setToastMessage(''), 3000);
+        }
+    };
     useEffect(() => {
         if (!activeLeagueId) {
             navigate('/setup');
@@ -64,7 +76,7 @@ export default function AdminCommandCenter() {
                     const data = leagueSnap.data();
                     setLeagueName(data.leagueName || 'Unnamed League');
                     setInviteCode(data.inviteCode || '------');
-                    setMonthlyContribution(data.monthlyContribution || 0);
+                    setMonthlyContribution(data.gameweekStake || 0);
                     setCoAdminId(data.coAdminId || null);
                     if (data.rules) setRules(data.rules);
                 }
@@ -205,7 +217,7 @@ export default function AdminCommandCenter() {
                     type: 'deposit',
                     winnerName: memberName,
                     phoneNumber: targetMember?.phone || '',
-                    amount: monthlyContribution,
+                    amount: gameweekStake,
                     timestamp: serverTimestamp(),
                     receiptId: 'DEP' + Math.random().toString(36).substring(2, 10).toUpperCase()
                 });
@@ -230,10 +242,10 @@ export default function AdminCommandCenter() {
     });
 
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
-    const totalCollected = paidMembersCount * monthlyContribution;
+    const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
-    // Formula: Active members * Monthly Contribution * 38 GWs * Vault Percentage
-    const seasonVault = members.length * monthlyContribution * 38 * (rules.vault / 100);
+    // Formula: Active members * Gameweek Stake * 38 GWs * Vault Percentage
+    const seasonVault = members.length * gameweekStake * 38 * (rules.vault / 100);
 
     const handleAddMember = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -405,7 +417,7 @@ export default function AdminCommandCenter() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 leagueId: activeLeagueId,
-                                gwCostPerRound: monthlyContribution,
+                                gwCostPerRound: gameweekStake,
                                 gwNumber: 26,
                                 winnerName: winner.displayName
                             })
@@ -799,7 +811,7 @@ export default function AdminCommandCenter() {
                     </div>
 
                     <div className="overflow-x-auto min-h-[300px]">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse min-w-[600px]">
                             <thead>
                                 <tr className="bg-[#11171a] border-b border-white/5 text-[10px] uppercase tracking-widest text-gray-500 font-bold">
                                     <th className="p-4 pl-6 font-medium">Member</th>
@@ -818,7 +830,7 @@ export default function AdminCommandCenter() {
                                     </tr>
                                 ) : filteredMembers.map((row) => {
                                     const wallet = (row as any).walletBalance ?? 0;
-                                    const gwCost = monthlyContribution; // fallback until gwCostPerRound is set
+                                    const gwCost = gameweekStake; // fallback until gwCostPerRound is set
                                     const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                                     const walletColor = wallet <= 0 ? 'text-red-400' : gwsLeft >= 2 ? 'text-[#10B981]' : 'text-[#FBBF24]';
                                     return (
@@ -839,8 +851,22 @@ export default function AdminCommandCenter() {
                                                         />
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-white leading-tight mb-1">{row.displayName}</div>
-                                                        <div className="text-xs text-gray-400 leading-none">{row.phone}</div>
+                                                        <div className="font-bold text-white leading-tight mb-1 flex items-center gap-2">
+                                                            {row.displayName}
+                                                            {(row as any).role === 'admin' && (
+                                                                <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Admin</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-xs text-gray-400 leading-none flex items-center gap-2 mt-1">
+                                                            <span>{row.phone}</span>
+                                                            <span className="text-white/20">•</span>
+                                                            <button 
+                                                                onClick={() => handleToggleAdmin(row.id, (row as any).role)}
+                                                                className="hover:text-white transition-colors"
+                                                            >
+                                                                {(row as any).role === 'admin' ? 'Revoke Admin' : 'Make Admin'}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>

@@ -13,7 +13,7 @@ interface LeagueRulesModalProps {
 export default function LeagueRulesModal({ isOpen, onClose, currentMember }: LeagueRulesModalProps) {
     const overlayRef = useRef<HTMLDivElement>(null);
     const activeLeagueId = localStorage.getItem('activeLeagueId');
-    const [monthlyContribution, setMonthlyContribution] = useState<number | null>(null);
+    const [gameweekStake, setMonthlyContribution] = useState<number | null>(null);
     const [isAccepting, setIsAccepting] = useState(false);
 
     const hasAccepted = currentMember?.hasAcceptedRules === true || currentMember?.role === 'admin';
@@ -21,7 +21,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
     useEffect(() => {
         if (!activeLeagueId) return;
         getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
-            if (snap.exists()) setMonthlyContribution(snap.data().monthlyContribution || 0);
+            if (snap.exists()) setMonthlyContribution(snap.data().gameweekStake || 0);
         });
     }, [activeLeagueId]);
 
@@ -98,7 +98,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                             label: 'WALLET ARCHITECTURE',
                             labelColor: 'text-blue-400',
                             title: 'Deposit Once. Play All Season.',
-                            body: `There are no weekly manual transfers. Deposit your contribution securely via M-Pesa STK Push (e.g. KES ${monthlyContribution !== null ? monthlyContribution : '...'}) and the system automatically deducts your Gameweek stake before each FPL deadline. Top up at any time from the Deposit screen.`,
+                            body: `There are no weekly manual transfers. Deposit your contribution securely via M-Pesa STK Push (e.g. KES ${gameweekStake !== null ? gameweekStake : '...'}) and the system automatically deducts your Gameweek stake before each FPL deadline. Top up at any time from the Deposit screen.`,
                         },
                         {
                             id: 'redzone',

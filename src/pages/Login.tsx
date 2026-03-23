@@ -12,6 +12,7 @@ export default function Login() {
 
     // Member State
     const [phone, setPhone] = useState('');
+    const [isPhoneLocked, setIsPhoneLocked] = useState(false);
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -51,13 +52,28 @@ export default function Login() {
         setTimeout(() => inputRefs.current[lastIdx]?.focus(), 0);
     };
 
-    // Auto-fill from URL ?code= param (for expiring invite links)
+    // Auto-fill from URL params (for expiring targeted invite links)
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const urlCode = params.get('code');
+        const urlExpires = params.get('e');
+        const urlPhone = params.get('phone');
+        
+        if (urlExpires && Date.now() > parseInt(urlExpires)) {
+            setError('This invite link has expired. Request a new one from your Chairman.');
+            return;
+        }
+
         if (urlCode && urlCode.length === 6) {
             const chars = urlCode.toUpperCase().split('');
             setCode(chars);
+        }
+        
+        if (urlPhone) {
+            let formattedPhone = urlPhone;
+            if (formattedPhone.startsWith('254')) formattedPhone = '0' + formattedPhone.slice(3);
+            setPhone(formattedPhone);
+            setIsPhoneLocked(true);
         }
     }, []);
 
@@ -117,6 +133,9 @@ export default function Login() {
             localStorage.setItem('activeLeagueId', leagueId);
             localStorage.setItem('memberPhone', phone);
             localStorage.setItem('activeUserId', memberDocRef.id);
+            
+            // strictly set role to member. If it's the Chairman logging in here, 
+            // they do it to experience the clean Member View.
             setRole('member');
             navigate('/', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` } });
 
@@ -257,12 +276,13 @@ export default function Login() {
                                     pattern="^0[0-9]{9}$"
                                     value={phone}
                                     onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0 (e.g. 0712345678)')}
+                                    disabled={isPhoneLocked}
                                     onChange={(e) => {
                                         (e.target as HTMLInputElement).setCustomValidity('');
                                         setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
                                     }}
                                     placeholder="e.g. 0712345678"
-                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all font-medium"
+                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                             </div>
                         </div>

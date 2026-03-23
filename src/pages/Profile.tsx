@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Camera, LogOut, ShieldCheck, Trophy, Banknote, Users, Activity, ExternalLink, Moon, Settings, Zap, CheckCircle2, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, FileSpreadsheet, Send, Search, Loader2, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Trophy, Users, Settings, CheckCircle2, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2 } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 
 export default function Profile() {
@@ -20,7 +21,7 @@ export default function Profile() {
     const [isSavingMember, setIsSavingMember] = useState(false);
 
     // State for Admin Settings
-    const [monthlyContribution, setMonthlyContribution] = useState<number>(0);
+    const [gameweekStake, setMonthlyContribution] = useState<number>(0);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState<number>(70);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
     const [fplLeagueId, setFplLeagueId] = useState('');
@@ -46,7 +47,7 @@ export default function Profile() {
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        setMonthlyContribution(data.monthlyContribution || 1400);
+                        setMonthlyContribution(data.gameweekStake || 1400);
                         setWeeklyPrizePercent(data.rules?.weekly || 70);
                         setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
                         setFplLeagueId(data.fplLeagueId || '');
@@ -125,7 +126,7 @@ export default function Profile() {
         try {
             const leagueRef = doc(db, 'leagues', activeLeagueId);
             await updateDoc(leagueRef, {
-                monthlyContribution: Number(monthlyContribution),
+                gameweekStake: Number(gameweekStake),
                 'rules.weekly': Number(weeklyPrizePercent),
                 'rules.vault': 100 - Number(weeklyPrizePercent),
                 'rules.seasonWinnersCount': seasonWinnersCount,
@@ -329,7 +330,7 @@ export default function Profile() {
                                 <div>
                                     <div className="flex justify-between items-center mb-2">
                                         <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            Monthly Contribution (KES)
+                                            Gameweek Stake (KES)
                                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                                         </label>
                                     </div>
@@ -337,7 +338,7 @@ export default function Profile() {
                                         type="number"
                                         min="100"
                                         disabled={isFinancialsLocked}
-                                        value={monthlyContribution}
+                                        value={gameweekStake}
                                         onChange={(e) => setMonthlyContribution(Number(e.target.value))}
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
@@ -354,11 +355,18 @@ export default function Profile() {
                                         type="text"
                                         disabled={isFinancialsLocked}
                                         value={fplLeagueId}
-                                        onChange={(e) => setFplLeagueId(e.target.value.replace(/\D/g, ''))}
-                                        placeholder="e.g. 123456"
+                                        onChange={(e) => {
+                                            let val = e.target.value.trim();
+                                            const match = val.match(/leagues\/(\d+)\/standings/);
+                                            if (match && match[1]) val = match[1];
+                                            setFplLeagueId(val.replace(/\D/g, ''));
+                                        }}
+                                        placeholder="e.g. 123456 or paste Standings URL"
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
-                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">Found in your official FPL League URL (e.g. /leagues/[ID]/standings/c)</p>
+                                    <p className="text-[10px] text-gray-400 mt-1.5 font-medium leading-relaxed">
+                                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-300 bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
+                                    </p>
                                 </div>
 
                                 {/* Co-Admin Designation */}

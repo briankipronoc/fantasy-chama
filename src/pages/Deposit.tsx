@@ -23,8 +23,8 @@ export default function Deposit() {
         // Fetch dynamic amount due
         if (activeLeagueId) {
             getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
-                if (snap.exists() && snap.data().settings?.monthlyContribution) {
-                    setAmountDue(snap.data().settings.monthlyContribution.toString());
+                if (snap.exists() && snap.data().settings?.gameweekStake) {
+                    setAmountDue(snap.data().settings.gameweekStake.toString());
                 }
             });
         }

@@ -5,8 +5,23 @@ export default function InviteHub() {
     const inviteCode = "882109";
     const [copied, setCopied] = useState(false);
 
+    const [targetPhone, setTargetPhone] = useState('');
+    const [expiresDays, setExpiresDays] = useState('7');
+
     const handleCopyShare = () => {
-        navigator.clipboard.writeText(`Hey! I've just started a new Chama on Fantasy Chama. Join 'Elite Investors' using my exclusive code: ${inviteCode.slice(0, 3)} ${inviteCode.slice(3, 6)}. Let's grow our wealth together! 🚀`);
+        const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app';
+        const expiresAt = Date.now() + (parseInt(expiresDays || '7') * 24 * 60 * 60 * 1000);
+        
+        let params = `?code=${inviteCode}&e=${expiresAt}`;
+        if (targetPhone.trim()) {
+            let formattedPhone = targetPhone.trim();
+            if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
+            params += `&phone=${formattedPhone}`;
+        }
+
+        const inviteLink = `${appUrl}/login${params}`;
+        const message = `Hey! I've just started a new Chama on Fantasy Chama. Join 'Elite Investors' using my exclusive link: ${inviteLink} (Code: ${inviteCode}). Let's grow our wealth together! 🚀`;
+        navigator.clipboard.writeText(message);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -68,12 +83,37 @@ export default function InviteHub() {
                             ))}
                         </div>
 
+                        <div className="w-full space-y-4 mb-6 text-left">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Link Expiry</label>
+                                <select 
+                                    value={expiresDays}
+                                    onChange={(e) => setExpiresDays(e.target.value)}
+                                    className="w-full bg-[#0d1316] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#10B981]/50"
+                                >
+                                    <option value="1">Expire in 24 Hours</option>
+                                    <option value="7">Expire in 7 Days</option>
+                                    <option value="30">Expire in 30 Days</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Target Phone (Optional)</label>
+                                <input 
+                                    type="tel"
+                                    value={targetPhone}
+                                    onChange={(e) => setTargetPhone(e.target.value)}
+                                    placeholder="Lock link to specific number (e.g. 07...)"
+                                    className="w-full bg-[#0d1316] border border-white/10 rounded-xl py-3 px-4 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50"
+                                />
+                            </div>
+                        </div>
+
                         <button
                             onClick={handleCopyShare}
                             className="w-full flex items-center justify-center gap-2 bg-[#10B981] hover:bg-[#10B981]/90 text-black font-extrabold py-4 px-6 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-[0.98]"
                         >
                             {copied ? <Check className="w-5 h-5" /> : <Share2 className="w-5 h-5" />}
-                            {copied ? 'Copied to Clipboard!' : 'Copy Invite & Share to WhatsApp'}
+                            {copied ? 'Copied to Clipboard!' : 'Copy Link & Share to WhatsApp'}
                         </button>
                     </div>
                 </div>
@@ -85,7 +125,7 @@ export default function InviteHub() {
                         <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Invitation Preview</span>
                     </div>
                     <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 italic text-gray-400 text-sm leading-relaxed shadow-lg">
-                        "Hey! I've just started a new Chama on <strong className="text-[#10B981] not-italic">Fantasy Chama</strong>. Join 'Elite Investors' using my exclusive code: <strong className="text-[#FBBF24] not-italic">{inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}</strong>. Let's grow our wealth together! 🚀"
+                        "Hey! I've just started a new Chama on <strong className="text-[#10B981] not-italic">Fantasy Chama</strong>. Join 'Elite Investors' using my exclusive link: <strong className="text-[#FBBF24] not-italic">fantasy-chama.vercel.app/login?code={inviteCode}</strong> (Code: {inviteCode}). Let's grow our wealth together! 🚀"
                     </div>
                 </div>
 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users } from 'lucide-react';
+import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
@@ -11,6 +11,18 @@ const STEPS = 5;
 
 export default function AdminSetup() {
     const [step, setStep] = useState(1);
+
+    // Interactive Tooltip Component for clean UX guidance
+    const Tooltip = ({ text }: { text: React.ReactNode }) => (
+        <div className="group relative inline-block ml-1.5 align-middle">
+            <Info className="w-3 h-3 text-gray-500 hover:text-[#FBBF24] cursor-help transition-colors" />
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-[#0A0E17] border border-white/10 text-[9px] md:text-[10px] text-gray-300 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 normal-case tracking-normal text-center">
+                {text}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white/10"></div>
+            </div>
+        </div>
+    );
+
     const navigate = useNavigate();
     const setLeagueSettings = useStore((state) => state.setLeagueSettings);
     const addMemberGlobal = useStore((state) => state.addMember);
@@ -25,6 +37,7 @@ export default function AdminSetup() {
 
     // Step 2: League
     const [leagueName, setLeagueName] = useState('');
+    const [fplLeagueId, setFplLeagueId] = useState('');
     const [monthlyFee, setMonthlyFee] = useState(200);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(70);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
@@ -49,8 +62,14 @@ export default function AdminSetup() {
 
     // Derived calculations
     const totalMonthlyPool = monthlyFee * estimatedMembers;
-    const weeklyPrize = Math.round(totalMonthlyPool * (weeklyPrizePercent / 100));
-    const grandVault = Math.round(totalMonthlyPool * ((100 - weeklyPrizePercent) / 100));
+    const escrowFee = Math.round(totalMonthlyPool * 0.10);
+    const chairmanCut = Math.round(totalMonthlyPool * 0.035);
+    const mpesaFee = Math.round(totalMonthlyPool * 0.015);
+    const platformCut = escrowFee - chairmanCut - mpesaFee;
+    const netPool = totalMonthlyPool - escrowFee;
+
+    const weeklyPrize = Math.round(netPool * (weeklyPrizePercent / 100));
+    const grandVault = netPool - weeklyPrize;
 
     const passwordStrengthResult = useMemo(() => {
         let score = 0;
@@ -99,7 +118,8 @@ export default function AdminSetup() {
             // Write 2: Create the League Document
             const leagueDocRef = await addDoc(collection(db, 'leagues'), {
                 leagueName,
-                monthlyContribution: monthlyFee,
+                fplLeagueId,
+                gameweekStake: monthlyFee,
                 chairmanId: userCredential.user.uid,
                 chairmanEmail: email,
                 rules: {
@@ -213,7 +233,9 @@ export default function AdminSetup() {
 
             <form className="space-y-4 relative z-10" onSubmit={(e) => { e.preventDefault(); nextStep(); }}>
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Full Name</label>
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                        Full Name <Tooltip text="Identifies you as the official gatekeeper to joining members." />
+                    </label>
                     <div className="relative">
                         <PersonStanding className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
@@ -230,7 +252,9 @@ export default function AdminSetup() {
                 </div>
 
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Email Address</label>
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                        Email Address <Tooltip text="Your primary God Mode login ID. We never spam." />
+                    </label>
                     <div className="relative">
                         <Mail className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
@@ -250,7 +274,9 @@ export default function AdminSetup() {
                 </div>
 
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">M-Pesa Phone Number</label>
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                        M-Pesa Phone Number <Tooltip text={<span><strong>CRITICAL:</strong> Your Chairman kickbacks are sent directly to this M-Pesa line.</span>} />
+                    </label>
                     <div className="relative">
                         <Phone className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
@@ -270,7 +296,9 @@ export default function AdminSetup() {
                 </div>
 
                 <div className="space-y-1.5 mb-6">
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Secure Password</label>
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                        Secure Password <Tooltip text="Protects the league's financial vault. Treat this like a bank account." />
+                    </label>
                     <div className="relative">
                         <Lock className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                         <input
@@ -341,11 +369,27 @@ export default function AdminSetup() {
                         </div>
                         <div className="space-y-4 relative z-10">
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">League Name</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                    League Name <Tooltip text="The precise name of your league as it currently appears on Fantasy Premier League." />
+                                </label>
                                 <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. The Alpha Syndicate" />
                             </div>
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Monthly Contribution (KES)</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                    Numeric FPL League ID (Optional) <Tooltip text="Skip for now if you don't have it. We need your NUMERIC League ID, not the join code. Find it in your FPL Standings URL." />
+                                </label>
+                                <input type="text" value={fplLeagueId} onChange={e => {
+                                    let val = e.target.value.trim();
+                                    // If they paste a full FPL Standings link, extract the numeric ID
+                                    const match = val.match(/leagues\/(\d+)\/standings/);
+                                    if (match && match[1]) {
+                                        val = match[1];
+                                    }
+                                    setFplLeagueId(val.replace(/[^0-9]/g, ''));
+                                }} className={inputClasses} placeholder="e.g. 123456 from your standings URL" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
                                 <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
                                     <span className="bg-[#11171a] px-4 flex items-center justify-center text-gray-400 font-bold border-r border-white/5">KES</span>
                                     <input
@@ -355,6 +399,7 @@ export default function AdminSetup() {
                                         className="w-full bg-transparent px-4 py-3.5 text-white font-medium focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
                                     />
                                 </div>
+                                <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">How much does each member pay per FPL Gameweek? This amount will be auto-deducted from their Wallet Balance.</p>
                             </div>
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Estimated Members</label>
@@ -507,40 +552,64 @@ export default function AdminSetup() {
                             {seasonWinnersCount === 1 ? [100].map((percent, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
                                     <span className="flex items-center gap-2 text-gray-400">
-                                        <span className="w-5 text-center font-black text-[#FBBF24] opacity-80 backdrop-blur-sm bg-black/20 px-1 py-0.5 rounded border border-[#FBBF24]/30">#1</span> Champion Takes All
+                                        <span className="min-w-[28px] text-center inline-block font-black text-[#FBBF24] opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border border-[#FBBF24]/30">#1</span> Champion Takes All
                                     </span>
                                     <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
                                 </div>
                             )) : seasonWinnersCount === 5 ? [45, 25, 15, 10, 5].map((percent, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
                                     <span className="flex items-center gap-2 text-gray-400">
-                                        <span className={clsx("w-5 text-center font-black opacity-80 backdrop-blur-sm bg-black/20 px-1 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : idx === 2 ? "text-amber-600 border-amber-600/30" : "text-gray-500 border-gray-500/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
+                                        <span className={clsx("min-w-[28px] text-center inline-block font-black opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : idx === 2 ? "text-amber-600 border-amber-600/30" : "text-gray-500 border-gray-500/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
                                     </span>
                                     <span className="font-bold tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
                                 </div>
                             )) : [50, 30, 20].map((percent, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
                                     <span className="flex items-center gap-2 text-gray-400">
-                                        <span className={clsx("w-5 text-center font-black opacity-80 backdrop-blur-sm bg-black/20 px-1 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : "text-amber-600 border-amber-600/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
+                                        <span className={clsx("min-w-[28px] text-center inline-block font-black opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : "text-amber-600 border-amber-600/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
                                     </span>
                                     <span className="font-bold tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
                                 </div>
                             ))}
                         </div>
 
+                        <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-[#FBBF24] mb-2 flex items-center gap-2"><Shield className="w-3 h-3" /> Escrow Deductions (10%)</h4>
+                            <div className="flex justify-between items-center text-[11px] md:text-sm">
+                                <span className="flex items-center gap-2 text-gray-400">Your Chairman Cut (3.5%)</span>
+                                <span className="font-bold tabular-nums text-[#FBBF24]">KES {chairmanCut.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px] md:text-sm">
+                                <span className="flex items-center gap-2 text-gray-400">Platform Revenue (5.0%)</span>
+                                <span className="font-bold tabular-nums text-gray-500">KES {platformCut.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px] md:text-sm">
+                                <span className="flex items-center gap-2 text-gray-400">M-Pesa API Fees (1.5%)</span>
+                                <span className="font-bold tabular-nums text-gray-500">KES {mpesaFee.toLocaleString()}</span>
+                            </div>
+                        </div>
+
                         <div className="mt-6 pt-5 border-t border-white/5">
                             <div className="flex justify-between items-center mb-4">
-                                <span className="text-[11px] md:text-xs font-semibold text-white">Revenue Distribution</span>
+                                <span className="text-[11px] md:text-xs font-semibold text-white">Gross Revenue Split</span>
                                 <span className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">100% Transparent</span>
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-[#22c55e]" /> Weekly Prizes</span>
-                                    <span className="font-bold tabular-nums text-white">{weeklyPrizePercent}%</span>
+                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-[#22c55e]" /> Net Member Pot</span>
+                                    <span className="font-bold tabular-nums text-white">90.0%</span>
                                 </div>
                                 <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-[#FBBF24]" /> Vault Deposit</span>
-                                    <span className="font-bold tabular-nums text-white">{100 - weeklyPrizePercent}%</span>
+                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-blue-500" /> M-Pesa Gateway</span>
+                                    <span className="font-bold tabular-nums text-white">1.5%</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px] md:text-sm">
+                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-red-500" /> Platform API</span>
+                                    <span className="font-bold tabular-nums text-white">5.0%</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px] md:text-sm">
+                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-[#FBBF24]" /> Chairman Kickback</span>
+                                    <span className="font-bold tabular-nums text-white">3.5%</span>
                                 </div>
                             </div>
                         </div>
@@ -578,7 +647,9 @@ export default function AdminSetup() {
 
                     <form onSubmit={addLocalMember} className="space-y-6 flex-1 relative z-10">
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Member Display Name</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                Member Display Name <Tooltip text="Their recognizable alias or FPL Team name." />
+                            </label>
                             <input
                                 type="text"
                                 value={newMemberName}
@@ -588,7 +659,9 @@ export default function AdminSetup() {
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Phone Number</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                M-Pesa Phone Number <Tooltip text={<span><strong>Strict verification:</strong> Only this precise phone number will be allowed to log in and withdraw payouts via Safaricom.</span>} />
+                            </label>
                             <input
                                 type="tel"
                                 value={newMemberPhone}
@@ -627,17 +700,32 @@ export default function AdminSetup() {
                         <div className="flex items-center gap-2">
                             <span className="font-bold text-white">Enrolled Circle</span>
                         </div>
-                        <span className="bg-white/10 text-gray-300 text-xs font-bold px-2 py-1 rounded">{members.length} Total</span>
+                        <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 text-xs font-bold px-2 py-1 rounded">{members.length + 1} Total</span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                        {members.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-50">
-                                <Users className="w-12 h-12 text-gray-500 mb-4" />
-                                <p className="text-sm font-medium text-gray-400">No managers enrolled yet.<br />Add your first trusted member.</p>
+                        {/* Always show the Chairman natively anchored at the top */}
+                        <div className="flex justify-between items-center p-3 rounded-xl border bg-[#22c55e]/5 border-[#22c55e]/30 transition-colors shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="size-10 rounded-full flex items-center justify-center font-bold text-sm border bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30 shadow-inner">
+                                    {fullName ? fullName.charAt(0).toUpperCase() : "C"}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-sm text-white flex items-center gap-2">
+                                        {fullName || "Chairman"}
+                                        <Shield className="w-3.5 h-3.5 text-[#FBBF24]" />
+                                    </p>
+                                    <p className="text-[10px] text-gray-400 tabular-nums">{phone || "Pending Phone"}</p>
+                                </div>
                             </div>
-                        ) : (
-                            members.map((m, i) => (
+                            <div className="flex items-center">
+                                <span className="text-[10px] font-bold text-[#FBBF24] uppercase tracking-widest px-2.5 py-1 bg-[#FBBF24]/10 border border-[#FBBF24]/20 rounded shadow-sm">
+                                    Chairman
+                                </span>
+                            </div>
+                        </div>
+
+                        {members.map((m, i) => (
                                 <div key={i} className={clsx(
                                     "flex justify-between items-center p-3 rounded-xl border transition-colors",
                                     coAdminIndex === i ? "bg-[#FBBF24]/10 border-[#FBBF24]/30" : "bg-[#0a100a]/50 border-white/5"
@@ -681,17 +769,16 @@ export default function AdminSetup() {
                                         </button>
                                     </div>
                                 </div>
-                            ))
-                        )}
+                            ))}
                     </div>
 
                     <div className="p-4 border-t border-white/5">
                         <button
                             onClick={nextStep}
-                            disabled={members.length < 2}
+                            disabled={members.length < 1}
                             className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(251,191,36,0.15)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Shield className="w-5 h-5" /> {members.length < 2 ? `Add ${2 - members.length} More Member(s)` : "Initialize League & Generate Code"}
+                            <Shield className="w-5 h-5" /> {members.length < 1 ? `Add 1 More Member` : "Initialize League & Generate Code"}
                         </button>
                     </div>
                 </div>
@@ -710,10 +797,22 @@ export default function AdminSetup() {
             <div className="bg-[#151c18] border border-white/5 rounded-2xl p-6 md:p-8 w-full max-w-3xl mx-auto shadow-xl relative overflow-hidden space-y-8">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
 
+                <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-4 rounded-xl flex items-start gap-3 relative z-10 shadow-sm">
+                    <Check className="w-5 h-5 text-[#22c55e] shrink-0 mt-0.5" />
+                    <p className="text-xs text-[#22c55e] leading-relaxed">
+                        <strong className="block mb-1 text-sm tracking-tight text-white">Architecture Lock-In</strong>
+                        Once you hit "Initialize League", these economic parameters (Escrow splits, Gameweek stakes, and FPL mappings) are permanently compiled to the Firestore Ledger and cannot be changed. Double check them below.
+                    </p>
+                </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
                         <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">League Name</p>
                         <p className="text-white font-bold truncate">{leagueName || "N/A"}</p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">FPL League ID</p>
+                        <p className="text-white font-bold truncate">{fplLeagueId || "N/A"}</p>
                     </div>
                     <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
                         <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Monthly Fee</p>
@@ -724,8 +823,8 @@ export default function AdminSetup() {
                         <p className="text-white font-bold">{members.length + 1} <span className="text-xs text-gray-500 font-normal border border-gray-500/30 px-1 py-[1px] rounded inline-flex ml-1">inc. Chairman</span></p>
                     </div>
                     <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Projected</p>
-                        <p className="text-[#FBBF24] font-bold tabular-nums">KES {totalMonthlyPool}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Gross Pot</p>
+                        <p className="text-white font-bold tabular-nums">KES {totalMonthlyPool}</p>
                     </div>
                 </div>
 

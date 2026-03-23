@@ -6,13 +6,12 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import clsx from 'clsx';
 import Header from '../components/Header';
 
-const role = localStorage.getItem('activeRole') || 'member';
-
 export default function Standings() {
+    const role = useStore(state => state.role);
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [monthlyContribution, setMonthlyContribution] = useState(0);
+    const [gameweekStake, setMonthlyContribution] = useState(0);
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
     const [leagueName, setLeagueName] = useState('');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
@@ -38,7 +37,7 @@ export default function Standings() {
                 let targetFplId = fallbackFplLeagueId;
                 if (leagueSnap.exists()) {
                     const lData = leagueSnap.data();
-                    if (lData.monthlyContribution) setMonthlyContribution(lData.monthlyContribution);
+                    if (lData.gameweekStake) setMonthlyContribution(lData.gameweekStake);
                     if (lData.rules) setRules(lData.rules);
                     if (lData.name) setLeagueName(lData.name);
                     if (lData.chairmanId) setChairmanId(lData.chairmanId);
@@ -50,12 +49,11 @@ export default function Standings() {
                 }
 
                 const fplUrl = `https://fantasy.premierleague.com/api/leagues-classic/${targetFplId}/standings/`;
-                const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(fplUrl)}`);
+                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(fplUrl)}`);
 
-                if (!response.ok) throw new Error('Failed to fetch FPL standings');
+                if (!response.ok) throw new Error(`FPL API returned ${response.status}. League ID may be invalid.`);
 
-                const originData = await response.json();
-                const data = JSON.parse(originData.contents);
+                const data = await response.json();
 
                 if (data?.standings?.results) {
                     setStandingsData(data.standings.results);
@@ -102,7 +100,7 @@ export default function Standings() {
         : '0.0';
 
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
-    const totalCollected = paidMembersCount * monthlyContribution;
+    const totalCollected = paidMembersCount * gameweekStake;
     const grandVaultTotal = totalCollected * (rules.vault / 100);
     const weeklyPot = totalCollected * (rules.weekly / 100);
 
@@ -130,7 +128,7 @@ export default function Standings() {
 
             <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-8 pb-28">
                 {/* Header — matches other pages */}
-                <Header role={role} title={leagueName || 'The Big League'} subtitle="Gameweek Rankings" />
+                <Header role={role || 'member'} title={leagueName || 'The Big League'} subtitle="Gameweek Rankings" />
 
                 {/* Page Title row */}
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
@@ -162,28 +160,34 @@ export default function Standings() {
                 </div>
 
                 {/* Stats Cards */}
-                {role === 'admin' && !dbFplLeagueId && (
-                    <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                {/* Quick Fix Inline FPL ID Linker */}
+                {role === 'admin' && (!dbFplLeagueId || error) && (
+                    <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div>
                             <h3 className="font-bold text-[#10B981] flex items-center gap-2 mb-1">
-                                <Zap className="w-5 h-5" /> Link Official FPL League
+                                <Zap className="w-5 h-5" /> {error ? 'Update FPL League Link' : 'Link Official FPL League'}
                             </h3>
-                            <p className="text-sm text-gray-300">Enter your official FPL League ID to sync live points automatically.</p>
+                            <p className="text-sm text-gray-300">Paste your full FPL Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
                         </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="flex gap-2 w-full md:w-auto">
                             <input
                                 type="text"
-                                placeholder="e.g. 314"
+                                placeholder="Paste Standings URL..."
                                 value={inputFplLeagueId}
-                                onChange={(e) => setInputFplLeagueId(e.target.value.replace(/\D/g, ''))}
-                                className="w-full sm:w-48 bg-[#161d24] border border-[#10B981]/30 rounded-xl px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#10B981]"
+                                onChange={(e) => {
+                                    let val = e.target.value.trim();
+                                    const match = val.match(/leagues\/(\d+)\/standings/);
+                                    if (match && match[1]) val = match[1];
+                                    setInputFplLeagueId(val.replace(/\D/g, ''));
+                                }}
+                                className="w-full sm:w-64 bg-[#161d24] border border-[#10B981]/30 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#10B981]"
                             />
                             <button
                                 onClick={handleSaveFplId}
                                 disabled={isSavingFplId || !inputFplLeagueId}
-                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex flex-shrink-0 items-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors"
+                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex flex-shrink-0 items-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                             >
-                                <Save className="w-4 h-4" /> Save ID
+                                <Save className="w-4 h-4" /> Save Link
                             </button>
                         </div>
                     </div>
@@ -217,9 +221,16 @@ export default function Standings() {
 
                 {/* Table */}
                 {error ? (
-                    <div className="w-full bg-red-500/10 border border-red-500/20 p-6 rounded-2xl text-center shadow-lg">
-                        <p className="text-red-400 font-bold uppercase tracking-widest">{error}</p>
-                        <p className="text-gray-500 text-sm mt-2">The FPL API may be updating or CORS proxy failed.</p>
+                    <div className="w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center shadow-2xl relative overflow-hidden mt-6">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-red-500 blur-[80px] opacity-10 pointer-events-none"></div>
+                        <ShieldAlert className="w-10 h-10 text-red-400 mx-auto mb-4" />
+                        <h3 className="text-xl font-black text-white mb-2">Sync Interrupted</h3>
+                        <p className="text-red-400 font-bold mb-4 text-sm">{error}</p>
+                        <p className="text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
+                            {role === 'admin' 
+                                ? "This usually happens if your FPL League ID is incorrect or missing. Use the green 'Update FPL League Link' box above to paste your exact Standings URL and restore the connection."
+                                : "The Chairman needs to update the FPL League link, or the official FPL servers are undergoing maintenance."}
+                        </p>
                     </div>
                 ) : (
                     <div className="w-full overflow-x-auto bg-[#161d24] border border-white/5 rounded-2xl shadow-2xl shadow-black/50">

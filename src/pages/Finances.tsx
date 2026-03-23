@@ -11,7 +11,7 @@ export default function Finances() {
     const { members, listenToLeagueMembers, isStealthMode, role } = useStore();
 
     const [transactions, setTransactions] = useState<any[]>([]);
-    const [monthlyContribution, setMonthlyContribution] = useState(0);
+    const [gameweekStake, setMonthlyContribution] = useState(0);
     const [rules, setRules] = useState({ weekly: 70, vault: 30, seasonWinnersCount: 3 });
 
     useEffect(() => {
@@ -34,7 +34,7 @@ export default function Finances() {
             const unsubscribeLeague = onSnapshot(leagueRef, (docSnap: any) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    setMonthlyContribution(data.monthlyContribution || 0);
+                    setMonthlyContribution(data.gameweekStake || 0);
                     if (data.rules) setRules(data.rules);
                 }
             });
@@ -47,7 +47,7 @@ export default function Finances() {
     }, [activeLeagueId, listenToLeagueMembers, members.length]);
 
     const paidMembers = members.filter(m => m.hasPaid && m.isActive !== false);
-    const totalSecured = paidMembers.length * (monthlyContribution || 1400);
+    const totalSecured = paidMembers.length * (gameweekStake || 1400);
     const seasonVault = totalSecured * (rules.vault / 100);
 
     const currentUser = members.find(m => m.phone === memberPhone);
@@ -85,7 +85,7 @@ export default function Finances() {
     const depositTxSum = transactions
         .filter(tx => tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone)
         .reduce((acc, tx) => acc + (tx.amount || 0), 0);
-    const myTotalContributed = depositTxSum || (currentUser?.hasPaid ? (monthlyContribution || 1400) : 0);
+    const myTotalContributed = depositTxSum || (currentUser?.hasPaid ? (gameweekStake || 1400) : 0);
 
     // Distribution Logic Array
     const getDistributionRanges = (count: number) => {
