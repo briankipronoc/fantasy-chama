@@ -38,6 +38,7 @@ export default function AdminSetup() {
     // Step 2: League
     const [leagueName, setLeagueName] = useState('');
     const [fplLeagueId, setFplLeagueId] = useState('');
+    const [fplFetchStatus, setFplFetchStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [monthlyFee, setMonthlyFee] = useState(200);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(70);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
@@ -370,7 +371,11 @@ export default function AdminSetup() {
                         <div className="space-y-4 relative z-10">
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
-                                    League Name <Tooltip text="The precise name of your league as it currently appears on Fantasy Premier League." />
+                                    League Name
+                                    {fplFetchStatus === 'success' && (
+                                        <span className="ml-2 text-[9px] text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20 normal-case tracking-normal">Auto-filled from FPL</span>
+                                    )}
+                                    <Tooltip text="Enter your FPL League ID below to auto-fill this, or type manually." />
                                 </label>
                                 <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. The Alpha Syndicate" />
                             </div>
@@ -385,8 +390,47 @@ export default function AdminSetup() {
                                     if (match && match[1]) {
                                         val = match[1];
                                     }
-                                    setFplLeagueId(val.replace(/[^0-9]/g, ''));
-                                }} className={inputClasses} placeholder="e.g. 123456 from your standings URL" />
+                                    const numericId = val.replace(/[^0-9]/g, '');
+                                    setFplLeagueId(numericId);
+
+                                    // Auto-fetch league name when ID looks valid
+                                    if (numericId.length >= 4) {
+                                        setFplFetchStatus('loading');
+                                        fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${numericId}/standings/`)}`)
+                                            .then(res => res.json())
+                                            .then(data => {
+                                                if (data?.league?.name) {
+                                                    setLeagueName(data.league.name);
+                                                    setFplFetchStatus('success');
+                                                    // Also update estimated members from standings
+                                                    const memberCount = data?.standings?.results?.length;
+                                                    if (memberCount && memberCount >= 2) {
+                                                        setEstimatedMembers(memberCount);
+                                                    }
+                                                } else {
+                                                    setFplFetchStatus('error');
+                                                }
+                                            })
+                                            .catch(() => setFplFetchStatus('error'));
+                                    } else {
+                                        setFplFetchStatus('idle');
+                                    }
+                                }} className={inputClasses} placeholder="e.g. 123456 or paste your FPL Standings URL" />
+                                {fplFetchStatus === 'loading' && (
+                                    <p className="text-[10px] text-[#FBBF24] mt-1.5 flex items-center gap-1 font-bold">
+                                        <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Fetching league from FPL...
+                                    </p>
+                                )}
+                                {fplFetchStatus === 'success' && (
+                                    <p className="text-[10px] text-[#22c55e] mt-1.5 flex items-center gap-1 font-bold">
+                                        <Check className="w-3 h-3" /> League found! Name and members auto-filled.
+                                    </p>
+                                )}
+                                {fplFetchStatus === 'error' && (
+                                    <p className="text-[10px] text-red-400 mt-1.5 font-bold">
+                                        Could not find this league. Check the ID and try again.
+                                    </p>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
@@ -428,11 +472,18 @@ export default function AdminSetup() {
                         <div className="mb-6 flex-1 flex flex-col justify-center">
                             <div className="flex justify-between items-end mb-2">
                                 <div>
-                                    <h3 className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight">{weeklyPrizePercent}%</h3>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={weeklyPrizePercent}
+                                        onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                        className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent border-b border-[#22c55e]/30 focus:border-[#22c55e] outline-none w-20 text-center"
+                                    /><span className="text-3xl font-black text-[#22c55e]">%</span>
                                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Weekly Prize</p>
                                 </div>
                                 <div className="text-right">
-                                    <h3 className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">{100 - weeklyPrizePercent}%</h3>
+                                    <span className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">{100 - weeklyPrizePercent}%</span>
                                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Grand Vault</p>
                                 </div>
                             </div>
@@ -443,7 +494,7 @@ export default function AdminSetup() {
                                     type="range"
                                     min="0"
                                     max="100"
-                                    step="5"
+                                    step="1"
                                     value={weeklyPrizePercent}
                                     onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
                                     className="w-full h-2 rounded-lg appearance-none cursor-pointer outline-none"
