@@ -48,6 +48,9 @@ export default function MemberDashboard() {
     // Phase 30: Expanded Winner's Circle
     const [showAllWinners, setShowAllWinners] = useState(false);
 
+    // Phase 31: Real FPL Performance Trajectory
+    const [performanceData, setPerformanceData] = useState<any[]>([]);
+
     // Co-Admin State
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
@@ -87,6 +90,30 @@ export default function MemberDashboard() {
                             if (results && results.length > 0) {
                                 const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
                                 setGwWinner(winner);
+
+                                // Build league-wide GW average from all entries' history
+                                const currentFplTeamId = currentUser?.fplTeamId;
+                                if (currentFplTeamId) {
+                                    // Fetch user's own history
+                                    fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${currentFplTeamId}/history/`)}`)
+                                        .then(r => r.json())
+                                        .then(histData => {
+                                            const current = histData?.current;
+                                            if (current && current.length > 0) {
+                                                // Get last 5 GWs
+                                                const recent = current.slice(-5);
+                                                const leagueAvg = results.length > 0
+                                                    ? Math.round(results.reduce((s: number, r: any) => s + r.event_total, 0) / results.length)
+                                                    : 50;
+                                                setPerformanceData(recent.map((gw: any) => ({
+                                                    name: `GW${gw.event}`,
+                                                    Points: gw.points,
+                                                    Average: leagueAvg
+                                                })));
+                                            }
+                                        })
+                                        .catch(() => {});
+                                }
                             }
                         })
                         .catch(err => console.error("Could not fetch FPL winner:", err));
@@ -365,14 +392,6 @@ export default function MemberDashboard() {
     );
 
 
-    // Mock Performance Data for Trajectory
-    const performanceData = [
-        { name: 'GW21', Points: 42, Average: 45 },
-        { name: 'GW22', Points: 58, Average: 50 },
-        { name: 'GW23', Points: 81, Average: 54 },
-        { name: 'GW24', Points: 45, Average: 48 },
-        { name: 'GW25', Points: isRecentWinner ? 95 : 68, Average: 52 },
-    ];
 
     // Greeting for member header
     const getGreeting = () => {
@@ -774,6 +793,7 @@ export default function MemberDashboard() {
                             <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
                         </h4>
                         <div className="h-52 w-full">
+                            {performanceData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={performanceData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
@@ -787,6 +807,13 @@ export default function MemberDashboard() {
                                     <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2} strokeDasharray="4 4" dot={false} />
                                 </LineChart>
                             </ResponsiveContainer>
+                            ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-center">
+                                <BarChart3 className="w-8 h-8 text-gray-700 mb-2" />
+                                <p className="text-xs font-bold text-gray-600">Link your FPL team in Profile</p>
+                                <p className="text-[10px] text-gray-700 mt-1">to see your real performance trajectory.</p>
+                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
