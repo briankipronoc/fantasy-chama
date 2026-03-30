@@ -1,7 +1,7 @@
-import { Shield, Lock, Scale, AlertOctagon, Terminal, FileText } from 'lucide-react';
+import { HelpCircle, Wallet, Lock, Activity, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function Terms() {
+export default function FAQ() {
     return (
         <div className="bg-[#0a0e17] text-[#dfe2ef] min-h-screen font-sans">
             {/* TopNavBar */}
@@ -10,7 +10,7 @@ export default function Terms() {
                     <Link to="/" className="flex items-center gap-2 text-xl md:text-2xl font-extrabold tracking-tighter text-[#DFE2EF] hover:opacity-80 transition-opacity">
                         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[1px] flex items-center justify-center shadow-lg shadow-emerald-500/20">
                             <div className="w-full h-full bg-[#0a0e17] rounded-[11px] flex items-center justify-center">
-                                <Shield className="w-4 h-4 text-emerald-400" />
+                                <HelpCircle className="w-4 h-4 text-emerald-400" />
                             </div>
                         </div>
                         Fantasy <span className="text-emerald-400">Chama</span>
@@ -25,83 +25,70 @@ export default function Terms() {
                 {/* Hero Header */}
                 <div className="text-center mb-16 md:mb-24 relative">
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-4 block relative z-10">Legal Architecture</span>
-                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-white mb-6 relative z-10">The Rules of the Vault.</h1>
+                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-4 block relative z-10">Knowledge Base</span>
+                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-white mb-6 relative z-10">Frequently Asked<br />Questions.</h1>
                     <p className="text-gray-400 text-lg md:text-xl font-medium max-w-2xl mx-auto relative z-10">
-                        Institutional-grade transparency. Everything you need to know about how the platform routes, protects, and settles your stakes.
+                        Clarity is the ultimate security. Everything you need to know about the platform's mechanics, payouts, and infrastructure.
                     </p>
                 </div>
 
-                {/* Bento Grid Terms */}
+                {/* Bento Grid FAQ */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-min">
                     
-                    {/* 1. Vault Mechanics (Large) */}
+                    {/* Q1: Wallet Flow (Large) */}
                     <div className="md:col-span-8 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-between border border-white/5 relative overflow-hidden group hover:bg-[#1f2937] transition-colors">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none"></div>
                         <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
-                            <Lock className="w-6 h-6 text-emerald-400" />
+                            <Wallet className="w-6 h-6 text-emerald-400" />
                         </div>
                         <div className="z-10 relative">
-                            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">1. Vault Mechanics & Escrow</h2>
+                            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">How are funds deposited and secured?</h2>
                             <p className="text-gray-400 leading-relaxed text-base md:text-lg mb-4">
-                                Fantasy Chama acts exclusively as an automated escrow gateway. When users fund their wallets via M-Pesa STK push, funds are held securely. The platform natively prevents manual withdrawal of active stakes prior to official gameweek settlements.
+                                When a league is created, the Chairman defines the stake amount per gameweek. Members receive an invitation code and can securely deposit their stakes into their platform wallet utilizing M-Pesa STK Push integration natively connected to Safaricom Daraja.
                             </p>
                             <p className="text-gray-400 leading-relaxed text-base md:text-lg">
-                                The platform guarantees 100% mathematical accuracy based on the Official FPL API. We do not manually alter points, ranks, or outcomes.
+                                Your digital wallet balance is stored securely within the platform's vault until weekly deductions resolve your gameweek stakes. All transactions are mathematically transparent.
                             </p>
                         </div>
                     </div>
 
-                    {/* 2. Admin Capabilities (Small) */}
+                    {/* Q2: FPL Sync (Small) */}
                     <div className="md:col-span-4 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 relative overflow-hidden group hover:bg-[#1f2937] transition-colors">
-                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-amber-500/10 rounded-full blur-[50px] pointer-events-none"></div>
-                        <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
-                            <Terminal className="w-5 h-5 text-amber-400" />
+                        <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/10 rounded-full blur-[50px] pointer-events-none"></div>
+                        <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
+                            <Activity className="w-5 h-5 text-blue-400" />
                         </div>
-                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">2. Admin Powers</h2>
+                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">How fast is the FPL score sync?</h2>
                         <p className="text-gray-400 leading-relaxed text-sm lg:text-base z-10 relative">
-                            League Chairmen define the stakes. Platform architecture natively redirects customizable administrative commissions directly to their personal wallets upon each successful gameweek resolution.
+                            Fantasy Chama is directly linked via API to the Official Premier League servers. As points accumulate globally on a matchday, your positional standings within your private ledger update synchronously.
                         </p>
                     </div>
 
-                    {/* 3. Red Zone & Defauls (Half) */}
+                    {/* Q3: Red Zone (Half) */}
                     <div className="md:col-span-6 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 relative overflow-hidden group hover:bg-[#1f2937] transition-colors">
                         <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-red-500/10 rounded-full blur-[60px] pointer-events-none"></div>
                         <div className="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
-                            <AlertOctagon className="w-6 h-6 text-red-400" />
+                            <Lock className="w-6 h-6 text-red-400" />
                         </div>
-                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">3. Red Zone Enforcement</h2>
+                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">What happens if I miss a payment?</h2>
                         <p className="text-gray-400 leading-relaxed text-base z-10 relative">
-                            Users who fail to maintain sufficient wallet balances are automatically demoted to the "Red Zone". While in the Red Zone, managers are explicitly excluded from the active gameweek pot and are ineligible for any B2C payouts until their arrears are cleared.
+                            If your wallet hits zero, you are instantly flagged and moved into the "Red Zone." During this state, your points are ignored by the payout resolution engine, mathematically excluding you from the active weekly pot until the arrears are cleared.
                         </p>
                     </div>
 
-                    {/* 4. Financial Jurisdiction (Half) */}
+                    {/* Q4: Maker Checker (Half) */}
                     <div className="md:col-span-6 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 relative overflow-hidden group hover:bg-[#1f2937] transition-colors">
-                        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-blue-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-                        <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
-                            <Scale className="w-6 h-6 text-blue-400" />
+                        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none"></div>
+                        <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
+                            <Users className="w-6 h-6 text-amber-400" />
                         </div>
-                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">4. Safaricom Integrations</h2>
+                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">Can the Chairman steal funds?</h2>
                         <p className="text-gray-400 leading-relaxed text-base z-10 relative">
-                            All electronic transactions flow strictly through Safaricom Daraja APIs. Payout speeds and STK push reliability are subject to network uptime. Fantasy Chama is not liable for upstream telecom latency or delayed B2C executions.
+                            Absolutely not. Our architecture strictly relies on the Maker/Checker Protocol. Every payout or manual deduction must be explicitly cryptographically signed and approved by a secondary Co-Chair before execution.
                         </p>
-                    </div>
-
-                    {/* 5. User Consent (Full) */}
-                    <div className="md:col-span-12 bg-[#161d24] rounded-[2rem] p-8 md:p-12 flex flex-col md:flex-row md:items-center border border-white/5 relative overflow-hidden group hover:bg-[#1f2937] transition-colors">
-                        <div className="absolute inset-y-0 right-0 w-full md:w-1/2 bg-gradient-to-l from-emerald-500/5 via-transparent to-transparent pointer-events-none"></div>
-                        <div className="w-full relative z-10">
-                            <div className="w-14 h-14 bg-[#0a0e17] border border-emerald-500/30 rounded-[1.25rem] flex items-center justify-center mb-6 shadow-xl shadow-emerald-500/10">
-                                <FileText className="w-7 h-7 text-emerald-400" />
-                            </div>
-                            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">5. Acknowledgment</h2>
-                            <p className="text-gray-400 leading-relaxed text-lg max-w-4xl">
-                                By utilizing the Fantasy Chama platform to manage your private league, you inherently agree to the execution logic defined by the code. You acknowledge that administrative commands, including hybrid cash handoffs and M-Pesa sweeps, alter the immutable digital ledger of your league. We reserve the right to suspend any league discovered attempting to artificially manipulate API callbacks or commit financial fraud against other members.
-                            </p>
-                        </div>
                     </div>
                 </div>
+            </main>
 
             {/* Global Footer */}
             <footer className="w-full bg-[#0a0e17]">
@@ -118,7 +105,6 @@ export default function Terms() {
                     </div>
                 </div>
             </footer>
-            </main>
         </div>
     );
 }

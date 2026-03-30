@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db, auth } from '../firebase';
-import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
 export type Role = 'member' | 'admin' | null;
@@ -42,7 +42,7 @@ interface AppState {
     setMembers: (members: Member[]) => void;
     listenToLeagueMembers: (leagueId: string) => void;
     listenToLeagueTransactions: (leagueId: string) => void;
-    togglePaymentStatus: (leagueId: string, memberId: string, currentStatus: boolean) => Promise<void>;
+    togglePaymentStatus: (leagueId: string, memberId: string, currentStatus: boolean, gameweekStake?: number) => Promise<void>;
     toggleAdminStatus: (leagueId: string, memberId: string, currentRole: string | undefined) => Promise<void>;
     updateWalletBalance: (leagueId: string, memberId: string, delta: number) => Promise<void>;
     toggleMemberActiveStatus: (leagueId: string, memberId: string, newStatus: boolean) => Promise<void>;
@@ -102,11 +102,16 @@ export const useStore = create<AppState>((set) => ({
         });
     },
 
-    togglePaymentStatus: async (leagueId, memberId, currentStatus) => {
+    togglePaymentStatus: async (leagueId, memberId, currentStatus, gameweekStake = 0) => {
         const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
-        await updateDoc(memberRef, {
-            hasPaid: !currentStatus
-        });
+        const updates: any = { hasPaid: !currentStatus };
+        
+        if (gameweekStake > 0) {
+            const modifier = currentStatus ? -gameweekStake : gameweekStake;
+            updates.walletBalance = increment(modifier);
+        }
+
+        await updateDoc(memberRef, updates);
     },
 
     toggleAdminStatus: async (leagueId, memberId, currentRole) => {

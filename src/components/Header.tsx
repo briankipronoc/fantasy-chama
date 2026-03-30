@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
 import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Scroll } from 'lucide-react';
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
+import { auth } from '../firebase';
 
 export default function Header({ role, title, subtitle }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
@@ -11,11 +13,26 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const { isStealthMode, toggleStealthMode } = useStore();
     const { notifications, markAllAsRead } = useNotifications();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState<'personal' | 'system'>('personal');
+    const activeTabState = useState<'personal' | 'system'>('personal');
+    const activeTab = activeTabState[0];
+    const setActiveTab = activeTabState[1];
     const [showConstitution, setShowConstitution] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user && user.uid === import.meta.env.VITE_SUPER_ADMIN_UID) {
+                setIsSuperAdmin(true);
+            } else {
+                setIsSuperAdmin(activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID);
+            }
+        });
+        return () => unsubscribe();
+    }, [activeUserId]);
 
     useEffect(() => {
         if (currentMember && currentMember.hasAcceptedRules !== true && currentMember.role !== 'admin') {
@@ -100,6 +117,17 @@ export default function Header({ role, title, subtitle }: { role: string, title?
             </div>
 
             <div className="flex items-center gap-2 md:gap-3" ref={dropdownRef}>
+                {/* Join HQ Trigger */}
+                {isSuperAdmin && (
+                    <button
+                        onClick={() => navigate('/hq')}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981]/80 transition-all font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)] active:scale-95"
+                        title="Access Super Admin HQ"
+                    >
+                        <Shield className="w-4 h-4" /> Join HQ
+                    </button>
+                )}
+
                 {/* Stealth Mode Toggle */}
                 <button
                     onClick={toggleStealthMode}

@@ -147,7 +147,7 @@ export default function SuperAdminDashboard() {
                         { label: 'Gross Volume', value: fmt(stats.totalGrossVolume), color: 'text-white', icon: <BarChart3 className="w-3.5 h-3.5 text-blue-400" /> },
                         { label: 'Platform Revenue (5%)', value: fmt(stats.totalPlatformRev), color: 'text-emerald-400', icon: <Banknote className="w-3.5 h-3.5 text-emerald-400" /> },
                         { label: 'Chairman Kickbacks', value: fmt(stats.totalChairmanPayouts), color: 'text-[#FBBF24]', icon: <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> },
-                        { label: 'Co-Admin Kickbacks', value: fmt(stats.totalCoAdminPayouts), color: 'text-gray-300', icon: <Users className="w-3.5 h-3.5 text-purple-400" /> },
+                        { label: 'Co-Chair Kickbacks', value: fmt(stats.totalCoAdminPayouts), color: 'text-gray-300', icon: <Users className="w-3.5 h-3.5 text-purple-400" /> },
                         { label: 'Safaricom Fees', value: fmt(stats.totalSafaricomFees), color: 'text-red-400', icon: <TrendingUp className="w-3.5 h-3.5 text-red-400" /> },
                         { label: 'Active Leagues', value: stealthMode ? '**' : String(stats.activeLeagues), color: 'text-white', icon: <Activity className="w-3.5 h-3.5 text-cyan-400" /> },
                         { label: 'Total Members', value: stealthMode ? '**' : String(stats.activeMembers), color: 'text-blue-400', icon: <Users className="w-3.5 h-3.5 text-blue-400" /> },
@@ -217,7 +217,7 @@ export default function SuperAdminDashboard() {
                                     <th className="px-5 py-3">Time</th>
                                     <th className="px-5 py-3 text-right">Gross</th>
                                     <th className="px-5 py-3 text-right">Chairman</th>
-                                    <th className="px-5 py-3 text-right">Co-Admin</th>
+                                    <th className="px-5 py-3 text-right">Co-Chair</th>
                                     <th className="px-5 py-3 text-right">M-Pesa Fee</th>
                                     <th className="px-5 py-3 text-right text-emerald-400">Platform</th>
                                 </tr>

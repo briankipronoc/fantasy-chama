@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Wallet } from 'lucide-react';
+import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
@@ -23,6 +23,7 @@ export default function AdminCommandCenter() {
     const [toastMessage, setToastMessage] = useState('');
     const [showResolveModal, setShowResolveModal] = useState(false);
     const [isResolving, setIsResolving] = useState(false);
+    const [payoutMethod, setPayoutMethod] = useState<'mpesa' | 'cash'>('mpesa');
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
@@ -35,9 +36,50 @@ export default function AdminCommandCenter() {
     // Phase 29: FPL GW Winner logic
     const [gwWinner, setGwWinner] = useState<any>(null);
 
+    const handleNudge = async () => {
+        if (!activeLeagueId) return;
+        
+        const history = JSON.parse(localStorage.getItem(`nudge_${activeLeagueId}`) || "[]");
+        if (history.length >= 3) {
+            showToast('Maximum 3 nudges reached for this payout.');
+            return;
+        }
+        
+        const cooldowns = [0, 60000, 600000, 36000000]; // 0m, 1m, 10m, 10h
+        const currentCooldown = cooldowns[history.length];
+        
+        if (history.length > 0) {
+            const timePassed = Date.now() - history[history.length - 1];
+            if (timePassed < currentCooldown) {
+                const rem = currentCooldown - timePassed;
+                const remainingStr = rem < 60000 ? `${Math.ceil(rem/1000)}s` : 
+                                     rem < 3600000 ? `${Math.ceil(rem/60000)}m` : 
+                                     `${Math.ceil(rem/3600000)}h`;
+                showToast(`Cooldown active. Wait ${remainingStr} before nudging again.`);
+                return;
+            }
+        }
+
+        const newHistory = [...history, Date.now()];
+        localStorage.setItem(`nudge_${activeLeagueId}`, JSON.stringify(newHistory));
+        setNudgeSent(true); 
+        
+        await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+            type: 'warning',
+            message: `⚡ The Chairman is nudging you to review and approve ${pendingPayouts.length} pending payout(s) (${newHistory.length}/3)! Please action ASAP.`,
+            timestamp: serverTimestamp(),
+            readBy: [],
+            targetMemberId: coAdminId
+        });
+        showToast('Nudge sent! The Co-Chair has been notified.');
+        
+        setTimeout(() => setNudgeSent(false), 2000);
+    };
+
     // Filter & Modal State
     const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
     const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
+    const [nudgeSent, setNudgeSent] = useState(false);
 
     // Manual Member Enrollment
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -50,6 +92,7 @@ export default function AdminCommandCenter() {
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const togglePaymentStatusGlobal = useStore(state => state.togglePaymentStatus);
     const isStealthMode = useStore(state => state.isStealthMode);
+    const role = useStore(state => state.role);
 
     const handleToggleAdmin = async (memberId: string, currentRole: string | undefined) => {
         if (!activeLeagueId) return;
@@ -83,18 +126,26 @@ export default function AdminCommandCenter() {
                     setCoAdminId(data.coAdminId || null);
                     if (data.rules) setRules(data.rules);
 
-                    // Fetch Live GW Winner
+                    // Fetch Live GW Winner with 'Banner Off' Heuristic
                     if (data.fplLeagueId) {
-                        fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
-                            .then(res => res.json())
-                            .then(fplData => {
-                                const results = fplData?.standings?.results;
-                                if (results && results.length > 0) {
-                                    const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
-                                    setGwWinner(winner);
-                                }
-                            })
-                            .catch(err => console.error("Could not fetch FPL winner:", err));
+                        const lastDate = data.lastResolvedDate?.toDate();
+                        const daysSince = lastDate ? (new Date().getTime() - lastDate.getTime()) / (1000 * 3600 * 24) : 0;
+                        
+                        // Show banner if never resolved, OR if we are within 2 days of resolution (celebrating), OR if it's been > 5 days (new GW starting)
+                        const shouldShowBanner = !lastDate || daysSince <= 2 || daysSince > 5;
+
+                        if (shouldShowBanner) {
+                            fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
+                                .then(res => res.json())
+                                .then(fplData => {
+                                    const results = fplData?.standings?.results;
+                                    if (results && results.length > 0) {
+                                        const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
+                                        setGwWinner(winner);
+                                    }
+                                })
+                                .catch(err => console.error("Could not fetch FPL winner:", err));
+                        }
                     }
                 }
 
@@ -110,7 +161,7 @@ export default function AdminCommandCenter() {
         initDashboard();
     }, [activeLeagueId, navigate, listenToLeagueMembers]);
 
-    // Listen for pending payouts in real-time (for Co-Admin approval)
+    // Listen for pending payouts in real-time (for Co-Chair approval)
     useEffect(() => {
         if (!activeLeagueId) return;
         const pendingRef = collection(db, 'leagues', activeLeagueId, 'pending_payouts');
@@ -212,8 +263,8 @@ export default function AdminCommandCenter() {
     const handleTogglePayment = async (memberId: string, currentStatus: boolean, memberName: string) => {
         if (!activeLeagueId) return;
         try {
-            await togglePaymentStatusGlobal(activeLeagueId, memberId, currentStatus);
-            showToast(`Payment updated for ${memberName}`);
+            await togglePaymentStatusGlobal(activeLeagueId, memberId, currentStatus, gameweekStake);
+            showToast(!currentStatus ? `Manual Deposit: Added KES ${gameweekStake} to ${memberName}` : `Manual Reversal: Removed KES ${gameweekStake} from ${memberName}`);
 
             // If we are marking them as paid
             if (!currentStatus) {
@@ -331,10 +382,12 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) return;
         setIsResolving(true);
         try {
-            // 1. Fetch live FPL Standings (Using hardcoded generic ID since we don't have user's custom ID here, or 314)
-            const fplLeagueId = 314;
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            const res = await fetch(`${apiUrl}/api/fpl/standings/${fplLeagueId}`);
+            // 1. Fetch live FPL Standings via generic proxy
+            const leagueRef = doc(db, 'leagues', activeLeagueId);
+            const leagueSnap = await getDoc(leagueRef);
+            const fplLeagueId = leagueSnap.data()?.fplLeagueId || 314;
+            
+            const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${fplLeagueId}/standings/`)}`);
             if (!res.ok) throw new Error("Failed to fetch standings");
             const data = await res.json();
 
@@ -386,11 +439,12 @@ export default function AdminCommandCenter() {
                     points: winningPoints,
                     gw: 26,
                     status: 'awaiting_approval',
+                    method: payoutMethod,
                     requestedBy: auth.currentUser?.displayName || 'Chairman',
                     timestamp: serverTimestamp()
                 });
 
-                // Notify Co-Admin
+                // Notify Co-Chair
                 const notifsRef = collection(db, 'leagues', activeLeagueId, 'notifications');
                 await addDoc(notifsRef, {
                     type: 'warning',
@@ -410,28 +464,32 @@ export default function AdminCommandCenter() {
                 // Log to Live Escrow Feed
                 await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
                     eventType: 'resolution',
-                    message: `GW26 resolved — ${winner.displayName} leads with ${winningPoints} pts. Payout pending Co-Admin approval.`,
+                    message: `GW26 resolved — ${winner.displayName} leads with ${winningPoints} pts. Payout pending Co-Chair approval.`,
                     actor: auth.currentUser?.displayName || 'Chairman',
                     timestamp: serverTimestamp()
                 });
 
                 setShowResolveModal(false);
-                showToast(`Gameweek 26 calculated. Payout sent to Co-Admin for Approval!`);
+                showToast(`Gameweek 26 calculated. Payout sent to Co-Chair for Approval!`);
             } else {
-                // No Co-Admin? Trigger Real Daraja B2C Payout Immediately
-                const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-                const payoutRes = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        phone: winner.phone,
-                        amount: weeklyPot,
-                        remarks: `FantasyChama GW26 Winnings`,
-                        userId: winner.id,
-                        leagueId: activeLeagueId
-                    })
-                });
-                const payoutData = await payoutRes.json();
+                // No Co-Chair? Trigger Real Daraja B2C Payout Immediately, OR log Cash Handoff
+                let payoutData: any = { success: true };
+
+                if (payoutMethod === 'mpesa') {
+                    const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                    const payoutRes = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: winner.phone,
+                            amount: weeklyPot,
+                            remarks: `FantasyChama GW26 Winnings`,
+                            userId: winner.id,
+                            leagueId: activeLeagueId
+                        })
+                    });
+                    payoutData = await payoutRes.json();
+                }
 
                 if (payoutData.success) {
                     // Phase 12: Call backend to atomically drain all member wallets
@@ -444,7 +502,10 @@ export default function AdminCommandCenter() {
                                 leagueId: activeLeagueId,
                                 gwCostPerRound: gameweekStake,
                                 gwNumber: 26,
-                                winnerName: winner.displayName
+                                winnerName: winner.displayName,
+                                payoutMethod: payoutMethod,
+                                chairmanId: auth.currentUser?.uid,
+                                winnerAmount: weeklyPot
                             })
                         });
                         const deductData = await deductRes.json();
@@ -469,7 +530,11 @@ export default function AdminCommandCenter() {
                     }
 
                     setShowResolveModal(false);
-                    showToast(`B2C Dispatch Sent! Safaricom processing KES ${weeklyPot.toLocaleString()} to ${winner.displayName}.`);
+                    if (payoutMethod === 'mpesa') {
+                         showToast(`B2C Dispatch Sent! Safaricom processing KES ${weeklyPot.toLocaleString()} to ${winner.displayName}.`);
+                    } else {
+                         showToast(`Cash Handoff Logged! Gameweek officially resolved for ${winner.displayName}.`);
+                    }
 
                     // Log to Live Escrow Feed
                     await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
@@ -505,38 +570,53 @@ export default function AdminCommandCenter() {
         }
     };
 
-    // Co-Admin: Approve a pending payout and fire real B2C
+    // Co-Chair: Approve a pending payout and fire real B2C
     const handleApprovePayout = async (payout: any) => {
         if (!activeLeagueId) return;
         setIsApprovingPayout(payout.id);
         try {
-            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: payout.winnerPhone,
-                    amount: payout.amount,
-                    remarks: `FantasyChama GW${payout.gw} Approved Payout`,
-                    userId: payout.winnerId,
-                    leagueId: activeLeagueId
-                })
-            });
-            const data = await res.json();
-            if (!data.success) throw new Error(data.message);
+            let data: any = { success: true };
+            if (payout.method === 'mpesa' || !payout.method) {
+                const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: payout.winnerPhone,
+                        amount: payout.amount,
+                        remarks: `FantasyChama GW${payout.gw} Approved Payout`,
+                        userId: payout.winnerId,
+                        leagueId: activeLeagueId
+                    })
+                });
+                data = await res.json();
+                if (!data.success) throw new Error(data.message);
+            }
 
             // Mark the pending payout as approved in Firestore
             await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payout.id), {
                 status: 'approved',
-                approvedBy: auth.currentUser?.displayName || 'Co-Admin',
+                approvedBy: auth.currentUser?.displayName || 'Co-Chair',
                 approvedAt: serverTimestamp()
             });
 
-            // Reset all members to Red Zone for the next gameweek
-            const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
-            await Promise.all(members.map(m => updateDoc(doc(membershipsRef, m.id), { hasPaid: false })));
+            // Fire proper deduct-gw-cost backend logic to accurately decrement wallets and flag red zones
+            const gwApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    leagueId: activeLeagueId,
+                    gwCostPerRound: gameweekStake,
+                    gwNumber: payout.gw,
+                    winnerName: payout.winnerName,
+                    payoutMethod: payout.method,
+                    chairmanId: auth.currentUser?.uid,
+                    winnerAmount: payout.amount
+                })
+            });
 
-            showToast(`✅ Approved! KES ${payout.amount.toLocaleString()} dispatched to ${payout.winnerName}.`);
+            showToast(`✅ Approved! ${payout.method === 'cash' ? 'Cash Handoff logged for' : 'B2C Dispatch sent to'} ${payout.winnerName} (KES ${payout.amount.toLocaleString()}).`);
             confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ['#10B981', '#FBBF24', '#FFFFFF'] });
         } catch (err: any) {
             showToast(`Approval failed: ${err.message}`);
@@ -549,7 +629,7 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) return;
         await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payoutId), {
             status: 'rejected',
-            rejectedBy: auth.currentUser?.displayName || 'Co-Admin',
+            rejectedBy: auth.currentUser?.displayName || 'Co-Chair',
             rejectedAt: serverTimestamp()
         });
         showToast('Payout request rejected. Chairman will be notified.');
@@ -596,6 +676,15 @@ export default function AdminCommandCenter() {
             className="min-h-screen w-full text-white font-sans relative"
             style={{ background: 'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(251,191,36,0.07) 0%, rgba(10,14,23,0) 60%), #0A0E17' }}
         >
+            {/* Unified Global Toast Notification */}
+            <div className={clsx(
+                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-[#0b1014]/90 border-white/10 text-white",
+                toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"
+            )}>
+                <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
+                {toastMessage}
+            </div>
+
             <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-10">
                 {/* Top Header */}
                 <Header role="admin" title={leagueName || 'Command Center'} subtitle="Chairman Hub" />
@@ -621,14 +710,21 @@ export default function AdminCommandCenter() {
                             </div>
                         </div>
 
-                        <div className="relative z-10 flex flex-row md:flex-col items-center flex-shrink-0 md:items-end justify-between w-full md:w-auto bg-[#0b1014]/50 p-4 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm gap-2">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Projected Payout</p>
-                            <p className="text-2xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                        <div className="relative z-10 flex flex-col items-center flex-shrink-0 justify-center w-full md:w-auto bg-[#0b1014]/50 p-6 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm gap-4 transition-colors hover:bg-black">
+                            <div className="flex flex-col items-center justify-center w-full gap-1.5 text-center">
+                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Projected Payout</p>
+                                <p className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                            </div>
+                            {role === 'admin' && (
+                                <button id="tour-resolve-gw" onClick={() => setShowResolveModal(true)} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FBBF24] hover:bg-white text-black text-[11px] font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95">
+                                    <Trophy className="w-4 h-4" /> Resolve & Payout
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
 
-                {/* Co-Admin: Pending Payout Approval Panel */}
+                {/* Co-Chair: Pending Payout Approval Panel */}
                 {pendingPayouts.length > 0 && (
                     <section className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -637,20 +733,12 @@ export default function AdminCommandCenter() {
                             </h2>
                             {coAdminId && (
                                 <button
-                                    onClick={async () => {
-                                        if (!activeLeagueId) return;
-                                        await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
-                                            type: 'warning',
-                                            message: `⚡ The Chairman is nudging you to review and approve ${pendingPayouts.length} pending payout(s)! Please action ASAP.`,
-                                            timestamp: serverTimestamp(),
-                                            readBy: [],
-                                            targetMemberId: coAdminId
-                                        });
-                                        showToast('Nudge sent to Co-Admin!');
-                                    }}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95"
+                                    disabled={nudgeSent}
+                                    onClick={handleNudge}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50"
                                 >
-                                    <Bell className="w-3 h-3" /> Nudge Co-Admin
+                                    {nudgeSent ? <CheckCircle2 className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
+                                    {nudgeSent ? 'Nudged ✓' : 'Nudge Co-Chair'}
                                 </button>
                             )}
                         </div>
@@ -662,167 +750,18 @@ export default function AdminCommandCenter() {
                                         <p className="text-gray-300 text-sm mt-1">
                                             <span className="text-[#FBBF24] font-bold">KES {Number(payout.amount).toLocaleString()}</span> → {payout.winnerName} ({payout.winnerPhone})
                                         </p>
-                                        <p className="text-gray-500 text-xs mt-1">Requested by: {payout.requestedBy || 'Chairman'}</p>
+                                        <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
                                     </div>
                                     <div className="flex gap-2 flex-shrink-0 flex-wrap">
-                                        <button
-                                            onClick={() => handleRejectPayout(payout.id)}
-                                            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 text-sm font-bold rounded-xl transition-colors"
-                                        >
-                                            Reject
-                                        </button>
-                                        <button
-                                            onClick={() => handleApprovePayout(payout)}
-                                            disabled={isApprovingPayout === payout.id}
-                                            className="px-5 py-2 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-60 flex items-center gap-2"
-                                        >
-                                            {isApprovingPayout === payout.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                                            {isApprovingPayout === payout.id ? 'Approving...' : 'Approve & Disburse'}
-                                        </button>
-                                        <button
-                                            onClick={() => generateWhatsAppReceipt(payout)}
-                                            className="px-4 py-2 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/30 text-sm font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-[0_0_10px_rgba(37,211,102,0.15)]"
-                                            title="Share GW results to WhatsApp Group"
-                                        >
-                                            <Share2 className="w-3.5 h-3.5" /> WhatsApp
-                                        </button>
+                                        <span className="px-5 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center gap-2 shadow-inner">
+                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Awaiting Co-Chair Signature
+                                        </span>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </section>
                 )}
-
-                {/* Chairman/Co-Admin Earnings Panel */}
-                {(() => {
-                    const authUid = auth.currentUser?.uid;
-                    const currentAdmin = members.find(m => m.authUid === authUid || m.role === 'admin');
-                    if (!currentAdmin) return null;
-
-                    const totalCollectedGross = members.filter(m => m.isActive !== false).length * gameweekStake;
-                    const isChairman = currentAdmin.authUid === authUid;
-                    const hasCoAdmin = !!coAdminId;
-
-                    const chairmanRate = hasCoAdmin ? 0.025 : 0.035;
-                    const coAdminRate = hasCoAdmin ? 0.01 : 0;
-                    const myRate = isChairman ? chairmanRate : coAdminRate;
-                    const myEarningsThisGW = totalCollectedGross * myRate;
-                    const myRoleLabel = isChairman ? 'Chairman' : 'Co-Admin';
-                    const myWalletBalance = currentAdmin.walletBalance || 0;
-
-                    return (
-                        <section className="bg-gradient-to-br from-[#161d24] to-[#1a1608]/50 border border-[#FBBF24]/20 rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-48 h-48 bg-[#FBBF24] blur-[120px] opacity-[0.04] pointer-events-none"></div>
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="w-10 h-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
-                                    <Wallet className="w-5 h-5 text-[#FBBF24]" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-[#FBBF24] uppercase tracking-widest">My Earnings ({myRoleLabel})</h3>
-                                    <p className="text-[10px] text-gray-500 font-bold">Auto-credited from the 10% Escrow Rake every Gameweek</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">My Rate</p>
-                                    <p className="text-xl font-black text-[#FBBF24] tabular-nums">{(myRate * 100).toFixed(1)}%</p>
-                                </div>
-                                <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">This GW Est.</p>
-                                    <p className="text-xl font-black text-[#FBBF24] tabular-nums">
-                                        KES {isStealthMode ? '****' : Math.round(myEarningsThisGW).toLocaleString()}
-                                    </p>
-                                </div>
-                                <div className="bg-black/30 rounded-xl p-4 text-center border border-[#FBBF24]/20">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Wallet Balance</p>
-                                    <p className="text-xl font-black text-white tabular-nums">
-                                        KES {isStealthMode ? '****' : myWalletBalance.toLocaleString()}
-                                    </p>
-                                </div>
-                                <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Lifetime Earned</p>
-                                    <p className="text-xl font-black text-gray-400 tabular-nums">
-                                        KES {isStealthMode ? '****' : Math.round(currentAdmin.totalEarned || 0).toLocaleString()}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Request Withdrawal Button */}
-                            {myWalletBalance > 0 ? (
-                                <button
-                                    onClick={async () => {
-                                        if (!activeLeagueId || !currentAdmin.phone) return;
-                                        const confirmed = window.confirm(
-                                            `Withdraw KES ${myWalletBalance.toLocaleString()} to M-Pesa (${currentAdmin.phone})?\n\nThis will trigger a B2C payout to your registered phone number.`
-                                        );
-                                        if (!confirmed) return;
-
-                                        try {
-                                            showToast('Processing withdrawal via M-Pesa B2C...');
-
-                                            // 1. Trigger B2C payout
-                                            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-                                            const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    phone: currentAdmin.phone,
-                                                    amount: myWalletBalance,
-                                                    leagueId: activeLeagueId,
-                                                    remarks: `${myRoleLabel} kickback withdrawal`
-                                                })
-                                            });
-                                            const data = await res.json();
-
-                                            if (!data.success && !data.ConversationID) {
-                                                throw new Error(data.message || 'B2C failed');
-                                            }
-
-                                            // 2. Log withdrawal to platform_treasury
-                                            await addDoc(collection(db, 'platform_treasury'), {
-                                                type: 'kickback_withdrawal',
-                                                role: myRoleLabel.toLowerCase(),
-                                                memberId: currentAdmin.id,
-                                                memberName: currentAdmin.displayName,
-                                                phone: currentAdmin.phone,
-                                                amount: myWalletBalance,
-                                                leagueId: activeLeagueId,
-                                                leagueName: leagueName,
-                                                timestamp: serverTimestamp()
-                                            });
-
-                                            // 3. Reset wallet balance
-                                            const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', currentAdmin.id);
-                                            await updateDoc(memberRef, { walletBalance: 0 });
-
-                                            // 4. Notification
-                                            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
-                                                type: 'transactionSuccess',
-                                                message: `💰 ${myRoleLabel} ${currentAdmin.displayName} withdrew KES ${myWalletBalance.toLocaleString()} kickback earnings via M-Pesa B2C.`,
-                                                timestamp: serverTimestamp(),
-                                                readBy: [],
-                                                targetMemberId: currentAdmin.id
-                                            });
-
-                                            showToast(`KES ${myWalletBalance.toLocaleString()} sent to ${currentAdmin.phone}!`);
-                                        } catch (err: any) {
-                                            console.error("Withdrawal error:", err);
-                                            showToast(`Withdrawal failed: ${err.message}`);
-                                        }
-                                    }}
-                                    className="w-full mt-4 flex items-center justify-center gap-2 py-3 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black uppercase tracking-widest rounded-xl transition-colors active:scale-[0.98] shadow-[0_0_20px_rgba(251,191,36,0.15)]"
-                                >
-                                    <Wallet className="w-4 h-4" /> Request Withdrawal — KES {isStealthMode ? '****' : myWalletBalance.toLocaleString()}
-                                </button>
-                            ) : (
-                                <p className="text-[10px] text-gray-600 font-medium mt-4 text-center">
-                                    No balance to withdraw. Kickbacks are deposited automatically during GW resolution.
-                                </p>
-                            )}
-                        </section>
-                    );
-                })()}
 
                 {/* Generate League Access Section */}
                 <section className="space-y-6">
@@ -834,9 +773,6 @@ export default function AdminCommandCenter() {
                         <div className="flex items-center gap-3">
                             <button id="tour-add-member" onClick={() => setShowAddMemberModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a232b] hover:bg-white/5 text-white text-sm font-bold rounded-xl transition-colors border border-white/5">
                                 <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
-                            </button>
-                            <button id="tour-resolve-gw" onClick={() => setShowResolveModal(true)} className="flex items-center gap-2 px-6 py-2.5 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-black text-sm font-black tracking-wide rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.5)] uppercase">
-                                <Trophy className="w-4 h-4" /> Resolve Gameweek
                             </button>
                             <button onClick={handleBulkNudge} className="flex items-center gap-2 px-4 py-2.5 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                                 <Megaphone className="w-4 h-4" /> Bulk Nudge
@@ -925,13 +861,8 @@ export default function AdminCommandCenter() {
 
                         <div className="xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
                             <div className="p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
-                                {/* Toast Notification */}
-                                <div className={clsx(
-                                    "absolute top-4 right-4 bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-lg transition-all duration-300 pointer-events-none z-20",
-                                    toastMessage ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-                                )}>
-                                    <CheckCircle2 className="w-4 h-4" /> {toastMessage}
-                                </div>
+                                {/* Toast Notification Moved to App Root */}
+
 
                                 <span className="text-[#10B981] text-xs font-bold tracking-widest uppercase mb-4 mt-4">Master Invite Code</span>
                                 <div className="text-5xl lg:text-6xl font-black text-[#FBBF24] tracking-tight mb-6 tabular-nums">{inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}</div>
@@ -1145,8 +1076,29 @@ export default function AdminCommandCenter() {
                                 End-of-Gameweek Resolution
                             </h3>
                             <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                                <strong className="text-[#FBBF24] font-bold">Are you sure?</strong> This will calculate the top scorer, simulate an M-Pesa B2C payout, dispatch <span className="text-white font-bold tracking-tight">KES {isStealthMode ? '****' : weeklyPot.toLocaleString()}</span> to the winner, and record the gameweek in the audit log permanently.
+                                <strong className="text-[#FBBF24] font-bold">Are you sure?</strong> This will calculate the top scorer, execute the selected payout method, dispatch <span className="text-white font-bold tracking-tight">KES {isStealthMode ? '****' : weeklyPot.toLocaleString()}</span> to the winner, and record the gameweek in the audit log permanently.
                             </p>
+
+                            {/* Payout Method Toggle */}
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">Disbursement Method</label>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => setPayoutMethod('mpesa')}
+                                        className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === 'mpesa' ? 'bg-[#10B981]/10 border-[#10B981]/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20'}`}
+                                    >
+                                        <div className={`font-black uppercase tracking-widest mb-1 text-sm ${payoutMethod === 'mpesa' ? 'text-[#10B981]' : ''}`}>M-Pesa B2C</div>
+                                        <div className="text-[10px] opacity-80 text-center font-bold">Auto-disbursed via API</div>
+                                    </button>
+                                    <button 
+                                        onClick={() => setPayoutMethod('cash')}
+                                        className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === 'cash' ? 'bg-[#FBBF24]/10 border-[#FBBF24]/50 shadow-[0_0_15px_rgba(251,191,36,0.15)]' : 'bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20'}`}
+                                    >
+                                        <div className={`font-black uppercase tracking-widest mb-1 text-sm ${payoutMethod === 'cash' ? 'text-[#FBBF24]' : ''}`}>Cash Handoff</div>
+                                        <div className="text-[10px] opacity-80 text-center font-bold">Manual External Payout</div>
+                                    </button>
+                                </div>
+                            </div>
 
                             <div className="flex flex-col sm:flex-row items-center justify-end gap-3 sm:gap-4 mt-8">
                                 <button

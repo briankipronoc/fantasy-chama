@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
-import { ReceiptText, History, Download, ShieldCheck, Trophy } from 'lucide-react';
+import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { db } from '../firebase';
-import { collection, onSnapshot, query, orderBy, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import clsx from 'clsx';
 
 export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
+    const activeUserId = localStorage.getItem('activeUserId');
     const { members, listenToLeagueMembers, isStealthMode, role } = useStore();
 
     const [transactions, setTransactions] = useState<any[]>([]);
     const [gameweekStake, setMonthlyContribution] = useState(0);
     const [rules, setRules] = useState({ weekly: 70, vault: 30, seasonWinnersCount: 3 });
+    const [leagueChairmanId, setLeagueChairmanId] = useState<string | null>(null);
 
     useEffect(() => {
         if (activeLeagueId && members.length === 0) {
@@ -36,6 +38,7 @@ export default function Finances() {
                     const data = docSnap.data();
                     setMonthlyContribution(data.gameweekStake || 0);
                     if (data.rules) setRules(data.rules);
+                    setLeagueChairmanId(data.chairmanId);
                 }
             });
 
@@ -50,7 +53,7 @@ export default function Finances() {
     const totalSecured = paidMembers.length * (gameweekStake || 1400);
     const seasonVault = totalSecured * (rules.vault / 100);
 
-    const currentUser = members.find(m => m.phone === memberPhone);
+    const currentUser = members.find(m => m.id === activeUserId) || members.find(m => m.phone === memberPhone);
     const isAdmin = role === 'admin';
 
     // My winnings received via B2C payouts
@@ -158,6 +161,130 @@ export default function Finances() {
                         </p>
                     </div>
                 </div>
+
+                {/* Chairman/Co-Chair Dedicated Earnings Panel */}
+                {isAdmin && currentUser && (() => {
+                    const totalCollectedGross = paidMembers.length * gameweekStake;
+                    const hasCoAdmin = members.filter(m => m.role === 'admin').length > 1;
+                    const isChairman = (auth.currentUser?.uid === leagueChairmanId) || (currentUser.authUid === leagueChairmanId);
+                    
+                    const chairmanRate = hasCoAdmin ? 0.025 : 0.035;
+                    const coAdminRate = hasCoAdmin ? 0.01 : 0;
+                    const myRate = isChairman ? chairmanRate : coAdminRate;
+                    const myEarningsThisGW = totalCollectedGross * myRate;
+                    const myRoleLabel = isChairman ? 'Chairman' : 'Co-Chair';
+                    const myWalletBalance = currentUser.walletBalance || 0;
+
+                    return (
+                        <section className="bg-[#101511] border border-[#FBBF24]/20 rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden mb-8">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-[#FBBF24] blur-[120px] opacity-[0.04] pointer-events-none"></div>
+                            <div className="flex items-center gap-3 mb-5">
+                                <div className="w-10 h-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
+                                    <Wallet className="w-5 h-5 text-[#FBBF24]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-[#FBBF24] uppercase tracking-widest">My Earnings ({myRoleLabel})</h3>
+                                    <p className="text-[10px] text-gray-500 font-bold">Auto-credited from the 10% Escrow Rake every Gameweek</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div className="bg-[#0b1014]/60 rounded-xl p-4 text-center border border-white/5">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">My Rate</p>
+                                    <p className="text-xl font-black text-[#FBBF24] tabular-nums">{(myRate * 100).toFixed(1)}%</p>
+                                </div>
+                                <div className="bg-[#0b1014]/60 rounded-xl p-4 text-center border border-white/5">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">This GW Est.</p>
+                                    <p className="text-xl font-black text-[#FBBF24] tabular-nums">
+                                        KES {isStealthMode ? '****' : Math.round(myEarningsThisGW).toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="bg-[#0b1014]/60 rounded-xl p-4 text-center border border-[#FBBF24]/30 shadow-[0_0_15px_rgba(251,191,36,0.1)]">
+                                    <p className="text-[9px] font-bold text-[#FBBF24] uppercase tracking-widest mb-1">Wallet Balance</p>
+                                    <p className="text-xl font-black text-white tabular-nums">
+                                        KES {isStealthMode ? '****' : myWalletBalance.toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="bg-[#0b1014]/60 rounded-xl p-4 text-center border border-white/5">
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Lifetime Earned</p>
+                                    <p className="text-xl font-black text-gray-400 tabular-nums">
+                                        KES {isStealthMode ? '****' : Math.round(currentUser.totalEarned || 0).toLocaleString()}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Request Withdrawal Button */}
+                            {myWalletBalance > 0 ? (
+                                <button
+                                    onClick={async () => {
+                                        if (!activeLeagueId || !currentUser.phone) return;
+                                        const confirmed = window.confirm(
+                                            `Withdraw KES ${myWalletBalance.toLocaleString()} to M-Pesa (${currentUser.phone})?\n\nThis will trigger a B2C payout to your registered phone number.`
+                                        );
+                                        if (!confirmed) return;
+
+                                        try {
+                                            // 1. Trigger B2C payout
+                                            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                                            const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    phone: currentUser.phone,
+                                                    amount: myWalletBalance,
+                                                    leagueId: activeLeagueId,
+                                                    remarks: `${myRoleLabel} kickback withdrawal`
+                                                })
+                                            });
+                                            const data = await res.json();
+
+                                            if (!data.success && !data.ConversationID) {
+                                                throw new Error(data.message || 'B2C failed');
+                                            }
+
+                                            // 2. Log withdrawal to platform_treasury
+                                            await addDoc(collection(db, 'platform_treasury'), {
+                                                type: 'kickback_withdrawal',
+                                                role: myRoleLabel.toLowerCase(),
+                                                memberId: currentUser.id,
+                                                memberName: currentUser.displayName,
+                                                phone: currentUser.phone,
+                                                amount: myWalletBalance,
+                                                leagueId: activeLeagueId,
+                                                timestamp: serverTimestamp()
+                                            });
+
+                                            // 3. Reset wallet balance
+                                            const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', currentUser.id);
+                                            await updateDoc(memberRef, { walletBalance: 0 });
+
+                                            // 4. Notification
+                                            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                                                type: 'transactionSuccess',
+                                                message: `💰 ${myRoleLabel} ${currentUser.displayName} withdrew KES ${myWalletBalance.toLocaleString()} kickback earnings via M-Pesa B2C.`,
+                                                timestamp: serverTimestamp(),
+                                                readBy: [],
+                                                targetMemberId: currentUser.id
+                                            });
+
+                                            alert(`KES ${myWalletBalance.toLocaleString()} sent to ${currentUser.phone}!`);
+                                        } catch (err: any) {
+                                            console.error("Withdrawal error:", err);
+                                            alert(`Withdrawal failed: ${err.message}`);
+                                        }
+                                    }}
+                                    className="w-full mt-5 flex items-center justify-center gap-2 py-3.5 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] active:scale-[0.98]"
+                                >
+                                    <Wallet className="w-4 h-4" /> Request Withdrawal — KES {isStealthMode ? '****' : myWalletBalance.toLocaleString()}
+                                </button>
+                            ) : (
+                                <p className="text-[10px] text-gray-500 font-bold mt-5 text-center uppercase tracking-widest bg-black/20 py-2 rounded-lg border border-white/5">
+                                    No balance to withdraw. Kickbacks are deposited automatically during GW resolution.
+                                </p>
+                            )}
+                        </section>
+                    );
+                })()}
 
                 <div className="bg-[#151c18] border border-white/5 rounded-2xl shadow-xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 flex items-center gap-2">

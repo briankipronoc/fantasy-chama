@@ -161,12 +161,12 @@ export default function AdminSetup() {
                     displayName: member.displayName,
                     phone: member.phone,
                     hasPaid: false,
-                    role: isCoAdmin ? 'co-admin' : 'member',
+                    role: isCoAdmin ? 'co-chair' : 'member',
                     trustScore: 100
                 });
             });
 
-            // If a co-admin was selected, explicitly link them to the root league document
+            // If a co-chair was selected, explicitly link them to the root league document
             if (coAdminDocId) {
                 const leagueUpdateRef = doc(db, 'leagues', leagueId);
                 batch.update(leagueUpdateRef, {
@@ -805,7 +805,7 @@ export default function AdminSetup() {
                                                 coAdminIndex === i ? "bg-[#FBBF24] text-black border-[#FBBF24]" : "text-gray-400 border-gray-600 hover:text-white"
                                             )}
                                         >
-                                            {coAdminIndex === i ? "Co-Admin" : "Make Co-Admin"}
+                                            {coAdminIndex === i ? "Co-Chair" : "Make Co-Chair"}
                                         </button>
                                         <button
                                             type="button"

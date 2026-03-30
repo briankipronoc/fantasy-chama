@@ -15,6 +15,7 @@ import Deposit from './pages/Deposit';
 import Profile from './pages/Profile';
 import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import FAQ from './pages/FAQ';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationProvider';
@@ -32,11 +33,11 @@ const DashboardRenderer = () => {
 const RootRoute = () => {
   const role = useStore(state => state.role);
 
-  // Same auth detection pattern used across all pages:
-  // login persists activeLeagueId + memberPhone to localStorage
+  // Auth detection pattern:
+  // Core authentication only strictly mandates leagueId and role.
+  // Member logins also set phone, but Admin logins just require role.
   const leagueId = localStorage.getItem('activeLeagueId');
-  const phone = localStorage.getItem('memberPhone');
-  const isAuthenticated = !!(leagueId && phone && role);
+  const isAuthenticated = !!(leagueId && role);
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -63,6 +64,7 @@ function App() {
         <Route path="/invite" element={<InviteHub />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/faq" element={<FAQ />} />
         <Route path="/hq" element={<SuperAdminDashboard />} />
 
         {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}

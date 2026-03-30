@@ -89,7 +89,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                             label: 'THE ESCROW SYSTEM',
                             labelColor: 'text-emerald-400',
                             title: 'Trustless Vault',
-                            body: 'Your funds are secured in the FantasyChama Vault and are visible to every member in real-time. No Chairman holds your money in a personal account. Payouts are dispatched automatically via Safaricom M-Pesa B2C the moment a Gameweek resolves and the Co-Admin countersigns.',
+                            body: 'Your funds are secured in the FantasyChama Vault and are visible to every member in real-time. No Chairman holds your money in a personal account. Payouts are dispatched automatically via Safaricom M-Pesa B2C the moment a Gameweek resolves and the Co-Chair countersigns.',
                         },
                         {
                             id: 'wallet',
@@ -135,7 +135,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                             label: 'TRANSPARENCY & DISPUTES',
                             labelColor: 'text-purple-400',
                             title: 'Maker/Checker & Claim Payment',
-                            body: 'All payouts require Maker/Checker Co-Admin approval to make sure no single person can unilaterally move funds. If an M-Pesa STK Push fails or your balance doesn\'t update, use the "Claim Payment" feature in your Profile with your M-Pesa SMS receipt code. The Chairman will verify and credit your wallet.',
+                            body: 'All payouts require Maker/Checker Co-Chair approval to make sure no single person can unilaterally move funds. If an M-Pesa STK Push fails or your balance doesn\'t update, use the "Claim Payment" feature in your Profile with your M-Pesa SMS receipt code. The Chairman will verify and credit your wallet.',
                         },
                     ].map((rule) => (
                         <div

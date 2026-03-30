@@ -362,7 +362,7 @@ export default function Standings() {
                                                         )}
                                                         {matchedMember?.id === coAdminId && (
                                                             <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[9px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
-                                                                <ShieldCheck className="w-2.5 h-2.5" /> Co-Admin
+                                                                <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
                                                             </span>
                                                         )}
                                                         {hasPaid !== null && (

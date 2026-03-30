@@ -521,6 +521,21 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
         const summary = { deducted: 0, redZone: [], greenZone: [], deactivated: [] };
         let grossPot = 0;
 
+        // Phase 12.5 - Deep Liquidity Reconciliation
+        if (req.body.payoutMethod === 'cash' && req.body.winnerAmount) {
+            const cashHandoffInjection = Number(req.body.winnerAmount);
+            batch.set(db.collection('platform_treasury').doc(), {
+                type: 'deposit',
+                amount: cashHandoffInjection,
+                receiptId: 'SYS_CASH_REIMBURSE_GW' + (gwNumber || 'X'),
+                phoneNumber: 'SYSTEM_LIQUIDITY',
+                role: 'chairman',
+                userId: req.body.chairmanId || 'unknown',
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                note: `Cash Handoff Treasury Reimbursement: +${cashHandoffInjection} KES`
+            });
+        }
+
         for (const mDoc of membersSnap.docs) {
             const data = mDoc.data();
             
@@ -600,7 +615,7 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
             });
         }
 
-        // The Ledger Distribution for Co-Admin
+        // The Ledger Distribution for Co-Chair
         if (coAdminId) {
              batch.update(db.doc(`leagues/${leagueId}/memberships/${coAdminId}`), {
                 walletBalance: admin.firestore.FieldValue.increment(co_admin_kickback),
@@ -613,7 +628,7 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
                 phoneNumber: 'SYSTEM',
                 userId: coAdminId,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                note: `Co-Admin Auditor Fee: +${co_admin_kickback} KES`
+                note: `Co-Chair Auditor Fee: +${co_admin_kickback} KES`
             });
         }
 
@@ -628,6 +643,11 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
              coAdminCut: co_admin_kickback,
              platformNetRevenue,
              timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Set the lastResolvedDate so frontend knows when to hide the banner
+        batch.update(db.doc(`leagues/${leagueId}`), {
+             lastResolvedDate: admin.firestore.FieldValue.serverTimestamp()
         });
 
         await batch.commit();
@@ -1044,7 +1064,7 @@ const runFPLAutopilot = async () => {
                     continue;
                 }
 
-                // Create the pending payout (Maker/Checker: Co-Admin must approve)
+                // Create the pending payout (Maker/Checker: Co-Chair must approve)
                 await db.collection(`leagues/${leagueId}/pending_payouts`).add({
                     winnerId: winner.id,
                     winnerName: winner.displayName,
@@ -1062,7 +1082,7 @@ const runFPLAutopilot = async () => {
                 // Dispatch notification to the league
                 await db.collection(`leagues/${leagueId}/notifications`).add({
                     type: 'warning',
-                    message: `🤖 AUTOPILOT: ${gwName} is complete! ${winner.displayName} scored ${winningPoints} pts. A payout of KES ${weeklyPot.toLocaleString()} is awaiting Co-Admin approval.`,
+                    message: `🤖 AUTOPILOT: ${gwName} is complete! ${winner.displayName} scored ${winningPoints} pts. A payout of KES ${weeklyPot.toLocaleString()} is awaiting Co-Chair approval.`,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     readBy: []
                 });

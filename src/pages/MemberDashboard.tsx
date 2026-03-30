@@ -54,6 +54,7 @@ export default function MemberDashboard() {
     // Co-Admin State
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
+    const [nudgeSent, setNudgeSent] = useState(false);
 
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
@@ -157,20 +158,18 @@ export default function MemberDashboard() {
         return () => unsub();
     }, [activeLeagueId]);
 
-    // Co-Admin: Listen for Pending Payouts
+    // Co-Chair: Listen for Pending Payouts
     useEffect(() => {
         if (!activeLeagueId || currentUser?.id !== coAdminId) return;
         const q = query(
             collection(db, 'leagues', activeLeagueId, 'pending_payouts'),
-            where('status', '==', 'pending_approval')
+            where('status', '==', 'awaiting_approval')
         );
         const unsub = onSnapshot(q, snap => {
             setPendingPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         });
         return () => unsub();
     }, [activeLeagueId, currentUser?.id, coAdminId]);
-
-    // Module 4A: Listen for pending winner confirmations — moved below currentUser declaration
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToastMessage(msg);
@@ -262,7 +261,47 @@ export default function MemberDashboard() {
         }
     };
 
-    // Co-Admin: Approve Payout
+    const handleNudge = async () => {
+        if (!activeLeagueId) return;
+        
+        const history = JSON.parse(localStorage.getItem(`nudge_${activeLeagueId}`) || "[]");
+        if (history.length >= 3) {
+            showToast('Maximum 3 nudges reached for this payout.', 'error');
+            return;
+        }
+        
+        const cooldowns = [0, 60000, 600000, 36000000]; // 0m, 1m, 10m, 10h
+        const currentCooldown = cooldowns[history.length];
+        
+        if (history.length > 0) {
+            const timePassed = Date.now() - history[history.length - 1];
+            if (timePassed < currentCooldown) {
+                const rem = currentCooldown - timePassed;
+                const remainingStr = rem < 60000 ? `${Math.ceil(rem/1000)}s` : 
+                                     rem < 3600000 ? `${Math.ceil(rem/60000)}m` : 
+                                     `${Math.ceil(rem/3600000)}h`;
+                showToast(`Cooldown active. Wait ${remainingStr} before nudging again.`, 'error');
+                return;
+            }
+        }
+
+        const newHistory = [...history, Date.now()];
+        localStorage.setItem(`nudge_${activeLeagueId}`, JSON.stringify(newHistory));
+        setNudgeSent(true); 
+        
+        await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+            type: 'warning',
+            message: `🔔 The members are nudging the Co-Chair to approve the pending payout (${newHistory.length}/3)! Please review ASAP.`,
+            timestamp: serverTimestamp(),
+            readBy: [],
+            targetMemberId: coAdminId
+        });
+        showToast('Nudge sent! The Co-Chair has been notified.', 'success');
+        
+        setTimeout(() => setNudgeSent(false), 2000);
+    };
+
+    // Co-Chair: Approve Payout
     const handleApprovePayout = async (payout: any) => {
         if (!activeLeagueId) return;
         setIsApprovingPayout(payout.id);
@@ -284,7 +323,7 @@ export default function MemberDashboard() {
 
             await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payout.id), {
                 status: 'approved',
-                approvedBy: currentUser?.displayName || 'Co-Admin',
+                approvedBy: currentUser?.displayName || 'Co-Chair',
                 approvedAt: serverTimestamp()
             });
 
@@ -304,7 +343,7 @@ export default function MemberDashboard() {
         if (!activeLeagueId) return;
         await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payoutId), {
             status: 'rejected',
-            rejectedBy: currentUser?.displayName || 'Co-Admin',
+            rejectedBy: currentUser?.displayName || 'Co-Chair',
             rejectedAt: serverTimestamp()
         });
         showToast('Payout request rejected. Chairman will be notified.');
@@ -328,7 +367,7 @@ export default function MemberDashboard() {
             ``,
             `🛡️ *Admin/Escrow Fee (10%):* KES ${Math.round(totalFee).toLocaleString()}`,
             `👑 *Chairman Cut:* KES ${Math.round(chairmanCut).toLocaleString()}`,
-            `👁️ *Co-Admin Cut:* KES ${Math.round(coAdminCut).toLocaleString()}`,
+            `👁️ *Co-Chair Cut:* KES ${Math.round(coAdminCut).toLocaleString()}`,
             ``,
             `📊 Check live standings & vault:`,
             `🔗 ${appUrl}`,
@@ -435,16 +474,16 @@ export default function MemberDashboard() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed top-20 left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl text-xs md:text-sm font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-50",
-                toastMessage ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4",
+                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]",
+                toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95",
                 toastType === 'error'
-                    ? "bg-red-500/10 border border-red-500/20 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
-                    : "bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                    ? "bg-red-500/10 border-red-500/20 text-red-400"
+                    : "bg-[#0b1014]/90 border-white/10 text-white"
             )}>
                 {toastType === 'error' ? (
-                    <AlertCircle className="w-5 h-5 bg-red-500/20 rounded-full p-0.5" />
+                    <AlertCircle className="w-5 h-5 text-red-500" />
                 ) : (
-                    <Check className="w-5 h-5 bg-[#10B981]/20 rounded-full p-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
                 )}
                 {toastMessage}
             </div>
@@ -635,12 +674,12 @@ export default function MemberDashboard() {
                     </div>
                 </div>
 
-                {/* === ROW 1.5: Co-Admin Maker/Checker (Conditional) === */}
+                {/* === ROW 1.5: Co-Chair Maker/Checker (Conditional) === */}
                 {currentUser?.id === coAdminId && pendingPayouts.length > 0 && (
                     <div className="mb-4 bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-[1.5rem] p-5 shadow-2xl overflow-hidden">
                         <div className="flex items-center gap-2 mb-4">
                             <AlertTriangle className="w-5 h-5 text-[#FBBF24] animate-pulse" />
-                            <h3 className="text-xl font-black text-[#FBBF24] tracking-tight">Co-Admin Duty: Awaiting Approval</h3>
+                            <h3 className="text-xl font-black text-[#FBBF24] tracking-tight">Co-Chair Duty: Awaiting Approval</h3>
                         </div>
                         <div className="space-y-3">
                             {pendingPayouts.map((payout) => (
@@ -680,30 +719,23 @@ export default function MemberDashboard() {
                     </div>
                 )}
 
-                {/* Member Nudge: If pending payouts exist but user is NOT co-admin, show a nudge button */}
+                {/* Member Nudge: If pending payouts exist but user is NOT co-chair, show a nudge button */}
                 {pendingPayouts.length > 0 && currentUser?.id !== coAdminId && (
                     <div className="mb-4 bg-[#FBBF24]/5 border border-[#FBBF24]/20 rounded-[1.5rem] p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <Trophy className="w-5 h-5 text-[#FBBF24] flex-shrink-0" />
                             <div>
                                 <p className="text-sm font-bold text-[#FBBF24]">Payout Awaiting Approval</p>
-                                <p className="text-[10px] text-gray-500 font-medium">The Co-Admin needs to approve the payout before it's dispatched.</p>
+                                <p className="text-[10px] text-gray-500 font-medium">The Co-Chair needs to approve the payout before it's dispatched.</p>
                             </div>
                         </div>
                         <button
-                            onClick={async () => {
-                                if (!activeLeagueId) return;
-                                await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
-                                    type: 'warning',
-                                    message: `🔔 ${currentUser?.displayName || 'A member'} is nudging the Co-Admin to approve the pending payout! Please review ASAP.`,
-                                    timestamp: serverTimestamp(),
-                                    readBy: []
-                                });
-                                showToast('Nudge sent! The Co-Admin has been notified.', 'success');
-                            }}
-                            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95"
+                            disabled={nudgeSent}
+                            onClick={handleNudge}
+                            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50"
                         >
-                            <Send className="w-3 h-3" /> Nudge
+                            {nudgeSent ? <CheckCircle2 className="w-3 h-3" /> : <Send className="w-3 h-3" />}
+                            {nudgeSent ? 'Nudged ✓' : 'Nudge'}
                         </button>
                     </div>
                 )}

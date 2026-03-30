@@ -428,11 +428,11 @@ export default function Profile() {
                                     </p>
                                 </div>
 
-                                {/* Co-Admin Designation */}
+                                {/* Co-Chair Designation */}
                                 <div>
                                     <div className="flex justify-between items-center mb-2">
                                         <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            Designate Co-Admin
+                                            Designate Co-Chair
                                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                                         </label>
                                     </div>
@@ -442,7 +442,7 @@ export default function Profile() {
                                         onChange={(e) => setCoAdminId(e.target.value)}
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
                                     >
-                                        <option value="">-- No Co-Admin Selected --</option>
+                                        <option value="">-- No Co-Chair Selected --</option>
                                         {members.filter(m => m.id !== activeUserId).map(m => (
                                             <option key={m.id} value={m.authUid || m.id}>{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
                                         ))}
@@ -569,7 +569,7 @@ export default function Profile() {
                                             )}
                                             {member.id === coAdminId && (
                                                 <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
-                                                    <ShieldCheck className="w-2.5 h-2.5" /> Co-Admin
+                                                    <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
                                                 </span>
                                             )}
                                             {!member.id.match(chairmanId || 'null_chairman') && !member.id.match(coAdminId || 'null_coadmin') && (
