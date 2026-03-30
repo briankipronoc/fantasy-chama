@@ -17,6 +17,7 @@ export interface Member {
     isActive?: boolean;         // Determines if a user has been deactivated from the league
     missedGameweeks?: number;   // Consecutive missed gameweeks (delinquent)
     hasAcceptedRules?: boolean;
+    totalEarned?: number;       // Lifetime earnings from kickbacks
 }
 
 export interface LeagueSettings {

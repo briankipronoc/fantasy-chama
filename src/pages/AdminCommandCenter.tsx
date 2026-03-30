@@ -700,7 +700,6 @@ export default function AdminCommandCenter() {
                     if (!currentAdmin) return null;
 
                     const totalCollectedGross = members.filter(m => m.isActive !== false).length * gameweekStake;
-                    const escrowRake = totalCollectedGross * 0.10;
                     const isChairman = currentAdmin.authUid === authUid;
                     const hasCoAdmin = !!coAdminId;
 
@@ -742,16 +741,85 @@ export default function AdminCommandCenter() {
                                     </p>
                                 </div>
                                 <div className="bg-black/30 rounded-xl p-4 text-center border border-white/5">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Escrow Pool</p>
+                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Lifetime Earned</p>
                                     <p className="text-xl font-black text-gray-400 tabular-nums">
-                                        KES {isStealthMode ? '****' : Math.round(escrowRake).toLocaleString()}
+                                        KES {isStealthMode ? '****' : Math.round(currentAdmin.totalEarned || 0).toLocaleString()}
                                     </p>
                                 </div>
                             </div>
 
-                            <p className="text-[10px] text-gray-600 font-medium mt-4">
-                                Kickbacks are deposited automatically during GW resolution. Withdraw via M-Pesa B2C from the Finances page.
-                            </p>
+                            {/* Request Withdrawal Button */}
+                            {myWalletBalance > 0 ? (
+                                <button
+                                    onClick={async () => {
+                                        if (!activeLeagueId || !currentAdmin.phone) return;
+                                        const confirmed = window.confirm(
+                                            `Withdraw KES ${myWalletBalance.toLocaleString()} to M-Pesa (${currentAdmin.phone})?\n\nThis will trigger a B2C payout to your registered phone number.`
+                                        );
+                                        if (!confirmed) return;
+
+                                        try {
+                                            showToast('Processing withdrawal via M-Pesa B2C...');
+
+                                            // 1. Trigger B2C payout
+                                            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                                            const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    phone: currentAdmin.phone,
+                                                    amount: myWalletBalance,
+                                                    leagueId: activeLeagueId,
+                                                    remarks: `${myRoleLabel} kickback withdrawal`
+                                                })
+                                            });
+                                            const data = await res.json();
+
+                                            if (!data.success && !data.ConversationID) {
+                                                throw new Error(data.message || 'B2C failed');
+                                            }
+
+                                            // 2. Log withdrawal to platform_treasury
+                                            await addDoc(collection(db, 'platform_treasury'), {
+                                                type: 'kickback_withdrawal',
+                                                role: myRoleLabel.toLowerCase(),
+                                                memberId: currentAdmin.id,
+                                                memberName: currentAdmin.displayName,
+                                                phone: currentAdmin.phone,
+                                                amount: myWalletBalance,
+                                                leagueId: activeLeagueId,
+                                                leagueName: leagueName,
+                                                timestamp: serverTimestamp()
+                                            });
+
+                                            // 3. Reset wallet balance
+                                            const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', currentAdmin.id);
+                                            await updateDoc(memberRef, { walletBalance: 0 });
+
+                                            // 4. Notification
+                                            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                                                type: 'transactionSuccess',
+                                                message: `💰 ${myRoleLabel} ${currentAdmin.displayName} withdrew KES ${myWalletBalance.toLocaleString()} kickback earnings via M-Pesa B2C.`,
+                                                timestamp: serverTimestamp(),
+                                                readBy: [],
+                                                targetMemberId: currentAdmin.id
+                                            });
+
+                                            showToast(`KES ${myWalletBalance.toLocaleString()} sent to ${currentAdmin.phone}!`);
+                                        } catch (err: any) {
+                                            console.error("Withdrawal error:", err);
+                                            showToast(`Withdrawal failed: ${err.message}`);
+                                        }
+                                    }}
+                                    className="w-full mt-4 flex items-center justify-center gap-2 py-3 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black uppercase tracking-widest rounded-xl transition-colors active:scale-[0.98] shadow-[0_0_20px_rgba(251,191,36,0.15)]"
+                                >
+                                    <Wallet className="w-4 h-4" /> Request Withdrawal — KES {isStealthMode ? '****' : myWalletBalance.toLocaleString()}
+                                </button>
+                            ) : (
+                                <p className="text-[10px] text-gray-600 font-medium mt-4 text-center">
+                                    No balance to withdraw. Kickbacks are deposited automatically during GW resolution.
+                                </p>
+                            )}
                         </section>
                     );
                 })()}

@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { collection, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, ArrowUpRight, Eye, EyeOff, BarChart3 } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, ArrowUpRight, Eye, EyeOff, BarChart3, CheckCircle } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
     const navigate = useNavigate();
@@ -19,6 +19,7 @@ export default function SuperAdminDashboard() {
         totalCoAdminPayouts: 0,
         totalSafaricomFees: 0,
         activeLeagues: 0,
+        activeMembers: 0,
         totalResolutions: 0
     });
 
@@ -53,7 +54,8 @@ export default function SuperAdminDashboard() {
                 if (ev.leagueId) leagueSet.add(ev.leagueId);
             });
 
-            setStats({
+            setStats(prev => ({
+                ...prev,
                 totalGrossVolume: gross,
                 totalPlatformRev: platformNet,
                 totalChairmanPayouts: chairmanCut,
@@ -61,24 +63,32 @@ export default function SuperAdminDashboard() {
                 totalSafaricomFees: safaricomFee,
                 activeLeagues: leagueSet.size,
                 totalResolutions: events.length
-            });
+            }));
         });
         return () => unsubscribe();
     }, [isAuthorized]);
 
-    // Fetch All Leagues
+    // Fetch All Leagues and Members
     useEffect(() => {
         if (!isAuthorized) return;
-        const fetchLeagues = async () => {
+        const fetchGlobalStats = async () => {
             try {
+                // Fetch Leagues
                 const snap = await getDocs(collection(db, 'leagues'));
                 const leagueList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 setLeagues(leagueList);
+
+                // Fetch Members via collectionGroup
+                const { collectionGroup } = await import('firebase/firestore');
+                const membersSnap = await getDocs(collectionGroup(db, 'memberships'));
+                const activeCount = membersSnap.docs.filter(d => d.data().isActive !== false).length;
+                
+                setStats(prev => ({ ...prev, activeMembers: activeCount }));
             } catch (err) {
-                console.error("Failed to fetch leagues:", err);
+                console.error("Failed to fetch global stats:", err);
             }
         };
-        fetchLeagues();
+        fetchGlobalStats();
     }, [isAuthorized]);
 
     const fmt = (n: number) => stealthMode ? '****' : `KES ${n.toLocaleString()}`;
@@ -132,7 +142,7 @@ export default function SuperAdminDashboard() {
                 </header>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                         { label: 'Gross Volume', value: fmt(stats.totalGrossVolume), color: 'text-white', icon: <BarChart3 className="w-3.5 h-3.5 text-blue-400" /> },
                         { label: 'Platform Revenue (5%)', value: fmt(stats.totalPlatformRev), color: 'text-emerald-400', icon: <Banknote className="w-3.5 h-3.5 text-emerald-400" /> },
@@ -140,6 +150,8 @@ export default function SuperAdminDashboard() {
                         { label: 'Co-Admin Kickbacks', value: fmt(stats.totalCoAdminPayouts), color: 'text-gray-300', icon: <Users className="w-3.5 h-3.5 text-purple-400" /> },
                         { label: 'Safaricom Fees', value: fmt(stats.totalSafaricomFees), color: 'text-red-400', icon: <TrendingUp className="w-3.5 h-3.5 text-red-400" /> },
                         { label: 'Active Leagues', value: stealthMode ? '**' : String(stats.activeLeagues), color: 'text-white', icon: <Activity className="w-3.5 h-3.5 text-cyan-400" /> },
+                        { label: 'Total Members', value: stealthMode ? '**' : String(stats.activeMembers), color: 'text-blue-400', icon: <Users className="w-3.5 h-3.5 text-blue-400" /> },
+                        { label: 'GW Resolutions', value: stealthMode ? '**' : String(stats.totalResolutions), color: 'text-white', icon: <CheckCircle className="w-3.5 h-3.5 text-gray-400" /> },
                     ].map((stat, i) => (
                         <div key={i} className="bg-[#0d1218] p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                             <p className="text-[9px] font-black uppercase text-gray-600 mb-2 flex items-center gap-1.5 tracking-widest">{stat.icon} {stat.label}</p>

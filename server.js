@@ -48,12 +48,62 @@ try {
 const db = admin.apps.length > 0 ? admin.firestore() : null;
 
 // Daraja Constants
+const MPESA_ENV = process.env.MPESA_ENVIRONMENT || 'sandbox';
+const DARAJA_BASE_URL = MPESA_ENV === 'live' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke';
+
 const CONSUMER_KEY = process.env.DARAJA_CONSUMER_KEY;
 const CONSUMER_SECRET = process.env.DARAJA_CONSUMER_SECRET;
 const SHORTCODE = process.env.DARAJA_SHORTCODE || '174379';
 const PASSKEY = process.env.DARAJA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
 // Provide an ngrok URL via env OR placeholder
 const CALLBACK_URL = process.env.DARAJA_CALLBACK_URL || 'https://your-ngrok-url.ngrok-free.app/api/mpesa/callback';
+
+// Africa's Talking API (SMS)
+const AT_USERNAME = process.env.AT_USERNAME || 'sandbox';
+const AT_API_KEY = process.env.AT_API_KEY;
+
+const sendSMS = async (to, message) => {
+    if (!to || !message) return;
+    if (!AT_API_KEY) {
+        console.log(`[SMS MOCK] to: ${to} | msg: ${message}`);
+        return;
+    }
+    try {
+        const url = AT_USERNAME === 'sandbox' 
+            ? 'https://api.sandbox.africastalking.com/version1/messaging' 
+            : 'https://api.africastalking.com/version1/messaging';
+        
+        const params = new URLSearchParams();
+        params.append('username', AT_USERNAME);
+        params.append('to', to);
+        params.append('message', message);
+        
+        await axios.post(url, params, {
+            headers: {
+                'apiKey': AT_API_KEY,
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            }
+        });
+        console.log(`[SMS] Delivered to ${to}`);
+    } catch (e) {
+        console.error('[SMS] Failed:', e.response?.data || e.message);
+    }
+};
+
+// Firebase Cloud Messaging (Push)
+const sendPush = async (fcmToken, title, body) => {
+    if (!fcmToken || !admin.apps.length) return;
+    try {
+        await admin.messaging().send({
+            token: fcmToken,
+            notification: { title, body }
+        });
+        console.log(`[PUSH] Delivered to token ending in ...${fcmToken.slice(-5)}`);
+    } catch (e) {
+        console.error('[PUSH] Failed:', e.message);
+    }
+};
 
 /**
  * Daraja Auth Middleware
@@ -64,7 +114,7 @@ const generateDarajaToken = async (req, res, next) => {
         const auth = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
 
         const response = await axios.get(
-            'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+            `${DARAJA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials`,
             {
                 headers: {
                     Authorization: `Basic ${auth}`
@@ -120,7 +170,7 @@ app.post('/api/mpesa/stkpush', generateDarajaToken, async (req, res) => {
         console.log(`Sending STK Push to ${formattedPhone} for ${amount} KES...`);
 
         const response = await axios.post(
-            'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+            `${DARAJA_BASE_URL}/mpesa/stkpush/v1/processrequest`,
             payload,
             {
                 headers: {
@@ -277,7 +327,7 @@ app.post('/api/mpesa/b2c', generateDarajaToken, async (req, res) => {
         let b2cResponse;
         try {
             const response = await axios.post(
-                'https://sandbox.safaricom.co.ke/mpesa/b2c/v1/paymentrequest',
+                `${DARAJA_BASE_URL}/mpesa/b2c/v1/paymentrequest`,
                 payload,
                 { headers: { Authorization: `Bearer ${req.safaricomAccessToken}` } }
             );
@@ -536,7 +586,8 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
         // The Ledger Distribution for Chairman
         if (chairmanId) {
             batch.update(db.doc(`leagues/${leagueId}/memberships/${chairmanId}`), {
-                walletBalance: admin.firestore.FieldValue.increment(chairman_kickback)
+                walletBalance: admin.firestore.FieldValue.increment(chairman_kickback),
+                totalEarned: admin.firestore.FieldValue.increment(chairman_kickback)
             });
             batch.set(db.collection(`leagues/${leagueId}/transactions`).doc(), {
                 type: 'deposit',
@@ -552,7 +603,8 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
         // The Ledger Distribution for Co-Admin
         if (coAdminId) {
              batch.update(db.doc(`leagues/${leagueId}/memberships/${coAdminId}`), {
-                walletBalance: admin.firestore.FieldValue.increment(co_admin_kickback)
+                walletBalance: admin.firestore.FieldValue.increment(co_admin_kickback),
+                totalEarned: admin.firestore.FieldValue.increment(co_admin_kickback)
             });
             batch.set(db.collection(`leagues/${leagueId}/transactions`).doc(), {
                 type: 'deposit',
@@ -601,13 +653,23 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
             const m = memberSnap.data();
             const currentBal = Number(m.walletBalance) || 0;
             if (currentBal - cost < 0) {
+                const msg = `⚠️ ${gwLabel} deducted KES ${cost.toLocaleString()} from your wallet. Your balance is now negative — top up before the next gameweek to stay eligible.`;
+                
                 await db.collection(`leagues/${leagueId}/notifications`).add({
                     type: 'warning',
-                    message: `⚠️ ${gwLabel} deducted KES ${cost.toLocaleString()} from your wallet. Your balance is now negative — top up before the next gameweek to stay eligible.`,
+                    message: msg,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     readBy: [],
                     targetMemberId: memberSnap.id
                 });
+
+                // Phase 33: Multi-channel alerting for Critical Red Zone
+                if (m.phone) {
+                    await sendSMS(m.phone, `FantasyChama: 🚨 RED ZONE ALERT. You owe KES ${cost.toLocaleString()} for ${gwLabel}. Top up your wallet before the next deadline!`);
+                }
+                if (m.fcmToken) {
+                    await sendPush(m.fcmToken, 'Red Zone Alert', `Your wallet is negative. Top up KES ${cost.toLocaleString()} asap!`);
+                }
             }
         }
 
@@ -734,7 +796,7 @@ app.post('/api/mpesa/query', generateDarajaToken, async (req, res) => {
         let queryResult;
         try {
             const response = await axios.post(
-                'https://sandbox.safaricom.co.ke/mpesa/transactionstatus/v1/query',
+                `${DARAJA_BASE_URL}/mpesa/transactionstatus/v1/query`,
                 queryPayload,
                 { headers: { Authorization: `Bearer ${req.safaricomAccessToken}` } }
             );
