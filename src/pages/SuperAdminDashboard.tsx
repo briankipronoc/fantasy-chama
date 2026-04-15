@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight } from 'lucide-react';
@@ -81,7 +81,6 @@ export default function SuperAdminDashboard() {
                     const leagueList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     setLeagues(leagueList);
                 });
-                const { collectionGroup } = await import('firebase/firestore');
                 const membersSnap = await getDocs(collectionGroup(db, 'memberships'));
                 const activeCount = membersSnap.docs.filter(d => d.data().isActive !== false).length;
                 setStats(prev => ({ ...prev, activeMembers: activeCount }));

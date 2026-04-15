@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db, auth } from '../firebase';
-import { collection, doc, onSnapshot, updateDoc, increment } from 'firebase/firestore';
+import { collection, doc, onSnapshot, updateDoc, increment, query, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
 export type Role = 'member' | 'admin' | null;
@@ -108,7 +108,6 @@ export const useStore = create<AppState>((set) => ({
     },
 
     listenToLeagueTransactions: (leagueId) => {
-        const { query, orderBy, limit } = require('firebase/firestore');
         const txRef = collection(db, 'leagues', leagueId, 'transactions');
         const q = query(txRef, orderBy('timestamp', 'desc'), limit(50));
         onSnapshot(q, (snapshot: any) => {
@@ -147,7 +146,6 @@ export const useStore = create<AppState>((set) => ({
     },
 
     updateWalletBalance: async (leagueId, memberId, delta) => {
-        const { increment } = await import('firebase/firestore');
         const memberRef = doc(db, 'leagues', leagueId, 'memberships', memberId);
         await updateDoc(memberRef, { walletBalance: increment(delta) });
     },

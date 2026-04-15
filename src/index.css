@@ -110,7 +110,8 @@
 [data-theme="light"] .border-white\/\[0\.05\] {
   border-color: rgba(0,0,0,0.08) !important;
 }
-[data-theme="light"] .bg-\[#161d24\]\/80 {
+[data-theme="light"] .bg-\[\#161d24\]\/80,
+[data-theme="light"] .bg-\[\#161d24\]{
   background-color: rgba(255,255,255,0.9) !important;
 }
 /* Tables, cards and panels stay legible in light mode */
