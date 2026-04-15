@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Scroll } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Scroll, Sun, Moon } from 'lucide-react';
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
+import LeagueSwitcher from './LeagueSwitcher';
 import { auth } from '../firebase';
+import { useTheme } from '../hooks/useTheme';
 
 export default function Header({ role, title, subtitle }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
@@ -19,6 +21,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const [showConstitution, setShowConstitution] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    const { toggle: toggleTheme, isDark, theme: currentTheme, setTheme } = useTheme();
 
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -127,6 +130,35 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                         <Shield className="w-4 h-4" /> Join HQ
                     </button>
                 )}
+
+                {/* Theme Toggle — 3-way pill: Dark | System | Light */}
+                <div className="hidden sm:flex items-center bg-[#0d1218] border border-white/10 rounded-xl p-1 gap-0.5">
+                    {(['dark', 'system', 'light'] as const).map((mode) => (
+                        <button
+                            key={mode}
+                            onClick={() => setTheme(mode)}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                                currentTheme === mode
+                                    ? mode === 'dark' ? 'bg-slate-700 text-white shadow-sm'
+                                    : mode === 'light' ? 'bg-amber-400/20 text-amber-300 shadow-sm'
+                                    : 'bg-emerald-500/20 text-emerald-400 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-400'
+                            }`}
+                            title={mode === 'dark' ? 'Force dark mode' : mode === 'light' ? 'Force light mode' : 'Auto-match OS theme'}
+                        >
+                            {mode === 'dark' ? <Moon className="w-3 h-3" /> : mode === 'light' ? <Sun className="w-3 h-3" /> : <span className="text-[9px]">OS</span>}
+                            {mode}
+                        </button>
+                    ))}
+                </div>
+                {/* Mobile compact cycle */}
+                <button
+                    onClick={() => setTheme(currentTheme === 'dark' ? 'system' : currentTheme === 'system' ? 'light' : 'dark')}
+                    className="sm:hidden p-2.5 bg-[#161d24] border border-white/5 rounded-xl text-gray-400 hover:text-white transition-all hover:bg-white/5 active:scale-95"
+                    title={`Theme: ${currentTheme} — tap to cycle`}
+                >
+                    {currentTheme === 'dark' ? <Moon className="w-5 h-5" /> : currentTheme === 'light' ? <Sun className="w-5 h-5 text-amber-300" /> : <span className="text-[9px] font-black text-emerald-400">OS</span>}
+                </button>
 
                 {/* Stealth Mode Toggle */}
                 <button
@@ -282,6 +314,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                         </>
                     )}
                 </div>
+                <LeagueSwitcher />
             </div>
 
             {/* League Constitution Modal */}

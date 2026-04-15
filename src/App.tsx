@@ -17,8 +17,10 @@ import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import FAQ from './pages/FAQ';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import WinSharePage from './pages/WinSharePage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationProvider';
+import { useFCMToken } from './hooks/useFCMToken';
 
 // Renders the correct dashboard based on role — used inside the AppLayout
 const DashboardRenderer = () => {
@@ -53,6 +55,7 @@ const AppLayoutWrapper = () => (
 );
 
 function App() {
+  useFCMToken(); // Register device for push notifications (no-op if VAPID key missing)
   return (
     <>
       <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe — please retry.">
@@ -66,6 +69,7 @@ function App() {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/hq" element={<SuperAdminDashboard />} />
+        <Route path="/win" element={<WinSharePage />} />
 
         {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
         <Route element={<AppLayoutWrapper />}>

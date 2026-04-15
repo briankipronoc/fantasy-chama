@@ -58,9 +58,9 @@ export default function PrivacyPolicy() {
                         <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-6 z-10 relative">
                             <EyeOff className="w-5 h-5 text-emerald-400" />
                         </div>
-                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">Strict Isolation</h2>
+                        <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">Strict Legal Isolation & PII</h2>
                         <p className="text-gray-400 leading-relaxed text-sm lg:text-base z-10 relative">
-                            We do not sell, rent, or trade your financial or performance data to outside marketers or data brokers. All pipeline connectivity to Safaricom is strictly authenticated over highly secure channels.
+                            We categorically do not sell, rent, or trade your financial or performance Personally Identifiable Information (PII) to outside marketers, aggregators, or brokers. All Daraja pipeline transactions adhere strictly to the Safaricom API Data Privacy rulesets, completely shielding your M-Pesa PINs and sensitive financial vectors from our servers.
                         </p>
                     </div>
 

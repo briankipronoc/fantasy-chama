@@ -76,3 +76,45 @@
   text-transform: uppercase !important;
   letter-spacing: 0.1em !important;
 }
+
+/* ─── Light Mode Theme ─────────────────────────────────────────────────── */
+[data-theme="light"] body {
+  background-color: #f0f4f0;
+  color: #111827;
+}
+[data-theme="light"] .bg-\[\#0a0e17\],
+[data-theme="light"] .bg-\[\#0b1014\],
+[data-theme="light"] .bg-\[\#0a100a\] {
+  background-color: #f8faf8 !important;
+}
+[data-theme="light"] .bg-\[\#161d24\],
+[data-theme="light"] .bg-\[\#151c18\],
+[data-theme="light"] .bg-\[\#1a232b\] {
+  background-color: #ffffff !important;
+}
+[data-theme="light"] .bg-\[\#0f131c\],
+[data-theme="light"] .bg-\[\#11171a\] {
+  background-color: #f1f5f1 !important;
+}
+[data-theme="light"] .text-white {
+  color: #111827 !important;
+}
+[data-theme="light"] .text-gray-400 {
+  color: #374151 !important;
+}
+[data-theme="light"] .text-gray-500,
+[data-theme="light"] .text-gray-600 {
+  color: #6b7280 !important;
+}
+[data-theme="light"] .border-white\/5,
+[data-theme="light"] .border-white\/\[0\.05\] {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+[data-theme="light"] .bg-\[#161d24\]\/80 {
+  background-color: rgba(255,255,255,0.9) !important;
+}
+/* Tables, cards and panels stay legible in light mode */
+[data-theme="light"] table td,
+[data-theme="light"] table th {
+  color: #111827;
+}

@@ -27,3 +27,15 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Firebase credentials
+serviceAccountKey.json
+
+# ─── Proprietary Internal Documentation ─────────────────────────────────────
+# These files contain business logic, unit economics, and operational playbooks.
+# Keep them off public repositories until commercial launch.
+docs/CHAIRMAN_PLAYBOOK.md
+docs/MEMBER_GUIDE.md
+docs/INVESTOR_BRIEF.md
+docs/USER_MANUAL.md
+docs/daraja_go_live_playbook.md

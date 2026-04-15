@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet } from 'lucide-react';
+import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet, TrendingUp } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { collection, onSnapshot, query, orderBy, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import clsx from 'clsx';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -168,7 +169,7 @@ export default function Finances() {
                     const hasCoAdmin = members.filter(m => m.role === 'admin').length > 1;
                     const isChairman = (auth.currentUser?.uid === leagueChairmanId) || (currentUser.authUid === leagueChairmanId);
                     
-                    const chairmanRate = hasCoAdmin ? 0.025 : 0.035;
+                    const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
                     const coAdminRate = hasCoAdmin ? 0.01 : 0;
                     const myRate = isChairman ? chairmanRate : coAdminRate;
                     const myEarningsThisGW = totalCollectedGross * myRate;
@@ -192,6 +193,7 @@ export default function Finances() {
                                 <div className="bg-[#0b1014]/60 rounded-xl p-4 text-center border border-white/5">
                                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">My Rate</p>
                                     <p className="text-xl font-black text-[#FBBF24] tabular-nums">{(myRate * 100).toFixed(1)}%</p>
+                                    <p className="text-[8px] text-gray-600 mt-0.5">{isChairman ? 'Governance Fee' : 'Audit Fee'}</p>
                                 </div>
                                 <div className="bg-[#0b1014]/60 rounded-xl p-4 text-center border border-white/5">
                                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">This GW Est.</p>
@@ -402,6 +404,71 @@ export default function Finances() {
                         </table>
                     </div>
                 </div>
+
+                {/* ── Season Vault Trajectory Graph ──────────────────────────── */}
+                {(() => {
+                    const totalGWs = 38;
+                    const vaultRatePerGW = (rules.vault / 100) * (paidMembers.length || 8) * (gameweekStake || 200);
+                    const chartData = Array.from({ length: totalGWs }, (_, i) => ({
+                        gw: `GW${i + 1}`,
+                        vault: Math.round(vaultRatePerGW * (i + 1)),
+                        active: i < 12 // highlight resolved GWs
+                    }));
+                    const currentVault = vaultRatePerGW * 12; // approx 12 GWs resolved
+                    const projectedFinal = vaultRatePerGW * totalGWs;
+
+                    return (
+                        <div className="mt-8 bg-[#0b1014] border border-white/5 rounded-2xl shadow-xl p-6 md:p-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-96 h-56 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+                            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <TrendingUp className="w-5 h-5 text-emerald-400" />
+                                        <h3 className="font-bold text-lg text-white">Season Vault Trajectory</h3>
+                                    </div>
+                                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Projected pot growth over 38 gameweeks</p>
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="text-right">
+                                        <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Current</p>
+                                        <p className="text-xl font-black text-emerald-400 tabular-nums">KES {isStealthMode ? '****' : currentVault.toLocaleString()}</p>
+                                    </div>
+                                    <div className="w-px bg-white/5" />
+                                    <div className="text-right">
+                                        <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">By GW38</p>
+                                        <p className="text-xl font-black text-amber-400 tabular-nums">KES {isStealthMode ? '****' : projectedFinal.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="h-[240px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+                                        <defs>
+                                            <linearGradient id="vaultGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
+                                                <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                                        <XAxis dataKey="gw" tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 700 }} tickLine={false} axisLine={false} interval={5} />
+                                        <YAxis tick={{ fill: '#4b5563', fontSize: 9, fontWeight: 700 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                                        <Tooltip
+                                            contentStyle={{ background: '#0b1014', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px 14px' }}
+                                            labelStyle={{ color: '#10B981', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                                            itemStyle={{ color: '#fff', fontWeight: 800 }}
+                                            formatter={(value: number) => [`KES ${value.toLocaleString()}`, 'Vault']}
+                                        />
+                                        <Area type="monotone" dataKey="vault" stroke="#10B981" strokeWidth={2.5} fill="url(#vaultGradient)" dot={false} activeDot={{ r: 5, fill: '#10B981', strokeWidth: 0 }} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="flex items-center gap-2 mt-4 justify-center">
+                                <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Vault value grows by KES {vaultRatePerGW.toLocaleString()} per resolved GW</span>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 <div className="mt-8 bg-[#151c18] border border-white/5 rounded-2xl shadow-xl p-6 md:p-8">
                     <h3 className="font-bold text-lg mb-1 flex items-center gap-2">

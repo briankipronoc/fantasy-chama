@@ -14,16 +14,24 @@ export interface Member {
     role?: string;
     authUid?: string; // Added to map the Co-Admin strictly by Auth UID
     fplTeamId?: number; // Binds the FPL Entry ID directly to the user
+    secondFplTeamId?: number; // Second FPL entry for dual-team members (independent eligibility)
     isActive?: boolean;         // Determines if a user has been deactivated from the league
     missedGameweeks?: number;   // Consecutive missed gameweeks (delinquent)
     hasAcceptedRules?: boolean;
     totalEarned?: number;       // Lifetime earnings from kickbacks
+    paymentStreak?: number;     // Consecutive GWs paid without missing (Streak engine)
+    fcmToken?: string;          // FCM device push token
 }
 
 export interface LeagueSettings {
     name: string;
     monthlyFee: number;
     inviteCode: string;
+    pendingHQDebt?: number;
+    isSuspended?: boolean;
+    suspensionNudges?: string[];
+    lastResolvedDate?: any; // Firestore Timestamp — used by 48h grace period engine
+    referralCode?: string;  // Unique referral code for this league's chairman
 }
 
 interface AppState {
@@ -40,6 +48,7 @@ interface AppState {
 
     // Firebase Additions
     setMembers: (members: Member[]) => void;
+    listenToLeagueSettings: (leagueId: string) => void;
     listenToLeagueMembers: (leagueId: string) => void;
     listenToLeagueTransactions: (leagueId: string) => void;
     togglePaymentStatus: (leagueId: string, memberId: string, currentStatus: boolean, gameweekStake?: number) => Promise<void>;
@@ -78,6 +87,15 @@ export const useStore = create<AppState>((set) => ({
     // Firebase Methods
     setMembers: (members) => set({ members }),
 
+    listenToLeagueSettings: (leagueId) => {
+        const leagueRef = doc(db, 'leagues', leagueId);
+        onSnapshot(leagueRef, (doc) => {
+            if (doc.exists()) {
+                set({ league: doc.data() as LeagueSettings });
+            }
+        });
+    },
+
     listenToLeagueMembers: (leagueId) => {
         const membersRef = collection(db, 'leagues', leagueId, 'memberships');
         onSnapshot(membersRef, (snapshot) => {
@@ -90,9 +108,9 @@ export const useStore = create<AppState>((set) => ({
     },
 
     listenToLeagueTransactions: (leagueId) => {
-        const { query, orderBy } = require('firebase/firestore');
+        const { query, orderBy, limit } = require('firebase/firestore');
         const txRef = collection(db, 'leagues', leagueId, 'transactions');
-        const q = query(txRef, orderBy('timestamp', 'desc'));
+        const q = query(txRef, orderBy('timestamp', 'desc'), limit(50));
         onSnapshot(q, (snapshot: any) => {
             const liveTxs = snapshot.docs.map((doc: any) => ({
                 id: doc.id,

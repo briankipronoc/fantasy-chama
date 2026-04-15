@@ -81,6 +81,63 @@ function LedgerDemo() {
 
 
 
+function TrustSlider() {
+    const [potSize, setPotSize] = useState(10000);
+    const winnerCut = potSize * 0.91;
+    const adminCut = potSize * 0.09;
+    const chairCut = potSize * 0.04;
+    const hqCut = potSize * 0.035;
+    const mpesaCut = potSize * 0.015;
+
+    return (
+        <section className="py-24 max-w-5xl mx-auto px-6 relative z-30">
+            <div className="bg-[#0b1014] border border-white/10 rounded-[3rem] p-8 md:p-12 shadow-[0_0_80px_rgba(16,185,129,0.05)] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px]" />
+                
+                <div className="text-center mb-10">
+                    <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-4">The Transparent 9% Engine.</h2>
+                    <p className="text-gray-400 font-medium max-w-2xl mx-auto">We take precisely 9% to run the entire backend intelligence, pay M-Pesa, and compensate the League Chairman. The Winner takes the absolute rest.</p>
+                </div>
+
+                <div className="space-y-8">
+                    <div>
+                        <div className="flex justify-between items-end mb-4">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Adjust Gameweek Pot</span>
+                            <span className="text-3xl font-black text-emerald-400 tabular-nums tracking-tight">KES {potSize.toLocaleString()}</span>
+                        </div>
+                        <input 
+                            type="range" 
+                            min="1000" 
+                            max="30000" 
+                            step="100" 
+                            value={potSize} 
+                            onChange={(e) => setPotSize(Number(e.target.value))}
+                            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div className="md:col-span-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 flex flex-col justify-center">
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" /> Gameweek Winner (91%)</p>
+                            <p className="text-4xl md:text-5xl font-black text-emerald-400 tabular-nums">KES {winnerCut.toLocaleString()}</p>
+                            <p className="text-xs font-medium text-emerald-600 mt-2">Dispatched directly to M-Pesa automatically.</p>
+                        </div>
+                        <div className="md:col-span-4 bg-[#161d24] border border-white/5 rounded-2xl p-6 flex flex-col justify-center shadow-inner">
+                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> Total Ops Fee (9%)</p>
+                            <p className="text-3xl font-black text-amber-500 tabular-nums">KES {adminCut.toLocaleString()}</p>
+                            <div className="space-y-1.5 mt-4">
+                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-400">Chairman (4%)</span> <span>KES {chairCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-400">Platform HQ (3.5%)</span> <span>KES {hqCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-400">Network Fee (1.5%)</span> <span>KES {mpesaCut.toLocaleString()}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
@@ -203,8 +260,11 @@ export default function LandingPage() {
                     </div>
                 </section>
 
+                {/* ── Interactive Trust Slider ────────────────────────────────────── */}
+                <TrustSlider />
+
                 {/* ── The Ledger Lifecycle (How it Works) ────────────────────────────────────── */}
-                <section id="how-it-works" className="py-24 md:py-32 px-6 md:px-8 bg-[#0d1620]/30 border-b border-white/[0.02]">
+                <section id="how-it-works" className="py-24 md:py-32 px-6 md:px-8 bg-[#0d1620]/30 border-t border-b border-white/[0.02]">
                     <div className="max-w-7xl mx-auto">
                         <div className="text-center mb-20 md:mb-24">
                             <span className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 block">Simple 4-Step Process</span>
@@ -330,7 +390,7 @@ export default function LandingPage() {
                         <div className="flex flex-col justify-center items-center gap-4 pt-8 opacity-0 group-hover:opacity-100 transition-all duration-1000 delay-300 translate-y-4 group-hover:translate-y-0 pb-10">
                             <button onClick={() => navigate('/setup')} className="bg-[#161d24] text-amber-400 border border-amber-500/20 px-10 py-5 rounded-xl font-extrabold text-lg shadow-[0_0_40px_rgba(245,158,11,0.1)] hover:bg-[#1f2937] hover:scale-105 transition-all active:scale-95 flex items-center gap-2">
                                 <Trophy className="w-5 h-5" />
-                                Claim 3.5% Kickback
+                                Claim Your 4% Chairman Fee
                             </button>
                         </div>
                     </div>

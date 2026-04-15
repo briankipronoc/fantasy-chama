@@ -95,9 +95,12 @@ export default function Terms() {
                             <div className="w-14 h-14 bg-[#0a0e17] border border-emerald-500/30 rounded-[1.25rem] flex items-center justify-center mb-6 shadow-xl shadow-emerald-500/10">
                                 <FileText className="w-7 h-7 text-emerald-400" />
                             </div>
-                            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">5. Acknowledgment</h2>
+                            <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">5. Operational Indemnity & Platform Fees</h2>
+                            <p className="text-gray-400 leading-relaxed text-lg max-w-4xl mb-4">
+                                By deploying or participating in a league engineered by Fantasy Chama, users acknowledge and agree to an irrevocable <strong>9% Gross Operational Cut</strong> per gameweek resolution. This constitutes a 4% Chairman Governance Fee, 3.5% HQ Platform Execution Fee, and a 1.5% Telecom Processing buffer. These fees are algorithmically deducted from the gross pot and are absolutely <strong>non-refundable</strong> under all circumstances, regardless of user dropout or league dissolution.
+                            </p>
                             <p className="text-gray-400 leading-relaxed text-lg max-w-4xl">
-                                By utilizing the Fantasy Chama platform to manage your private league, you inherently agree to the execution logic defined by the code. You acknowledge that administrative commands, including hybrid cash handoffs and M-Pesa sweeps, alter the immutable digital ledger of your league. We reserve the right to suspend any league discovered attempting to artificially manipulate API callbacks or commit financial fraud against other members.
+                                Furthermore, Fantasy Chama operates strictly as a parallel calculation matrix bridging the Official Premier League API and Safaricom's Daraja gateway. We accept <strong>zero liability</strong> for financial misallocations, resolution delays, or payout failures stemming from upstream FPL API outages, catastrophic Safaricom telecom latency, or Chairman fraud via hybrid cash-handoffs. Users assume all sovereign risk when authorizing M-Pesa deposits into the platform.
                             </p>
                         </div>
                     </div>

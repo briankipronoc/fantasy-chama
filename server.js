@@ -1,3 +1,4 @@
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -7,6 +8,10 @@ import admin from 'firebase-admin';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cron from 'node-cron';
+import * as Sentry from '@sentry/node';
+import rateLimit from 'express-rate-limit';
+import { stkPushSchema, b2cPayoutSchema, deductGwCostSchema } from './backend/zodSchemas.js';
+
 
 // Load environment variables
 dotenv.config();
@@ -33,16 +38,39 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const mpesaLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    message: { success: false, message: 'Too many M-Pesa requests. Try again after a minute.' }
+});
+
+// Derive __dirname for ESM modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Try to initialize Firebase Admin SDK
 try {
-    // Attempt to load from a local service account file if it exists
-    // The user will need to place serviceAccountKey.json in the project root
-    admin.initializeApp({
-        credential: admin.credential.cert('./serviceAccountKey.json'),
-    });
-    console.log('✅ Firebase Admin SDK Initialized');
+    // Use an absolute path so this works regardless of the CWD when `npm start` is invoked
+    const serviceAccountPath = path.resolve(__dirname, 'serviceAccountKey.json');
+    if (fs.existsSync(serviceAccountPath)) {
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccountPath),
+        });
+        console.log('✅ Firebase Admin SDK Initialized (local key: ' + serviceAccountPath + ')');
+    } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: process.env.FIREBASE_PROJECT_ID,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+            })
+        });
+        console.log('✅ Firebase Admin SDK Initialized (Environment Variables)');
+    } else {
+        console.log('⚠️ No Firebase Admin credentials found in Env or Local Files. DB writes may fail.');
+    }
 } catch (error) {
-    console.log('⚠️ Firebase Admin SDK not initialized natively. Ensure serviceAccountKey.json is present if writing to Firestore.');
+    console.error('⚠️ Firebase Admin SDK failed to initialize:', error.message);
 }
 
 const db = admin.apps.length > 0 ? admin.firestore() : null;
@@ -133,13 +161,14 @@ const generateDarajaToken = async (req, res, next) => {
  * STK Push Route
  * POST /api/mpesa/stkpush
  */
-app.post('/api/mpesa/stkpush', generateDarajaToken, async (req, res) => {
+app.post('/api/mpesa/stkpush', mpesaLimiter, generateDarajaToken, async (req, res) => {
     try {
-        const { phoneNumber, amount, userId, leagueId } = req.body;
-
-        if (!phoneNumber || !amount || !userId || !leagueId) {
-            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        const parseResult = stkPushSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ success: false, message: 'Validation failed', errors: parseResult.error.errors });
         }
+        const { phoneNumber, amount, userId, leagueId } = parseResult.data;
+
 
         // Format phone number from 07... to 2547...
         let formattedPhone = phoneNumber;
@@ -296,13 +325,14 @@ app.post('/api/mpesa/callback', async (req, res) => {
  * B2C Disbursement Route
  * POST /api/mpesa/b2c
  */
-app.post('/api/mpesa/b2c', generateDarajaToken, async (req, res) => {
+app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) => {
     try {
-        const { phone, amount, remarks = 'Gameweek Payout', leagueId, userId } = req.body;
-
-        if (!phone || !amount || !leagueId || !userId) {
-            return res.status(400).json({ success: false, message: 'Missing required B2C fields' });
+        const parseResult = b2cPayoutSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ success: false, message: 'Validation failed', errors: parseResult.error.errors });
         }
+        const { phone, amount, remarks = 'Gameweek Payout', leagueId, userId } = parseResult.data;
+
 
         // Format phone number to 2547XXXXXXXX
         let formattedPhone = phone;
@@ -501,11 +531,12 @@ app.post('/api/mpesa/b2c/timeout', async (req, res) => {
 // ============================================================
 app.post('/api/league/deduct-gw-cost', async (req, res) => {
     try {
-        const { leagueId, gwCostPerRound, gwNumber, winnerName } = req.body;
-
-        if (!leagueId || !gwCostPerRound || isNaN(Number(gwCostPerRound))) {
-            return res.status(400).json({ success: false, message: 'Missing leagueId or gwCostPerRound' });
+        const parseResult = deductGwCostSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ success: false, message: 'Validation failed', errors: parseResult.error.errors });
         }
+        const { leagueId, gwCostPerRound, gwNumber, winnerName } = parseResult.data;
+
 
         if (!db) return res.status(503).json({ success: false, message: 'Firestore not initialised' });
 
@@ -586,17 +617,29 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
         let chairman_kickback = 0;
         let co_admin_kickback = 0;
 
-        // Split Math Update
+        // Split Math Update (9% Total Engine)
         if (coAdminId) {
-             chairman_kickback = grossPot * 0.025;
+             chairman_kickback = grossPot * 0.03;
              co_admin_kickback = grossPot * 0.01;
         } else {
-             chairman_kickback = grossPot * 0.035;
+             chairman_kickback = grossPot * 0.04;
              co_admin_kickback = 0;
         }
 
-        const platformNetRevenue = grossPot * 0.05;
+        const platformNetRevenue = grossPot * 0.035;
         const mpesaFee = grossPot * 0.015;
+
+        // Phase 8: Streak Rewards — increment streak for paid members, reset for red zone
+        for (const memberSnap of membersSnap.docs) {
+            const mData = memberSnap.data();
+            const bal = Number(mData.walletBalance) || 0;
+            const isPaid = bal >= cost;
+            batch.update(db.doc(`leagues/${leagueId}/memberships/${memberSnap.id}`), {
+                paymentStreak: isPaid
+                    ? admin.firestore.FieldValue.increment(1)
+                    : 0  // reset streak on missed payment
+            });
+        }
 
         // The Ledger Distribution for Chairman
         if (chairmanId) {
@@ -645,9 +688,10 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
              timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
 
-        // Set the lastResolvedDate so frontend knows when to hide the banner
+        // Set the lastResolvedDate so frontend knows when to hide the banner and accumulate HQ Debt
         batch.update(db.doc(`leagues/${leagueId}`), {
-             lastResolvedDate: admin.firestore.FieldValue.serverTimestamp()
+             lastResolvedDate: admin.firestore.FieldValue.serverTimestamp(),
+             pendingHQDebt: admin.firestore.FieldValue.increment(platformNetRevenue)
         });
 
         await batch.commit();
@@ -667,6 +711,26 @@ app.post('/api/league/deduct-gw-cost', async (req, res) => {
             actor: 'system',
             timestamp: admin.firestore.FieldValue.serverTimestamp()
         });
+
+        // Phase 8: FCM Push — notify all members of GW result
+        if (winnerName) {
+            try {
+                const allMembers = membersSnap.docs.map(d => d.data());
+                const fcmTokens = allMembers.map(m => m.fcmToken).filter(Boolean);
+                if (fcmTokens.length > 0) {
+                    await admin.messaging().sendEachForMulticast({
+                        tokens: fcmTokens,
+                        notification: {
+                            title: `🏆 ${gwLabel} Resolved!`,
+                            body: `${winnerName} wins KES ${grossPot.toLocaleString()}! Check your league standings.`
+                        },
+                        data: { type: 'gw_resolved', leagueId }
+                    });
+                }
+            } catch (fcmErr) {
+                console.warn('[FCM] GW push failed (non-fatal):', fcmErr.message);
+            }
+}
 
         // Notify Red Zone members with targeted warning
         for (const memberSnap of membersSnap.docs) {
@@ -952,8 +1016,12 @@ const runFPLAutopilot = async () => {
     console.log('🤖 [AUTOPILOT] Checking FPL Gameweek status...');
     try {
         const response = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/', {
-            timeout: 15000,
-            headers: { 'User-Agent': 'FantasyChama-Autopilot/1.0' }
+            timeout: 30000, // Increased to 30s — FPL API can be slow
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-GB,en;q=0.9'
+            }
         });
 
         const events = response.data.events || [];
@@ -1011,26 +1079,50 @@ const runFPLAutopilot = async () => {
             try {
                 const league = leagueDoc.data();
                 const leagueId = leagueDoc.id;
+                const fplLeagueId = league.fplLeagueId;
 
-                // Get all paid members for this league
+                if (!fplLeagueId) {
+                    console.log(`[AUTOPILOT] League ${leagueId}: No fplLeagueId configured. Skipping.`);
+                    continue;
+                }
+
+                // Fetch THIS league's private FPL standings
+                let fplStandings = [];
+                try {
+                    const standingsRes = await axios.get(
+                        `https://fantasy.premierleague.com/api/leagues-classic/${fplLeagueId}/standings/`,
+                        { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } }
+                    );
+                    fplStandings = standingsRes.data.standings?.results || [];
+                } catch (fplErr) {
+                    console.error(`[AUTOPILOT] League ${leagueId}: Failed to fetch FPL standings:`, fplErr.message);
+                    continue;
+                }
+
+                // Sort by GW points (event_total) descending
+                fplStandings.sort((a, b) => b.event_total - a.event_total);
+
+                // Get all active paid members
                 const membershipsSnap = await db.collection(`leagues/${leagueId}/memberships`).get();
                 const members = membershipsSnap.docs
                     .map(d => ({ id: d.id, ...d.data() }))
-                    .filter(m => m.hasPaid && m.role !== 'admin');
+                    .filter(m => m.hasPaid && m.isActive !== false);
 
                 if (members.length === 0) {
                     console.log(`[AUTOPILOT] League ${leagueId}: No paid members. Skipping.`);
                     continue;
                 }
 
-                // Find the winner: match FPL standings against league members
+                // Find winner by fplTeamId (deterministic) then name fallback
                 let winner = null;
                 let winningPoints = 0;
 
                 for (const fplManager of fplStandings) {
                     const match = members.find(m =>
-                        m.displayName === fplManager.player_name ||
-                        m.fplTeamName === fplManager.entry_name
+                        (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
+                        (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
+                        m.displayName?.toLowerCase().trim() === fplManager.player_name?.toLowerCase().trim() ||
+                        m.fplTeamName?.toLowerCase() === fplManager.entry_name?.toLowerCase()
                     );
                     if (match) {
                         winner = match;
@@ -1090,6 +1182,24 @@ const runFPLAutopilot = async () => {
                 processedCount++;
                 console.log(`✅ [AUTOPILOT] League ${leagueId}: Pending payout created for ${winner.displayName} — KES ${weeklyPot}`);
 
+                // Phase 8: FCM push to all league members
+                try {
+                    const allMembers = membershipsSnap.docs.map(d => d.data());
+                    const fcmTokens = allMembers.map(m => m.fcmToken).filter(Boolean);
+                    if (fcmTokens.length > 0) {
+                        await admin.messaging().sendEachForMulticast({
+                            tokens: fcmTokens,
+                            notification: {
+                                title: `🤖 ${gwName} — Autopilot complete!`,
+                                body: `${winner.displayName} scored ${winningPoints} pts and wins KES ${weeklyPot.toLocaleString()}. Awaiting Co-Chair approval.`
+                            },
+                            data: { type: 'autopilot_payout', leagueId }
+                        });
+                    }
+                } catch (fcmErr) {
+                    console.warn('[AUTOPILOT] FCM push failed (non-fatal):', fcmErr.message);
+                }
+
             } catch (leagueErr) {
                 console.error(`[AUTOPILOT] Error processing league ${leagueDoc.id}:`, leagueErr.message);
             }
@@ -1107,7 +1217,11 @@ const runFPLAutopilot = async () => {
         console.log(`🎉 [AUTOPILOT] Complete! Processed ${processedCount} leagues for ${gwName}.`);
 
     } catch (error) {
-        console.error('[AUTOPILOT] Critical error:', error.message);
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+            console.warn('[AUTOPILOT] FPL API timed out. Will retry on next scheduled run.');
+        } else {
+            console.error('[AUTOPILOT] Critical error:', error.message);
+        }
     }
 };
 
@@ -1267,7 +1381,95 @@ cron.schedule('0 12 * * *', () => {
 });
 console.log('⏰ Retention/Churn Cron registered (12:00 UTC daily).');
 
+// ============================================================
+// HEALTH CHECK — Required by Render / Railway for deploy probes
+// ============================================================
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', service: 'FantasyChama API', ts: new Date().toISOString() });
+});
+
+// ============================================================
+// PILOT: BULK PRE-FUND WALLETS
+// POST /api/league/prefund
+// Admin-only. Accepts an array of { memberId, amount } objects
+// and atomically seeds each member's wallet balance.
+// Gate: only callable in non-production or with chairmanId check.
+// ============================================================
+app.post('/api/league/prefund', async (req, res) => {
+    try {
+        const { leagueId, chairmanId, entries } = req.body; // entries: [{ memberId, amount }]
+        if (!leagueId || !chairmanId || !Array.isArray(entries) || entries.length === 0) {
+            return res.status(400).json({ success: false, message: 'leagueId, chairmanId, and entries[] required.' });
+        }
+        if (!db) return res.status(503).json({ success: false, message: 'Firestore not initialised.' });
+
+        // Verify caller is the chairman
+        const leagueSnap = await db.doc(`leagues/${leagueId}`).get();
+        if (!leagueSnap.exists || leagueSnap.data().chairmanId !== chairmanId) {
+            return res.status(403).json({ success: false, message: 'Only the league chairman can pre-fund wallets.' });
+        }
+
+        const batch = db.batch();
+        for (const { memberId, amount } of entries) {
+            const amt = Number(amount);
+            if (!memberId || isNaN(amt) || amt <= 0) continue;
+            const memberRef = db.doc(`leagues/${leagueId}/memberships/${memberId}`);
+            batch.update(memberRef, {
+                walletBalance: admin.firestore.FieldValue.increment(amt),
+                hasPaid: true
+            });
+            // Audit trail in transactions
+            batch.set(db.collection(`leagues/${leagueId}/transactions`).doc(), {
+                type: 'admin_seed',
+                amount: amt,
+                receiptId: 'SEED_' + memberId.slice(-6).toUpperCase(),
+                phoneNumber: 'ADMIN_PREFUND',
+                userId: memberId,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                note: `Pilot pre-fund: KES ${amt} seeded by chairman`
+            });
+        }
+        await batch.commit();
+
+        // Log to live feed
+        await db.collection(`leagues/${leagueId}/league_events`).add({
+            eventType: 'payment',
+            message: `Pilot pre-fund complete — ${entries.length} member wallet(s) seeded by Chairman.`,
+            actor: 'chairman',
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.json({ success: true, message: `${entries.length} wallets pre-funded successfully.` });
+    } catch (err) {
+        console.error('[PREFUND] Error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// ─── Phase 8: FCM Push Notification Endpoint ─────────────────────────────────
+// Called internally after GW resolution or by SuperAdmin for arbitrary alerts.
+app.post('/api/notify', async (req, res) => {
+    const { tokens, title, body, data = {} } = req.body;
+    if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
+        return res.status(400).json({ success: false, message: 'tokens[] array required' });
+    }
+    try {
+        const result = await admin.messaging().sendEachForMulticast({
+            tokens: tokens.filter(Boolean),
+            notification: { title, body },
+            data
+        });
+        const sent = result.responses.filter(r => r.success).length;
+        res.json({ success: true, sent, total: tokens.length });
+    } catch (err) {
+        console.error('[NOTIFY] FCM push error:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 const PORT = process.env.PORT || 5001;
+Sentry.setupExpressErrorHandler(app);
+
 app.listen(PORT, () => {
     console.log(`🚀 FantasyChama M-Pesa Engine running on http://localhost:${PORT}`);
 });

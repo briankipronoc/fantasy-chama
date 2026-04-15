@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit } from 'firebase/firestore';
+import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
@@ -57,7 +57,35 @@ export default function MemberDashboard() {
     const [nudgeSent, setNudgeSent] = useState(false);
 
     const members = useStore(state => state.members);
+    const logout = useStore(state => state.logout);
+    const leagueSettings = useStore(state => state.league);
+    
+    // Auto-Lockout: 48 Hour Grace Period
+    const pendingHQDebt = leagueSettings?.pendingHQDebt || 0;
+    const lastResolvedTS = leagueSettings?.lastResolvedDate;
+    const lastResolvedDate = lastResolvedTS?.toDate ? lastResolvedTS.toDate() : new Date();
+    const isGracePeriodOver = pendingHQDebt > 0 && (Date.now() - lastResolvedDate.getTime()) > (2 * 24 * 60 * 60 * 1000);
+    const isSuspended = leagueSettings?.isSuspended === true || isGracePeriodOver;
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+    const [showPochiInstructions, setShowPochiInstructions] = useState(false);
+    const [isNudgingHQ, setIsNudgingHQ] = useState(false);
+
+    const handleNudgeHQ = async () => {
+        if (!activeLeagueId || !currentUser) return;
+        setIsNudgingHQ(true);
+        try {
+            const leagueRef = doc(db, 'leagues', activeLeagueId);
+            await updateDoc(leagueRef, {
+                suspensionNudges: arrayUnion(currentUser.displayName.split(' ')[0])
+            });
+            showToast("Chairman has been aggressively nudged.", "success");
+        } catch (error) {
+            console.error("Nudge Error:", error);
+            showToast("Failed to nudge Chairman.", "error");
+        } finally {
+            setIsNudgingHQ(false);
+        }
+    };
     const isStealthMode = useStore(state => state.isStealthMode);
     const { notifications } = useNotifications();
 
@@ -93,28 +121,41 @@ export default function MemberDashboard() {
                                 setGwWinner(winner);
 
                                 // Build league-wide GW average from all entries' history
-                                const currentFplTeamId = currentUser?.fplTeamId;
-                                if (currentFplTeamId) {
-                                    // Fetch user's own history
-                                    fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${currentFplTeamId}/history/`)}`)
-                                        .then(r => r.json())
-                                        .then(histData => {
+                                const fetchPerformances = async () => {
+                                    let aggData: any[] = [];
+                                    
+                                    const teamIds = [];
+                                    if (currentUser?.fplTeamId) teamIds.push(currentUser.fplTeamId);
+                                    if (currentUser?.secondFplTeamId) teamIds.push(currentUser.secondFplTeamId);
+
+                                    if (teamIds.length === 0) return;
+
+                                    for (const tId of teamIds) {
+                                        try {
+                                            const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${tId}/history/`)}`);
+                                            const histData = await r.json();
                                             const current = histData?.current;
                                             if (current && current.length > 0) {
-                                                // Get last 5 GWs
                                                 const recent = current.slice(-5);
                                                 const leagueAvg = results.length > 0
-                                                    ? Math.round(results.reduce((s: number, r: any) => s + r.event_total, 0) / results.length)
+                                                    ? Math.round(results.reduce((s: number, curRes: any) => s + curRes.event_total, 0) / results.length)
                                                     : 50;
-                                                setPerformanceData(recent.map((gw: any) => ({
-                                                    name: `GW${gw.event}`,
-                                                    Points: gw.points,
-                                                    Average: leagueAvg
-                                                })));
+                                                
+                                                aggData = recent.map((gw: any, index: number) => {
+                                                    const existing = aggData[index] || { name: `GW${gw.event}`, Average: leagueAvg };
+                                                    return {
+                                                        ...existing,
+                                                        [`Team ${tId}`]: gw.points
+                                                    };
+                                                });
                                             }
-                                        })
-                                        .catch(() => {});
-                                }
+                                        } catch (e) {
+                                            console.error('Error fetching performance:', e);
+                                        }
+                                    }
+                                    if (aggData.length > 0) setPerformanceData(aggData);
+                                };
+                                fetchPerformances();
                             }
                         })
                         .catch(err => console.error("Could not fetch FPL winner:", err));
@@ -145,7 +186,7 @@ export default function MemberDashboard() {
         }
 
         return () => unsubscribeLeague();
-    }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, location.state]);
+    }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, location.state, currentUser?.fplTeamId, currentUser?.secondFplTeamId]);
 
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
@@ -426,6 +467,7 @@ export default function MemberDashboard() {
     // Phase 30: Is the logged-in user the current GW Winner?
     const isCurrentUserGwWinner = gwWinner && currentUser && (
         (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
+        (currentUser.secondFplTeamId && Number(currentUser.secondFplTeamId) === Number(gwWinner.entry)) ||
         currentUser.displayName?.toLowerCase().includes(gwWinner.player_name?.toLowerCase()) ||
         gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
     );
@@ -451,8 +493,45 @@ export default function MemberDashboard() {
             "min-h-[100dvh] text-white flex flex-col font-sans relative pb-28 w-full overflow-x-hidden transition-colors duration-1000",
             isCurrentUserGwWinner
                 ? "bg-gradient-to-br from-[#0b1014] via-[#1a1608] to-[#2a1f05]"
-                : hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]"
+                : hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]",
+            isSuspended ? "overflow-hidden h-screen" : ""
         )}>
+            {/* Phase 40: HQ Suspension Lockout Overlay */}
+            {isSuspended && (
+                <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 overflow-hidden">
+                    <div className="fixed inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(239,68,68,0.05) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
+                    <div className="w-full max-w-md bg-[#0b1014]/90 border-2 border-red-500/50 rounded-3xl p-8 text-center shadow-[0_0_80px_rgba(239,68,68,0.2)] flex flex-col items-center gap-6 relative z-10 animate-in zoom-in-95 duration-500">
+                        <div className="w-20 h-20 bg-red-500/10 border-2 border-red-500/30 rounded-full flex flex-col items-center justify-center animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.3)]">
+                            <Shield className="w-8 h-8 text-red-500 mb-1" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">HQ Lockout</h2>
+                            <p className="text-sm font-medium text-gray-400">
+                                This league has been suspended by <span className="font-bold text-emerald-400">FPL Chama HQ</span>. 
+                                The Chairman has outstanding bills to clear before access can be restored.
+                            </p>
+                        </div>
+                        <div className="w-full space-y-3">
+                            <button 
+                                onClick={handleNudgeHQ}
+                                disabled={isNudgingHQ}
+                                className="w-full py-3.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                            >
+                                {isNudgingHQ ? "Nudging..." : "Nudge Chairman Directly"}
+                            </button>
+                            <button 
+                                onClick={logout}
+                                className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all"
+                            >
+                                Sign Out Waitroom
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className={clsx("transition-all duration-700 w-full flex-1 flex flex-col", isSuspended ? "blur-xl opacity-30 pointer-events-none select-none scale-[0.98]" : "")}>
+
             {/* Golden Glow Overlay for GW Winner */}
             {isCurrentUserGwWinner && (
                 <div className="fixed inset-0 pointer-events-none z-0">
@@ -536,6 +615,23 @@ export default function MemberDashboard() {
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
                             <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                         </div>
+                        {/* Phase 8: Share My Win */}
+                        <button
+                            onClick={() => {
+                                const league = encodeURIComponent(leagueName || 'My Chama');
+                                const amount = Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100));
+                                const url = `${window.location.origin}/win?league=${league}&gw=${gwWinner?.event || ''}&winner=${encodeURIComponent(firstName)}&amount=${amount}`;
+                                if (navigator.share) {
+                                    navigator.share({ title: `I won GW${gwWinner?.event}!`, url });
+                                } else {
+                                    navigator.clipboard.writeText(url);
+                                    showToast('✅ Win link copied! Share it!');
+                                }
+                            }}
+                            className="relative z-10 flex items-center gap-2 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-black rounded-xl transition-all active:scale-95"
+                        >
+                            🏆 Share My Win
+                        </button>
                     </div>
                 ) : (
                     <>
@@ -782,14 +878,25 @@ export default function MemberDashboard() {
                                         <span className="text-white text-xs font-bold tracking-widest uppercase">KES</span>
                                     </div>
                                     <button
-                                        onClick={handleMpesaSTKPush}
-                                        disabled={isPushingMpesa}
-                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                        onClick={() => setShowPochiInstructions(!showPochiInstructions)}
+                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2"
                                     >
                                         <Banknote className="w-5 h-5 group-hover:-rotate-6 transition-transform" />
-                                        {isPushingMpesa ? "Awaiting PIN..." : "Pay with M-Pesa"}
+                                        Pay via Pochi La Biashara
                                     </button>
-                                    <div className="flex flex-col sm:flex-row gap-2">
+
+                                    {showPochiInstructions && (
+                                        <div className="bg-[#1c1a09] border border-[#FBBF24]/30 rounded-xl p-3 text-left animate-in fade-in zoom-in-95 duration-200 mt-1">
+                                            <p className="text-[11px] font-bold text-[#FBBF24] uppercase tracking-widest mb-1.5 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Pochi Instructions</p>
+                                            <ol className="text-xs text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-gray-500">
+                                                <li>Go to M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
+                                                <li>Send to Mobile No. <strong>{members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number'}</strong></li>
+                                                <li>Amount: <strong>KES {gameweekStake}</strong></li>
+                                            </ol>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col sm:flex-row gap-2 mt-1">
                                         <button
                                             onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
                                             className="flex-1 text-[11px] text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors text-center"
@@ -800,7 +907,7 @@ export default function MemberDashboard() {
                                             onClick={() => { setShowClaimModal(true); setClaimSubmitted(false); setClaimReceiptCode(''); }}
                                             className="flex-1 text-[11px] text-[#FBBF24]/60 hover:text-[#FBBF24] underline underline-offset-2 transition-colors text-center"
                                         >
-                                            Dispute payment →
+                                            Confirm M-Pesa Receipt →
                                         </button>
                                     </div>
                                 </div>
@@ -835,7 +942,16 @@ export default function MemberDashboard() {
                                         contentStyle={{ backgroundColor: '#0e1419', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '12px' }}
                                         itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                                     />
-                                    <Line type="monotone" dataKey="Points" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                                    {currentUser?.fplTeamId && (
+                                        <Line type="monotone" dataKey={`Team ${currentUser.fplTeamId}`} stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Team 1" />
+                                    )}
+                                    {currentUser?.secondFplTeamId && (
+                                        <Line type="monotone" dataKey={`Team ${currentUser.secondFplTeamId}`} stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3.5, fill: '#3B82F6', strokeWidth: 0 }} activeDot={{ r: 5 }} name="Team 2" />
+                                    )}
+                                    {/* Fallback for old dataKey="Points" if any */}
+                                    {!currentUser?.fplTeamId && !currentUser?.secondFplTeamId && (
+                                         <Line type="monotone" dataKey="Points" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3.5, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                                    )}
                                     <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2} strokeDasharray="4 4" dot={false} />
                                 </LineChart>
                             </ResponsiveContainer>
@@ -1085,6 +1201,7 @@ export default function MemberDashboard() {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 }

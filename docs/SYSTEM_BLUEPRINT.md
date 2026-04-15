@@ -1,71 +1,252 @@
-# Fantasy Chama — Master System Blueprint
+# FantasyChama — Master System Blueprint v3.0
+*Last updated: April 2026 — Phase 8 complete*
+
+---
 
 ## 1. Core Tech Stack & Infrastructure
-*   **Frontend**: React (Vite bundler), React Router DOM, Zustand (Global State Management), Tailwind CSS.
-*   **Backend**: Node.js, Express.
-*   **Database**: Firebase Firestore (NoSQL Document Store).
-*   **APIs**:
-    *   Safaricom Daraja API (STK Push for collections, B2C for disbursements, Transaction Query for disputes).
-    *   Fantasy Premier League (FPL) API (Automated polling for gameweek status and points).
-*   **Task Scheduling**: `node-cron` for automated reminders, retentions, and autopilot calculations.
-*   **CORS Proxy**: `corsproxy.io` for reliable client-side FPL API requests.
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 18 + Vite, React Router v6, Zustand, Tailwind CSS v4 |
+| **Backend** | Node.js + Express (CommonJS/ESM), hosted on Render |
+| **Database** | Firebase Firestore (NoSQL, real-time listeners) |
+| **Auth** | Firebase Authentication (phone OTP + email/password hybrid) |
+| **Payments** | Safaricom Daraja API — STK Push (inflow) + B2C (outflow) + Transaction Status Query |
+| **Live FPL Data** | Official Premier League FPL REST API (polling via server cron) |
+| **Push Notifications** | Firebase Cloud Messaging (FCM) — foreground + background push via Service Worker |
+| **Scheduling** | `node-cron` — automated FPL polling, payment reminders, churn recovery |
+| **Monitoring** | Sentry (error tracking + alerting) |
+| **Input Validation** | Zod schema validation on all critical backend routes |
+| **Rate Limiting** | `express-rate-limit` on STK Push, B2C, and resolution endpoints |
+| **Deployment** | Frontend: Vercel, Backend: Render, DB: Firestore managed |
+
+---
 
 ## 2. Database Schema (Firestore)
-The application relies on a hierarchical schema centered around `leagues`.
 
-*   **`leagues`** (Root Collection)
-    *   `inviteCode` (string), `leagueName` (string), `gameweekStake` (number), `chairmanId` (string), `coAdminId` (string), `fplLeagueId` (number), `rules` (object: `{ weekly, vault, seasonWinnersCount }`).
-*   **`memberships`** (Subcollection under League)
-    *   `displayName`, `phone`, `role` (`'admin' | 'member'`), `walletBalance` (number), `hasPaid` (boolean), `missedGameweeks` (number), `isActive` (boolean), `fplTeamId` (number — binds the FPL Entry ID directly to the user for deterministic matching), `fplTeamName`, `lastLoginAt` (timestamp), `avatarSeed`.
-*   **`transactions`** (Subcollection under League)
-    *   `type` (`'deposit' | 'payout'`), `amount` (number), `receiptId` (string), `phoneNumber`, `winnerName`, `winnerPhone`, `timestamp`.
-*   **`league_events`** (Subcollection under League)
-    *   `eventType` (`'payment' | 'resolution' | 'info'`), `message`, `actor`, `timestamp`. Drives the Live Escrow feed.
-*   **`disputes`** (Subcollection under League)
-    *   `memberId`, `memberName`, `phone`, `receiptCode`, `amount`, `status`, `timestamp`.
-*   **`notifications`** (Subcollection under League)
-    *   `type` (`'info' | 'warning' | 'success'`), `message`, `timestamp`, `readBy` (array). Drives bell inbox and system-wide alerts.
-*   **`pending_payouts`** (Subcollection under League)
-    *   `winnerId`, `winnerName`, `amount`, `status` (`'awaiting_approval' | 'approved' | 'rejected'`), `gw`, `gwName`, `points`. Used for Maker/Checker logic.
-*   **`winner_confirmations`** (Subcollection under League)
-    *   `winnerId`, `amount`, `receiptId`, `status` (`'pending_confirmation' | 'confirmed'`).
-*   **`mpesa_requests` / `b2c_requests`** (Root Collections)
-    *   Temporary webhook mapping for Safaricom async callbacks.
-*   **`platform_treasury`** (Root Collection)
-    *   `leagueId`, `leagueName`, `gameweek`, `grossPot`, `mpesaFee`, `chairmanCut`, `coAdminCut`, `platformNetRevenue`, `timestamp`.
+### Root Collections
 
-## 3. The Financial Flow (The Ledger)
-1.  **Inflow (Collection):** A member triggers an STK Push. Upon Safaricom success webhook (`ResultCode: 0`), the backend atomically updates: `hasPaid = true`, increments `walletBalance`, saves a `transaction` record, and appends to `league_events`.
-2.  **Drain (Gameweek Resolution):** The backend hits `/api/league/deduct-gw-cost`, deducting GW costs from all members via Batch Write. The 10% Escrow Rake splits: 5.0% Platform Revenue, 1.5% Safaricom Fee, 3.5% Governance Kickback (2.5% Chairman + 1.0% Co-Admin when present, 3.5% solo otherwise). Chairman/Co-Admin wallets are atomically incremented.
-3.  **Outflow (Disbursement):** Chairman selects the winner → `pending_payouts`. Co-Admin reviews and approves → Daraja B2C fires → `winner_confirmations` created for the winner to confirm receipt.
+#### `leagues/{leagueId}`
+```
+inviteCode, leagueName, gameweekStake, chairmanId, coAdminId,
+fplLeagueId, rules { weekly, vault, seasonWinnersCount },
+pendingHQDebt, isSuspended, lastResolvedDate (Timestamp),
+referralCode, suspensionNudges[]
+```
 
-## 4. Automation & Governance
-*   **Multi-Admin & Roles**: `role: 'admin' | 'member'` flag on memberships. Chairman can promote members to admin.
-*   **Maker/Checker System**: Payouts require Co-Admin counter-signature to prevent single-point failure.
-*   **Cron Job Engine (`server.js`)**:
-    *   **FPL Autopilot**: Polls FPL API. If `data_checked = true`, calculates winner and auto-generates a pending payout.
-    *   **Warning Nudges (10:00 AM EAT)**: Finds unpaid members near FPL deadline, sends emergency warnings.
-    *   **Churn Recovery (15:00 EAT)**: Detects `lastLoginAt > 10 days` members, issues recovery alerts.
+#### `userLeagues/{phone}`
+Multi-league index — enables a single phone to belong to multiple leagues.
+```
+leagues: [ { leagueId, leagueName, role } ]
+```
 
-## 5. UI/UX Architecture
-*   **Visual Language**: Dark fintech motif with "Mystic Void" gradients. Green `#10B981` for verifications, Gold `#FBBF24` for champions.
-*   **Golden Dashboard Experience**: When the logged-in member IS the current GW winner, the entire dashboard background shifts to a gold gradient with ambient glow effects and a personal celebration card.
-*   **Winner's Circle**: Expandable panel showing all historical GW champions with points and aggregate stats (Total GWs Won, Unique Winners).
-*   **FPL Team Selector**: Profile dropdown that fetches live FPL standings, letting users bind their exact FPL Entry ID to their Firestore profile. The Standings matcher prioritizes `fplTeamId` over fuzzy name matching.
-*   **End of Season Projections**: Dynamic visualization on Standings page showing vault distribution based on the league's `seasonWinnersCount` setting.
-*   **4-Tier Notification Hierarchy**:
-    1.  **Toasts**: Ephemeral auto-dismissing popups.
-    2.  **Live Feed**: Real-time `league_events` stream.
-    3.  **Static Banners**: Critical un-closable containers (Red Zone, Winner Confirmation).
-    4.  **Bell Inbox**: Persistent cross-session Firestore notifications.
+#### `platform_treasury/{docId}`
+HQ revenue log — every GW resolution writes a receipt here.
+```
+leagueId, leagueName, gameweek, grossPot, platformNetRevenue (3.5%),
+chairmanCut (4% or 3% with co-chair), coAdminCut, mpesaFee (1.5%), timestamp
+```
 
-## 6. Revenue Model (10% Escrow Rake)
-Per GW resolution, the gross pot is taxed 10%:
-| Recipient | Solo | With Co-Admin |
+#### `referrals/{code}`
+```
+referrerLeagueId, referrerChairmanId, redeemedByLeagueId, timestamp
+```
+
+---
+
+### League Subcollections
+
+#### `memberships/{memberId}`
+```
+displayName, phone, role ('admin' | 'member'), walletBalance,
+hasPaid, missedGameweeks, isActive, fplTeamId, secondFplTeamId,
+avatarSeed, lastLoginAt, hasAcceptedRules, totalEarned,
+paymentStreak, fcmToken, authUid
+```
+
+#### `transactions/{txId}`
+```
+type ('deposit' | 'payout' | 'kickback_withdrawal'),
+amount, receiptId, phoneNumber, winnerName, winnerPhone,
+mpesaCode, timestamp, gameweek
+```
+
+#### `league_events/{eventId}`
+Live Escrow Feed. Powers the real-time activity ticker.
+```
+eventType ('payment' | 'resolution' | 'info'), message, actor, timestamp
+```
+
+#### `disputes/{disputeId}`
+Payment confirmation claims (Pochi La Biashara manual receipts).
+```
+memberId, memberName, phone, receiptCode, amount, status, timestamp
+```
+
+#### `notifications/{notifId}`
+Bell inbox. Persistent cross-session alerts.
+```
+type ('info' | 'warning' | 'success' | 'transactionSuccess'),
+message, timestamp, readBy[], targetMemberId, isWinnerEvent
+```
+
+#### `pending_payouts/{payoutId}`
+Maker/Checker queue. Payouts must be Co-Admin approved.
+```
+winnerId, winnerName, amount, status ('awaiting_approval' | 'approved' | 'rejected'),
+gw, gwName, points, payoutMethod ('mpesa' | 'cash')
+```
+
+#### `winner_confirmations/{confId}`
+Winner acknowledgment receipts (Pochi receipt confirmation).
+```
+winnerId, amount, receiptId, status ('pending_confirmation' | 'confirmed')
+```
+
+---
+
+## 3. The Financial Engine (9% Transparent Economy)
+
+### Per-GW Resolution Flow
+
+```
+Gross Pot = paidMembers × gameweekStake
+
+  91% → Weekly Winner (B2C via Safaricom Daraja)
+   4% → Chairman Governance Fee (wallet credit)
+   3.5% → FantasyChama HQ Platform Fee (Pochi La Biashara)
+   1.5% → M-Pesa Telecom Network Buffer
+   
+   * If Co-Chair active:
+     Chairman drops to 3%, Co-Chair earns 1% from Chairman's share
+```
+
+### Inflow (Member Deposits)
+1. Member triggers STK Push → Safaricom pings phone
+2. Safaricom success webhook (`ResultCode: 0`) → backend atomically:
+   - Sets `hasPaid = true`
+   - Increments `walletBalance`
+   - Logs `transaction` doc
+   - Appends to `league_events`
+   - Increments `paymentStreak`
+
+### GW Resolution
+1. Chairman clicks Resolve → `/api/league/deduct-gw-cost`
+2. Batch write deducts stake from all wallets
+3. 9% split calculated and distributed
+4. `paymentStreak` updated per member (increment or reset to 0)
+5. `lastResolvedDate` stamped → starts 48h HQ debt clock
+6. FCM push dispatched to all league members
+7. Winner payout created in `pending_payouts`
+
+### Outflow (Disbursement)
+- Co-Admin approves pending payout → Daraja B2C fires
+- `winner_confirmations` created for winner to acknowledge receipt
+
+### HQ Revenue Cycle (48-Hour Enforcement)
+- After every GW resolution, `pendingHQDebt` accumulates on the league
+- Chairman has **48 hours** to pay HQ via Pochi La Biashara
+- Within 48h: yellow warning banner on Chairman dashboard
+- After 48h: full blur lockout on Chairman + red banner for all members
+
+---
+
+## 4. Automation & Governance Engine
+
+### Cron Jobs (server.js)
+| Schedule | Job | Description |
 |---|---|---|
-| Platform | 5.0% | 5.0% |
-| Safaricom API | 1.5% | 1.5% |
-| Chairman | 3.5% | 2.5% |
-| Co-Admin | 0.0% | 1.0% |
+| Every 30 min | FPL Autopilot | Polls FPL API; if `data_checked=true`, calculates winner, auto-creates `pending_payouts` |
+| 10:00 AM EAT | Payment Reminder | Finds unpaid members, sends WhatsApp-style SMS warnings |
+| 15:00 EAT | Churn Recovery | Detects members `lastLoginAt > 10 days`, issues re-engagement alerts |
 
-The remaining 90% is the **Net Member Pot**, split into Weekly Pot (default 70%) and Season Vault (default 30%).
+### Multi-Admin Roles
+- `role: 'admin'` — Chairman and Co-Chair. Full command access.
+- `role: 'member'` — Standard league participant.
+- Chairman is identified by `chairmanId` field on the league document.
+- Co-Chair is identified by `coAdminId`.
+
+### Maker/Checker Protocol
+Every payout requires:
+1. Chairman creates a pending payout
+2. Co-Admin must electronically approve it
+3. Only then does the backend fire B2C
+- Prevents unilateral chairman fraud
+
+### Payment Streaks
+- `paymentStreak` increments automatically per on-time GW payment
+- Resets to `0` on any missed GW
+- Displayed as 🔥 badge in the Chairman's ledger and Member dashboard
+
+---
+
+## 5. Push Notification Architecture (FCM)
+
+### How It Works
+1. On app load, `useFCMToken()` hook runs in `App.tsx`
+2. Requests browser notification permission
+3. Registers Service Worker (`public/firebase-messaging-sw.js`)
+4. Gets FCM device token → saved to `memberships/{id}.fcmToken`
+5. Backend `/api/notify` endpoint sends to any array of FCM tokens
+
+### Notification Triggers
+| Event | Recipient |
+|---|---|
+| GW resolved + winner announced | All league members |
+| Member drops to Red Zone | That member only |
+| Payout dispatched | Winner only |
+| Co-Admin approval needed | Co-Admin only |
+| HQ suspension triggered | Chairman only |
+
+---
+
+## 6. UI/UX Architecture
+
+### Visual Design System
+- **Base**: `#0a0e17` deep navy, `#0b1014` panel backgrounds
+- **Primary Green**: `#10B981` — payments verified, Green Zone
+- **Champion Gold**: `#FBBF24` — winners, payouts, admin kickbacks
+- **Typography**: Satoshi (headings) + Inter (body)
+- **Glassmorphism**: `backdrop-blur-xl` + `bg-white/5` panels throughout
+- **Dark/Light Toggle**: `data-theme` attribute on `<html>` with full CSS var overrides
+
+### Key UX Patterns
+- **Golden Dashboard**: When the user IS the current GW winner, the entire background shifts gold
+- **Stealth Mode**: Toggle that replaces all KES values with `****`
+- **4-Tier Notifications**: Toast → Static Banner → Bell Inbox → FCM Push
+- **League Switcher**: Header component — only appears for multi-league users
+- **Trust Slider**: Landing page interactive breakdown of 91/9 fee split (max KES 30,000)
+- **OG Win Share**: `/win?...` page with full OG meta tags for WhatsApp/Twitter preview
+
+### Page Inventory
+| Route | Component | Access |
+|---|---|---|
+| `/` | `LandingPage` | Public |
+| `/login` | `Login` | Public |
+| `/setup` | `AdminSetup` | Public (Chairman) |
+| `/invite` | `InviteHub` | Public (Member) |
+| `/dashboard` | `AdminCommandCenter` / `MemberDashboard` | Auth |
+| `/finances` | `Finances` | Auth |
+| `/standings` | `Standings` | Auth |
+| `/profile` | `Profile` | Auth |
+| `/deposit` | `Deposit` | Auth |
+| `/rules` | `PayoutRules` | Auth |
+| `/win` | `WinSharePage` | Public |
+| `/hq` | `SuperAdminDashboard` | Super Admin |
+| `/terms` | `Terms` | Public |
+| `/privacy-policy` | `PrivacyPolicy` | Public |
+| `/faq` | `FAQ` | Public |
+
+---
+
+## 7. Revenue Model Summary
+
+| Recipient | Rate | Condition |
+|---|---|---|
+| **GW Winner** | **91%** | Highest FPL points in the league |
+| **FantasyChama HQ** | **3.5%** | Platform operation fee |
+| **Chairman** | **4%** | Governance fee (3% if Co-Chair active) |
+| **Co-Chair** | **1%** | Maker/Checker audit fee (from Chairman's share) |
+| **M-Pesa Network** | **1.5%** | Safaricom telecom API processing buffer |
+
+Season Vault: 30% of all weekly pots accumulate into a season-end prize pool.

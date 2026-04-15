@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star } from 'lucide-react';
+import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Download } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
@@ -86,7 +86,28 @@ export default function AdminCommandCenter() {
     const [newMemberName, setNewMemberName] = useState('');
     const [newMemberPhone, setNewMemberPhone] = useState('');
     const [newMemberTeam, setNewMemberTeam] = useState('');
+    const [newMemberSecondTeam, setNewMemberSecondTeam] = useState('');
     const [isAddingMember, setIsAddingMember] = useState(false);
+
+    // Pilot Pre-Fund Wallets State
+    const [showPrefundOptions, setShowPrefundOptions] = useState(false);
+    const [prefundData, setPrefundData] = useState<{ [id: string]: string }>({});
+    const [isPrefunding, setIsPrefunding] = useState(false);
+    
+    // Phase 40: HQ Debt Ledger & Onboarding
+    const [showTutorial, setShowTutorial] = useState(false);
+    const leagueSettings = useStore(state => state.league);
+    const pendingHQDebt = leagueSettings?.pendingHQDebt || 0;
+    
+    // Auto-Lockout: 48 Hour Grace Period
+    const lastResolvedTS = leagueSettings?.lastResolvedDate;
+    const lastResolvedDate = lastResolvedTS?.toDate ? lastResolvedTS.toDate() : new Date();
+    const isGracePeriodOver = pendingHQDebt > 0 && (Date.now() - lastResolvedDate.getTime()) > (2 * 24 * 60 * 60 * 1000);
+    
+    const isSuspended = leagueSettings?.isSuspended === true || isGracePeriodOver;
+    const isWithinGracePeriod = pendingHQDebt > 0 && !isGracePeriodOver && leagueSettings?.isSuspended !== true;
+    
+    const suspensionNudges = leagueSettings?.suspensionNudges || [];
 
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
@@ -110,6 +131,11 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) {
             navigate('/setup');
             return;
+        }
+
+        if (!localStorage.getItem(`chairman_tutorial_${activeLeagueId}`)) {
+            setShowTutorial(true);
+            localStorage.setItem(`chairman_tutorial_${activeLeagueId}`, 'true');
         }
 
         const initDashboard = async () => {
@@ -322,7 +348,7 @@ export default function AdminCommandCenter() {
         setIsAddingMember(true);
         try {
             const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
-            await addDoc(membershipsRef, {
+            const dataToSave: any = {
                 displayName: newMemberName,
                 phone: newMemberPhone,
                 fplTeamName: newMemberTeam,
@@ -330,11 +356,15 @@ export default function AdminCommandCenter() {
                 role: 'member',
                 avatarSeed: Math.random().toString(36).substring(7),
                 joinedAt: serverTimestamp()
-            });
+            };
+            if (newMemberSecondTeam) dataToSave.secondFplTeamId = Number(newMemberSecondTeam);
+            
+            await addDoc(membershipsRef, dataToSave);
             setShowAddMemberModal(false);
             setNewMemberName('');
             setNewMemberPhone('');
             setNewMemberTeam('');
+            setNewMemberSecondTeam('');
 
             // Send Notification
             const notifsRef = collection(db, 'leagues', activeLeagueId, 'notifications');
@@ -378,6 +408,46 @@ export default function AdminCommandCenter() {
         }
     };
 
+    const handlePrefundSubmit = async () => {
+        if (!activeLeagueId) return;
+        const entries = Object.entries(prefundData)
+            .filter(([_, amount]) => Number(amount) > 0)
+            .map(([memberId, amount]) => ({ memberId, amount: Number(amount) }));
+        
+        if (entries.length === 0) {
+            showToast('Enter amounts for at least one member.');
+            return;
+        }
+
+        setIsPrefunding(true);
+        try {
+            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+            const res = await fetch(`${payoutApiUrl}/api/league/prefund`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    leagueId: activeLeagueId,
+                    chairmanId: auth.currentUser?.uid,
+                    entries: entries
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`Pilot Pre-Fund Complete! ${entries.length} wallets updated.`);
+                setShowPrefundOptions(false);
+                setPrefundData({});
+                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+            } else {
+                throw new Error(data.message || 'Error executing pre-fund.');
+            }
+        } catch (err: any) {
+            console.error('Prefund failed:', err);
+            showToast(`Prefund Failed: ${err.message}`);
+        } finally {
+            setIsPrefunding(false);
+        }
+    };
+
     const handleResolveGameweek = async () => {
         if (!activeLeagueId) return;
         setIsResolving(true);
@@ -400,8 +470,10 @@ export default function AdminCommandCenter() {
             let winningPoints = 0;
 
             for (const fplManager of sortedStandings) {
-                // Match via displayName or fplTeamName
+                // Match via team IDs, displayName, or fplTeamName
                 const dbMember = members.find(m =>
+                    (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
+                    (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
                     m.displayName === fplManager.player_name || (m as any).fplTeamName === fplManager.entry_name
                 );
 
@@ -516,8 +588,9 @@ export default function AdminCommandCenter() {
                         const lines = [
                             `*FantasyChama — GW26 Results*`,
                             ``,
-                            `Winner: *${winner.displayName}* (${winningPoints} pts)`,
-                            `Payout: *KES ${weeklyPot.toLocaleString()}* dispatched`,
+                            `🥇 Winner: *${winner.displayName}* (${winningPoints} pts)`,
+                            `💰 Payout (91%): *KES ${weeklyPot.toLocaleString()}* _(Dispatched)_`,
+                            `🏦 Operational Cut (9%): System & Governance`,
                             ``,
                             greenNames.length > 0 ? `Green Zone (${greenNames.length}): ${greenNames.join(', ')}` : null,
                             redNames.length > 0 ? `Red Zone (${redNames.length}): ${redNames.join(', ')} - UNPAID` : null,
@@ -636,6 +709,34 @@ export default function AdminCommandCenter() {
     };
 
     /**
+     * Phase 7: Audit CSV Export Engine
+     * Generates a downloadable .csv snapshot of the full league ledger.
+     */
+    const downloadLeagueLedgerCSV = () => {
+        const rows = [
+            ['#', 'Member Name', 'Phone', 'Wallet Balance (KES)', 'Status', 'Total Earned (KES)', 'Role'],
+            ...members.map((m, i) => [
+                i + 1,
+                m.displayName,
+                (m as any).phone || 'N/A',
+                ((m as any).walletBalance ?? 0).toFixed(2),
+                m.hasPaid ? 'Green Zone ✓' : 'Red Zone ✗',
+                ((m as any).totalEarned ?? 0).toFixed(2),
+                (m as any).role === 'admin' ? 'Admin' : 'Member'
+            ])
+        ];
+        const csvContent = rows.map(r => r.map(String).map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${leagueName.replace(/\s/g, '_')}_Ledger_Audit.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ Audit CSV exported successfully');
+    };
+
+    /**
      * WhatsApp Receipt Generator
      * Creates a rich formatted summary of the GW result for sharing to the group.
      */
@@ -647,7 +748,8 @@ export default function AdminCommandCenter() {
             `🏆 *${leagueName} — ${payout.gwName || `GW${payout.gw}`} Results*`,
             ``,
             `🥇 *Winner:* ${payout.winnerName} (${payout.points} pts)`,
-            `💰 *Payout:* KES ${Number(payout.amount).toLocaleString()} _(Dispatched via M-Pesa ✅)_`,
+            `💰 *Payout (91%):* KES ${Number(payout.amount).toLocaleString()} _(Dispatched via M-Pesa ✅)_`,
+            `🏦 *Operational Cut (9%):* HQ System & Chairman`,
             `🚨 *Red Zone:* ${unpaidCount} member${unpaidCount !== 1 ? 's' : ''} yet to deposit for next GW.`,
             ``,
             `📊 Check live standings & vault:`,
@@ -673,9 +775,130 @@ export default function AdminCommandCenter() {
 
     return (
         <div
-            className="min-h-screen w-full text-white font-sans relative"
+            className={clsx(
+                "min-h-[100dvh] w-full text-white font-sans relative",
+                isSuspended ? "overflow-hidden h-screen" : ""
+            )}
             style={{ background: 'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(251,191,36,0.07) 0%, rgba(10,14,23,0) 60%), #0A0E17' }}
         >
+            {/* Phase 40: HQ Debt Banner (Grace Period Warning) */}
+            {isWithinGracePeriod && (
+                <div className="bg-yellow-500/10 border-b border-yellow-500/30 text-center py-2.5 px-4 flex items-center justify-center gap-3 fixed top-0 w-full z-[80] animate-in slide-in-from-top">
+                    <AlertTriangle className="w-4 h-4 text-yellow-500 animate-pulse" />
+                    <p className="text-[10px] sm:text-xs font-bold font-mono text-yellow-200 uppercase tracking-widest truncate">
+                        HQ Action Required: Owed Platform Fee is <span className="text-black bg-yellow-500 px-1.5 py-0.5 rounded ml-1">KES {pendingHQDebt.toLocaleString()}</span>. Settle via Pochi [07XXXXXXXX] within 48h to avoid suspension.
+                    </p>
+                </div>
+            )}
+
+            {/* Phase 40: Chairman Suspension Lockout */}
+            {isSuspended && (
+                <div className="fixed inset-0 z-[100000] bg-black/70 backdrop-blur-3xl flex items-center justify-center p-4 overflow-hidden animate-in fade-in">
+                    <div className="w-full max-w-lg bg-[#0b1014]/90 border border-red-500/50 rounded-[2rem] p-6 sm:p-8 text-center shadow-[0_0_100px_rgba(239,68,68,0.2)] flex flex-col items-center gap-6 relative z-10 animate-in zoom-in-95 duration-500">
+                        <div className="w-20 h-20 bg-red-500/10 border-2 border-red-500/30 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_40px_rgba(239,68,68,0.3)]">
+                            <ShieldCheck className="w-8 h-8 text-red-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">Access Revoked</h2>
+                            <p className="text-sm font-medium text-gray-400">
+                                This platform has been suspended by <span className="font-bold text-emerald-400">FPL Chama HQ</span> due to unpaid platform revenue fees.
+                            </p>
+                        </div>
+
+                        <div className="w-full bg-[#161d24] border border-white/5 rounded-xl p-5 text-left shadow-inner">
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Due</p>
+                            <p className="text-3xl font-black text-red-400 tabular-nums tracking-tight">KES {pendingHQDebt.toLocaleString()}</p>
+                            
+                            <hr className="border-white/5 my-4" />
+                            
+                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> HQ Pochi Instructions</p>
+                            <ol className="text-xs text-gray-300 space-y-2 list-decimal pl-4 marker:text-gray-500">
+                                <li>Open M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
+                                <li>Send to HQ Mobile: <strong>07XXXXXXXX</strong></li>
+                                <li>Enter Amount: <strong>KES {pendingHQDebt}</strong></li>
+                            </ol>
+                        </div>
+                        
+                        {suspensionNudges.length > 0 && (
+                            <div className="w-full text-center bg-red-900/10 border border-red-500/10 rounded-xl p-3">
+                                <p className="text-[11px] font-bold text-red-400 uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
+                                    <Bell className="w-3.5 h-3.5 animate-bounce" /> Live Member Complaints
+                                </p>
+                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                    {suspensionNudges.slice(0, 5).map((n: string, i: number) => (
+                                        <span key={i} className="px-2.5 py-1 bg-red-500/20 border border-red-500/30 rounded-full text-[10px] font-bold text-red-300 shadow-sm">{n} represents 😤</span>
+                                    ))}
+                                    {suspensionNudges.length > 5 && <span className="text-[10px] text-gray-500 font-bold">+{suspensionNudges.length - 5} others</span>}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="w-full space-y-3 mt-2">
+                            <button onClick={() => { /* SuperAdmin will verify, but we can give them placebo button */ }} className="w-full py-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-black uppercase tracking-widest text-[11px] rounded-xl transition-all shadow-lg active:scale-95">
+                                I Have Paid HQ
+                            </button>
+                            <button onClick={() => navigate('/')} className="w-full py-4 bg-white/5 hover:bg-white/10 text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all border border-white/5">
+                                Sign out for now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* HQ Onboarding Tutorial Overlay */}
+            {showTutorial && !isSuspended && (
+                <div className="fixed inset-0 z-[90000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-2xl bg-[#0b1014] border border-[#10B981]/30 rounded-[2rem] p-8 shadow-[0_0_80px_rgba(16,185,129,0.15)] relative animate-in fade-in zoom-in-95 duration-500">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#10B981] blur-[150px] opacity-10 pointer-events-none"></div>
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#FBBF24] blur-[150px] opacity-10 pointer-events-none"></div>
+                        
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-[#10B981]/20 border border-[#10B981]/40 rounded-full flex items-center justify-center mb-6">
+                                <Trophy className="w-8 h-8 text-[#10B981]" />
+                            </div>
+                            <h2 className="text-3xl font-black text-white mb-3">Welcome to Command Center!</h2>
+                            <p className="text-gray-400 mb-8 max-w-md">Your league is successfully deployed. Here's a quick 4-step checklist to running a flawless FPL Chama.</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full text-left mb-8">
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-4">
+                                    <div className="w-8 h-8 bg-blue-500/20 rounded flex items-center justify-center flex-shrink-0"><Banknote className="w-4 h-4 text-blue-400" /></div>
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">1. Fund Wallets</p>
+                                        <p className="text-[11px] text-gray-500">Members send M-Pesa. You hit "Pilot Prefund" or click their wallet to manually record the deposit.</p>
+                                    </div>
+                                </div>
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-4">
+                                    <div className="w-8 h-8 bg-[#FBBF24]/20 rounded flex items-center justify-center flex-shrink-0"><RefreshCw className="w-4 h-4 text-[#FBBF24]" /></div>
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">2. Resolve GWs</p>
+                                        <p className="text-[11px] text-gray-500">We auto-fetch the FPL winner. Click "Resolve". It secures funds and assigns the money to the winner.</p>
+                                    </div>
+                                </div>
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-4">
+                                    <div className="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center flex-shrink-0"><CheckCircle2 className="w-4 h-4 text-purple-400" /></div>
+                                    <div>
+                                        <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">3. Co-Admin Approval</p>
+                                        <p className="text-[11px] text-gray-500">The winner's payout requires your Co-Chair to click "Approve" before B2C triggers.</p>
+                                    </div>
+                                </div>
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-4">
+                                    <div className="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center flex-shrink-0"><ShieldCheck className="w-4 h-4 text-emerald-400" /></div>
+                                    <div>
+                                        <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-1">4. HQ Platform Cut</p>
+                                        <p className="text-[11px] text-gray-500">We take a 5% cut. Watch the red warning banner, then settle your debt to HQ via Pochi La Biashara.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button onClick={() => setShowTutorial(false)} className="px-8 py-3.5 bg-[#10B981] hover:bg-[#059669] text-black font-black uppercase tracking-widest text-sm rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                                Initialize Operations
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className={clsx("transition-all duration-700 w-full flex-1 flex flex-col", isSuspended ? "blur-xl opacity-20 pointer-events-none select-none scale-[0.98] h-screen overflow-hidden" : "", isWithinGracePeriod ? "pt-12" : "")}>
             {/* Unified Global Toast Notification */}
             <div className={clsx(
                 "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-[#0b1014]/90 border-white/10 text-white",
@@ -771,6 +994,9 @@ export default function AdminCommandCenter() {
                             <p className="text-gray-400 text-sm">Control your league entry and monitor the live vault deposits.</p>
                         </div>
                         <div className="flex items-center gap-3">
+                            <button onClick={() => setShowPrefundOptions(true)} className="flex items-center gap-2 px-5 py-2.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-sm font-bold rounded-xl transition-colors">
+                                <Banknote className="w-4 h-4" /> Pilot Prefund
+                            </button>
                             <button id="tour-add-member" onClick={() => setShowAddMemberModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a232b] hover:bg-white/5 text-white text-sm font-bold rounded-xl transition-colors border border-white/5">
                                 <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
                             </button>
@@ -999,6 +1225,12 @@ export default function AdminCommandCenter() {
                                                             {(row as any).role === 'admin' && (
                                                                 <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Admin</span>
                                                             )}
+                                                            {/* Phase 8: Streak Badge */}
+                                                            {(row as any).paymentStreak >= 2 && (
+                                                                <span className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black" title={`${(row as any).paymentStreak}-GW payment streak!`}>
+                                                                    🔥{(row as any).paymentStreak}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="text-xs text-gray-400 leading-none flex items-center gap-2 mt-1">
                                                             <span>{row.phone}</span>
@@ -1058,6 +1290,12 @@ export default function AdminCommandCenter() {
                     <div className="p-4 px-6 border-t border-white/5 flex items-center justify-between text-sm text-gray-500">
                         <span>Showing {filteredMembers.length} members</span>
                         <div className="flex gap-2">
+                            <button
+                                onClick={downloadLeagueLedgerCSV}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors font-bold text-xs"
+                            >
+                                <Download className="w-3.5 h-3.5" /> Export Audit CSV
+                            </button>
                             <button className="px-4 py-2 bg-[#1a232b] border border-white/5 hover:bg-white/5 hover:text-white rounded-lg transition-colors font-medium">Prev</button>
                             <button className="px-4 py-2 bg-[#1a232b] border border-white/5 hover:bg-white/5 hover:text-white rounded-lg transition-colors font-medium">Next</button>
                         </div>
@@ -1124,6 +1362,62 @@ export default function AdminCommandCenter() {
                     </div>
                 )}
 
+                {/* Pilot Pre-Fund Modal */}
+                {showPrefundOptions && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
+                        <div className="bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-2xl rounded-3xl p-8 shadow-2xl flex flex-col max-h-[90vh]">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
+                                        <Banknote className="w-6 h-6 text-[#FBBF24]" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">Pilot Mode: Pre-Fund Wallets <span className="bg-red-500/20 text-red-500 text-[10px] px-2 py-0.5 rounded uppercase">Admin Only</span></h3>
+                                        <p className="text-gray-400 text-xs font-medium mt-1">Bulk seed legacy contributions (offline cash/M-Pesa) into member wallets without triggering new Daraja prompts.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="overflow-y-auto flex-1 mb-6 px-1 border-t border-b border-white/5 py-4 space-y-3 custom-scrollbar">
+                                {members.filter(m => m.isActive !== false).map(m => (
+                                    <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[#0a100a]/50 border border-white/10 rounded-xl hover:bg-[#0a100a] transition-colors">
+                                        <div>
+                                            <p className="text-white font-bold text-sm flex items-center gap-2">{m.displayName} {m.role === 'admin' && <ShieldCheck className="w-3.5 h-3.5 text-[#FBBF24]"/>}</p>
+                                            <p className="text-gray-500 text-[10px] tracking-widest mt-0.5">Wallet: KES {m.walletBalance?.toLocaleString() || 0}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-500 text-xs font-bold">KES</span>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={prefundData[m.id] || ''}
+                                                onChange={(e) => setPrefundData(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                                placeholder="Amount paid offline"
+                                                className="w-36 bg-[#1a232b] border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#FBBF24]/50 focus:outline-none transition-all tabular-nums text-right"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex gap-3 mt-auto shrink-0">
+                                <button
+                                    onClick={() => { setShowPrefundOptions(false); setPrefundData({}); }}
+                                    className="flex-1 py-3.5 bg-[#0b1014] hover:bg-white/5 text-gray-400 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors border border-white/5"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handlePrefundSubmit}
+                                    disabled={isPrefunding || Object.keys(prefundData).length === 0}
+                                    className="flex-1 py-3.5 bg-[#FBBF24] hover:bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl transition-colors shadow-[0_0_15px_rgba(251,191,36,0.2)] disabled:opacity-50 flex justify-center items-center gap-2"
+                                >
+                                    {isPrefunding ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Confirm & Seed Wallets'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Complete Add Member Modal */}
                 {showAddMemberModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
@@ -1173,6 +1467,16 @@ export default function AdminCommandCenter() {
                                         placeholder="e.g. Saka Potatoes"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">2nd FPL Entry ID (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={newMemberSecondTeam}
+                                        onChange={(e) => setNewMemberSecondTeam(e.target.value.replace(/[^0-9]/g, ''))}
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                                        placeholder="Dual team members only"
+                                    />
+                                </div>
 
                                 <div className="flex gap-3 pt-4 border-t border-white/10 mt-6">
                                     <button
@@ -1194,6 +1498,7 @@ export default function AdminCommandCenter() {
                         </div>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );
