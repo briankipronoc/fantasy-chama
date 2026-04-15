@@ -20,8 +20,9 @@ const ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:5174',
-    process.env.FRONTEND_URL || 'https://fantasy-chama.vercel.app',
-];
+    'https://fantasychama.vercel.app',
+    process.env.FRONTEND_URL,
+].filter(Boolean);
 
 const app = express();
 app.use(cors({
@@ -373,8 +374,10 @@ app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) =
             };
 
             // Auto-trigger the mock webhook after 3 seconds so the frontend flow completes
+            // In production this is handled by Safaricom's real callback — this mock only fires in sandbox
+            const selfUrl = process.env.BACKEND_URL || `http://localhost:${PORT}`;
             setTimeout(() => {
-                axios.post(`http://localhost:${PORT}/api/mpesa/b2c/result`, {
+                axios.post(`${selfUrl}/api/mpesa/b2c/result`, {
                     Result: {
                         ResultType: 0,
                         ResultCode: 0,
