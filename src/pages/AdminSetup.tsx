@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -109,6 +109,39 @@ export default function AdminSetup() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
+    useEffect(() => {
+        setFullName(localStorage.getItem('fc-setup-fullName') || '');
+        setEmail(localStorage.getItem('fc-setup-email') || '');
+        setPhone(localStorage.getItem('fc-setup-phone') || '');
+        setLeagueName(localStorage.getItem('fc-setup-leagueName') || '');
+        setFplLeagueId(localStorage.getItem('fc-setup-fplLeagueId') || '');
+
+        const savedMonthlyFee = Number(localStorage.getItem('fc-setup-monthlyFee'));
+        if (!Number.isNaN(savedMonthlyFee) && savedMonthlyFee > 0) setMonthlyFee(savedMonthlyFee);
+
+        const savedWeeklyPercent = Number(localStorage.getItem('fc-setup-weeklyPrizePercent'));
+        if (!Number.isNaN(savedWeeklyPercent)) setWeeklyPrizePercent(savedWeeklyPercent);
+
+        const savedSeasonWinners = Number(localStorage.getItem('fc-setup-seasonWinnersCount'));
+        if ([1, 3, 5].includes(savedSeasonWinners)) setSeasonWinnersCount(savedSeasonWinners);
+
+        const savedEstimatedMembers = Number(localStorage.getItem('fc-setup-estimatedMembers'));
+        if (!Number.isNaN(savedEstimatedMembers) && savedEstimatedMembers > 0) setEstimatedMembers(savedEstimatedMembers);
+
+        setAllowMultipleTeams(localStorage.getItem('fc-setup-allowMultipleTeams') === 'true');
+    }, []);
+
+    useEffect(() => { localStorage.setItem('fc-setup-fullName', fullName); }, [fullName]);
+    useEffect(() => { localStorage.setItem('fc-setup-email', email); }, [email]);
+    useEffect(() => { localStorage.setItem('fc-setup-phone', phone); }, [phone]);
+    useEffect(() => { localStorage.setItem('fc-setup-leagueName', leagueName); }, [leagueName]);
+    useEffect(() => { localStorage.setItem('fc-setup-fplLeagueId', fplLeagueId); }, [fplLeagueId]);
+    useEffect(() => { localStorage.setItem('fc-setup-monthlyFee', String(monthlyFee)); }, [monthlyFee]);
+    useEffect(() => { localStorage.setItem('fc-setup-weeklyPrizePercent', String(weeklyPrizePercent)); }, [weeklyPrizePercent]);
+    useEffect(() => { localStorage.setItem('fc-setup-seasonWinnersCount', String(seasonWinnersCount)); }, [seasonWinnersCount]);
+    useEffect(() => { localStorage.setItem('fc-setup-estimatedMembers', String(estimatedMembers)); }, [estimatedMembers]);
+    useEffect(() => { localStorage.setItem('fc-setup-allowMultipleTeams', String(allowMultipleTeams)); }, [allowMultipleTeams]);
+
     const handleConfirmLeague = async () => {
         setIsSubmitting(true);
         setSubmitError('');
@@ -124,6 +157,7 @@ export default function AdminSetup() {
                 fplLeagueId,
                 gameweekStake: monthlyFee,
                 chairmanId: userCredential.user.uid,
+                chairmanPhone: phone,
                 chairmanEmail: email,
                 allowMultipleTeams,
                 rules: {
@@ -243,7 +277,7 @@ export default function AdminSetup() {
     const inputClasses = "w-full pl-12 pr-4 py-3 md:py-3.5 rounded-xl border border-white/5 bg-[#161d24] text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium [&:-webkit-autofill]:bg-[#161d24] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0px_1000px_#161d24_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
     const renderStep1 = () => (
-        <div className="w-[95%] sm:w-[500px] max-w-lg mx-auto bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-8 z-10 shadow-2xl relative animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="fc-auth-card w-[95%] sm:w-[500px] max-w-lg mx-auto bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-8 z-10 shadow-2xl relative animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
             <div className="text-center mb-6 relative z-10">
                 <h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight text-white">
@@ -264,6 +298,7 @@ export default function AdminSetup() {
                         <input
                             required
                             type="text"
+                            autoComplete="name"
                             value={fullName}
                             onChange={e => setFullName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
                             pattern="^[a-zA-Z]{2,} [a-zA-Z]{2,}.*$"
@@ -283,6 +318,7 @@ export default function AdminSetup() {
                         <input
                             required
                             type="email"
+                            autoComplete="email"
                             value={email}
                             pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                             onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address with an @ symbol and domain.')}
@@ -305,6 +341,7 @@ export default function AdminSetup() {
                         <input
                             required
                             type="tel"
+                            autoComplete="tel"
                             value={phone}
                             pattern="^0[0-9]{9}$"
                             onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0.')}
@@ -327,6 +364,7 @@ export default function AdminSetup() {
                         <input
                             required
                             type={showPassword ? "text" : "password"}
+                            autoComplete="new-password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             className={inputClasses}
@@ -360,17 +398,17 @@ export default function AdminSetup() {
                     <button
                         type="submit"
                         disabled={!fullName || !email || !phone || !password}
-                        className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(251,191,36,0.15)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_24px_rgba(251,191,36,0.28)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <span>Create Chairman Account</span>
-                        <ArrowRight className="w-5 h-5" />
+                        <Trophy className="w-5 h-5" />
                     </button>
                 </div>
             </form>
 
             <div className="mt-6 pt-5 border-t border-white/5 text-center relative z-10">
                 <p className="text-[11px] md:text-xs text-gray-400">
-                    Already a Chairman? <button onClick={() => navigate('/login', { state: { isAdminView: true } })} className="text-[#10B981] font-bold hover:underline">Log in here.</button>
+                    Already a Chairman? <button onClick={() => navigate('/login', { state: { isAdminView: true } })} className="text-[#FBBF24] font-bold hover:underline">Log in here.</button>
                 </p>
             </div>
         </div>
@@ -1085,14 +1123,14 @@ export default function AdminSetup() {
     );
 
     return (
-        <div className="min-h-[100dvh] bg-[#0b1014] flex flex-col items-center justify-center relative !overflow-x-hidden overflow-y-auto text-white font-sans w-full py-16 md:py-20">
+        <div className="fc-auth-shell min-h-[100dvh] bg-[#0b1014] flex flex-col items-center justify-center relative !overflow-x-hidden overflow-y-auto text-white font-sans w-full py-16 md:py-20">
             {/* ── Ambient background grid ─────────────────────────── */}
             <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
                 style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
             <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
 
             {/* Network background graphic simulation */}
-            <div className="fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none">
+            <div className="fc-auth-network fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <path fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" d="M10,100 L190,100 M100,10 L100,190 M30,30 L170,170 M30,170 L170,30" />
                     <circle cx="10" cy="100" r="1.5" fill="rgba(255,255,255,0.3)" />
@@ -1106,12 +1144,12 @@ export default function AdminSetup() {
             {/* Header Elements */}
             <div className="absolute top-0 w-full p-4 md:p-8 flex justify-between items-center z-20 bg-gradient-to-b from-[#0b1014] to-transparent">
                 <div className="flex items-center gap-3">
-                    <div className="bg-[#10B981] p-1.5 md:p-2 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                        <div className="w-4 h-4 md:w-5 md:h-5 border-[2.5px] border-[#0b1014] rounded-md flex items-center justify-center relative">
-                            <div className="w-1.5 h-1.5 bg-[#0b1014] rounded-sm absolute right-0.5"></div>
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[1px] flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                        <div className="w-full h-full bg-[#0a0e17] rounded-[11px] flex items-center justify-center">
+                            <Trophy className="w-4 h-4 text-emerald-400" />
                         </div>
                     </div>
-                    <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
+                    <span className="font-extrabold text-lg md:text-xl tracking-wide text-[#DFE2EF]">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
                 <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 text-xs md:text-sm font-medium">
                     <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#FBBF24]" />
