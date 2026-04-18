@@ -61,6 +61,9 @@ export default function MemberDashboard() {
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
     const [nudgeSent, setNudgeSent] = useState(false);
+    const [userLeagueCount, setUserLeagueCount] = useState(1);
+    const [activeLeagueRole, setActiveLeagueRole] = useState<string>('member');
+    const [showLeagueGuide, setShowLeagueGuide] = useState(false);
 
     const members = useStore(state => state.members);
     const transactions = useStore(state => state.transactions);
@@ -289,6 +292,44 @@ export default function MemberDashboard() {
             }
         };
     }, [activeLeagueId, currentUser?.id, coAdminId]);
+
+    useEffect(() => {
+        if (!memberPhone) return;
+        const leaguesRef = doc(db, 'userLeagues', memberPhone);
+        const unsub = onSnapshot(leaguesRef, (snap) => {
+            if (!snap.exists()) {
+                setUserLeagueCount(1);
+                setActiveLeagueRole('member');
+                return;
+            }
+
+            const data = snap.data();
+            const leagues = Array.isArray(data?.leagues) ? data.leagues : [];
+            setUserLeagueCount(Math.max(1, leagues.length));
+
+            const selected = leagues.find((league: any) => league?.leagueId === activeLeagueId);
+            setActiveLeagueRole(selected?.role || 'member');
+        }, (error) => {
+            console.warn('[member-dashboard] user leagues listener failed:', error?.message || error);
+        });
+
+        return () => {
+            try {
+                unsub();
+            } catch (error: any) {
+                console.warn('[member-dashboard] user leagues unsubscribe failed:', error?.message || error);
+            }
+        };
+    }, [activeLeagueId, memberPhone]);
+
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const hasDualTeam = Boolean(currentUser?.secondFplTeamId);
+        const shouldGuide = userLeagueCount > 1 || hasDualTeam;
+        const guideKey = `fc-member-league-guide-dismissed-${activeLeagueId}-${activeUserId}`;
+        const dismissed = localStorage.getItem(guideKey) === 'true';
+        setShowLeagueGuide(shouldGuide && !dismissed);
+    }, [activeLeagueId, activeUserId, currentUser?.secondFplTeamId, userLeagueCount]);
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToastMessage(msg);
@@ -615,6 +656,14 @@ export default function MemberDashboard() {
                 subtitle: `Next due target: ${nextDueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
                 tone: 'green' as const,
             };
+    const hasDualTeam = Boolean(currentUser?.secondFplTeamId);
+
+    const dismissLeagueGuide = () => {
+        if (!activeLeagueId) return;
+        const guideKey = `fc-member-league-guide-dismissed-${activeLeagueId}-${activeUserId}`;
+        localStorage.setItem(guideKey, 'true');
+        setShowLeagueGuide(false);
+    };
 
     // Phase 30: Is the logged-in user the current GW Winner?
     const isCurrentUserGwWinner = Boolean(gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0 && currentUser && (
@@ -794,6 +843,47 @@ export default function MemberDashboard() {
                         </button>
                     )}
                 </div>
+
+                {showLeagueGuide && (
+                    <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Dual Mode Onboarding</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={dismissLeagueGuide}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#10B981] hover:text-emerald-300"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">League Context</p>
+                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                                    You are in <span className="font-black text-white">{userLeagueCount}</span> league{userLeagueCount > 1 ? 's' : ''}. Use the top switcher to choose which wallet and approvals you are viewing.
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Team Eligibility</p>
+                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                                    {hasDualTeam
+                                        ? 'Your second FPL team is active for this league, and both teams can independently win a gameweek.'
+                                        : 'Only one FPL team is attached to your profile here. Add a second team from profile if your chairman allows dual mode.'}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Your Access</p>
+                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                                    Active role in this league: <span className="font-black text-[#FBBF24] capitalize">{activeLeagueRole}</span>.
+                                    {activeLeagueRole === 'admin' || activeLeagueRole === 'co-chair' ? ' You can approve governance actions tied to this circle.' : ' Governance actions stay read-only in member mode.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Phase 30: Golden Winner Celebration OR Normal Action Banner */}
                 {isCurrentUserGwWinner ? (

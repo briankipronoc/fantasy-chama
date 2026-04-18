@@ -620,6 +620,12 @@ export default function AdminSetup() {
                                     )} />
                                 </button>
                             </div>
+                            <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl px-4 py-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Onboarding Nudge</p>
+                                <p className="text-[11px] text-gray-300 mt-1 leading-relaxed">
+                                    If you run multiple leagues, keep names clearly distinct so members can switch context without confusion. If dual teams are enabled, announce whether second-team IDs must be added now or later in profile updates.
+                                </p>
+                            </div>
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
                                 <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
@@ -927,6 +933,21 @@ export default function AdminSetup() {
                 <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">The Gatekeeper</p>
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Member Enrollment</h2>
                 <p className="text-gray-400 text-xs md:text-sm">Establish your league's inner circle. Members will be securely invited via code later.</p>
+            </div>
+
+            <div className="max-w-4xl mx-auto bg-[#0f1923] border border-white/10 rounded-2xl px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#FBBF24]">Multi-League Guidance</p>
+                    <p className="text-[11px] text-gray-300 mt-1">Tell members to use the league switcher every time they move between circles so deposits, standings, and alerts map correctly.</p>
+                </div>
+                <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#10B981]">Dual-Team Rule</p>
+                    <p className="text-[11px] text-gray-300 mt-1">When a member has two entries, keep one phone identity and attach the second FPL ID in this enrollment stage.</p>
+                </div>
+                <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-sky-300">Co-Chair Ops</p>
+                    <p className="text-[11px] text-gray-300 mt-1">Set a co-chair now so payout approvals continue even when you are offline during a gameweek close.</p>
+                </div>
             </div>
 
             {/* FPL Auto-Import Bar */}

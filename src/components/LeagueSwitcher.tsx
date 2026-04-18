@@ -17,6 +17,7 @@ interface LeagueEntry {
 export default function LeagueSwitcher() {
     const [leagues, setLeagues] = useState<LeagueEntry[]>([]);
     const [open, setOpen] = useState(false);
+    const [showHint, setShowHint] = useState(false);
     const phone = localStorage.getItem('memberPhone');
     const activeLeagueId = localStorage.getItem('activeLeagueId');
 
@@ -38,10 +39,20 @@ export default function LeagueSwitcher() {
         };
     }, [phone]);
 
+    useEffect(() => {
+        const hintDismissed = localStorage.getItem('fc-league-switcher-hint-dismissed') === 'true';
+        if (!hintDismissed) setShowHint(true);
+    }, []);
+
     // Only render if user is in multiple leagues
     if (leagues.length <= 1) return null;
 
     const active = leagues.find(l => l.leagueId === activeLeagueId);
+
+    const dismissHint = () => {
+        localStorage.setItem('fc-league-switcher-hint-dismissed', 'true');
+        setShowHint(false);
+    };
 
     const switchLeague = (league: LeagueEntry) => {
         localStorage.setItem('activeLeagueId', league.leagueId);
@@ -62,8 +73,27 @@ export default function LeagueSwitcher() {
             >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 <span className="max-w-[100px] truncate">{active?.leagueName || 'Switch League'}</span>
+                <span className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-gray-300">
+                    {leagues.length} Leagues
+                </span>
                 <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
+
+            {showHint && !open && (
+                <div className="absolute top-full right-0 mt-2 w-64 rounded-2xl border border-emerald-400/30 bg-[#0f1923] p-3 shadow-2xl z-[210]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-400">Quick Onboarding</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-gray-300">
+                        Switching league here rewires your dashboard, wallet activity, and approvals to that selected circle.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={dismissHint}
+                        className="mt-2 text-[10px] font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-200"
+                    >
+                        Understood
+                    </button>
+                </div>
+            )}
 
             {open && (
                 <div className="absolute top-full right-0 mt-2 w-56 bg-[#0f1923] border border-white/10 rounded-2xl shadow-2xl z-[200] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
