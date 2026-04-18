@@ -248,7 +248,7 @@ export default function SuperAdminDashboard() {
                                         contentStyle={{ background: '#0d1218', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}
                                         labelStyle={{ color: '#10B981', fontWeight: 700, fontSize: 10 }}
                                         itemStyle={{ color: '#fff', fontWeight: 800, fontSize: 12 }}
-                                        formatter={(v: number) => [`KES ${v.toLocaleString()}`, 'HQ Revenue']}
+                                        formatter={(value) => [`KES ${Number(value ?? 0).toLocaleString()}`, 'HQ Revenue']}
                                     />
                                     <Area type="monotone" dataKey="rev" stroke="#10B981" strokeWidth={2.5} fill="url(#hqGradient)" dot={false} activeDot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} />
                                 </AreaChart>

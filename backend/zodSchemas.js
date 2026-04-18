@@ -16,6 +16,7 @@ export const b2cPayoutSchema = z.object({
     phone: phoneSchema,
     amount: amountSchema,
     remarks: z.string().max(100).optional(),
+    winnerName: z.string().max(100).optional(),
     userId: idSchema,
     leagueId: idSchema
 });

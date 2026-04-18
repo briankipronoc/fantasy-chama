@@ -11,7 +11,9 @@ export default function Deposit() {
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
 
     const [phoneNumber, setPhoneNumber] = useState('254700000000');
-    const [amountDue, setAmountDue] = useState('Loading...');
+    const [amountDue, setAmountDue] = useState<number | null>(null);
+    const [chairmanPhone, setChairmanPhone] = useState<string>('Not configured');
+    const [leagueName, setLeagueName] = useState<string>('Your League');
     const [isLoading, setIsLoading] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
@@ -23,8 +25,12 @@ export default function Deposit() {
         // Fetch dynamic amount due
         if (activeLeagueId) {
             getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
-                if (snap.exists() && snap.data().settings?.gameweekStake) {
-                    setAmountDue(snap.data().settings.gameweekStake.toString());
+                if (snap.exists()) {
+                    const data = snap.data();
+                    const stake = Number(data.gameweekStake ?? data.settings?.gameweekStake ?? 0);
+                    setAmountDue(stake > 0 ? stake : null);
+                    setChairmanPhone(data.chairmanPhone || 'Not configured');
+                    setLeagueName(data.leagueName || 'Your League');
                 }
             });
         }
@@ -48,7 +54,7 @@ export default function Deposit() {
                 },
                 body: JSON.stringify({
                     phoneNumber,
-                    amount: amountDue,
+                    amount: amountDue || 0,
                     leagueId: activeLeagueId,
                     userId: activeUserId
                 })
@@ -93,8 +99,15 @@ export default function Deposit() {
                         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Amount Due</p>
                         <div className="flex items-center justify-center gap-2">
                             <span className="text-xl font-bold text-gray-400">KES</span>
-                            <span className="text-5xl font-black text-white tabular-nums tracking-tighter">{amountDue}</span>
+                            <span className="text-5xl font-black text-white tabular-nums tracking-tighter">{amountDue?.toLocaleString() || '---'}</span>
                         </div>
+                    </div>
+
+                    <div className="mb-6 rounded-xl border border-[#22c55e]/20 bg-[#0a100a]/60 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#22c55e] mb-1">Pochi Destination</p>
+                        <p className="text-sm font-bold text-white">{leagueName}</p>
+                        <p className="text-xs text-gray-400 mt-1">Send to Chairman Pochi Number</p>
+                        <p className="text-lg font-black text-[#22c55e] tabular-nums mt-1">{chairmanPhone}</p>
                     </div>
 
                     <form onSubmit={handlePayment} className="space-y-6 relative z-10">
@@ -107,7 +120,7 @@ export default function Deposit() {
                                 <input
                                     type="text"
                                     value={phoneNumber.replace('254', '')}
-                                    onChange={(e) => setPhoneNumber('254' + e.target.value)}
+                                    onChange={(e) => setPhoneNumber(`254${e.target.value.replace(/\D/g, '').slice(0, 9)}`)}
                                     className="w-full bg-[#0a100a] border border-white/10 rounded-xl py-4 pl-14 pr-4 text-lg font-bold focus:ring-1 focus:ring-[#22c55e] focus:border-[#22c55e] transition-all placeholder:text-gray-600 text-white outline-none"
                                     placeholder="7X XXXXXXX"
                                 />
@@ -116,7 +129,7 @@ export default function Deposit() {
 
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || !amountDue}
                             className="w-full flex items-center justify-center gap-3 bg-[#22c55e] hover:bg-[#1ea54c] text-[#0a100a] py-4 px-6 rounded-xl font-extrabold text-lg transition-colors disabled:opacity-70"
                         >
                             {isLoading ? (
@@ -140,9 +153,9 @@ export default function Deposit() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed bottom-24 md:bottom-10 right-4 left-4 md:left-auto md:right-10 md:w-96 p-4 rounded-xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50",
+                "fixed bottom-24 md:bottom-10 right-4 left-4 md:left-auto md:right-10 md:w-96 p-4 rounded-xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50 fc-inline-toast",
                 toast ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none",
-                toast?.type === 'success' ? "bg-[#22c55e] text-[#0a100a]" : "bg-red-500 text-white"
+                toast?.type === 'success' ? "fc-inline-toast-success" : "fc-inline-toast-error"
             )}>
                 {toast?.type === 'success' ? <CheckCircle2 className="w-6 h-6 flex-shrink-0 mt-0.5" /> : <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />}
                 <div>

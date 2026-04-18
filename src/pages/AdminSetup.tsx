@@ -1142,18 +1142,18 @@ export default function AdminSetup() {
             </div>
 
             {/* Header Elements */}
-            <div className="absolute top-0 w-full p-4 md:p-8 flex justify-between items-center z-20 bg-gradient-to-b from-[#0b1014] to-transparent">
+            <div className="absolute top-0 w-full p-6 md:p-8 flex justify-between items-center z-20">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[1px] flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                        <div className="w-full h-full bg-[#0a0e17] rounded-[11px] flex items-center justify-center">
-                            <Trophy className="w-4 h-4 text-emerald-400" />
+                    <div className="bg-[#10B981] p-1.5 md:p-2 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                        <div className="w-4 h-4 md:w-5 md:h-5 border-[2.5px] border-[#0b1014] rounded-md flex items-center justify-center relative">
+                            <div className="w-1.5 h-1.5 bg-[#0b1014] rounded-sm absolute right-0.5"></div>
                         </div>
                     </div>
-                    <span className="font-extrabold text-lg md:text-xl tracking-wide text-[#DFE2EF]">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
+                    <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
                 <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 text-xs md:text-sm font-medium">
                     <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#FBBF24]" />
-                    <span className="hidden sm:inline">Secure Wealth Circle</span>
+                    <span>Secure Wealth Circle</span>
                 </div>
             </div>
 

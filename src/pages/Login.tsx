@@ -25,6 +25,22 @@ export default function Login() {
     const navigate = useNavigate();
     const setRole = useStore((state) => state.setRole);
 
+    useEffect(() => {
+        const savedAdminView = localStorage.getItem('fc-login-admin-view');
+        if (savedAdminView !== null) setIsAdminView(savedAdminView === 'true');
+
+        setPhone(localStorage.getItem('fc-login-phone') || '');
+        setEmail(localStorage.getItem('fc-login-email') || '');
+
+        const savedCode = (localStorage.getItem('fc-login-code') || '').slice(0, 6);
+        setCode(Array.from({ length: 6 }, (_, index) => savedCode[index] || ''));
+    }, []);
+
+    useEffect(() => { localStorage.setItem('fc-login-admin-view', String(isAdminView)); }, [isAdminView]);
+    useEffect(() => { localStorage.setItem('fc-login-phone', phone); }, [phone]);
+    useEffect(() => { localStorage.setItem('fc-login-email', email); }, [email]);
+    useEffect(() => { localStorage.setItem('fc-login-code', code.join('')); }, [code]);
+
     const handleCodeChange = (index: number, value: string) => {
         if (!/^[A-Za-z0-9]*$/.test(value)) return;
         const newCode = [...code];
@@ -209,7 +225,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0b1014] flex flex-col items-center justify-center relative overflow-hidden text-white font-sans w-full">
+        <div className="fc-auth-shell min-h-screen bg-[#0b1014] flex flex-col items-center justify-center relative overflow-hidden text-white font-sans w-full">
 
             {/* ── Ambient background grid ─────────────────────────── */}
             <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
@@ -217,7 +233,7 @@ export default function Login() {
             <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
 
             {/* Network background graphic simulation (bottom right) */}
-            <div className="absolute right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none">
+            <div className="fc-auth-network absolute right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <path fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" d="M10,100 L190,100 M100,10 L100,190 M30,30 L170,170 M30,170 L170,30" />
                     <circle cx="10" cy="100" r="1.5" fill="rgba(255,255,255,0.3)" />
@@ -245,7 +261,7 @@ export default function Login() {
             </div>
 
             {/* Main Card */}
-            <div className="w-[90%] max-w-md bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-10 z-10 shadow-2xl relative">
+            <div className="fc-auth-card w-[90%] max-w-md bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-10 z-10 shadow-2xl relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
 
                 <div className="text-center mb-8 relative z-10">
@@ -273,6 +289,7 @@ export default function Login() {
                                 <input
                                     type="tel"
                                     required
+                                    autoComplete="tel"
                                     pattern="^0[0-9]{9}$"
                                     value={phone}
                                     onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0 (e.g. 0712345678)')}
@@ -327,6 +344,7 @@ export default function Login() {
                                 <input
                                     type="email"
                                     required
+                                    autoComplete="email"
                                     pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                                     value={email}
                                     onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address (e.g. name@domain.com)')}
@@ -347,6 +365,7 @@ export default function Login() {
                                 <input
                                     type="password"
                                     required
+                                    autoComplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"

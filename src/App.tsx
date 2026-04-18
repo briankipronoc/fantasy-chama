@@ -1,26 +1,34 @@
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
-import Login from './pages/Login';
-import LandingPage from './pages/LandingPage';
-import AdminCommandCenter from './pages/AdminCommandCenter';
-import MemberDashboard from './pages/MemberDashboard';
 import { useStore } from './store/useStore';
-import Finances from './pages/Finances';
-import AdminSetup from './pages/AdminSetup';
-import MemberEnrollment from './pages/MemberEnrollment';
-import InviteHub from './pages/InviteHub';
-import PayoutRules from './pages/PayoutRules';
-import Standings from './pages/Standings';
-import Deposit from './pages/Deposit';
-import Profile from './pages/Profile';
-import Terms from './pages/Terms';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import FAQ from './pages/FAQ';
-import SuperAdminDashboard from './pages/SuperAdminDashboard';
-import WinSharePage from './pages/WinSharePage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationProvider';
-import { useFCMToken } from './hooks/useFCMToken';
+
+const Login = lazy(() => import('./pages/Login'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const AdminCommandCenter = lazy(() => import('./pages/AdminCommandCenter'));
+const MemberDashboard = lazy(() => import('./pages/MemberDashboard'));
+const Finances = lazy(() => import('./pages/Finances'));
+const AdminSetup = lazy(() => import('./pages/AdminSetup'));
+const MemberEnrollment = lazy(() => import('./pages/MemberEnrollment'));
+const InviteHub = lazy(() => import('./pages/InviteHub'));
+const PayoutRules = lazy(() => import('./pages/PayoutRules'));
+const Standings = lazy(() => import('./pages/Standings'));
+const Deposit = lazy(() => import('./pages/Deposit'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Terms = lazy(() => import('./pages/Terms'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
+const WinSharePage = lazy(() => import('./pages/WinSharePage'));
+const Error808 = lazy(() => import('./pages/Error808'));
+
+const RouteLoader = () => (
+  <div className="min-h-screen w-full flex items-center justify-center bg-[#0b1014] text-[#10B981] text-sm font-bold tracking-widest uppercase">
+    Loading War Room...
+  </div>
+);
 
 // Renders the correct dashboard based on role — used inside the AppLayout
 const DashboardRenderer = () => {
@@ -55,33 +63,45 @@ const AppLayoutWrapper = () => (
 );
 
 function App() {
-  useFCMToken(); // Register device for push notifications (no-op if VAPID key missing)
+  useEffect(() => {
+    const leagueId = localStorage.getItem('activeLeagueId');
+    const userId = localStorage.getItem('activeUserId');
+    if (!leagueId || !userId) return;
+
+    import('./hooks/useFCMToken')
+      .then(({ registerFCMToken }) => registerFCMToken())
+      .catch((err) => console.error('[FCM] Deferred bootstrap failed:', err));
+  }, []);
+
   return (
     <>
       <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe — please retry.">
-      <Routes>
-        {/* Public routes — no AppLayout shell */}
-        <Route path="/" element={<RootRoute />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/setup" element={<AdminSetup />} />
-        <Route path="/invite" element={<InviteHub />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/hq" element={<SuperAdminDashboard />} />
-        <Route path="/win" element={<WinSharePage />} />
+        <Suspense fallback={<RouteLoader />}>
+          <Routes>
+            {/* Public routes — no AppLayout shell */}
+            <Route path="/" element={<RootRoute />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/setup" element={<AdminSetup />} />
+            <Route path="/invite" element={<InviteHub />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/hq" element={<SuperAdminDashboard />} />
+            <Route path="/win" element={<WinSharePage />} />
+            <Route path="*" element={<Error808 />} />
 
-        {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
-        <Route element={<AppLayoutWrapper />}>
-          <Route path="/dashboard" element={<DashboardRenderer />} />
-          <Route path="/finances" element={<Finances />} />
-          <Route path="/access" element={<MemberEnrollment />} />
-          <Route path="/rules" element={<PayoutRules />} />
-          <Route path="/standings" element={<Standings />} />
-          <Route path="/deposit" element={<Deposit />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
-      </Routes>
+            {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
+            <Route element={<AppLayoutWrapper />}>
+              <Route path="/dashboard" element={<DashboardRenderer />} />
+              <Route path="/finances" element={<Finances />} />
+              <Route path="/access" element={<MemberEnrollment />} />
+              <Route path="/rules" element={<PayoutRules />} />
+              <Route path="/standings" element={<Standings />} />
+              <Route path="/deposit" element={<Deposit />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </ErrorBoundary>
     </>
   );

@@ -23,12 +23,14 @@ interface NotificationContextProps {
     notifications: Notification[];
     unreadCount: number;
     markAllAsRead: () => void;
+    markAsRead: (notificationId: string) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextProps>({
     notifications: [],
     unreadCount: 0,
-    markAllAsRead: () => { }
+    markAllAsRead: () => { },
+    markAsRead: async () => { }
 });
 
 export const useNotifications = () => useContext(NotificationContext);
@@ -44,6 +46,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const realActiveUser = members.find(m => m.id === activeUserId)?.id || members[0]?.id || activeUserId;
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
+
+    const isVisibleToUser = (notification: Notification) => {
+        return !notification.targetMemberId || notification.targetMemberId === realActiveUser;
+    };
+
+    const getToastPalette = () => {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        return isLight
+            ? {
+                background: '#ffffff',
+                color: '#047857',
+                border: '1px solid rgba(4,120,87,0.25)',
+                boxShadow: '0 8px 24px rgba(15,23,42,0.12)'
+            }
+            : {
+                background: '#0e1419',
+                color: '#10B981',
+                border: '1px solid rgba(16,185,129,0.25)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+            };
+    };
 
     // Capture mount timestamp — only show toasts for notifications NEWER than this
     const mountTimeRef = useRef<Date>(new Date());
@@ -92,17 +115,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 if (!newNotif.targetMemberId && newNotif.type !== 'transactionSuccess') return;
 
                 // 🔔 Financial/Personal confirmation toast — slide up from bottom-right
+                const palette = getToastPalette();
                 toast.success(newNotif.message, {
                     id: 'financial-toast', // ensures only 1 shown at a time (replaces previous)
                     style: {
-                        background: '#0e1419',
-                        color: '#10B981',
-                        border: '1px solid rgba(16,185,129,0.25)',
+                        background: palette.background,
+                        color: palette.color,
+                        border: palette.border,
                         borderRadius: '14px',
                         fontWeight: 700,
                         fontSize: '13px',
                         padding: '14px 18px',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                        boxShadow: palette.boxShadow,
                     },
                 });
 
@@ -111,16 +135,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     try { new window.Notification('FantasyChama', { body: newNotif.message }); } catch { }
                 }
             });
+        }, (error) => {
+            console.warn('[notifications] snapshot listener failed:', error?.message || error);
         });
 
-        return () => unsubscribe();
+        return () => {
+            try {
+                unsubscribe();
+            } catch (error: any) {
+                console.warn('[notifications] unsubscribe failed:', error?.message || error);
+            }
+        };
     }, [activeLeagueId, realActiveUser]);
 
-    const unreadCount = notifications.filter(n => !n.readBy?.includes(realActiveUser)).length;
+    const unreadCount = notifications.filter(n => isVisibleToUser(n) && !n.readBy?.includes(realActiveUser)).length;
 
     const markAllAsRead = async () => {
         if (!activeLeagueId) return;
-        const unread = notifications.filter(n => !n.readBy?.includes(realActiveUser));
+        const unread = notifications.filter(n => isVisibleToUser(n) && !n.readBy?.includes(realActiveUser));
 
         // Optimistic local update for instant UI feedback
         setNotifications(prev => prev.map(n => ({
@@ -138,8 +170,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         );
     };
 
+    const markAsRead = async (notificationId: string) => {
+        if (!activeLeagueId) return;
+        const notification = notifications.find(n => n.id === notificationId);
+        if (!notification || !isVisibleToUser(notification) || notification.readBy?.includes(realActiveUser)) return;
+
+        setNotifications(prev => prev.map(n => (
+            n.id === notificationId
+                ? { ...n, readBy: [...(n.readBy || []), realActiveUser] }
+                : n
+        )));
+
+        await updateDoc(doc(db, 'leagues', activeLeagueId, 'notifications', notificationId), {
+            readBy: arrayUnion(realActiveUser)
+        });
+    };
+
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead }}>
+        <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead, markAsRead }}>
             {children}
             {/* Phase 10.5: Strict Toaster — bottom-right, max 1, 4s, financial only */}
             <Toaster

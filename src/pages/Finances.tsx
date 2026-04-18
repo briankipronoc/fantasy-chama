@@ -145,14 +145,6 @@ export default function Finances() {
     const myTotalContributed = depositTxSum || (currentUser?.hasPaid ? (gameweekStake || 1400) : 0);
     const redZoneMembers = members.filter((member) => member.role !== 'admin' && member.isActive !== false && !member.hasPaid);
 
-    // Distribution Logic Array
-    const getDistributionRanges = (count: number) => {
-        if (count === 1) return [100];
-        if (count === 5) return [45, 25, 15, 10, 5];
-        return [50, 30, 20]; // fallback top 3
-    };
-    const splitPercentages = getDistributionRanges(rules.seasonWinnersCount || 3);
-
     const exportLedgerCSV = () => {
         const exportRows = (isAdmin ? transactions : myTransactions).map((tx: any) => {
                 const ts = txDate(tx);
@@ -731,41 +723,6 @@ export default function Finances() {
                         </div>
                     );
                 })()}
-
-                <div className="fc-card mt-8 bg-[#151c18] border border-white/5 rounded-2xl p-6 md:p-8">
-                    <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
-                        <Trophy className="w-5 h-5 text-[#FBBF24]" /> Season End Projections
-                    </h3>
-                    <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-widest font-bold mb-6">Split Strategy: Top {rules.seasonWinnersCount || 3} Managers</p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {splitPercentages.map((percent, index) => {
-                            const payout = seasonVault * (percent / 100);
-                            return (
-                                <div key={index} className="bg-[#161d24] border border-white/5 rounded-xl p-5 flex flex-col justify-between shadow-sm relative overflow-hidden group hover:border-[#FBBF24]/30 transition-colors">
-                                    {index === 0 && <div className="absolute top-0 right-0 w-16 h-16 bg-[#FBBF24] blur-[40px] opacity-20 transform translate-x-4 -translate-y-4"></div>}
-                                    <div className="flex justify-between items-start mb-4 relative z-10">
-                                        <span className={clsx(
-                                            "font-black text-4xl leading-none opacity-20",
-                                            index === 0 ? "text-[#FBBF24] opacity-50" : index === 1 ? "text-gray-300" : "text-[#b45309]"
-                                        )}>
-                                            #{index + 1}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-1 rounded-md border border-white/5 uppercase tracking-widest">
-                                            {percent}%
-                                        </span>
-                                    </div>
-                                    <div className="relative z-10">
-                                        <h4 className="text-xl font-bold text-white tabular-nums tracking-tight mb-0.5">
-                                            KES {isStealthMode ? '****' : payout.toLocaleString()}
-                                        </h4>
-                                        <p className="text-[10px] fc-meta-label font-black uppercase tracking-widest">Projected Payout</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
 
             </div>
         </div>

@@ -28,8 +28,14 @@ export default function LeagueSwitcher() {
                 const data = snap.data();
                 setLeagues(data.leagues || []);
             }
+        }, (error) => {
+            console.warn('[league-switcher] snapshot failed:', error?.message || error);
         });
-        return () => unsub();
+        return () => {
+            try { unsub(); } catch (error: any) {
+                console.warn('[league-switcher] cleanup failed:', error?.message || error);
+            }
+        };
     }, [phone]);
 
     // Only render if user is in multiple leagues

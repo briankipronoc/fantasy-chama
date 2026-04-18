@@ -16,6 +16,22 @@ import { stkPushSchema, b2cPayoutSchema, deductGwCostSchema } from './backend/zo
 // Load environment variables
 dotenv.config();
 
+const CRITICAL_ENV_VARS = [
+    'DARAJA_CONSUMER_KEY',
+    'DARAJA_CONSUMER_SECRET',
+    'DARAJA_SHORTCODE',
+    'DARAJA_PASSKEY',
+    'DARAJA_CALLBACK_URL',
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_CLIENT_EMAIL',
+    'FIREBASE_PRIVATE_KEY',
+];
+
+const missingCriticalEnv = CRITICAL_ENV_VARS.filter((name) => !process.env[name]);
+if (missingCriticalEnv.length > 0) {
+    console.warn(`[BOOT] Missing critical environment variables: ${missingCriticalEnv.join(', ')}`);
+}
+
 const ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
@@ -332,7 +348,7 @@ app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) =
         if (!parseResult.success) {
             return res.status(400).json({ success: false, message: 'Validation failed', errors: parseResult.error.errors });
         }
-        const { phone, amount, remarks = 'Gameweek Payout', leagueId, userId } = parseResult.data;
+        const { phone, amount, remarks = 'Gameweek Payout', leagueId, userId, winnerName } = parseResult.data;
 
 
         // Format phone number to 2547XXXXXXXX
@@ -411,6 +427,7 @@ app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) =
                 leagueId,
                 amount,
                 phone: formattedPhone,
+                winnerName: winnerName || null,
                 status: 'pending',
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
@@ -462,13 +479,14 @@ app.post('/api/mpesa/b2c/result', async (req, res) => {
                 if (reqDoc.exists) {
                     const data = reqDoc.data();
                     const { userId, leagueId } = data;
+                    const winnerName = data.winnerName || 'Member Disbursed';
 
                     // Write B2C transaction to ledger
                     await db.collection(`leagues/${leagueId}/transactions`).add({
                         type: 'payout',
                         amount: amount,
                         receiptId: receipt,
-                        winnerName: 'Member Disbursed', // Ideally fetch from members or attach to mapping
+                        winnerName,
                         phoneNumber: data.phone,
                         timestamp: admin.firestore.FieldValue.serverTimestamp()
                     });
@@ -479,9 +497,10 @@ app.post('/api/mpesa/b2c/result', async (req, res) => {
                     // Dispatch notification to league
                     await db.collection(`leagues/${leagueId}/notifications`).add({
                         type: 'info',
-                        message: `Payout Dispatched: KES ${amount} has been wired to the winner. Receipt: ${receipt}`,
+                        message: `Payout dispatched: KES ${Number(amount).toLocaleString()} sent to ${winnerName}. Receipt: ${receipt}.`,
                         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                        readBy: []
+                        readBy: [],
+                        targetMemberId: userId
                     });
 
                     // Trigger winner confirmation prompt on their dashboard
@@ -1004,7 +1023,11 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'OK',
         message: 'FantasyChama M-Pesa Engine running',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        ready: true,
+        firebaseReady: !!db,
+        darajaReady: !!(CONSUMER_KEY && CONSUMER_SECRET),
+        missingCriticalEnv,
     });
 });
 
@@ -1143,6 +1166,14 @@ const runFPLAutopilot = async () => {
 
                 if (!winner) continue;
 
+                const coChairCandidate = membershipsSnap.docs.find((doc) => doc.id === league.coAdminId);
+                const coChairData = coChairCandidate?.data() || null;
+                const hasCoChair = !!league.coAdminId
+                    && !!coChairCandidate
+                    && coChairData?.isActive !== false
+                    && coChairData?.role === 'admin';
+                const approvalTarget = hasCoChair ? 'co-chair' : 'chairman';
+
                 // Calculate weekly pot
                 const paidCount = members.length;
                 const weeklyPct = (league.rules?.weekly || 70) / 100;
@@ -1170,6 +1201,7 @@ const runFPLAutopilot = async () => {
                     gwName: gwName,
                     paidMembersCount: paidCount,
                     status: 'awaiting_approval',
+                    approvalTarget,
                     requestedBy: '🤖 FPL Autopilot',
                     timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
@@ -1177,7 +1209,7 @@ const runFPLAutopilot = async () => {
                 // Dispatch notification to the league
                 await db.collection(`leagues/${leagueId}/notifications`).add({
                     type: 'warning',
-                    message: `🤖 AUTOPILOT: ${gwName} is complete! ${winner.displayName} scored ${winningPoints} pts. A payout of KES ${weeklyPot.toLocaleString()} is awaiting Co-Chair approval.`,
+                    message: `🤖 AUTOPILOT: ${gwName} is complete! ${winner.displayName} scored ${winningPoints} pts. A payout of KES ${weeklyPot.toLocaleString()} is awaiting ${hasCoChair ? 'Co-Chair approval' : 'Chairman signature'}.`,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     readBy: []
                 });
@@ -1194,7 +1226,7 @@ const runFPLAutopilot = async () => {
                             tokens: fcmTokens,
                             notification: {
                                 title: `🤖 ${gwName} — Autopilot complete!`,
-                                body: `${winner.displayName} scored ${winningPoints} pts and wins KES ${weeklyPot.toLocaleString()}. Awaiting Co-Chair approval.`
+                                body: `${winner.displayName} scored ${winningPoints} pts and wins KES ${weeklyPot.toLocaleString()}. Awaiting ${hasCoChair ? 'Co-Chair approval' : 'Chairman signature'}.`
                             },
                             data: { type: 'autopilot_payout', leagueId }
                         });

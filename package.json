@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fix:pending-approvals:dry": "node scripts/fix_pending_approval_targets.mjs",
+    "fix:pending-approvals:apply": "node scripts/fix_pending_approval_targets.mjs --apply"
   },
   "dependencies": {
     "@radix-ui/react-tooltip": "^1.2.8",

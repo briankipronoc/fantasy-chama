@@ -22,6 +22,8 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
         if (!activeLeagueId) return;
         getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
             if (snap.exists()) setMonthlyContribution(snap.data().gameweekStake || 0);
+        }).catch((error) => {
+            console.warn('[rules modal] getDoc failed:', error?.message || error);
         });
     }, [activeLeagueId]);
 
@@ -44,17 +46,17 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
     return (
         <div
             ref={overlayRef}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            className="fc-rules-overlay fixed inset-0 z-[200] flex items-center justify-center p-4"
             onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
+            <div className="fc-rules-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
 
             {/* Modal Body */}
-            <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#161d24] border border-white/10 rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+            <div className="fc-rules-modal relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#161d24] border border-white/10 rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/60">
+                <div className="fc-rules-header flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/60">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                             <Shield className="w-4.5 h-4.5 text-emerald-400" />
@@ -114,15 +116,15 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                                         If your wallet balance cannot cover the Gameweek stake when the deadline arrives,
                                         you are automatically placed in the <span className="text-red-400 font-bold">Red Zone</span>.
                                     </p>
-                                    <div className="bg-red-950/40 border border-red-500/30 rounded-xl px-4 py-3">
+                                    <div className="fc-golden-rule-alert bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
                                         <p className="font-black text-red-400 text-xs uppercase tracking-widest mb-1">No Exceptions</p>
                                         <p>
-                                            If you are the <strong className="text-white">top FPL scorer</strong> in a Gameweek but your wallet is in the Red Zone,
+                                                If you are the <strong className="fc-golden-rule-strong text-white">top FPL scorer</strong> in a Gameweek but your wallet is in the Red Zone,
                                             you <strong className="text-red-400">forfeit the weekly pot</strong>. The winnings go to the next
                                             highest-scoring member in the <span className="text-emerald-400 font-bold">Green Zone</span>.
                                         </p>
                                     </div>
-                                    <p className="text-xs text-gray-500">
+                                        <p className="fc-golden-rule-note text-xs text-gray-500">
                                         The Red Zone banner on your dashboard persists until you top up.
                                     </p>
                                 </div>
@@ -140,7 +142,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                     ].map((rule) => (
                         <div
                             key={rule.id}
-                            className={`rounded-2xl border p-5 ${rule.id === 'redzone'
+                            className={`fc-rules-card rounded-2xl border p-5 ${rule.id === 'redzone'
                                 ? 'bg-amber-950/20 border-amber-500/20'
                                 : 'bg-white/[0.02] border-white/[0.06]'
                                 }`}
@@ -153,11 +155,11 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                                     <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${rule.labelColor}`}>
                                         {rule.label}
                                     </p>
-                                    <h3 className="font-black text-sm text-white">{rule.title}</h3>
+                                    <h3 className="fc-rules-title font-black text-sm text-white">{rule.title}</h3>
                                 </div>
                             </div>
                             {rule.custom ?? (
-                                <p className="text-sm text-gray-400 leading-relaxed pl-12">
+                                <p className="fc-rules-body text-sm text-gray-400 leading-relaxed pl-12">
                                     {rule.body}
                                 </p>
                             )}
@@ -165,7 +167,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                     ))}
 
                     {/* Footer note */}
-                    <p className="text-[10px] text-gray-600 text-center pb-2">
+                    <p className="fc-rules-footnote text-[10px] text-gray-600 text-center pb-2">
                         These rules are enforced automatically by the FantasyChama smart escrow system.
                         Questions? Contact your Chairman or use the Dispute feature.
                     </p>

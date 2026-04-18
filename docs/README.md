@@ -9,6 +9,7 @@ This repository contains the following documentation files under `/docs`:
 | [MEMBER_GUIDE.md](./MEMBER_GUIDE.md) | Player guide covering deposits, winning, notifications, and protection | League Members |
 | [INVESTOR_BRIEF.md](./INVESTOR_BRIEF.md) | Business case, unit economics, GTM strategy, and funding ask | Investors, Partners |
 | [daraja_go_live_playbook.md](./daraja_go_live_playbook.md) | Safaricom Daraja API production certification step-by-step | Engineering, Compliance |
+| [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md) | Production launch checklist, health checks, and smoke tests | Engineering, Operations |
 | [USER_MANUAL.md](./USER_MANUAL.md) | Legacy combined guide (see Chairman + Member guides for current version) | — |
 
 ---

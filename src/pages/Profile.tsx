@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ShieldCheck, Trophy, Users, Settings, CheckCircle2, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2 } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 
@@ -40,24 +41,25 @@ export default function Profile() {
     const [userEmail, setUserEmail] = useState('');
 
     useEffect(() => {
+        let unsubscribeMembers = () => { };
         if (activeLeagueId) {
-            listenToLeagueMembers(activeLeagueId);
+            unsubscribeMembers = listenToLeagueMembers(activeLeagueId);
             
             // Fetch League Details for everyone so we get fplLeagueId
             const fetchLeagueAndFpl = async () => {
-                const docRef = doc(db, 'leagues', activeLeagueId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
+                try {
+                    const docRef = doc(db, 'leagues', activeLeagueId);
+                    const docSnap = await getDoc(docRef);
+                    if (!docSnap.exists()) return;
+
                     const data = docSnap.data();
-                    if (role === 'admin') {
-                        setMonthlyContribution(data.gameweekStake || 1400);
-                        setWeeklyPrizePercent(data.rules?.weekly || 70);
-                        setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
-                        setInviteCode(data.inviteCode || 'N/A');
-                        setCoAdminId(data.coAdminId || '');
-                    }
+                    setMonthlyContribution(data.gameweekStake || 1400);
+                    setWeeklyPrizePercent(data.rules?.weekly || 70);
+                    setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
+                    setInviteCode(data.inviteCode || 'N/A');
+                    setCoAdminId(data.coAdminId || '');
                     if (data.chairmanId) setChairmanId(data.chairmanId);
-                    
+
                     const fplId = data.fplLeagueId;
                     setFplLeagueId(fplId || '');
 
@@ -74,23 +76,30 @@ export default function Profile() {
                                 }
                             }
                         } catch (err) {
-                            console.error("Failed to sync FPL Teams:", err);
+                            console.error('Failed to sync FPL Teams:', err);
                         } finally {
                             setIsFetchingFpl(false);
                         }
                     }
+                } catch (err) {
+                    console.error('Failed to load league settings on profile:', err);
                 }
             };
             fetchLeagueAndFpl();
         }
+        return () => {
+            try { unsubscribeMembers(); } catch (err) {
+                console.warn('[profile] member listener cleanup failed:', err);
+            }
+        };
     }, [activeLeagueId, listenToLeagueMembers, role]);
 
     // Grab email from Firebase Auth
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user?.email) setUserEmail(user.email);
         });
-        return unsubscribe;
+        return () => unsubscribe();
     }, []);
 
     useEffect(() => {
@@ -101,7 +110,7 @@ export default function Profile() {
                 setDisplayName(currentMember.displayName || '');
                 setPhoneNumber(currentMember.phone || '');
                 setFplTeamName((currentMember as any).fplTeamId ? String((currentMember as any).fplTeamId) : '');
-                setAvatarSeed((currentMember as any).avatarSeed || (role === 'admin' ? 'chairman' : currentMember.displayName));
+                setAvatarSeed((currentMember as any).avatarSeed || ((currentMember.role === 'admin' || role === 'admin') ? 'chairman' : currentMember.displayName));
             }
         }
     }, [members, activeUserId, role]);
@@ -109,6 +118,13 @@ export default function Profile() {
     // Red Zone: is current user unpaid?
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
     const hasPaid = currentMember?.hasPaid ?? true; // default true to avoid false red on load
+    const isAdminView =
+        role === 'admin' ||
+        currentMember?.role === 'admin' ||
+        (!!chairmanId && (
+            String(currentMember?.authUid || '') === String(chairmanId) ||
+            String(currentMember?.id || '') === String(chairmanId)
+        ));
 
     const handleSaveMember = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -218,7 +234,7 @@ export default function Profile() {
 
     return (
         <div className="min-h-full p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white bg-[#0b1014]">
-            <div className="max-w-5xl mx-auto space-y-8">
+            <div className="max-w-6xl mx-auto space-y-10">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center gap-3">
                         <Settings className="w-8 h-8 text-[#10B981]" /> User Profile
@@ -228,17 +244,17 @@ export default function Profile() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
                     {/* Member View (Personal Settings) */}
                     <div className={clsx(
-                        "border p-8 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col h-full transition-all duration-500",
-                        role === 'admin' ? 'xl:col-span-5' : 'xl:col-span-6',
-                        !hasPaid && role !== 'admin'
+                        "fc-card border p-8 rounded-[2rem] relative overflow-hidden flex flex-col h-full transition-all duration-500",
+                        isAdminView ? 'xl:col-span-5' : 'xl:col-span-6',
+                        !hasPaid && !isAdminView
                             ? 'bg-red-950/40 border-red-500/40 shadow-[0_0_40px_rgba(239,68,68,0.08)]'
                             : 'bg-[#161d24] border-white/5'
                     )}>
                         {/* Red Zone banner */}
-                        {!hasPaid && role !== 'admin' && (
+                        {!hasPaid && !isAdminView && (
                             <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-5 text-red-400 text-xs font-bold uppercase tracking-widest">
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                                 Red Zone — Contribution Outstanding
@@ -356,8 +372,8 @@ export default function Profile() {
                     </div>
 
                     {/* Admin View (League Command & Invite Hub) */}
-                    {role === 'admin' && (
-                        <div className="xl:col-span-7 bg-[#161d24] border border-[#FBBF24]/20 p-5 rounded-[2rem] shadow-2xl relative overflow-hidden flex flex-col">
+                    {isAdminView && (
+                        <div className="fc-card xl:col-span-7 bg-[#161d24] border border-[#FBBF24]/20 p-5 rounded-[2rem] relative overflow-hidden flex flex-col">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
 
                             <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
@@ -530,8 +546,8 @@ export default function Profile() {
 
                     {/* Visual League Members Rail */}
                     <div className={clsx(
-                        "bg-[#161d24] border border-white/5 rounded-[2rem] p-8 shadow-2xl relative overflow-hidden",
-                        role === 'admin' ? "xl:col-span-12" : "xl:col-span-6"
+                        "fc-card bg-[#161d24] border border-white/5 rounded-[2rem] p-8 relative overflow-hidden",
+                        isAdminView ? "xl:col-span-12" : "xl:col-span-6"
                     )}>
                         <div className="flex items-center justify-between mb-8">
                             <div>
@@ -547,9 +563,16 @@ export default function Profile() {
 
                         <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
                             {members.map(member => {
+                                const memberId = String(member.id || '');
                                 const isActive = member.isActive !== false;
+                                const isChairman = !!chairmanId && memberId === String(chairmanId);
+                                const isValidCoChair = !!coAdminId
+                                    && memberId === String(coAdminId)
+                                    && !isChairman
+                                    && isActive
+                                    && (member.role === 'co-chair' || member.role === 'admin');
                                 return (
-                                <div key={member.id} className="flex flex-col items-center flex-shrink-0 w-24 gap-3 group relative">
+                                <div key={memberId || `member-${member.displayName}`} className="flex flex-col items-center flex-shrink-0 w-24 gap-3 group relative">
                                     <div className={clsx("w-16 h-16 rounded-full bg-gradient-to-b from-[#1c272c] to-[#0b1014] p-0.5 shadow-lg border border-white/5 group-hover:border-[#10B981]/50 transition-all", 
                                         !isActive && "opacity-30 grayscale"
                                     )}>
@@ -562,17 +585,17 @@ export default function Profile() {
                                     <div className="text-center mt-2 flex flex-col items-center gap-1">
                                         <span className={clsx("text-xs font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
                                         <div className="flex flex-col items-center gap-1.5 h-10 justify-start">
-                                            {member.id === chairmanId && (
+                                            {isChairman && (
                                                 <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30 flex items-center gap-1">
                                                     <ShieldAlert className="w-2.5 h-2.5" /> Chairman
                                                 </span>
                                             )}
-                                            {member.id === coAdminId && (
+                                            {isValidCoChair && (
                                                 <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
                                                     <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
                                                 </span>
                                             )}
-                                            {!member.id.match(chairmanId || 'null_chairman') && !member.id.match(coAdminId || 'null_coadmin') && (
+                                            {!isChairman && !isValidCoChair && (
                                                 <span className={clsx("text-[9px] font-black uppercase tracking-widest block", 
                                                     !isActive ? "text-gray-600" : (member.hasPaid ? "text-[#10B981]" : "text-red-500")
                                                 )}>
@@ -581,9 +604,9 @@ export default function Profile() {
                                             )}
                                         </div>
                                     </div>
-                                    {role === 'admin' && member.id !== activeUserId && (
+                                    {isAdminView && memberId !== activeUserId && (
                                         <button 
-                                            onClick={() => handleToggleActive(member.id, isActive)}
+                                            onClick={() => handleToggleActive(memberId, isActive)}
                                             className="absolute -top-1 -right-1 bg-[#161d24] border border-white/10 rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
                                             title={isActive ? "Deactivate User" : "Reactivate User"}
                                         >
@@ -602,7 +625,7 @@ export default function Profile() {
             {
                 showWarningModal && (
                     <div className="fixed inset-0 bg-[#0b1014]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="bg-[#161d24] border border-red-500/20 max-w-md w-full rounded-2xl p-6 shadow-2xl">
+                        <div className="fc-card bg-[#161d24] border border-red-500/20 max-w-md w-full rounded-2xl p-6">
                             <div className="flex items-center gap-3 mb-4 text-red-500">
                                 <AlertTriangle className="w-8 h-8" />
                                 <h3 className="text-xl font-black tracking-tight">Modify Core Logistics?</h3>
@@ -634,9 +657,9 @@ export default function Profile() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed bottom-24 md:bottom-10 right-4 left-4 md:left-auto md:right-10 md:w-96 p-4 rounded-xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50",
+                "fixed bottom-24 md:bottom-10 right-4 left-4 md:left-auto md:right-10 md:w-96 p-4 rounded-xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50 fc-inline-toast",
                 toast ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none",
-                toast?.type === 'success' ? "bg-[#22c55e] text-[#0a100a]" : "bg-red-500 text-white"
+                toast?.type === 'success' ? "fc-inline-toast-success" : "fc-inline-toast-error"
             )}>
                 {toast?.type === 'success' ? <CheckCircle2 className="w-6 h-6 flex-shrink-0 mt-0.5" /> : <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />}
                 <div>

@@ -21,6 +21,7 @@ export default function MemberDashboard() {
     const [leagueName, setLeagueName] = useState('');
     const [rules, setRules] = useState({ weekly: 70, vault: 30 });
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
+    const [chairmanPhone, setChairmanPhone] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
@@ -57,6 +58,7 @@ export default function MemberDashboard() {
     const [nudgeSent, setNudgeSent] = useState(false);
 
     const members = useStore(state => state.members);
+    const transactions = useStore(state => state.transactions);
     const logout = useStore(state => state.logout);
     const leagueSettings = useStore(state => state.league);
     
@@ -67,6 +69,7 @@ export default function MemberDashboard() {
     const isGracePeriodOver = pendingHQDebt > 0 && (Date.now() - lastResolvedDate.getTime()) > (2 * 24 * 60 * 60 * 1000);
     const isSuspended = leagueSettings?.isSuspended === true || isGracePeriodOver;
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+    const listenToLeagueTransactions = useStore(state => state.listenToLeagueTransactions);
     const [showPochiInstructions, setShowPochiInstructions] = useState(false);
     const [isNudgingHQ, setIsNudgingHQ] = useState(false);
 
@@ -93,6 +96,14 @@ export default function MemberDashboard() {
     const walletBalance = currentUser?.walletBalance || 0;
     const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
     const activeUserId = currentUser?.id || 'dummy';
+    const coChairMember = members.find(m => m.id === coAdminId);
+    const payoutApproverId = coAdminId
+        && coAdminId !== activeUserId
+        && coChairMember
+        && coChairMember.isActive !== false
+        && ((coChairMember as any).role === 'admin')
+        ? coAdminId
+        : null;
 
     useEffect(() => {
         if (!activeLeagueId || !memberPhone) {
@@ -108,7 +119,8 @@ export default function MemberDashboard() {
                 setMonthlyContribution(data.gameweekStake || 0);
                 setLeagueName(data.leagueName || '');
                 if (data.rules) setRules(data.rules);
-                if (data.coAdminId) setCoAdminId(data.coAdminId);
+                setCoAdminId(data.coAdminId || null);
+                setChairmanPhone(data.chairmanPhone || null);
 
                 // Phase 29: Fetch FPL GW Winner continuously
                 if (data.fplLeagueId) {
@@ -167,7 +179,8 @@ export default function MemberDashboard() {
         });
 
         // Initialize Live Ledger for Members
-        listenToLeagueMembers(activeLeagueId);
+        const unsubscribeMembers = listenToLeagueMembers(activeLeagueId);
+        const unsubscribeTransactions = listenToLeagueTransactions(activeLeagueId);
         setIsLoading(false);
 
         // Update lastLoginAt for retention tracking
@@ -185,8 +198,24 @@ export default function MemberDashboard() {
             window.history.replaceState({}, document.title);
         }
 
-        return () => unsubscribeLeague();
-    }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, location.state, currentUser?.fplTeamId, currentUser?.secondFplTeamId]);
+        return () => {
+            try {
+                unsubscribeLeague();
+            } catch (error: any) {
+                console.warn('[member-dashboard] unsubscribeLeague failed:', error?.message || error);
+            }
+            try {
+                unsubscribeMembers();
+            } catch (error: any) {
+                console.warn('[member-dashboard] unsubscribeMembers failed:', error?.message || error);
+            }
+            try {
+                unsubscribeTransactions();
+            } catch (error: any) {
+                console.warn('[member-dashboard] unsubscribeTransactions failed:', error?.message || error);
+            }
+        };
+    }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, listenToLeagueTransactions, location.state, currentUser?.fplTeamId, currentUser?.secondFplTeamId]);
 
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
@@ -195,8 +224,16 @@ export default function MemberDashboard() {
         const q = query(eventsRef, orderBy('timestamp', 'desc'), limit(20));
         const unsub = onSnapshot(q, snap => {
             setLiveEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (error) => {
+            console.warn('[member-dashboard] live events listener failed:', error?.message || error);
         });
-        return () => unsub();
+        return () => {
+            try {
+                unsub();
+            } catch (error: any) {
+                console.warn('[member-dashboard] live events unsubscribe failed:', error?.message || error);
+            }
+        };
     }, [activeLeagueId]);
 
     // Co-Chair: Listen for Pending Payouts
@@ -208,8 +245,16 @@ export default function MemberDashboard() {
         );
         const unsub = onSnapshot(q, snap => {
             setPendingPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (error) => {
+            console.warn('[member-dashboard] pending payouts listener failed:', error?.message || error);
         });
-        return () => unsub();
+        return () => {
+            try {
+                unsub();
+            } catch (error: any) {
+                console.warn('[member-dashboard] pending payouts unsubscribe failed:', error?.message || error);
+            }
+        };
     }, [activeLeagueId, currentUser?.id, coAdminId]);
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -304,6 +349,10 @@ export default function MemberDashboard() {
 
     const handleNudge = async () => {
         if (!activeLeagueId) return;
+        if (!payoutApproverId) {
+            showToast('No Co-Chair assigned. Chairman executes payouts directly.', 'info');
+            return;
+        }
         
         const history = JSON.parse(localStorage.getItem(`nudge_${activeLeagueId}`) || "[]");
         if (history.length >= 3) {
@@ -335,7 +384,7 @@ export default function MemberDashboard() {
             message: `🔔 The members are nudging the Co-Chair to approve the pending payout (${newHistory.length}/3)! Please review ASAP.`,
             timestamp: serverTimestamp(),
             readBy: [],
-            targetMemberId: coAdminId
+            targetMemberId: payoutApproverId
         });
         showToast('Nudge sent! The Co-Chair has been notified.', 'success');
         
@@ -354,6 +403,7 @@ export default function MemberDashboard() {
                 body: JSON.stringify({
                     phone: payout.winnerPhone,
                     amount: payout.amount,
+                    winnerName: payout.winnerName,
                     remarks: `FantasyChama GW${payout.gw} Approved Payout`,
                     userId: payout.winnerId,
                     leagueId: activeLeagueId
@@ -459,10 +509,39 @@ export default function MemberDashboard() {
     // Formula: Active members * Gameweek Stake * 38 GWs * Vault Percentage
     const seasonVaultProjected = members.length * gameweekStake * 38 * (rules.vault / 100);
 
-    // Dynamic Winner calculation from recent notification feed using the structured isWinnerEvent objects
-    const winnerEvents = notifications.filter((n: any) => n.isWinnerEvent);
+    // Dynamic Winner calculation from recent notification feed using the structured isWinnerEvent objects.
+    // Fallback to payout transactions so Winner's Circle works even when winner events aren't emitted.
+    const winnerEventsFromNotifs = notifications.filter((n: any) => n.isWinnerEvent);
+    const winnerEventsFromTx = transactions
+        .filter((tx: any) => tx.type === 'payout' && tx.winnerName)
+        .map((tx: any, idx: number) => ({
+            winnerId: tx.winnerId || tx.userId || `tx-${idx}`,
+            winnerName: tx.winnerName,
+            points: tx.points || null,
+            gw: tx.gw || tx.gameweek || null,
+            timestamp: tx.timestamp || null,
+            fromTx: true,
+        }));
+
+    const winnerEvents = winnerEventsFromNotifs.length > 0 ? winnerEventsFromNotifs : winnerEventsFromTx;
     const mostRecentWinner = winnerEvents.length > 0 ? winnerEvents[0] : null;
     const isRecentWinner = mostRecentWinner?.winnerId === currentUser?.id;
+    const winnerLeaderboard = Object.values(
+        winnerEvents.reduce((acc: Record<string, { winnerId: string; winnerName: string; wins: number }>, item: any) => {
+            const key = item.winnerId || item.winnerName || 'unknown';
+            if (!acc[key]) {
+                acc[key] = {
+                    winnerId: item.winnerId || key,
+                    winnerName: item.winnerName || 'Unknown Winner',
+                    wins: 0,
+                };
+            }
+            acc[key].wins += 1;
+            return acc;
+        }, {})
+    ).sort((a, b) => b.wins - a.wins);
+    const seasonRacePhase = winnerEvents.length >= 30 ? 'Final Stretch' : winnerEvents.length >= 18 ? 'Mid Season' : 'Early Season';
+    const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';
 
     // Phase 30: Is the logged-in user the current GW Winner?
     const isCurrentUserGwWinner = gwWinner && currentUser && (
@@ -553,11 +632,13 @@ export default function MemberDashboard() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]",
+                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
                 toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95",
                 toastType === 'error'
-                    ? "bg-red-500/10 border-red-500/20 text-red-400"
-                    : "bg-[#0b1014]/90 border-white/10 text-white"
+                    ? "fc-inline-toast-error"
+                    : toastType === 'info'
+                        ? "fc-inline-toast-info"
+                        : "fc-inline-toast-success"
             )}>
                 {toastType === 'error' ? (
                     <AlertCircle className="w-5 h-5 text-red-500" />
@@ -672,7 +753,7 @@ export default function MemberDashboard() {
 
                         {/* Live Gameweek Winner Gold UI */}
                         {gwWinner && (
-                            <div className="bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 shadow-[0_0_30px_rgba(251,191,36,0.05)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2">
+                            <div className="fc-highlight-card bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
                                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
                                 
@@ -691,8 +772,8 @@ export default function MemberDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="relative z-10 flex flex-row md:flex-col items-center flex-shrink-0 md:items-end justify-between w-full md:w-auto bg-[#0b1014]/50 p-4 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm gap-2">
-                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Projected Payout</p>
+                                <div className="relative z-10 flex flex-row md:flex-col items-center flex-shrink-0 md:items-end justify-between w-full md:w-auto fc-highlight-surface p-4 rounded-2xl border backdrop-blur-sm gap-2">
+                                    <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">Projected Payout</p>
                                     <p className="text-2xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                                 </div>
                             </div>
@@ -748,7 +829,7 @@ export default function MemberDashboard() {
                                             <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(winnerMember as any).avatarSeed}&backgroundColor=transparent`} alt={winner.winnerName} className="w-full h-full rounded-full object-cover" />
                                         </div>
                                         <span className="font-bold text-[11px] text-white leading-tight text-center">{winner.winnerName?.split(' ')[0]}</span>
-                                        <span className="text-[10px] text-[#eab308] font-bold">GW{winner.gw}</span>
+                                        <span className="text-[10px] text-[#eab308] font-bold">{winner.gw ? `GW${winner.gw}` : 'Winner'}</span>
                                         {winner.points && <span className="text-[9px] text-gray-500 font-bold tabular-nums">{winner.points} pts</span>}
                                     </div>
                                 );
@@ -765,6 +846,47 @@ export default function MemberDashboard() {
                                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Unique Winners</p>
                                     <p className="text-lg font-black text-[#FBBF24] tabular-nums">{new Set(winnerEvents.map((w: any) => w.winnerId)).size}</p>
                                 </div>
+                            </div>
+                        )}
+
+                        {winnerLeaderboard.length > 0 && (
+                            <div className="mt-2 pt-3 border-t border-white/5 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Season Podium</p>
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#10B981]/20 bg-[#10B981]/10 text-[#10B981]">
+                                        {seasonRacePhase}
+                                    </span>
+                                </div>
+                                {winnerLeaderboard.slice(0, 3).map((entry, index) => {
+                                    const podiumStyles = [
+                                        'border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]',
+                                        'border-slate-300/40 bg-slate-300/10 text-slate-300',
+                                        'border-amber-700/40 bg-amber-700/10 text-amber-500'
+                                    ];
+                                    return (
+                                        <div key={entry.winnerId} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className={clsx('w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-black shrink-0', podiumStyles[index] || 'border-white/20 bg-white/5 text-white')}>
+                                                    {index + 1}
+                                                </span>
+                                                <span className="text-xs font-bold text-white truncate">{entry.winnerName}</span>
+                                            </div>
+                                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{entry.wins} win{entry.wins !== 1 ? 's' : ''}</span>
+                                        </div>
+                                    );
+                                })}
+
+                                {winnerLeaderboard.length > 3 && (
+                                    <div className="rounded-xl border border-white/10 bg-black/20 p-2.5 space-y-1">
+                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Title Race</p>
+                                        {winnerLeaderboard.slice(3, 6).map((entry) => (
+                                            <div key={entry.winnerId} className="flex items-center justify-between text-[11px]">
+                                                <span className="text-gray-300 truncate">{entry.winnerName}</span>
+                                                <span className="font-bold text-[#10B981]">{entry.wins} wins</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -816,7 +938,7 @@ export default function MemberDashboard() {
                 )}
 
                 {/* Member Nudge: If pending payouts exist but user is NOT co-chair, show a nudge button */}
-                {pendingPayouts.length > 0 && currentUser?.id !== coAdminId && (
+                {pendingPayouts.length > 0 && payoutApproverId && currentUser?.id !== payoutApproverId && (
                     <div className="mb-4 bg-[#FBBF24]/5 border border-[#FBBF24]/20 rounded-[1.5rem] p-4 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                             <Trophy className="w-5 h-5 text-[#FBBF24] flex-shrink-0" />
@@ -890,11 +1012,15 @@ export default function MemberDashboard() {
                                             <p className="text-[11px] font-bold text-[#FBBF24] uppercase tracking-widest mb-1.5 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Pochi Instructions</p>
                                             <ol className="text-xs text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-gray-500">
                                                 <li>Go to M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
-                                                <li>Send to Mobile No. <strong>{members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number'}</strong></li>
+                                                <li>Send to Mobile No. <strong>{payoutDestinationPhone}</strong></li>
                                                 <li>Amount: <strong>KES {gameweekStake}</strong></li>
                                             </ol>
                                         </div>
                                     )}
+
+                                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-400">
+                                        Destination: <span className="font-black text-[#10B981]">{payoutDestinationPhone}</span>
+                                    </div>
 
                                     <div className="flex flex-col sm:flex-row gap-2 mt-1">
                                         <button

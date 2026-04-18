@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Download } from 'lucide-react';
+import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Download, ShieldAlert } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
@@ -14,6 +14,7 @@ import "driver.js/dist/driver.css";
 export default function AdminCommandCenter() {
     const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const activeUserId = localStorage.getItem('activeUserId');
 
     const [leagueName, setLeagueName] = useState('');
     const [inviteCode, setInviteCode] = useState('');
@@ -23,6 +24,13 @@ export default function AdminCommandCenter() {
     const [toastMessage, setToastMessage] = useState('');
     const [showResolveModal, setShowResolveModal] = useState(false);
     const [isResolving, setIsResolving] = useState(false);
+    const [resolutionPulse, setResolutionPulse] = useState(false);
+    const [actionTimeline, setActionTimeline] = useState({
+        resolved: false,
+        approvalPending: false,
+        payoutSent: false,
+        confirmed: false,
+    });
     const [payoutMethod, setPayoutMethod] = useState<'mpesa' | 'cash'>('mpesa');
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
@@ -38,6 +46,10 @@ export default function AdminCommandCenter() {
 
     const handleNudge = async () => {
         if (!activeLeagueId) return;
+        if (!hasValidCoChair) {
+            showToast('No Co-Chair configured. Chairman can resolve and pay directly.');
+            return;
+        }
         
         const history = JSON.parse(localStorage.getItem(`nudge_${activeLeagueId}`) || "[]");
         if (history.length >= 3) {
@@ -66,15 +78,45 @@ export default function AdminCommandCenter() {
         
         await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
             type: 'warning',
-            message: `⚡ The Chairman is nudging you to review and approve ${pendingPayouts.length} pending payout(s) (${newHistory.length}/3)! Please action ASAP.`,
+            message: notices.nudge(newHistory.length, pendingPayouts.length),
             timestamp: serverTimestamp(),
             readBy: [],
-            targetMemberId: coAdminId
+            targetMemberId: coAdminId as string
         });
         showToast('Nudge sent! The Co-Chair has been notified.');
         
         setTimeout(() => setNudgeSent(false), 2000);
     };
+
+    const triggerResolutionPulse = () => {
+        setResolutionPulse(true);
+        setTimeout(() => setResolutionPulse(false), 1000);
+    };
+
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const raw = localStorage.getItem(`fc-action-timeline-${activeLeagueId}`);
+        if (!raw) return;
+        try {
+            const parsed = JSON.parse(raw);
+            setActionTimeline((prev) => ({ ...prev, ...parsed }));
+        } catch {
+            // ignore malformed local value
+        }
+    }, [activeLeagueId]);
+
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        localStorage.setItem(`fc-action-timeline-${activeLeagueId}`, JSON.stringify(actionTimeline));
+    }, [activeLeagueId, actionTimeline]);
+
+    useEffect(() => {
+        if (pendingPayouts.length > 0) {
+            setActionTimeline((prev) => ({ ...prev, approvalPending: true, resolved: prev.resolved || true }));
+            return;
+        }
+        setActionTimeline((prev) => ({ ...prev, approvalPending: false }));
+    }, [pendingPayouts.length]);
 
     // Filter & Modal State
     const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
@@ -114,6 +156,25 @@ export default function AdminCommandCenter() {
     const togglePaymentStatusGlobal = useStore(state => state.togglePaymentStatus);
     const isStealthMode = useStore(state => state.isStealthMode);
     const role = useStore(state => state.role);
+    const tutorialSeenKey = activeLeagueId && activeUserId ? `chairman_initialized_${activeLeagueId}_${activeUserId}` : null;
+    const adminTourSeenKey = activeLeagueId && activeUserId ? `hasSeenAdminTour_${activeLeagueId}_${activeUserId}` : null;
+    const coChairMember = members.find(m => m.id === coAdminId);
+    const hasValidCoChair = !!coAdminId
+        && coAdminId !== activeUserId
+        && !!coChairMember
+        && coChairMember.isActive !== false
+        && ((coChairMember as any).role === 'admin');
+    const notices = {
+        nudge: (count: number, total: number) => `Action required: Chairman reminder (${count}/3). Please review ${total} pending payout request${total === 1 ? '' : 's'} now.`,
+        payoutApproval: (amount: number, winner: string, points: number) => `Payout approval requested: KES ${amount.toLocaleString()} to ${winner} (GW26, ${points} pts).`,
+        payoutQueuedChairman: (winner: string, amount: number, points: number) => `Chairman signature required: ${winner} leads with ${points} pts. Dispatch KES ${amount.toLocaleString()} after review.`,
+        payoutBroadcast: (winner: string, points: number, amount: number) => `Gameweek finalized: ${winner} tops GW26 with ${points} pts. Payout KES ${amount.toLocaleString()} is queued.`
+    };
+
+    const handleInitializeOperations = () => {
+        if (tutorialSeenKey) localStorage.setItem(tutorialSeenKey, 'true');
+        setShowTutorial(false);
+    };
 
     const handleToggleAdmin = async (memberId: string, currentRole: string | undefined) => {
         if (!activeLeagueId) return;
@@ -133,9 +194,8 @@ export default function AdminCommandCenter() {
             return;
         }
 
-        if (!localStorage.getItem(`chairman_tutorial_${activeLeagueId}`)) {
+        if (tutorialSeenKey && !localStorage.getItem(tutorialSeenKey)) {
             setShowTutorial(true);
-            localStorage.setItem(`chairman_tutorial_${activeLeagueId}`, 'true');
         }
 
         const initDashboard = async () => {
@@ -185,7 +245,7 @@ export default function AdminCommandCenter() {
         };
 
         initDashboard();
-    }, [activeLeagueId, navigate, listenToLeagueMembers]);
+    }, [activeLeagueId, navigate, listenToLeagueMembers, tutorialSeenKey]);
 
     // Listen for pending payouts in real-time (for Co-Chair approval)
     useEffect(() => {
@@ -267,8 +327,9 @@ export default function AdminCommandCenter() {
 
     // Admin Tour
     useEffect(() => {
-        const hasSeenTour = localStorage.getItem('hasSeenAdminTour');
-        if (!hasSeenTour && !isLoading) {
+        if (!adminTourSeenKey || showTutorial || isLoading) return;
+        const hasSeenTour = localStorage.getItem(adminTourSeenKey);
+        if (!hasSeenTour) {
             try {
                 const driverObj = driver({
                     showProgress: true,
@@ -279,12 +340,12 @@ export default function AdminCommandCenter() {
                     ]
                 });
                 driverObj.drive();
-                localStorage.setItem('hasSeenAdminTour', 'true');
+                localStorage.setItem(adminTourSeenKey, 'true');
             } catch (e) {
                 console.error("Tour failed to load", e);
             }
         }
-    }, [isLoading]);
+    }, [adminTourSeenKey, isLoading, showTutorial]);
 
     const handleTogglePayment = async (memberId: string, currentStatus: boolean, memberName: string) => {
         if (!activeLeagueId) return;
@@ -500,7 +561,9 @@ export default function AdminCommandCenter() {
                 return;
             }
 
-            if (coAdminId) {
+            const requestedBy = auth.currentUser?.displayName || '🤖 FPL AUTOPILOT';
+
+            if (hasValidCoChair) {
                 // Feature: Maker / Checker (Requires Approval)
                 const pendingPayoutsRef = collection(db, 'leagues', activeLeagueId, 'pending_payouts');
                 await addDoc(pendingPayoutsRef, {
@@ -512,7 +575,7 @@ export default function AdminCommandCenter() {
                     gw: 26,
                     status: 'awaiting_approval',
                     method: payoutMethod,
-                    requestedBy: auth.currentUser?.displayName || 'Chairman',
+                    requestedBy,
                     timestamp: serverTimestamp()
                 });
 
@@ -520,7 +583,7 @@ export default function AdminCommandCenter() {
                 const notifsRef = collection(db, 'leagues', activeLeagueId, 'notifications');
                 await addDoc(notifsRef, {
                     type: 'warning',
-                    message: `🚨 SECURITY: Chairman has requested a payout of KES ${weeklyPot.toLocaleString()} to ${winner.displayName} (GW26: ${winningPoints} pts). Approval required.`,
+                    message: notices.payoutApproval(weeklyPot, winner.displayName, winningPoints),
                     timestamp: serverTimestamp(),
                     readBy: []
                 });
@@ -528,7 +591,7 @@ export default function AdminCommandCenter() {
                 // Notify Everyone that the GW is locked
                 await addDoc(notifsRef, {
                     type: 'info',
-                    message: `🏆 Gameweek Finalized! ${winner.displayName} took the crown with ${winningPoints} pts. Payout of KES ${weeklyPot.toLocaleString()} scheduled for tomorrow morning (pending approval).`,
+                    message: notices.payoutBroadcast(winner.displayName, winningPoints, weeklyPot),
                     timestamp: serverTimestamp(),
                     readBy: []
                 });
@@ -543,97 +606,44 @@ export default function AdminCommandCenter() {
 
                 setShowResolveModal(false);
                 showToast(`Gameweek 26 calculated. Payout sent to Co-Chair for Approval!`);
+                triggerResolutionPulse();
+                confetti({ particleCount: 90, spread: 70, origin: { y: 0.55 }, colors: ['#10B981', '#FBBF24', '#FFFFFF'] });
+                setActionTimeline((prev) => ({ ...prev, resolved: true, approvalPending: true }));
             } else {
-                // No Co-Chair? Trigger Real Daraja B2C Payout Immediately, OR log Cash Handoff
-                let payoutData: any = { success: true };
+                // No Co-Chair? Chairman becomes maker-checker and signs the pending payout from the same queue.
+                const pendingPayoutsRef = collection(db, 'leagues', activeLeagueId, 'pending_payouts');
+                await addDoc(pendingPayoutsRef, {
+                    winnerId: winner.id,
+                    winnerName: winner.displayName,
+                    winnerPhone: winner.phone,
+                    amount: weeklyPot,
+                    points: winningPoints,
+                    gw: 26,
+                    status: 'awaiting_approval',
+                    method: payoutMethod,
+                    requestedBy,
+                    approvalTarget: 'chairman',
+                    timestamp: serverTimestamp()
+                });
 
-                if (payoutMethod === 'mpesa') {
-                    const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-                    const payoutRes = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            phone: winner.phone,
-                            amount: weeklyPot,
-                            remarks: `FantasyChama GW26 Winnings`,
-                            userId: winner.id,
-                            leagueId: activeLeagueId
-                        })
-                    });
-                    payoutData = await payoutRes.json();
-                }
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                    type: 'warning',
+                    message: notices.payoutQueuedChairman(winner.displayName, weeklyPot, winningPoints),
+                    timestamp: serverTimestamp(),
+                    readBy: []
+                });
 
-                if (payoutData.success) {
-                    // Phase 12: Call backend to atomically drain all member wallets
-                    const gwApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-                    try {
-                        const deductRes = await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                leagueId: activeLeagueId,
-                                gwCostPerRound: gameweekStake,
-                                gwNumber: 26,
-                                winnerName: winner.displayName,
-                                payoutMethod: payoutMethod,
-                                chairmanId: auth.currentUser?.uid,
-                                winnerAmount: weeklyPot
-                            })
-                        });
-                        const deductData = await deductRes.json();
-                        const redNames = deductData.summary?.redZone || [];
-                        const greenNames = deductData.summary?.greenZone || [];
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                    eventType: 'resolution',
+                    message: `GW26 payout queued for Chairman approval — ${winner.displayName} (${winningPoints} pts).`,
+                    actor: requestedBy,
+                    timestamp: serverTimestamp()
+                });
 
-                        // Build WhatsApp share receipt
-                        const lines = [
-                            `*FantasyChama — GW26 Results*`,
-                            ``,
-                            `🥇 Winner: *${winner.displayName}* (${winningPoints} pts)`,
-                            `💰 Payout (91%): *KES ${weeklyPot.toLocaleString()}* _(Dispatched)_`,
-                            `🏦 Operational Cut (9%): System & Governance`,
-                            ``,
-                            greenNames.length > 0 ? `Green Zone (${greenNames.length}): ${greenNames.join(', ')}` : null,
-                            redNames.length > 0 ? `Red Zone (${redNames.length}): ${redNames.join(', ')} - UNPAID` : null,
-                            ``,
-                            `_Powered by FantasyChama_`
-                        ].filter(Boolean).join('\n');
-                        setWhatsappReceipt(lines);
-                    } catch (deductErr) {
-                        console.error('[DEDUCT] Deduction call failed:', deductErr);
-                    }
-
-                    setShowResolveModal(false);
-                    if (payoutMethod === 'mpesa') {
-                         showToast(`B2C Dispatch Sent! Safaricom processing KES ${weeklyPot.toLocaleString()} to ${winner.displayName}.`);
-                    } else {
-                         showToast(`Cash Handoff Logged! Gameweek officially resolved for ${winner.displayName}.`);
-                    }
-
-                    // Log to Live Escrow Feed
-                    await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
-                        eventType: 'resolution',
-                        message: `GW26 resolved — KES ${weeklyPot.toLocaleString()} dispatched to ${winner.displayName} (${winningPoints} pts).`,
-                        actor: auth.currentUser?.displayName || 'Chairman',
-                        timestamp: serverTimestamp()
-                    });
-
-                    // General Notification
-                    await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
-                        type: 'success',
-                        message: `🏆 Gameweek Finalized! ${winner.displayName} dominated with ${winningPoints} pts. Payout of KES ${weeklyPot.toLocaleString()} is scheduled for tomorrow morning.`,
-                        timestamp: serverTimestamp(),
-                        readBy: []
-                    });
-
-                    confetti({
-                        particleCount: 150,
-                        spread: 80,
-                        origin: { y: 0.6 },
-                        colors: ['#10B981', '#FBBF24', '#FFFFFF']
-                    });
-                } else {
-                    throw new Error(payoutData.message || "B2C Payout sequence failed.");
-                }
+                setShowResolveModal(false);
+                showToast(`Payout request created. Chairman signature required for ${winner.displayName}.`);
+                triggerResolutionPulse();
+                setActionTimeline((prev) => ({ ...prev, resolved: true, approvalPending: true }));
             }
         } catch (error) {
             console.error("Resolution Error:", error);
@@ -648,15 +658,25 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) return;
         setIsApprovingPayout(payout.id);
         try {
+            const winnerMember = members.find((member) =>
+                member.id === payout.winnerId ||
+                member.displayName === payout.winnerName
+            );
+            const payoutPhone = payout.winnerPhone || winnerMember?.phone;
+
             let data: any = { success: true };
             if (payout.method === 'mpesa' || !payout.method) {
+                if (!payoutPhone) {
+                    throw new Error('Winner phone number is missing. Update member phone in league settings and retry approval.');
+                }
                 const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
                 const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        phone: payout.winnerPhone,
+                        phone: payoutPhone,
                         amount: payout.amount,
+                        winnerName: payout.winnerName,
                         remarks: `FantasyChama GW${payout.gw} Approved Payout`,
                         userId: payout.winnerId,
                         leagueId: activeLeagueId
@@ -670,6 +690,7 @@ export default function AdminCommandCenter() {
             await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payout.id), {
                 status: 'approved',
                 approvedBy: auth.currentUser?.displayName || 'Co-Chair',
+                winnerPhone: payoutPhone || null,
                 approvedAt: serverTimestamp()
             });
 
@@ -690,9 +711,12 @@ export default function AdminCommandCenter() {
             });
 
             showToast(`✅ Approved! ${payout.method === 'cash' ? 'Cash Handoff logged for' : 'B2C Dispatch sent to'} ${payout.winnerName} (KES ${payout.amount.toLocaleString()}).`);
+            triggerResolutionPulse();
             confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ['#10B981', '#FBBF24', '#FFFFFF'] });
+            setActionTimeline((prev) => ({ ...prev, payoutSent: true, confirmed: true, approvalPending: false }));
         } catch (err: any) {
-            showToast(`Approval failed: ${err.message}`);
+            const message = err?.message || 'Unknown error during payout approval';
+            showToast(`Approval failed: ${message}`);
         } finally {
             setIsApprovingPayout(null);
         }
@@ -764,9 +788,7 @@ export default function AdminCommandCenter() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen w-full text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase"
-                style={{ background: 'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(251,191,36,0.07) 0%, rgba(10,14,23,0) 60%), #0A0E17' }}
-            >
+            <div className="min-h-screen w-full text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase bg-[#0a0e17]">
                 <RefreshCw className="w-8 h-8 animate-spin mb-4" />
                 Syncing Ledger...
             </div>
@@ -776,10 +798,9 @@ export default function AdminCommandCenter() {
     return (
         <div
             className={clsx(
-                "min-h-[100dvh] w-full text-white font-sans relative",
+                "min-h-[100dvh] w-full text-white font-sans relative bg-[#0a0e17]",
                 isSuspended ? "overflow-hidden h-screen" : ""
             )}
-            style={{ background: 'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(251,191,36,0.07) 0%, rgba(10,14,23,0) 60%), #0A0E17' }}
         >
             {/* Phase 40: HQ Debt Banner (Grace Period Warning) */}
             {isWithinGracePeriod && (
@@ -878,7 +899,7 @@ export default function AdminCommandCenter() {
                                     <div className="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center flex-shrink-0"><CheckCircle2 className="w-4 h-4 text-purple-400" /></div>
                                     <div>
                                         <p className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">3. Co-Admin Approval</p>
-                                        <p className="text-[11px] text-gray-500">The winner's payout requires your Co-Chair to click "Approve" before B2C triggers.</p>
+                                        <p className="text-[11px] text-gray-500">If a Co-Chair exists, payout needs approval. If none is assigned, Chairman executes directly.</p>
                                     </div>
                                 </div>
                                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex gap-4">
@@ -890,7 +911,7 @@ export default function AdminCommandCenter() {
                                 </div>
                             </div>
                             
-                            <button onClick={() => setShowTutorial(false)} className="px-8 py-3.5 bg-[#10B981] hover:bg-[#059669] text-black font-black uppercase tracking-widest text-sm rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                            <button onClick={handleInitializeOperations} className="px-8 py-3.5 bg-[#10B981] hover:bg-[#059669] text-black font-black uppercase tracking-widest text-sm rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                                 Initialize Operations
                             </button>
                         </div>
@@ -901,7 +922,7 @@ export default function AdminCommandCenter() {
             <div className={clsx("transition-all duration-700 w-full flex-1 flex flex-col", isSuspended ? "blur-xl opacity-20 pointer-events-none select-none scale-[0.98] h-screen overflow-hidden" : "", isWithinGracePeriod ? "pt-12" : "")}>
             {/* Unified Global Toast Notification */}
             <div className={clsx(
-                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] border backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-[#0b1014]/90 border-white/10 text-white",
+                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
                 toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95"
             )}>
                 <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
@@ -912,12 +933,42 @@ export default function AdminCommandCenter() {
                 {/* Top Header */}
                 <Header role="admin" title={leagueName || 'Command Center'} subtitle="Chairman Hub" />
 
+                {/* Chairman Action Timeline */}
+                <section className="fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Resolution Timeline</h3>
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">Live</span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        {[
+                            { key: 'resolved', label: 'Resolve GW', active: actionTimeline.resolved },
+                            { key: 'approval', label: 'Approval Pending', active: actionTimeline.approvalPending },
+                            { key: 'sent', label: 'Payout Sent', active: actionTimeline.payoutSent },
+                            { key: 'confirmed', label: 'Confirmed', active: actionTimeline.confirmed },
+                        ].map((step, idx) => (
+                            <div key={step.key} className={clsx(
+                                'rounded-xl border p-3 transition-all duration-300 relative',
+                                step.active ? 'border-emerald-500/35 bg-emerald-500/10' : 'border-white/10 bg-black/20'
+                            )}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className={clsx('text-[10px] font-black uppercase tracking-widest', step.active ? 'text-emerald-300' : 'text-gray-500')}>Step {idx + 1}</span>
+                                    <span className={clsx('h-2 w-2 rounded-full', step.active ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]' : 'bg-gray-600')} />
+                                </div>
+                                <p className={clsx('text-xs font-bold', step.active ? 'text-white' : 'text-gray-400')}>{step.label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+
                 {/* Live Gameweek Winner Gold UI */}
                 {gwWinner && (
-                    <div className="bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 shadow-[0_0_30px_rgba(251,191,36,0.05)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2">
+                    <div className={clsx(
+                        "fc-highlight-card bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2",
+                        resolutionPulse && "fc-burst-success"
+                    )}>
                         <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
-                        
+
                         <div className="relative z-10 flex items-center gap-5 w-full md:w-auto">
                             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
                                 <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
@@ -933,13 +984,13 @@ export default function AdminCommandCenter() {
                             </div>
                         </div>
 
-                        <div className="relative z-10 flex flex-col items-center flex-shrink-0 justify-center w-full md:w-auto bg-[#0b1014]/50 p-6 rounded-2xl border border-[#FBBF24]/20 backdrop-blur-sm gap-4 transition-colors hover:bg-black">
+                        <div className="relative z-10 flex flex-col items-center flex-shrink-0 justify-center w-full md:w-auto fc-highlight-surface p-6 rounded-2xl border backdrop-blur-sm gap-4 transition-colors hover:bg-black">
                             <div className="flex flex-col items-center justify-center w-full gap-1.5 text-center">
-                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Projected Payout</p>
+                                <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">Projected Payout</p>
                                 <p className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                             </div>
                             {role === 'admin' && (
-                                <button id="tour-resolve-gw" onClick={() => setShowResolveModal(true)} className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FBBF24] hover:bg-white text-black text-[11px] font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95">
+                                <button id="tour-resolve-gw" onClick={() => setShowResolveModal(true)} className="fc-highlight-action w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FBBF24] hover:bg-white text-black text-[11px] font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95">
                                     <Trophy className="w-4 h-4" /> Resolve & Payout
                                 </button>
                             )}
@@ -954,7 +1005,7 @@ export default function AdminCommandCenter() {
                             <h2 className="text-xl font-extrabold flex items-center gap-2 text-[#FBBF24]">
                                 <AlertTriangle className="w-5 h-5" /> Maker/Checker: Awaiting Approval
                             </h2>
-                            {coAdminId && (
+                            {hasValidCoChair && (
                                 <button
                                     disabled={nudgeSent}
                                     onClick={handleNudge}
@@ -967,7 +1018,13 @@ export default function AdminCommandCenter() {
                         </div>
                         <div className="space-y-3">
                             {pendingPayouts.map((payout) => (
-                                <div key={payout.id} className="bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                (() => {
+                                    const payoutRequiresCoChair = payout.approvalTarget === 'co-chair' ? hasValidCoChair : false;
+                                    return (
+                                <div key={payout.id} className={clsx(
+                                    "bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300",
+                                    resolutionPulse && "fc-burst-success"
+                                )}>
                                     <div>
                                         <p className="text-white font-bold text-sm">{payout.gwName || `GW${payout.gw}`} Payout Request</p>
                                         <p className="text-gray-300 text-sm mt-1">
@@ -975,12 +1032,36 @@ export default function AdminCommandCenter() {
                                         </p>
                                         <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
                                     </div>
-                                    <div className="flex gap-2 flex-shrink-0 flex-wrap">
+                                    <div className="flex gap-2 flex-wrap shrink-0">
                                         <span className="px-5 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center gap-2 shadow-inner">
-                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Awaiting Co-Chair Signature
+                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {payoutRequiresCoChair ? 'Awaiting Co-Chair Signature' : 'Awaiting Chairman Signature'}
                                         </span>
+                                        <button
+                                            onClick={() => generateWhatsAppReceipt(payout)}
+                                            className="px-5 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center gap-2"
+                                        >
+                                            <Share2 className="w-3.5 h-3.5" /> Share
+                                        </button>
+                                        <button
+                                            onClick={() => handleRejectPayout(payout.id)}
+                                            className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center gap-2"
+                                        >
+                                            <ShieldAlert className="w-3.5 h-3.5" /> Reject
+                                        </button>
+                                        {!payoutRequiresCoChair && (
+                                            <button
+                                                onClick={() => handleApprovePayout(payout)}
+                                                disabled={isApprovingPayout === payout.id}
+                                                className="px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-black text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {isApprovingPayout === payout.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                                Resolve & Pay
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
+                                    );
+                                })()
                             ))}
                         </div>
                     </section>
@@ -1038,7 +1119,7 @@ export default function AdminCommandCenter() {
                             </div>
 
                             {/* Operations Feed — WhatsApp Share Banner appears post-resolution */}
-                            <div className="w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
+                            <div className="fc-ops-feed w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
                                 <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-5">
                                     <Bell className="w-4 h-4" /> Operations Feed
                                 </h4>
@@ -1085,8 +1166,8 @@ export default function AdminCommandCenter() {
                             </div>
                         </div>
 
-                        <div className="xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
-                            <div className="p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
+                        <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+                            <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
                                 {/* Toast Notification Moved to App Root */}
 
 
@@ -1096,10 +1177,10 @@ export default function AdminCommandCenter() {
                                     Share this 6-digit PIN to grant access to <strong>{leagueName}</strong>.
                                 </p>
                                 <div className="flex flex-col gap-3 mt-auto">
-                                    <button onClick={() => navigator.clipboard.writeText(inviteCode)} className="flex items-center justify-center gap-2 w-full py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black font-extrabold rounded-xl transition-colors shadow-lg">
+                                    <button onClick={() => navigator.clipboard.writeText(inviteCode)} className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black font-extrabold rounded-xl transition-colors shadow-lg">
                                         <Share2 className="w-4 h-4" /> Share Key
                                     </button>
-                                    <button className="flex items-center justify-center gap-2 w-full py-3 hover:bg-white/5 border border-white/10 text-white font-bold rounded-xl transition-colors disabled:opacity-50" disabled>
+                                    <button className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-3 hover:bg-white/5 border border-white/10 text-white font-bold rounded-xl transition-colors disabled:opacity-50" disabled>
                                         <RefreshCw className="w-4 h-4" /> Regenerate
                                     </button>
                                 </div>
