@@ -227,6 +227,28 @@ export default function MemberDashboard() {
         setIsLoading(false);
     }, [members.length, currentUser, leagueName]);
 
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        const syncViewportOffset = () => {
+            const bottomOffset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            document.documentElement.style.setProperty('--fc-vv-bottom-offset', `${bottomOffset}px`);
+        };
+
+        syncViewportOffset();
+        vv.addEventListener('resize', syncViewportOffset);
+        vv.addEventListener('scroll', syncViewportOffset);
+        window.addEventListener('resize', syncViewportOffset);
+
+        return () => {
+            vv.removeEventListener('resize', syncViewportOffset);
+            vv.removeEventListener('scroll', syncViewportOffset);
+            window.removeEventListener('resize', syncViewportOffset);
+            document.documentElement.style.setProperty('--fc-vv-bottom-offset', '0px');
+        };
+    }, []);
+
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
         if (!activeLeagueId) return;
@@ -644,7 +666,7 @@ export default function MemberDashboard() {
 
     return (
         <div className={clsx(
-            "fc-member-dashboard min-h-[100dvh] text-white flex flex-col font-sans relative pb-28 w-full overflow-x-hidden transition-colors duration-1000",
+            "fc-member-dashboard min-h-[100dvh] text-white flex flex-col font-sans relative pb-44 lg:pb-28 w-full overflow-x-hidden transition-colors duration-1000",
             isCurrentUserGwWinner
                 ? "bg-gradient-to-br from-[#0b1014] via-[#1a1608] to-[#2a1f05]"
                 : hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]",
@@ -1314,7 +1336,7 @@ export default function MemberDashboard() {
                 </div>
             </div>
             {typeof document !== 'undefined' && createPortal(
-                <div className="lg:hidden fc-member-bottom-actions-mobile fixed left-0 right-0 bottom-0 p-3 z-[120]">
+                <div className="lg:hidden fc-member-bottom-actions-mobile left-0 right-0 p-3 z-[120]">
                     <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#0b1014]/92 backdrop-blur-xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.45)] pb-[max(0.4rem,env(safe-area-inset-bottom))]">
                         <div className="flex gap-2.5 w-full pointer-events-auto">
                             {actionButtons}

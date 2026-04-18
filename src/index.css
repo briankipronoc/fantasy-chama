@@ -805,6 +805,8 @@
 }
 
 .fc-member-bottom-actions-mobile {
+  position: fixed;
+  bottom: calc(var(--fc-mobile-dock-height, 78px) + var(--fc-vv-bottom-offset, 0px));
   padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
 }
 
