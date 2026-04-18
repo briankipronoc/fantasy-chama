@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Download, ShieldAlert } from 'lucide-react';
+import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Download, ShieldAlert, ClipboardList, ListChecks } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment, orderBy, limit } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import confetti from 'canvas-confetti';
@@ -36,6 +36,7 @@ export default function AdminCommandCenter() {
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(null);
     const [whatsappReceipt, setWhatsappReceipt] = useState<string | null>(null);
+    const [recentGovernanceEvents, setRecentGovernanceEvents] = useState<any[]>([]);
 
     // Module 3B: Dispute/Claim alerts
     const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
@@ -117,6 +118,30 @@ export default function AdminCommandCenter() {
         }
         setActionTimeline((prev) => ({ ...prev, approvalPending: false }));
     }, [pendingPayouts.length]);
+
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const eventsQuery = query(
+            collection(db, 'leagues', activeLeagueId, 'notifications'),
+            orderBy('timestamp', 'desc'),
+            limit(12)
+        );
+        const unsub = onSnapshot(eventsQuery, (snap) => {
+            const events = snap.docs
+                .map((d) => ({ id: d.id, ...d.data() } as any))
+                .filter((item) => /approve|reject|resolve|rule|payout|co-chair|chairman/i.test(item.message || ''));
+            setRecentGovernanceEvents(events);
+        }, (err) => {
+            console.warn('[admin-command] governance events listener failed:', err?.message || err);
+            setRecentGovernanceEvents([]);
+        });
+
+        return () => {
+            try { unsub(); } catch (err) {
+                console.warn('[admin-command] governance events cleanup failed:', err);
+            }
+        };
+    }, [activeLeagueId]);
 
     // Filter & Modal State
     const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
@@ -397,10 +422,33 @@ export default function AdminCommandCenter() {
     });
 
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
+    const redZoneMembers = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false);
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     // Formula: Active members * Gameweek Stake * 38 GWs * Vault Percentage
     const seasonVault = members.length * gameweekStake * 38 * (rules.vault / 100);
+    const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
+    const stalePendingPayouts = pendingPayouts.filter((payout: any) => {
+        const ts = payout.timestamp?.toDate ? payout.timestamp.toDate().getTime() : 0;
+        return ts > 0 && (Date.now() - ts) > (30 * 60 * 1000);
+    });
+    const missingWinnerPhoneCount = pendingPayouts.filter((payout: any) => {
+        const winnerMember = members.find((member) => member.id === payout.winnerId || member.displayName === payout.winnerName);
+        return !(payout.winnerPhone || winnerMember?.phone);
+    }).length;
+    const highRiskTwoWeekMisses = members.filter((member: any) => member.isActive !== false && member.role !== 'admin' && Number(member.missedGameweeks || 0) >= 2).length;
+    const preflightChecks = [
+        { label: 'At least one paid member', ok: paidMembersCount > 0 },
+        { label: 'No pending payout with missing winner phone', ok: missingWinnerPhoneCount === 0 },
+        { label: 'No stale approvals older than 30 min', ok: stalePendingPayouts.length === 0 },
+        { label: 'No unresolved disputes blocking trust', ok: pendingDisputes.length === 0 },
+    ];
+    const hasPreflightBlockers = preflightChecks.some((check) => !check.ok);
+    const sortedPendingPayouts = [...pendingPayouts].sort((a: any, b: any) => {
+        const aTs = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+        const bTs = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+        return aTs - bTs;
+    });
 
     const handleAddMember = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -933,6 +981,96 @@ export default function AdminCommandCenter() {
                 {/* Top Header */}
                 <Header role="admin" title={leagueName || 'Command Center'} subtitle="Chairman Hub" />
 
+                <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                    <div className="xl:col-span-7 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Weekly Command Board</h3>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">High Signal</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-3">
+                                <p className="text-[10px] uppercase tracking-widest text-amber-300 font-black">Approve Payouts</p>
+                                <p className="text-2xl font-black text-white mt-1 tabular-nums">{pendingPayouts.length}</p>
+                            </div>
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/8 p-3">
+                                <p className="text-[10px] uppercase tracking-widest text-red-300 font-black">Red Zone Follow-ups</p>
+                                <p className="text-2xl font-black text-white mt-1 tabular-nums">{redZoneMembers.length}</p>
+                            </div>
+                            <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/8 p-3">
+                                <p className="text-[10px] uppercase tracking-widest text-yellow-300 font-black">Unresolved Disputes</p>
+                                <p className="text-2xl font-black text-white mt-1 tabular-nums">{pendingDisputes.length}</p>
+                            </div>
+                            <div className="rounded-xl border border-blue-500/20 bg-blue-500/8 p-3">
+                                <p className="text-[10px] uppercase tracking-widest text-blue-300 font-black">2-Week Risk Members</p>
+                                <p className="text-2xl font-black text-white mt-1 tabular-nums">{highRiskTwoWeekMisses}</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            <button onClick={() => setShowResolveModal(true)} className="px-3 py-2 rounded-lg border border-[#FBBF24]/30 bg-[#FBBF24]/12 text-[#FBBF24] text-[10px] font-black uppercase tracking-widest">Resolve / Close GW</button>
+                            <button onClick={() => setPaymentFilter('Red Zone')} className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/12 text-red-300 text-[10px] font-black uppercase tracking-widest">Open Red Zone</button>
+                            <button onClick={() => navigate('/finances')} className="px-3 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/12 text-emerald-300 text-[10px] font-black uppercase tracking-widest">Open Finance Queue</button>
+                        </div>
+                    </div>
+
+                    <div className="xl:col-span-5 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5 text-[#FBBF24]" /> Risk Radar</h3>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-[#FBBF24]/20 bg-[#FBBF24]/10 text-[#FBBF24]">Auto Flags</span>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>Stale payout approvals (&gt;30m)</span><span className="font-black text-white tabular-nums">{stalePendingPayouts.length}</span></div>
+                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>Pending payouts missing winner phone</span><span className="font-black text-white tabular-nums">{missingWinnerPhoneCount}</span></div>
+                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>2+ missed GW risk members</span><span className="font-black text-white tabular-nums">{highRiskTwoWeekMisses}</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                    <div className="xl:col-span-7 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5 text-emerald-400" /> Decision Audit Trail</h3>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">Immutable Feed</span>
+                        </div>
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {recentGovernanceEvents.length > 0 ? recentGovernanceEvents.slice(0, 8).map((event) => {
+                                const eventTime = event.timestamp?.toDate ? event.timestamp.toDate() : null;
+                                return (
+                                    <div key={event.id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                                        <p className="text-xs text-white font-bold leading-tight">{event.message || 'Governance action logged'}</p>
+                                        <p className="text-[10px] text-gray-500 mt-1">{eventTime ? eventTime.toLocaleString() : 'Recent'}</p>
+                                    </div>
+                                );
+                            }) : (
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">No governance actions recorded yet.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="xl:col-span-5 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><ListChecks className="w-3.5 h-3.5 text-[#FBBF24]" /> Guided Close Workflow</h3>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-[#FBBF24]/20 bg-[#FBBF24]/10 text-[#FBBF24]">Preflight</span>
+                        </div>
+                        <div className="space-y-2 mb-4">
+                            {preflightChecks.map((check) => (
+                                <div key={check.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between">
+                                    <span className="text-xs text-gray-300">{check.label}</span>
+                                    <span className={clsx('text-[10px] font-black uppercase tracking-widest', check.ok ? 'text-emerald-400' : 'text-red-400')}>
+                                        {check.ok ? 'Clear' : 'Blocker'}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => setShowResolveModal(true)}
+                            disabled={hasPreflightBlockers}
+                            className="w-full px-4 py-3 rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/15 text-[#FBBF24] text-[11px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {hasPreflightBlockers ? 'Resolve Blocked: Fix Preflight' : 'One-Click Close Gameweek'}
+                        </button>
+                    </div>
+                </section>
+
                 {/* Chairman Action Timeline */}
                 <section className="fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
                     <div className="flex items-center justify-between mb-4">
@@ -1003,7 +1141,7 @@ export default function AdminCommandCenter() {
                     <section className="space-y-4">
                         <div className="flex items-center justify-between">
                             <h2 className="text-xl font-extrabold flex items-center gap-2 text-[#FBBF24]">
-                                <AlertTriangle className="w-5 h-5" /> Maker/Checker: Awaiting Approval
+                                <AlertTriangle className="w-5 h-5" /> {isCoChairSession ? 'Co-Chair Inbox: Awaiting Approval' : 'Maker/Checker: Awaiting Approval'}
                             </h2>
                             {hasValidCoChair && (
                                 <button
@@ -1017,9 +1155,14 @@ export default function AdminCommandCenter() {
                             )}
                         </div>
                         <div className="space-y-3">
-                            {pendingPayouts.map((payout) => (
+                            {sortedPendingPayouts.map((payout) => (
                                 (() => {
                                     const payoutRequiresCoChair = payout.approvalTarget === 'co-chair' ? hasValidCoChair : false;
+                                    const winnerMember = members.find((member) => member.id === payout.winnerId || member.displayName === payout.winnerName);
+                                    const payoutPhone = payout.winnerPhone || winnerMember?.phone;
+                                    const duplicateCandidate = sortedPendingPayouts.filter((item: any) => Number(item.gw) === Number(payout.gw) && item.status === 'awaiting_approval').length > 1;
+                                    const payoutAgeMs = payout.timestamp?.toDate ? Date.now() - payout.timestamp.toDate().getTime() : 0;
+                                    const payoutAgeMins = Math.max(0, Math.floor(payoutAgeMs / (1000 * 60)));
                                     return (
                                 <div key={payout.id} className={clsx(
                                     "bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300",
@@ -1031,6 +1174,13 @@ export default function AdminCommandCenter() {
                                             <span className="text-[#FBBF24] font-bold">KES {Number(payout.amount).toLocaleString()}</span> → {payout.winnerName} ({payout.winnerPhone})
                                         </p>
                                         <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            {!payoutPhone && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-300">Missing phone</span>}
+                                            {duplicateCandidate && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-300">Possible duplicate</span>}
+                                            <span className={clsx('text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border', payoutAgeMins > 30 ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-white/20 bg-white/10 text-gray-300')}>
+                                                SLA age: {payoutAgeMins}m
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2 flex-wrap shrink-0">
                                         <span className="px-5 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center gap-2 shadow-inner">
@@ -1075,15 +1225,21 @@ export default function AdminCommandCenter() {
                             <p className="text-gray-400 text-sm">Control your league entry and monitor the live vault deposits.</p>
                         </div>
                         <div className="flex items-center gap-3">
+                            {!isCoChairSession && (
                             <button onClick={() => setShowPrefundOptions(true)} className="flex items-center gap-2 px-5 py-2.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-sm font-bold rounded-xl transition-colors">
                                 <Banknote className="w-4 h-4" /> Pilot Prefund
                             </button>
+                            )}
+                            {!isCoChairSession && (
                             <button id="tour-add-member" onClick={() => setShowAddMemberModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a232b] hover:bg-white/5 text-white text-sm font-bold rounded-xl transition-colors border border-white/5">
                                 <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
                             </button>
+                            )}
+                            {!isCoChairSession && (
                             <button onClick={handleBulkNudge} className="flex items-center gap-2 px-4 py-2.5 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                                 <Megaphone className="w-4 h-4" /> Bulk Nudge
                             </button>
+                            )}
                         </div>
                     </div>
 

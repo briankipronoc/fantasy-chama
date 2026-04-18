@@ -679,6 +679,32 @@
 [data-theme="light"] .fc-member-bottom-actions {
   background: linear-gradient(to top, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0.78), rgba(248, 250, 252, 0)) !important;
 }
+[data-theme="light"] .fc-gw-winner-subline {
+  color: #1f2937 !important;
+}
+[data-theme="light"] .fc-share-win-btn {
+  background: #f59e0b !important;
+  border-color: rgba(180, 83, 9, 0.4) !important;
+  color: #111827 !important;
+}
+[data-theme="light"] .fc-share-win-btn:hover {
+  background: #fbbf24 !important;
+  color: #111827 !important;
+}
+[data-theme="light"] .fc-member-priority-strip,
+[data-theme="light"] .fc-member-trust-strip {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+[data-theme="light"] .fc-member-priority-strip .text-gray-400,
+[data-theme="light"] .fc-member-trust-strip .text-gray-400,
+[data-theme="light"] .fc-member-trust-strip .text-gray-500 {
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-member-priority-strip .text-white,
+[data-theme="light"] .fc-member-trust-strip .text-white {
+  color: #0f172a !important;
+}
 [data-theme="light"] .fc-member-bottom-primary {
   color: #052e16 !important;
   border: 1px solid rgba(5, 150, 105, 0.22) !important;

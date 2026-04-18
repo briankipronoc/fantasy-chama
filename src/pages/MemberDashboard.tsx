@@ -48,6 +48,8 @@ export default function MemberDashboard() {
 
     // Phase 30: Expanded Winner's Circle
     const [showAllWinners, setShowAllWinners] = useState(false);
+    const [showWinnersPanelMobile, setShowWinnersPanelMobile] = useState(false);
+    const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
 
     // Phase 31: Real FPL Performance Trajectory
     const [performanceData, setPerformanceData] = useState<any[]>([]);
@@ -547,6 +549,41 @@ export default function MemberDashboard() {
     ).sort((a, b) => b.wins - a.wins);
     const seasonRacePhase = winnerEvents.length >= 30 ? 'Final Stretch' : winnerEvents.length >= 18 ? 'Mid Season' : 'Early Season';
     const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';
+    const coveredGameweeks = gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0;
+    const nextDueDate = new Date(Date.now() + (3 * 24 * 60 * 60 * 1000));
+    const txDate = (tx: any) => {
+        const raw = tx?.timestamp || tx?.createdAt || tx?.updatedAt || tx?.date;
+        if (!raw) return null;
+        if (raw?.toDate) return raw.toDate();
+        const parsed = new Date(raw);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const recentResolvedPayouts = transactions
+        .filter((tx: any) => tx.type === 'payout' && Number(tx.amount || 0) > 0)
+        .sort((a: any, b: any) => {
+            const aTs = txDate(a)?.getTime() || 0;
+            const bTs = txDate(b)?.getTime() || 0;
+            return bTs - aTs;
+        })
+        .slice(0, 3);
+
+    const priorityStrip = winnerConfirmation
+        ? {
+            title: `Confirm payout receipt: KES ${Number(winnerConfirmation.amount || 0).toLocaleString()}`,
+            subtitle: 'Please confirm within 24 hours once funds hit your M-Pesa.',
+            tone: 'amber' as const,
+        }
+        : !hasPaid
+            ? {
+                title: `Pay KES ${Number(gameweekStake || 0).toLocaleString()} to stay eligible`,
+                subtitle: 'Deadline: before next FPL cutoff window.',
+                tone: 'red' as const,
+            }
+            : {
+                title: `Coverage: ${coveredGameweeks} GW${coveredGameweeks !== 1 ? 's' : ''} funded`,
+                subtitle: `Next due target: ${nextDueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+                tone: 'green' as const,
+            };
 
     // Phase 30: Is the logged-in user the current GW Winner?
     const isCurrentUserGwWinner = gwWinner && currentUser && (
@@ -677,6 +714,27 @@ export default function MemberDashboard() {
                     </span>
                 </div>
 
+                <div className={clsx(
+                    'fc-member-priority-strip rounded-2xl border px-4 py-3 flex items-center justify-between gap-3',
+                    priorityStrip.tone === 'red' && 'border-red-500/30 bg-red-500/10',
+                    priorityStrip.tone === 'amber' && 'border-[#FBBF24]/30 bg-[#FBBF24]/10',
+                    priorityStrip.tone === 'green' && 'border-[#10B981]/30 bg-[#10B981]/10'
+                )}>
+                    <div>
+                        <p className="text-sm font-black text-white leading-tight">{priorityStrip.title}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{priorityStrip.subtitle}</p>
+                    </div>
+                    {!hasPaid && (
+                        <button
+                            onClick={handleMpesaSTKPush}
+                            disabled={isPushingMpesa}
+                            className="shrink-0 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-black uppercase tracking-widest"
+                        >
+                            {isPushingMpesa ? 'Sending...' : 'Pay Now'}
+                        </button>
+                    )}
+                </div>
+
                 {/* Phase 30: Golden Winner Celebration OR Normal Action Banner */}
                 {isCurrentUserGwWinner ? (
                     <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden">
@@ -694,7 +752,7 @@ export default function MemberDashboard() {
                             <h3 className="text-2xl md:text-3xl font-black text-white leading-tight tracking-tight">
                                 Congratulations, {firstName}!
                             </h3>
-                            <p className="text-sm font-bold text-gray-300 mt-1">
+                            <p className="fc-gw-winner-subline text-sm font-bold text-gray-300 mt-1">
                                 You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
                             </p>
                         </div>
@@ -715,7 +773,7 @@ export default function MemberDashboard() {
                                     showToast('✅ Win link copied! Share it!');
                                 }
                             }}
-                            className="relative z-10 flex items-center gap-2 px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-black rounded-xl transition-all active:scale-95"
+                            className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-300 border border-amber-300 text-[#111827] text-xs font-black rounded-xl transition-all active:scale-95"
                         >
                             🏆 Share My Win
                         </button>
@@ -809,6 +867,12 @@ export default function MemberDashboard() {
                             <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
                                 <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle (Last 3 GWs)
                             </h4>
+                            <button
+                                onClick={() => setShowWinnersPanelMobile(prev => !prev)}
+                                className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-300"
+                            >
+                                {showWinnersPanelMobile ? 'Hide' : 'Show'}
+                            </button>
                             {winnerEvents.length > 3 && (
                                 <button
                                     onClick={() => setShowAllWinners(!showAllWinners)}
@@ -820,7 +884,8 @@ export default function MemberDashboard() {
                         </div>
                         <div className={clsx(
                             "flex gap-3 pb-1 transition-all duration-300",
-                            showAllWinners ? "flex-wrap" : "overflow-x-auto"
+                            showAllWinners ? "flex-wrap" : "overflow-x-auto",
+                            !showWinnersPanelMobile && 'hidden sm:flex'
                         )} style={showAllWinners ? {} : { scrollbarWidth: 'none' }}>
                             {winnerEvents.length === 0 ? (
                                 <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 w-full text-center">No winners yet</div>
@@ -1149,6 +1214,24 @@ export default function MemberDashboard() {
                     </div>
                 </div>
 
+                <div className="fc-member-trust-strip w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                        <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400">Last 3 Resolved Payouts</h4>
+                        <span className="text-[10px] text-gray-500 font-bold">Trust Visibility</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        {recentResolvedPayouts.length > 0 ? recentResolvedPayouts.map((tx: any) => (
+                            <div key={tx.id || `${tx.winnerName}-${tx.gameweek || tx.gw}`} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                                <p className="text-xs font-black text-white truncate">{tx.winnerName || 'Winner'}</p>
+                                <p className="text-[10px] text-gray-400 mt-0.5">GW {tx.gameweek || tx.gw || '-'} • KES {Number(tx.amount || 0).toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-500 mt-1">{txDate(tx)?.toLocaleString() || 'Recently'}</p>
+                            </div>
+                        )) : (
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest md:col-span-3">No resolved payouts yet</p>
+                        )}
+                    </div>
+                </div>
+
                 {/* === ROW 4: Live Escrow Feed === */}
                 <div className="fc-member-feed w-full bg-[#0d1117] border border-white/5 rounded-[1.5rem] overflow-hidden">
                     <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
@@ -1156,9 +1239,15 @@ export default function MemberDashboard() {
                         <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Live Escrow Feed</h4>
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
                         <span className="ml-auto font-mono text-[10px] text-gray-700">{leagueName}</span>
+                        <button
+                            onClick={() => setShowFeedPanelMobile(prev => !prev)}
+                            className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-300"
+                        >
+                            {showFeedPanelMobile ? 'Hide' : 'Show'}
+                        </button>
                     </div>
                     <div
-                        className="h-48 overflow-y-auto divide-y divide-white/[0.03] font-mono"
+                        className={clsx('h-48 overflow-y-auto divide-y divide-white/[0.03] font-mono', !showFeedPanelMobile && 'hidden sm:block')}
                         style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
                     >
                         {liveEvents.length === 0 ? (
@@ -1188,7 +1277,7 @@ export default function MemberDashboard() {
             </main>
 
             {/* Fixed Bottom Actions */}
-            <div className="fc-member-bottom-actions fixed bottom-[calc(65px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-2 lg:pb-4">
+            <div className="fc-member-bottom-actions sticky bottom-[calc(65px+env(safe-area-inset-bottom))] lg:bottom-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pb-2 lg:pb-4">
                 <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
                     <button
                         onClick={handleMpesaSTKPush}
