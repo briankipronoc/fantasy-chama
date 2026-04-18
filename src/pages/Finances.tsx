@@ -171,7 +171,7 @@ export default function Finances() {
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = `${leagueName.replace(/\s/g, '_')}_Ledger.csv`;
+        anchor.download = `${(leagueName || 'League').replace(/\s/g, '_')}_Ledger.csv`;
         anchor.click();
         URL.revokeObjectURL(url);
     };
@@ -261,6 +261,20 @@ export default function Finances() {
             setIsRejectingPayoutId(null);
         }
     };
+
+    if (!isAdmin && !currentUser) {
+        return (
+            <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#0b1014]">
+                <div className="w-full max-w-6xl mx-auto">
+                    <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
+                    <div className="fc-card mt-8 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-5 py-4">
+                        <p className="text-sm font-black text-amber-300 uppercase tracking-widest">Sync Pending</p>
+                        <p className="text-sm text-gray-300 mt-1">Your member profile is still syncing. Refresh in a few seconds and try again.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#0b1014]">
@@ -548,6 +562,7 @@ export default function Finances() {
                     <div className="md:hidden divide-y divide-white/5">
                         {myTransactions.length > 0 ? myTransactions.map((tx: any) => {
                             const isWinning = tx.type === 'payout';
+                            const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -570,7 +585,7 @@ export default function Finances() {
                                         {isWinning ? '🏆 GW Payout (Winner)' : 'M-Pesa Deposit'}
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-gray-500">
-                                        <span>{tx.receiptId || `TXN${tx.id.substring(0, 8).toUpperCase()}`}</span>
+                                        <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
                                         <span>{txDate(tx) ? txDate(tx)?.toLocaleDateString() : 'Just now'}</span>
                                     </div>
                                 </div>
@@ -599,10 +614,11 @@ export default function Finances() {
                                 {myTransactions.length > 0 ? (
                                     myTransactions.map((tx: any) => {
                                         const isWinning = tx.type === 'payout';
+                                        const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                                    {tx.receiptId || `TXN${tx.id.substring(0, 8).toUpperCase()}`}
+                                                    {tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="text-sm font-bold text-white">

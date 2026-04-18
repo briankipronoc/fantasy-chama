@@ -497,6 +497,9 @@ export default function MemberDashboard() {
         const unsub = onSnapshot(q, snap => {
             if (!snap.empty) setWinnerConfirmation({ id: snap.docs[0].id, ...snap.docs[0].data() });
             else setWinnerConfirmation(null);
+        }, (error) => {
+            console.warn('[member-dashboard] winner confirmations listener failed:', error?.message || error);
+            setWinnerConfirmation(null);
         });
         return () => unsub();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -513,17 +516,19 @@ export default function MemberDashboard() {
     // Fallback to payout transactions so Winner's Circle works even when winner events aren't emitted.
     const winnerEventsFromNotifs = notifications.filter((n: any) => n.isWinnerEvent);
     const winnerEventsFromTx = transactions
-        .filter((tx: any) => tx.type === 'payout' && tx.winnerName)
+        .filter((tx: any) => tx.type === 'payout' && tx.winnerName && Number.isFinite(Number(tx.gw || tx.gameweek)))
         .map((tx: any, idx: number) => ({
             winnerId: tx.winnerId || tx.userId || `tx-${idx}`,
             winnerName: tx.winnerName,
             points: tx.points || null,
-            gw: tx.gw || tx.gameweek || null,
+            gw: Number(tx.gw || tx.gameweek),
             timestamp: tx.timestamp || null,
             fromTx: true,
-        }));
+        }))
+        .sort((a: any, b: any) => b.gw - a.gw)
+        .filter((entry: any, index: number, arr: any[]) => arr.findIndex((item) => item.gw === entry.gw) === index);
 
-    const winnerEvents = winnerEventsFromNotifs.length > 0 ? winnerEventsFromNotifs : winnerEventsFromTx;
+    const winnerEvents = winnerEventsFromTx.length > 0 ? winnerEventsFromTx : winnerEventsFromNotifs;
     const mostRecentWinner = winnerEvents.length > 0 ? winnerEvents[0] : null;
     const isRecentWinner = mostRecentWinner?.winnerId === currentUser?.id;
     const winnerLeaderboard = Object.values(
@@ -562,6 +567,7 @@ export default function MemberDashboard() {
     };
     const greetingText = getGreeting();
     const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
+    const currentGwBadge = gwWinner?.event ? `GW ${gwWinner.event} Active` : 'GW Active';
 
     if (isLoading) {
         return <DashboardSkeleton />;
@@ -569,7 +575,7 @@ export default function MemberDashboard() {
 
     return (
         <div className={clsx(
-            "min-h-[100dvh] text-white flex flex-col font-sans relative pb-28 w-full overflow-x-hidden transition-colors duration-1000",
+            "fc-member-dashboard min-h-[100dvh] text-white flex flex-col font-sans relative pb-28 w-full overflow-x-hidden transition-colors duration-1000",
             isCurrentUserGwWinner
                 ? "bg-gradient-to-br from-[#0b1014] via-[#1a1608] to-[#2a1f05]"
                 : hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]",
@@ -667,7 +673,7 @@ export default function MemberDashboard() {
                         </span>
                     </p>
                     <span className="hidden sm:block text-[10px] font-bold text-gray-600 uppercase tracking-widest border border-white/5 bg-white/[0.03] px-2 py-0.5 rounded-full">
-                        GW 26 Active
+                        {currentGwBadge}
                     </span>
                 </div>
 
@@ -798,10 +804,10 @@ export default function MemberDashboard() {
                     </div>
 
                     {/* Winner's Circle — expandable */}
-                    <div className="lg:col-span-4 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col gap-3 overflow-hidden">
+                    <div className="fc-member-winners lg:col-span-4 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col gap-3 overflow-hidden">
                         <div className="flex items-center justify-between">
                             <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
-                                <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle
+                                <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle (Last 3 GWs)
                             </h4>
                             {winnerEvents.length > 3 && (
                                 <button
@@ -818,7 +824,7 @@ export default function MemberDashboard() {
                         )} style={showAllWinners ? {} : { scrollbarWidth: 'none' }}>
                             {winnerEvents.length === 0 ? (
                                 <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 w-full text-center">No winners yet</div>
-                            ) : (showAllWinners ? winnerEvents : winnerEvents.slice(0, 5)).map((winner: any, idx: number) => {
+                            ) : (showAllWinners ? winnerEvents : winnerEvents.slice(0, 3)).map((winner: any, idx: number) => {
                                 const winnerMember = members.find(m => m.id === winner.winnerId) || { avatarSeed: winner.winnerName };
                                 return (
                                     <div key={idx} className={clsx(
@@ -963,6 +969,7 @@ export default function MemberDashboard() {
                     {/* Personal Status + Pay Action */}
                     {currentUser && (
                         <div className={clsx(
+                            "fc-member-status-card",
                             "lg:col-span-5 rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50",
                             isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
                                 (hasPaid ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")
@@ -1052,7 +1059,7 @@ export default function MemberDashboard() {
                     )}
 
                     {/* Performance Chart */}
-                    <div className="lg:col-span-7 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5">
+                    <div className="fc-member-chart lg:col-span-7 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5">
                         <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                             <BarChart3 className="w-3.5 h-3.5" /> Performance Trajectory
                             <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
@@ -1093,7 +1100,7 @@ export default function MemberDashboard() {
                 </div>
 
                 {/* === ROW 3: Full-width Red Zone / Verification Ledger === */}
-                <div className="w-full bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] overflow-hidden">
+                <div className="fc-member-ledger w-full bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] overflow-hidden">
                     <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
                         <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
                             <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" /> Verification Ledger
@@ -1143,7 +1150,7 @@ export default function MemberDashboard() {
                 </div>
 
                 {/* === ROW 4: Live Escrow Feed === */}
-                <div className="w-full bg-[#0d1117] border border-white/5 rounded-[1.5rem] overflow-hidden">
+                <div className="fc-member-feed w-full bg-[#0d1117] border border-white/5 rounded-[1.5rem] overflow-hidden">
                     <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
                         <Activity className="w-3.5 h-3.5 text-[#10B981]" />
                         <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Live Escrow Feed</h4>
@@ -1181,18 +1188,18 @@ export default function MemberDashboard() {
             </main>
 
             {/* Fixed Bottom Actions */}
-            <div className="fixed bottom-[65px] lg:bottom-0 left-0 lg:left-64 xl:left-72 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-8 lg:pb-6">
+            <div className="fc-member-bottom-actions fixed bottom-[calc(65px+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pointer-events-none pb-2 lg:pb-4">
                 <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
                     <button
                         onClick={handleMpesaSTKPush}
                         disabled={isPushingMpesa || hasPaid}
-                        className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-60 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                        className="fc-member-bottom-primary flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-60 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]"
                     >
                         <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
                     </button>
                     <button
                         onClick={() => navigate('/standings')}
-                        className="flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+                        className="fc-member-bottom-secondary flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
                     >
                         <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings &amp; Vault
                     </button>

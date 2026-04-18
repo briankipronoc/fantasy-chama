@@ -63,6 +63,9 @@ const AppLayoutWrapper = () => (
 );
 
 function App() {
+  const role = useStore(state => state.role);
+  const hasActiveLeague = !!localStorage.getItem('activeLeagueId');
+
   useEffect(() => {
     const leagueId = localStorage.getItem('activeLeagueId');
     const userId = localStorage.getItem('activeUserId');
@@ -81,7 +84,7 @@ function App() {
             {/* Public routes — no AppLayout shell */}
             <Route path="/" element={<RootRoute />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/setup" element={<AdminSetup />} />
+            <Route path="/setup" element={(role || hasActiveLeague) ? <Navigate to="/dashboard" replace /> : <AdminSetup />} />
             <Route path="/invite" element={<InviteHub />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -93,6 +96,7 @@ function App() {
             {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
             <Route element={<AppLayoutWrapper />}>
               <Route path="/dashboard" element={<DashboardRenderer />} />
+              <Route path="/command-center" element={role === 'admin' ? <AdminCommandCenter /> : <Navigate to="/dashboard" replace />} />
               <Route path="/finances" element={<Finances />} />
               <Route path="/access" element={<MemberEnrollment />} />
               <Route path="/rules" element={<PayoutRules />} />

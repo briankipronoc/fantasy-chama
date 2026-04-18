@@ -108,6 +108,24 @@
     border: 1px solid rgba(59, 130, 246, 0.35);
   }
 
+  .fc-error-boundary {
+    background: rgba(13, 18, 24, 0.9);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.24);
+    color: #f8fafc;
+  }
+  .fc-error-boundary-copy {
+    color: #94a3b8;
+  }
+  .fc-error-boundary-retry {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+  .fc-error-boundary-retry:hover {
+    background: rgba(239, 68, 68, 0.2);
+  }
+
   .fc-landing-shell {
     background:
       radial-gradient(ellipse 60% 40% at 10% 0%, rgba(16, 185, 129, 0.12), transparent 60%),
@@ -531,6 +549,21 @@
 [data-theme="light"] .fc-sidebar-link {
   color: #334155;
 }
+[data-theme="light"] .fc-sidebar-link-icon {
+  background: rgba(248, 250, 252, 0.9) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-sidebar-link:hover .fc-sidebar-link-icon {
+  background: rgba(241, 245, 249, 0.98) !important;
+  border-color: rgba(100, 116, 139, 0.36) !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-sidebar-link-active .fc-sidebar-link-icon {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #047857 !important;
+}
 [data-theme="light"] .fc-sidebar-link:hover {
   color: #0f172a;
   background: rgba(15, 23, 42, 0.05);
@@ -549,24 +582,123 @@
   color: #047857 !important;
 }
 [data-theme="light"] .fc-sidebar-logout {
-  background: rgba(248, 250, 252, 0.96) !important;
-  border-color: rgba(148, 163, 184, 0.32) !important;
+  background: transparent !important;
+  border-color: transparent !important;
   color: #334155 !important;
 }
 [data-theme="light"] .fc-sidebar-logout:hover {
-  background: rgba(241, 245, 249, 0.98) !important;
+  background: rgba(15, 23, 42, 0.05) !important;
   color: #0f172a !important;
 }
 [data-theme="light"] .fc-sidebar-logout-icon {
-  background: rgba(239, 68, 68, 0.08) !important;
-  border-color: rgba(239, 68, 68, 0.22) !important;
+  background: rgba(254, 242, 242, 0.96) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 [data-theme="light"] .fc-sidebar-logout-icon svg {
-  color: #b91c1c !important;
+  color: #dc2626 !important;
+}
+[data-theme="light"] .fc-sidebar-logout:hover .fc-sidebar-logout-icon {
+  background: rgba(254, 226, 226, 0.95) !important;
+  border-color: rgba(220, 38, 38, 0.35) !important;
 }
 [data-theme="light"] .fc-mobile-dock {
   background: rgba(255, 255, 255, 0.9) !important;
   border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+[data-theme="light"] .fc-error-boundary {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1) !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-error-boundary-copy {
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-error-boundary-retry {
+  background: rgba(254, 242, 242, 0.95) !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+  color: #b91c1c !important;
+}
+[data-theme="light"] .fc-error-boundary-retry:hover {
+  background: rgba(254, 226, 226, 0.95) !important;
+}
+
+[data-theme="light"] .fc-member-dashboard {
+  color: #0f172a !important;
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9) !important;
+}
+[data-theme="light"] .fc-member-dashboard .text-white {
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-member-dashboard .text-gray-700 {
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-member-dashboard .text-gray-600 {
+  color: #64748b !important;
+}
+[data-theme="light"] .fc-member-dashboard .text-gray-500 {
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-member-dashboard .text-gray-400 {
+  color: #334155 !important;
+}
+[data-theme="light"] .fc-member-dashboard .border-white\/5 {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+[data-theme="light"] .fc-member-dashboard .bg-white\/\[0\.03\],
+[data-theme="light"] .fc-member-dashboard .bg-white\/\[0\.02\] {
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] .fc-member-status-card,
+[data-theme="light"] .fc-member-chart,
+[data-theme="light"] .fc-member-winners,
+[data-theme="light"] .fc-member-ledger,
+[data-theme="light"] .fc-member-feed {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .fc-member-winners .bg-black\/30,
+[data-theme="light"] .fc-member-winners .bg-black\/20,
+[data-theme="light"] .fc-member-chart .bg-black\/20 {
+  background: rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] .fc-member-ledger,
+[data-theme="light"] .fc-member-feed {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .fc-member-ledger .text-white,
+[data-theme="light"] .fc-member-feed .text-white {
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-member-ledger .text-gray-500,
+[data-theme="light"] .fc-member-feed .text-gray-500,
+[data-theme="light"] .fc-member-feed .text-gray-700 {
+  color: #64748b !important;
+}
+[data-theme="light"] .fc-member-feed .divide-y > * {
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+[data-theme="light"] .fc-member-bottom-actions {
+  background: linear-gradient(to top, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0.78), rgba(248, 250, 252, 0)) !important;
+}
+[data-theme="light"] .fc-member-bottom-primary {
+  color: #052e16 !important;
+  border: 1px solid rgba(5, 150, 105, 0.22) !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2) !important;
+}
+[data-theme="light"] .fc-member-bottom-secondary {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-member-bottom-secondary:hover {
+  background: rgba(241, 245, 249, 0.98) !important;
 }
 
 [data-theme="light"] .fc-pot-swapper {

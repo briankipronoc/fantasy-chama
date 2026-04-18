@@ -58,7 +58,7 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-    role: (localStorage.getItem('fc-role') as Role) || null, // Hydrate role to survive refreshes
+    role: (((localStorage.getItem('fc-role') || localStorage.getItem('role')) as Role) || (localStorage.getItem('activeLeagueId') ? 'member' : null)), // Hydrate role with least-privilege fallback
     league: null,
     members: [],
     transactions: [],
@@ -66,8 +66,10 @@ export const useStore = create<AppState>((set) => ({
     setRole: (role) => {
         if (role) {
             localStorage.setItem('fc-role', role);
+            localStorage.setItem('role', role);
         } else {
             localStorage.removeItem('fc-role');
+            localStorage.removeItem('role');
         }
         set({ role });
     },
@@ -85,6 +87,7 @@ export const useStore = create<AppState>((set) => ({
         localStorage.removeItem('activeLeagueId');
         localStorage.removeItem('memberPhone');
         localStorage.removeItem('fc-role');
+        localStorage.removeItem('role');
         // Sign out from Firebase Auth
         signOut(auth).catch(console.error);
         

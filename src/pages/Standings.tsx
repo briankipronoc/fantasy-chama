@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -49,6 +49,7 @@ export default function Standings() {
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>>([]);
+    const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     const fallbackFplLeagueId = 314;
 
@@ -62,46 +63,57 @@ export default function Standings() {
 
         const fetchFPLStandings = async () => {
             try {
-                const leagueRef = doc(db, 'leagues', activeLeagueId);
-                const leagueSnap = await getDoc(leagueRef);
                 let targetFplId = fallbackFplLeagueId;
-                if (leagueSnap.exists()) {
-                    const lData = leagueSnap.data();
-                    setLeagueName(lData.leagueName || lData.name || 'League');
-                    if (lData.chairmanId) setChairmanId(lData.chairmanId);
-                    if (lData.coAdminId) setCoAdminId(lData.coAdminId);
-                    if (lData.fplLeagueId) {
-                        setDbFplLeagueId(lData.fplLeagueId);
-                        targetFplId = lData.fplLeagueId;
+
+                try {
+                    const leagueRef = doc(db, 'leagues', activeLeagueId);
+                    const leagueSnap = await getDoc(leagueRef);
+                    if (leagueSnap.exists()) {
+                        const lData = leagueSnap.data();
+                        setLeagueName(lData.leagueName || lData.name || 'League');
+                        if (lData.chairmanId) setChairmanId(lData.chairmanId);
+                        if (lData.coAdminId) setCoAdminId(lData.coAdminId);
+                        if (lData.fplLeagueId) {
+                            setDbFplLeagueId(lData.fplLeagueId);
+                            targetFplId = lData.fplLeagueId;
+                        }
                     }
+                } catch (leagueErr: any) {
+                    console.warn('[standings] league metadata read skipped:', leagueErr?.message || leagueErr);
                 }
 
                 const results = await fetchFplStandings(targetFplId);
                 setStandingsData(results);
                 setError(null);
 
-                const txSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'transactions'));
-                const payoutRows = txSnap.docs
-                    .map((txDoc) => txDoc.data() as any)
-                    .filter((tx) => tx.type === 'payout' && Number.isFinite(Number(tx.gameweek || tx.gw)));
+                try {
+                    const txSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'transactions'));
+                    const payoutRows = txSnap.docs
+                        .map((txDoc) => txDoc.data() as any)
+                        .filter((tx) => tx.type === 'payout' && Number.isFinite(Number(tx.gameweek || tx.gw)));
 
-                const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>();
-                payoutRows.forEach((tx) => {
-                    const gw = Number(tx.gameweek || tx.gw);
-                    if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
-                    winnerByGw.set(gw, {
-                        gw,
-                        winnerName: tx.winnerName || 'Unknown winner',
-                        winnerTeam: tx.winnerTeam || tx.entryName || null,
-                        amount: Number(tx.amount || 0),
+                    const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>();
+                    payoutRows.forEach((tx) => {
+                        const gw = Number(tx.gameweek || tx.gw);
+                        if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
+                        winnerByGw.set(gw, {
+                            gw,
+                            winnerName: tx.winnerName || 'Unknown winner',
+                            winnerTeam: tx.winnerTeam || tx.entryName || null,
+                            amount: Number(tx.amount || 0),
+                        });
                     });
-                });
 
-                const ledger = Array.from({ length: 38 }, (_, index) => {
-                    const gw = index + 1;
-                    return winnerByGw.get(gw) || { gw, winnerName: 'Pending' };
-                });
-                setGwWinnersLedger(ledger);
+                    const ledger = Array.from({ length: 38 }, (_, index) => {
+                        const gw = index + 1;
+                        return winnerByGw.get(gw) || { gw, winnerName: 'Pending' };
+                    });
+                    setGwWinnersLedger(ledger);
+                } catch (txErr: any) {
+                    console.warn('[standings] ledger read skipped:', txErr?.message || txErr);
+                    const blankLedger = Array.from({ length: 38 }, (_, index) => ({ gw: index + 1, winnerName: 'Pending' }));
+                    setGwWinnersLedger(blankLedger);
+                }
             } catch (err: any) {
                 console.error('FPL Fetch Error:', err);
                 setError(err.message || 'Could not connect to FPL servers.');
@@ -128,6 +140,13 @@ export default function Standings() {
         };
         fetchCurrentEvent();
     }, []);
+
+    useEffect(() => {
+        if (!currentEvent || !ledgerRailRef.current) return;
+        const gwCard = ledgerRailRef.current.querySelector<HTMLElement>(`[data-gw-card="${currentEvent}"]`);
+        if (!gwCard) return;
+        gwCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, [currentEvent, gwWinnersLedger.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
         const norm = (s: string) => s.toLowerCase().trim();
@@ -327,63 +346,6 @@ export default function Standings() {
                     </div>
                 )}
 
-                {!error && topSeasonLeaders.length > 0 && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="text-sm md:text-base font-black text-white tracking-tight">Season Race Snapshot</h3>
-                            <div className="flex items-center gap-2">
-                                {currentEvent && (
-                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
-                                        {currentGwLabel}
-                                    </span>
-                                )}
-                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]">
-                                    {seasonPhase}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                            {topSeasonLeaders.map((leader: any, idx: number) => (
-                                <div key={leader.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">#{idx + 1}</p>
-                                    <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
-                                    <p className="text-[10px] text-gray-400 truncate">{leader.entry_name}</p>
-                                    <p className="text-sm font-black text-[#10B981] tabular-nums mt-1">{leader.total.toLocaleString()} pts</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {!error && gwWinnersLedger.length > 0 && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="text-sm md:text-base font-black text-white tracking-tight">Gameweek Winners Ledger</h3>
-                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">GW 1-38</span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                            {gwWinnersLedger.map((item) => {
-                                const resolved = item.winnerName !== 'Pending';
-                                return (
-                                    <div key={item.gw} className={clsx(
-                                        'rounded-xl border p-3',
-                                        resolved ? 'border-emerald-500/25 bg-emerald-500/8' : 'border-white/10 bg-black/20'
-                                    )}>
-                                        <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">GW {item.gw}</p>
-                                        <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : 'text-gray-500')}>
-                                            {item.winnerName}
-                                        </p>
-                                        <p className="text-[10px] text-gray-400 truncate mt-1">{item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}</p>
-                                        {resolved && typeof item.amount === 'number' && item.amount > 0 && (
-                                            <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
                 {/* Table */}
                 {error ? (
                     <div className="fc-card w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center relative overflow-hidden mt-6">
@@ -493,6 +455,76 @@ export default function Standings() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {!error && topSeasonLeaders.length > 0 && (
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <h3 className="text-sm md:text-base font-black text-white tracking-tight">Season Race Snapshot</h3>
+                            <div className="flex items-center gap-2">
+                                {currentEvent && (
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
+                                        {currentGwLabel}
+                                    </span>
+                                )}
+                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]">
+                                    {seasonPhase}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                            {topSeasonLeaders.map((leader: any, idx: number) => (
+                                <div key={leader.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">#{idx + 1}</p>
+                                    <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
+                                    <p className="text-[10px] text-gray-400 truncate">{leader.entry_name}</p>
+                                    <p className="text-sm font-black text-[#10B981] tabular-nums mt-1">{leader.total.toLocaleString()} pts</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {!error && gwWinnersLedger.length > 0 && (
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <h3 className="text-sm md:text-base font-black text-white tracking-tight">Gameweek Winners Ledger</h3>
+                            <div className="flex items-center gap-2">
+                                {currentEvent && (
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
+                                        Now: GW {currentEvent}
+                                    </span>
+                                )}
+                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">Scroll for GW 1-38</span>
+                            </div>
+                        </div>
+                        <div ref={ledgerRailRef} className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory">
+                            {gwWinnersLedger.map((item) => {
+                                const resolved = item.winnerName !== 'Pending';
+                                const isCurrentGw = currentEvent === item.gw;
+                                return (
+                                    <div
+                                        key={item.gw}
+                                        data-gw-card={item.gw}
+                                        className={clsx(
+                                            'snap-start shrink-0 w-[calc((100%-0.625rem)/2)] sm:w-[calc((100%-1rem)/3)] lg:w-[calc((100%-2.5rem)/6)] rounded-xl border p-3',
+                                            resolved ? 'border-emerald-500/25 bg-emerald-500/8' : 'border-white/10 bg-black/20',
+                                            isCurrentGw && 'ring-2 ring-[#FBBF24]/55'
+                                        )}
+                                    >
+                                        <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">GW {item.gw}</p>
+                                        <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : 'text-gray-500')}>
+                                            {item.winnerName}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400 truncate mt-1">{item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}</p>
+                                        {resolved && typeof item.amount === 'number' && item.amount > 0 && (
+                                            <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>

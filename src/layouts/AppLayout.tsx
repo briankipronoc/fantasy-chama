@@ -21,7 +21,7 @@ export default function AppLayout() {
     const previousFinanceBadgeCountRef = useRef(0);
     const activeUserId = localStorage.getItem('activeUserId');
 
-    if (!role) {
+    if (!role && !activeLeagueId) {
         return <Navigate to="/login" replace />;
     }
 
@@ -206,7 +206,7 @@ export default function AppLayout() {
                                     title={isSidebarCollapsed ? item.name : undefined}
                                 >
                                     <span className={clsx(
-                                        'inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
+                                        'fc-sidebar-link-icon inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
                                         isSidebarCollapsed
                                             ? (isActive
                                                 ? 'h-11 w-11 border border-emerald-500/40 bg-emerald-500/18 text-emerald-300'
@@ -236,18 +236,18 @@ export default function AppLayout() {
                         <button
                             onClick={handleLogout}
                             className={clsx(
-                                'fc-sidebar-logout w-full rounded-xl transition-all font-bold text-sm border border-red-500/35 bg-[#EF4444]/15 text-red-300 hover:bg-red-500/25',
+                                'fc-sidebar-logout group w-full rounded-xl transition-all font-bold text-sm border border-transparent text-gray-400 hover:text-white hover:bg-white/5 focus:outline-none',
                                 isSidebarCollapsed ? 'h-12 flex items-center justify-center px-0' : 'flex items-center px-2 py-2.5'
                             )}
                             title={isSidebarCollapsed ? 'Sign Out' : undefined}
                         >
                             <span className={clsx(
-                                'fc-sidebar-logout-icon inline-flex items-center justify-center rounded-lg',
-                                isSidebarCollapsed ? 'h-10 w-10 border border-red-500/35 bg-red-500/20' : 'h-8 w-8 border border-red-500/35 bg-red-500/20'
+                                'fc-sidebar-logout-icon fc-sidebar-link-icon inline-flex items-center justify-center rounded-xl border text-red-400 group-hover:text-red-300',
+                                isSidebarCollapsed ? 'h-10 w-10' : 'h-8 w-8'
                             )}>
                                 <LogOut className="h-4.5 w-4.5" />
                             </span>
-                            {!isSidebarCollapsed && <span className="ml-3 text-center flex-1">Sign Out</span>}
+                            {!isSidebarCollapsed && <span className="ml-3 text-center flex-1 tracking-wide">Sign Out</span>}
                         </button>
                     </div>
                 </div>

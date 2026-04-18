@@ -118,13 +118,7 @@ export default function Profile() {
     // Red Zone: is current user unpaid?
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
     const hasPaid = currentMember?.hasPaid ?? true; // default true to avoid false red on load
-    const isAdminView =
-        role === 'admin' ||
-        currentMember?.role === 'admin' ||
-        (!!chairmanId && (
-            String(currentMember?.authUid || '') === String(chairmanId) ||
-            String(currentMember?.id || '') === String(chairmanId)
-        ));
+    const isAdminView = role === 'admin';
 
     const handleSaveMember = async (e: React.FormEvent) => {
         e.preventDefault();
