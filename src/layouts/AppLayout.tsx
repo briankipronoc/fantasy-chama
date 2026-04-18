@@ -236,7 +236,7 @@ export default function AppLayout() {
                         <button
                             onClick={handleLogout}
                             className={clsx(
-                                'fc-sidebar-logout group w-full rounded-xl transition-all font-bold text-sm border border-transparent text-gray-400 hover:text-white hover:bg-white/5 focus:outline-none',
+                                'fc-sidebar-logout group w-full rounded-xl transition-all font-bold text-sm border border-transparent text-gray-400 hover:text-white focus:outline-none',
                                 isSidebarCollapsed ? 'h-12 flex items-center justify-center px-0' : 'flex items-center px-2 py-2.5'
                             )}
                             title={isSidebarCollapsed ? 'Sign Out' : undefined}

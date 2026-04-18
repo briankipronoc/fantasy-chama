@@ -587,7 +587,7 @@
   color: #334155 !important;
 }
 [data-theme="light"] .fc-sidebar-logout:hover {
-  background: rgba(15, 23, 42, 0.05) !important;
+  background: transparent !important;
   color: #0f172a !important;
 }
 [data-theme="light"] .fc-sidebar-logout-icon {
@@ -629,21 +629,6 @@
   color: #0f172a !important;
   background: linear-gradient(180deg, #f8fafc, #f1f5f9) !important;
 }
-[data-theme="light"] .fc-member-dashboard .text-white {
-  color: #0f172a !important;
-}
-[data-theme="light"] .fc-member-dashboard .text-gray-700 {
-  color: #475569 !important;
-}
-[data-theme="light"] .fc-member-dashboard .text-gray-600 {
-  color: #64748b !important;
-}
-[data-theme="light"] .fc-member-dashboard .text-gray-500 {
-  color: #475569 !important;
-}
-[data-theme="light"] .fc-member-dashboard .text-gray-400 {
-  color: #334155 !important;
-}
 [data-theme="light"] .fc-member-dashboard .border-white\/5 {
   border-color: rgba(15, 23, 42, 0.12) !important;
 }
@@ -660,25 +645,32 @@
   border-color: rgba(15, 23, 42, 0.12) !important;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
 }
-[data-theme="light"] .fc-member-winners .bg-black\/30,
-[data-theme="light"] .fc-member-winners .bg-black\/20,
-[data-theme="light"] .fc-member-chart .bg-black\/20 {
-  background: rgba(15, 23, 42, 0.05) !important;
-}
-[data-theme="light"] .fc-member-ledger,
-[data-theme="light"] .fc-member-feed {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(15, 23, 42, 0.12) !important;
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08) !important;
-}
+[data-theme="light"] .fc-member-status-card .text-white,
+[data-theme="light"] .fc-member-chart .text-white,
+[data-theme="light"] .fc-member-winners .text-white,
 [data-theme="light"] .fc-member-ledger .text-white,
 [data-theme="light"] .fc-member-feed .text-white {
   color: #0f172a !important;
 }
+[data-theme="light"] .fc-member-status-card .text-gray-500,
+[data-theme="light"] .fc-member-chart .text-gray-500,
+[data-theme="light"] .fc-member-winners .text-gray-500,
 [data-theme="light"] .fc-member-ledger .text-gray-500,
 [data-theme="light"] .fc-member-feed .text-gray-500,
 [data-theme="light"] .fc-member-feed .text-gray-700 {
   color: #64748b !important;
+}
+[data-theme="light"] .fc-member-status-card .text-gray-400,
+[data-theme="light"] .fc-member-chart .text-gray-400,
+[data-theme="light"] .fc-member-winners .text-gray-400,
+[data-theme="light"] .fc-member-ledger .text-gray-400,
+[data-theme="light"] .fc-member-feed .text-gray-400 {
+  color: #334155 !important;
+}
+[data-theme="light"] .fc-member-winners .bg-black\/30,
+[data-theme="light"] .fc-member-winners .bg-black\/20,
+[data-theme="light"] .fc-member-chart .bg-black\/20 {
+  background: rgba(15, 23, 42, 0.05) !important;
 }
 [data-theme="light"] .fc-member-feed .divide-y > * {
   border-color: rgba(148, 163, 184, 0.22) !important;

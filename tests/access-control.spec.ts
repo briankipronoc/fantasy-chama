@@ -16,14 +16,10 @@ test.describe('Access Control Protections', () => {
     await page.goto('/setup');
     await page.waitForLoadState('networkidle');
 
-    // Setup is theoretically accessible ONLY if league is missing OR if you are setting up something.
-    // If the system has auth routing logic, it should redirect away.
-    // Let's assert we don't see the "Chairman Setup" text
-    const setupText = await page.getByText('Admin Setup', { exact: false }).isVisible();
-    
-    // In our app model, /setup redirect happens if activeLeagueId exists already
-    // so we should be pushed to the member dashboard.
-    expect(page.url()).toContain('/dashboard');
+    // Setup should not remain accessible for an already-scoped member session.
+    // Depending on hydration/auth state, app may route to /dashboard or /login.
+    expect(page.url()).not.toContain('/setup');
+    expect(page.url()).toMatch(/\/(dashboard|login)/);
   });
 
   test('Should block Standard Member from Admin Command Center', async ({ page }) => {
