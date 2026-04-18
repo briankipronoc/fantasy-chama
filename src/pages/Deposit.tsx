@@ -9,6 +9,12 @@ export default function Deposit() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+    const getApiBaseUrl = () => {
+        const configured = import.meta.env.VITE_API_URL?.trim();
+        if (configured) return configured.replace(/\/$/, '');
+        if (import.meta.env.DEV) return 'http://localhost:5001';
+        return '';
+    };
 
     const [phoneNumber, setPhoneNumber] = useState('254700000000');
     const [amountDue, setAmountDue] = useState<number | null>(null);
@@ -44,7 +50,8 @@ export default function Deposit() {
         setToast(null);
 
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const apiUrl = getApiBaseUrl();
+            if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             const activeUserId = localStorage.getItem('activeUserId') || members.find(m => m.phone === phoneNumber)?.id || 'guest';
 
             const response = await fetch(`${apiUrl}/api/mpesa/stkpush`, {

@@ -43,7 +43,9 @@ Promote a trusted friend to **Co-Chairman** to increase transparency.
 ### 1. Funding the Wallet
 - Members do not handle cash manually.
 - Go to your Member Dashboard and trigger an M-Pesa deposit directly.
+- You can enter any top-up amount, even if your wallet already has money.
 - **Verification**: If using M-Pesa Pochi, hit **"Confirm M-Pesa Receipt"** and drop your unique code. Once approved, your wallet balance updates instantly.
+- If you win and want the payout moved into your wallet, use **Request Wallet Credit** from the winner banner and add a short note for the Chairman.
 
 ### 2. Linking Your Exact FPL Team
 If you joined using the Chairman's 6-digit code, you must link your identity.
@@ -54,6 +56,7 @@ If you joined using the Chairman's 6-digit code, you must link your identity.
 - The second the Premier League week finalizes, the system auto-selects the league's highest scorer.
 - If it's you, your screen goes full gold.
 - **The Winner takes home exactly 91%** of the gross pot — seamlessly dispatched via Safaricom B2C (or via Chairman manual cash relay). 
+- Winners can also request wallet credit instead of a cash payout if they want to keep the winnings in their balance.
 
 Champion display logic:
 - During an active GW, cards show **Live Leader**

@@ -9,6 +9,8 @@ This checklist covers the minimum steps for a safe production launch.
   - `VITE_FIREBASE_VAPID_KEY`
   - `VITE_SENTRY_DSN`
   - `VITE_APP_URL`
+- Set `VITE_API_URL` to the public Render backend URL in Vercel production builds.
+- Do not use `localhost` in production for any payment or approval route.
 - Confirm the backend env values are present:
   - `DARAJA_CONSUMER_KEY`
   - `DARAJA_CONSUMER_SECRET`
@@ -45,15 +47,17 @@ Run these flows in order:
 1. Login
 2. Join or load a league
 3. Deposit via STK push
-4. Approve a payout with a Co-Chair
-5. Resolve a gameweek without a Co-Chair
-6. Read and mark notifications as read
-7. Open standings and confirm the table loads
-8. Open the member dashboard and confirm winner/podium sections render
-9. Verify unresolved GW cannot be resolved while FPL marks it as live
-10. Verify co-chair approval requests are targeted to the co-chair only
-11. Verify chairman-signature requests are targeted to chairman only
-12. Verify season vault preview reflects configured payout mode (Top1/Top3/Top5/Custom)
+4. Top up the wallet with an arbitrary amount above the gameweek stake
+5. Request wallet credit from a winnings banner and confirm the request is recorded
+6. Approve a payout with a Co-Chair
+7. Resolve a gameweek without a Co-Chair
+8. Read and mark notifications as read
+9. Open standings and confirm the table loads
+10. Open the member dashboard and confirm winner/podium sections render
+11. Verify unresolved GW cannot be resolved while FPL marks it as live
+12. Verify co-chair approval requests are targeted to the co-chair only
+13. Verify chairman-signature requests are targeted to chairman only
+14. Verify season vault preview reflects configured payout mode (Top1/Top3/Top5/Custom)
 
 ## 4. Post-Deploy Monitoring
 

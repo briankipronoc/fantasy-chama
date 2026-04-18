@@ -13,6 +13,12 @@ export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
     const activeUserId = localStorage.getItem('activeUserId');
+    const getApiBaseUrl = () => {
+        const configured = import.meta.env.VITE_API_URL?.trim();
+        if (configured) return configured.replace(/\/$/, '');
+        if (import.meta.env.DEV) return 'http://localhost:5001';
+        return '';
+    };
     const { members, listenToLeagueMembers, isStealthMode, role } = useStore();
 
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -278,7 +284,8 @@ export default function Finances() {
             }
 
             if (payout.method === 'mpesa' || !payout.method) {
-                const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const payoutApiUrl = getApiBaseUrl();
+                if (!payoutApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
                 const payoutRes = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -302,7 +309,8 @@ export default function Finances() {
                 approvedAt: serverTimestamp()
             });
 
-            const gwApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const gwApiUrl = getApiBaseUrl();
+            if (!gwApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -658,7 +666,8 @@ export default function Finances() {
 
                                         try {
                                             // 1. Trigger B2C payout
-                                            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                                            const payoutApiUrl = getApiBaseUrl();
+                                            if (!payoutApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
                                             const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },

@@ -114,6 +114,33 @@
       #070b10;
   }
 
+  .fc-hq-panel {
+    background-color: rgba(13, 18, 24, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  }
+
+  .fc-hq-subpanel {
+    background-color: rgba(11, 16, 20, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .fc-hq-tabbar {
+    background-color: rgba(13, 18, 24, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .fc-hq-input {
+    background-color: rgba(13, 18, 24, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+  }
+
+  .fc-hq-league-card {
+    background-color: rgba(13, 18, 24, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
   .fc-resolve-modal {
     box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
   }
@@ -503,6 +530,33 @@
     radial-gradient(ellipse 70% 45% at 50% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
     linear-gradient(180deg, #f8fafc 0%, #edf5ef 100%) !important;
 }
+
+  [data-theme="light"] .fc-hq-panel {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="light"] .fc-hq-subpanel {
+    background-color: rgba(255, 255, 255, 0.72);
+    border-color: rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="light"] .fc-hq-tabbar {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="light"] .fc-hq-input {
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="light"] .fc-hq-league-card {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.08);
+  }
 [data-theme="light"] .bg-\[\#0a0e17\],
 [data-theme="light"] .bg-\[\#0A0E17\],
 [data-theme="light"] .bg-\[\#0b1014\],

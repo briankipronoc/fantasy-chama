@@ -103,6 +103,13 @@ Winner acknowledgment receipts (Pochi receipt confirmation).
 winnerId, amount, receiptId, status ('pending_confirmation' | 'confirmed')
 ```
 
+#### `wallet_topup_requests/{requestId}`
+Chairman wallet credit requests raised from member winnings or manual reconciliation.
+```
+memberId, memberName, amount, note, status ('pending' | 'approved' | 'rejected'),
+source ('winnings_request' | 'manual'), requestedAt, requestedById, targetMemberId
+```
+
 ---
 
 ## 3. The Financial Engine (9% Transparent Economy)
@@ -148,6 +155,11 @@ Gross Pot = paidMembers × gameweekStake
 - Chairman has **48 hours** to pay HQ via Pochi La Biashara
 - Within 48h: yellow warning banner on Chairman dashboard
 - After 48h: full blur lockout on Chairman + red banner for all members
+
+### Deployment Contract
+- Frontend must set `VITE_API_URL` to the public Render backend URL in production.
+- Vercel should never point at `localhost` for payment calls.
+- Backend remains the single source of truth for STK push, B2C, and GW deduction.
 
 ---
 

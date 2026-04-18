@@ -156,6 +156,11 @@ Promote any trusted member to Co-Chair:
 - Every payout leaves a permanent audit trail
 - Co-Chair earns 1% per approved payout as a trustee fee
 
+### Wallet Credit Requests
+Members can ask for winnings to be credited into their wallet instead of withdrawing cash.
+- These requests are stored as notifications and wallet-credit request records.
+- Review the request amount and note, then either top up the wallet from winnings or reconcile manually.
+
 ---
 
 ## Part 7: The Referral Engine

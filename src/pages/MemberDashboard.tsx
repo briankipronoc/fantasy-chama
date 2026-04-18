@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone, Wallet } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -38,6 +38,13 @@ export default function MemberDashboard() {
     const [claimReceiptCode, setClaimReceiptCode] = useState('');
     const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
     const [claimSubmitted, setClaimSubmitted] = useState(false);
+
+    // Wallet top-up + winnings credit request state
+    const [showTopUpModal, setShowTopUpModal] = useState(false);
+    const [topUpAmount, setTopUpAmount] = useState(0);
+    const [topUpNote, setTopUpNote] = useState('');
+    const [isSubmittingTopUp, setIsSubmittingTopUp] = useState(false);
+    const [isRequestingWalletCredit, setIsRequestingWalletCredit] = useState(false);
 
     // Module 4A: Winner confirmation state
     const [winnerConfirmation, setWinnerConfirmation] = useState<any>(null);
@@ -81,6 +88,13 @@ export default function MemberDashboard() {
     const [showPochiInstructions, setShowPochiInstructions] = useState(false);
     const [isNudgingHQ, setIsNudgingHQ] = useState(false);
 
+    const getApiBaseUrl = () => {
+        const configured = import.meta.env.VITE_API_URL?.trim();
+        if (configured) return configured.replace(/\/$/, '');
+        if (import.meta.env.DEV) return 'http://localhost:5001';
+        return '';
+    };
+
     const handleNudgeHQ = async () => {
         if (!activeLeagueId || !currentUser) return;
         setIsNudgingHQ(true);
@@ -101,6 +115,10 @@ export default function MemberDashboard() {
     const { notifications } = useNotifications();
 
     const currentUser = members.find(m => m.id === activeUserIdStored) || members.find(m => m.phone === memberPhone);
+    const chairmanMember = members.find((member) => {
+        const role = (member as any).role;
+        return member.id === coAdminId || role === 'admin' || role === 'chairman';
+    });
     const walletBalance = currentUser?.walletBalance || 0;
     const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
     const activeUserId = currentUser?.id || 'dummy';
@@ -337,17 +355,20 @@ export default function MemberDashboard() {
         setTimeout(() => setToastMessage(''), 3000);
     };
 
-    const handleMpesaSTKPush = async () => {
+    const handleMpesaSTKPush = async (amount = gameweekStake) => {
         if (!activeLeagueId || !currentUser || !memberPhone) return;
+        setIsSubmittingTopUp(true);
         setIsPushingMpesa(true);
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const apiUrl = getApiBaseUrl();
+            if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
+            const requestAmount = Math.max(1, Math.floor(Number(amount || 0)));
             const response = await fetch(`${apiUrl}/api/mpesa/stkpush`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phoneNumber: memberPhone,
-                    amount: gameweekStake,
+                    amount: requestAmount,
                     userId: activeUserId,
                     leagueId: activeLeagueId
                 })
@@ -364,6 +385,7 @@ export default function MemberDashboard() {
             showToast("Network Error: Could not reach payment server.", "error");
         } finally {
             setIsPushingMpesa(false);
+            setIsSubmittingTopUp(false);
         }
     };
 
@@ -372,7 +394,8 @@ export default function MemberDashboard() {
         setIsQueryingReceipt(true);
         setReceiptResult(null);
         try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const apiUrl = getApiBaseUrl();
+            if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             const res = await fetch(`${apiUrl}/api/mpesa/query`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -392,6 +415,49 @@ export default function MemberDashboard() {
             setReceiptResult({ success: false, message: 'Network error. Please try again.' });
         } finally {
             setIsQueryingReceipt(false);
+        }
+    };
+
+    const handleRequestWalletCredit = async () => {
+        if (!activeLeagueId || !currentUser) return;
+
+        const amount = Math.max(1, Math.floor(Number(topUpAmount || 0)));
+        if (amount <= 0) {
+            showToast('Enter a valid amount before sending the request.', 'error');
+            return;
+        }
+
+        setIsRequestingWalletCredit(true);
+        try {
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                message: `${currentUser.displayName} requested KES ${amount.toLocaleString()} wallet credit${topUpNote.trim() ? ` — ${topUpNote.trim()}` : ''}. Please credit the wallet from winnings or reconcile manually.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+                targetMemberId: chairmanMember?.id || coAdminId || undefined
+            });
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'wallet_topup_requests'), {
+                memberId: currentUser.id,
+                memberName: currentUser.displayName,
+                amount,
+                note: topUpNote.trim() || null,
+                status: 'pending',
+                source: 'winnings_request',
+                requestedAt: serverTimestamp(),
+                requestedById: currentUser.id,
+                requestedByName: currentUser.displayName,
+                targetMemberId: chairmanMember?.id || coAdminId || null
+            });
+
+            showToast('Wallet credit request sent to the Chairman.', 'success');
+            setShowTopUpModal(false);
+            setTopUpNote('');
+        } catch (error: any) {
+            console.error('Wallet credit request failed:', error);
+            showToast(`Could not send request: ${error?.message || 'Unknown error'}`, 'error');
+        } finally {
+            setIsRequestingWalletCredit(false);
         }
     };
 
@@ -470,7 +536,8 @@ export default function MemberDashboard() {
         if (!activeLeagueId) return;
         setIsApprovingPayout(payout.id);
         try {
-            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const payoutApiUrl = getApiBaseUrl();
+            if (!payoutApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -700,11 +767,21 @@ export default function MemberDashboard() {
     const actionButtons = (
         <>
             <button
-                onClick={handleMpesaSTKPush}
+                onClick={() => handleMpesaSTKPush(gameweekStake)}
                 disabled={isPushingMpesa || hasPaid}
                 className="fc-member-bottom-primary flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-60 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]"
             >
                 <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
+            </button>
+            <button
+                onClick={() => {
+                    setTopUpAmount(Math.max(1, gameweekStake));
+                    setTopUpNote('');
+                    setShowTopUpModal(true);
+                }}
+                className="fc-member-bottom-secondary flex-1 bg-[#FBBF24]/10 hover:bg-[#FBBF24]/15 border border-[#FBBF24]/20 text-[#FBBF24] font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+            >
+                <Wallet className="w-5 h-5" /> Top Up Wallet
             </button>
             <button
                 onClick={() => navigate('/standings')}
@@ -835,7 +912,7 @@ export default function MemberDashboard() {
                     </div>
                     {!hasPaid && (
                         <button
-                            onClick={handleMpesaSTKPush}
+                            onClick={() => handleMpesaSTKPush(gameweekStake)}
                             disabled={isPushingMpesa}
                             className="shrink-0 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[10px] font-black uppercase tracking-widest"
                         >
@@ -1508,6 +1585,70 @@ export default function MemberDashboard() {
                 </div>
             )}
 
+            {/* Wallet Top-Up Modal */}
+            {showTopUpModal && (
+                <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-[#111820]/95 border border-[#10B981]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                        <div className="mb-5">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Wallet className="w-5 h-5 text-[#10B981]" />
+                                <h3 className="text-xl font-extrabold text-white">Top Up Wallet</h3>
+                            </div>
+                            <p className="text-sm text-gray-400">
+                                Send any amount to your wallet. Your current balance is not reduced, and the top-up is added separately once M-Pesa confirms it.
+                            </p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Amount to Top Up</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="300000"
+                                    value={topUpAmount}
+                                    onChange={(e) => setTopUpAmount(Math.max(1, Number(e.target.value || 0)))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Note for Chairman or Self</label>
+                                <textarea
+                                    rows={3}
+                                    value={topUpNote}
+                                    onChange={(e) => setTopUpNote(e.target.value)}
+                                    placeholder="Optional: 'Use my GW winnings' or 'Add extra funds for next 3 GWs'"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors resize-none"
+                                />
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-400 space-y-1">
+                                <p>Wallet balance: <span className="font-black text-white">KES {walletBalance.toLocaleString()}</span></p>
+                                <p>Current GW stake: <span className="font-black text-white">KES {gameweekStake.toLocaleString()}</span></p>
+                                <p>Top-up amount: <span className="font-black text-[#10B981]">KES {Math.max(1, Number(topUpAmount || 0)).toLocaleString()}</span></p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => {
+                                        setShowTopUpModal(false);
+                                        setTopUpNote('');
+                                    }}
+                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={topUpNote.trim() ? handleRequestWalletCredit : () => handleMpesaSTKPush(topUpAmount)}
+                                    disabled={isSubmittingTopUp || isRequestingWalletCredit || !Number(topUpAmount || 0)}
+                                    className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isSubmittingTopUp || isRequestingWalletCredit ? <><Zap className="w-4 h-4 animate-pulse" /> Sending...</> : <><Banknote className="w-4 h-4" /> {topUpNote.trim() ? 'Request Credit' : 'Send STK Push'}</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Module 4A: Winner Confirmation Banner */}
             {winnerConfirmation && (
                 <div className="fixed bottom-36 lg:bottom-24 left-0 lg:left-64 xl:left-72 right-0 px-4 md:px-8 z-40 flex justify-center">
@@ -1524,6 +1665,16 @@ export default function MemberDashboard() {
                             className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-4 py-2.5 rounded-xl transition-colors"
                         >
                             Confirm Receipt ✓
+                        </button>
+                        <button
+                            onClick={() => {
+                                setTopUpAmount(Math.max(1, Number(winnerConfirmation.amount || gameweekStake || 0)));
+                                setTopUpNote(`Credit this payout to my wallet.`);
+                                setShowTopUpModal(true);
+                            }}
+                            className="flex-shrink-0 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-black px-4 py-2.5 rounded-xl transition-colors border border-white/10"
+                        >
+                            Request Wallet Credit
                         </button>
                     </div>
                 </div>

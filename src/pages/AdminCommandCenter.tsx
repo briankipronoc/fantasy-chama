@@ -15,6 +15,12 @@ export default function AdminCommandCenter() {
     const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const activeUserId = localStorage.getItem('activeUserId');
+    const getApiBaseUrl = () => {
+        const configured = import.meta.env.VITE_API_URL?.trim();
+        if (configured) return configured.replace(/\/$/, '');
+        if (import.meta.env.DEV) return 'http://localhost:5001';
+        return '';
+    };
 
     const [leagueName, setLeagueName] = useState('');
     const [inviteCode, setInviteCode] = useState('');
@@ -502,6 +508,11 @@ export default function AdminCommandCenter() {
         const bTs = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
         return aTs - bTs;
     });
+    const getEffectiveApprovalTarget = (payout: any) => {
+        if (payout.approvalTarget === 'chairman') return 'chairman';
+        if (payout.approvalTarget === 'co-chair' && hasValidCoChair) return 'co-chair';
+        return hasValidCoChair ? 'co-chair' : 'chairman';
+    };
 
     const handleAddMember = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -583,7 +594,8 @@ export default function AdminCommandCenter() {
 
         setIsPrefunding(true);
         try {
-            const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+            const payoutApiUrl = getApiBaseUrl();
+            if (!payoutApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             const res = await fetch(`${payoutApiUrl}/api/league/prefund`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -856,7 +868,8 @@ export default function AdminCommandCenter() {
                 if (!payoutPhone) {
                     throw new Error('Winner phone number is missing. Update member phone in league settings and retry approval.');
                 }
-                const payoutApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const payoutApiUrl = getApiBaseUrl();
+                if (!payoutApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
                 const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -884,7 +897,8 @@ export default function AdminCommandCenter() {
             });
 
             // Fire proper deduct-gw-cost backend logic to accurately decrement wallets and flag red zones
-            const gwApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const gwApiUrl = getApiBaseUrl();
+            if (!gwApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1434,8 +1448,10 @@ export default function AdminCommandCenter() {
                         <div className="space-y-3">
                             {sortedPendingPayouts.map((payout) => (
                                 (() => {
-                                                    const requiresCoChairSignature = payout.approvalTarget === 'co-chair';
-                                                    const canCurrentUserApprove = requiresCoChairSignature ? isCoChairSession : !isCoChairSession;
+                                    const effectiveApprovalTarget = getEffectiveApprovalTarget(payout);
+                                    const legacyApprovalTarget = !payout.approvalTarget || (payout.approvalTarget === 'co-chair' && !hasValidCoChair);
+                                    const requiresCoChairSignature = effectiveApprovalTarget === 'co-chair';
+                                    const canCurrentUserApprove = requiresCoChairSignature ? isCoChairSession : !isCoChairSession;
                                     const winnerMember = members.find((member) => member.id === payout.winnerId || member.displayName === payout.winnerName);
                                     const payoutPhone = payout.winnerPhone || winnerMember?.phone;
                                     const duplicateCandidate = sortedPendingPayouts.filter((item: any) => Number(item.gw) === Number(payout.gw) && item.status === 'awaiting_approval').length > 1;
@@ -1455,6 +1471,7 @@ export default function AdminCommandCenter() {
                                         <div className="mt-2 flex flex-wrap gap-1.5">
                                             {!payoutPhone && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-300">Missing phone</span>}
                                             {duplicateCandidate && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-300">Possible duplicate</span>}
+                                            {legacyApprovalTarget && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-sky-500/30 bg-sky-500/10 text-sky-300">Legacy approval target</span>}
                                             <span className={clsx('text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border', payoutAgeMins > 30 ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-white/20 bg-white/10 text-gray-300')}>
                                                 SLA age: {payoutAgeMins}m
                                             </span>
@@ -1462,7 +1479,7 @@ export default function AdminCommandCenter() {
                                     </div>
                                     <div className="flex gap-2 flex-wrap shrink-0">
                                         <span className="px-5 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center gap-2 shadow-inner">
-                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {requiresCoChairSignature ? 'Awaiting Co-Chair Signature' : 'Awaiting Chairman Signature'}
+                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {requiresCoChairSignature ? 'Awaiting Co-Chair Signature' : hasValidCoChair ? 'Awaiting Chairman Signature' : 'Awaiting Chairman Signature (Fallback)'}
                                         </span>
                                         <button
                                             onClick={() => generateWhatsAppReceipt(payout)}

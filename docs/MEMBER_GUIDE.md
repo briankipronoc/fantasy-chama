@@ -31,10 +31,12 @@ Go to **Profile** → link your exact FPL team identity. This is how the system 
 
 ### M-Pesa STK Push (Recommended)
 1. Go to **Deposit** on the sidebar
-2. Enter the amount (at least one gameweek's stake)
+2. Enter any amount you want to add to your wallet
 3. Hit **Pay with M-Pesa**
 4. You'll receive an M-Pesa prompt on your phone — enter your PIN
 5. Your wallet updates automatically in seconds
+
+You can top up even if your wallet already has money. Wallet deposits are additive and never remove existing balance.
 
 ### Pochi La Biashara (Manual)
 If you pay directly via Pochi:
@@ -42,10 +44,18 @@ If you pay directly via Pochi:
 2. Enter the M-Pesa reference code from your SMS
 3. Submit — your Chairman will review and mark your wallet as verified
 
+### Request Wallet Credit From Winnings
+If you win a gameweek and want the funds held in your wallet instead of cashing out:
+1. Open the winner banner on your dashboard
+2. Tap **Request Wallet Credit**
+3. Add a note like `Use my GW winnings`
+4. The Chairman receives a request to credit the amount to your wallet
+
 ### Wallet Rules
 - Your wallet must have enough balance to cover the **gameweek stake** before the FPL deadline
 - If your wallet runs out → you enter the **Red Zone** and are excluded from that week's pot
 - Top up at any time — balances carry forward across gameweeks
+- Top-ups are additive. Existing wallet balance is never removed when you add more money.
 
 ---
 
