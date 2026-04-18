@@ -50,6 +50,10 @@ Run these flows in order:
 6. Read and mark notifications as read
 7. Open standings and confirm the table loads
 8. Open the member dashboard and confirm winner/podium sections render
+9. Verify unresolved GW cannot be resolved while FPL marks it as live
+10. Verify co-chair approval requests are targeted to the co-chair only
+11. Verify chairman-signature requests are targeted to chairman only
+12. Verify season vault preview reflects configured payout mode (Top1/Top3/Top5/Custom)
 
 ## 4. Post-Deploy Monitoring
 
@@ -68,6 +72,9 @@ Pause the rollout if you see any of these:
 - FCM registration errors across multiple devices
 - Firestore permission errors
 - `/api/health` reports missing critical env values in production
+- GW can be resolved while still live (should be blocked)
+- Champion label appears for zero-point winner
+- Approval notifications are sent to wrong role
 
 ## 6. Useful Endpoints
 

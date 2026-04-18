@@ -20,6 +20,17 @@ As Chairman, your job is frictionless. When a Gameweek ends:
 3. **Chairman Cash-Out**: The system sets aside an operational fee (9%). You physically keep **4%** as your Governance Fee (deposited into your virtual wallet). 
 4. **Settle with HQ**: The platform requires a 4% usage fee + 1% network buffer. A red banner will appear. You have a **48-Hour Grace Period** to send this cut to HQ via Pochi La Biashara. If you default, HQ triggers a permanent network lockout until you settle.
 
+### 2.1 Season Payout Modes
+The league can run season vault payouts in four modes:
+- Top 1
+- Top 3
+- Top 5
+- Custom ratio ladder
+
+Custom mode supports explicit percentage control per winner tier with safety limits:
+- Up to 10 winner tiers
+- Never more than half of active league size
+
 ### 3. "Maker/Checker" Co-Chair Setup (Optional)
 Promote a trusted friend to **Co-Chairman** to increase transparency.
 - The Co-Chairman's screen must electronically "Approve" all payouts before B2C triggers.
@@ -43,6 +54,10 @@ If you joined using the Chairman's 6-digit code, you must link your identity.
 - The second the Premier League week finalizes, the system auto-selects the league's highest scorer.
 - If it's you, your screen goes full gold.
 - **The Winner takes home exactly 91%** of the gross pot — seamlessly dispatched via Safaricom B2C (or via Chairman manual cash relay). 
+
+Champion display logic:
+- During an active GW, cards show **Live Leader**
+- **Champion/Winner** labels only appear after FPL marks GW as finished and positive points exist
 
 ### 4. What happens when the Chairman goes Rogue?
 Fantasy Chama actively protects members' stakes.

@@ -56,14 +56,15 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
     return (
         <div
             ref={overlayRef}
-            className="fc-rules-overlay fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto p-0 md:p-4"
+            className="fc-rules-overlay fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto p-2 md:p-4"
             onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
         >
             {/* Backdrop */}
             <div className="fc-rules-backdrop absolute inset-0 bg-black/55 animate-in fade-in duration-200" />
 
             {/* Modal Body */}
-            <div className="fc-rules-modal relative w-full h-[100dvh] md:h-[calc(100dvh-2rem)] max-w-6xl flex flex-col bg-[#161d24] border border-white/10 rounded-none md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+            <div className="fc-rules-modal relative w-full md:w-[min(96vw,72rem)] h-[calc(100dvh-1rem)] md:h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-2rem)] flex flex-col bg-[#161d24] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.08),transparent_34%)]" />
 
                 {/* Header */}
                 <div className="fc-rules-header sticky top-0 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/80 backdrop-blur-md z-10">
@@ -72,8 +73,8 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                             <Shield className="w-4.5 h-4.5 text-emerald-400" />
                         </div>
                         <div>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">Official</p>
-                            <h2 className="text-base font-black tracking-tight">League Constitution</h2>
+                            <p className="fc-rules-kicker text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">Official</p>
+                            <h2 className="fc-rules-heading text-base font-black tracking-tight text-white">League Constitution</h2>
                         </div>
                     </div>
                     {hasAccepted && (
@@ -90,7 +91,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                 {/* Scrollable Content */}
                 <div
                     ref={contentRef}
-                    className="overflow-y-auto flex-1 px-6 py-5 space-y-4"
+                    className="fc-rules-content overflow-y-auto flex-1 px-6 py-5 space-y-4"
                     style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
                 >
                     {hasAccepted && (

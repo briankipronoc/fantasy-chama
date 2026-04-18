@@ -348,7 +348,7 @@ app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) =
         if (!parseResult.success) {
             return res.status(400).json({ success: false, message: 'Validation failed', errors: parseResult.error.errors });
         }
-        const { phone, amount, remarks = 'Gameweek Payout', leagueId, userId, winnerName } = parseResult.data;
+        const { phone, amount, remarks = 'Gameweek Payout', leagueId, userId, winnerName, gw, points } = parseResult.data;
 
 
         // Format phone number to 2547XXXXXXXX
@@ -428,6 +428,8 @@ app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) =
                 amount,
                 phone: formattedPhone,
                 winnerName: winnerName || null,
+                gw: Number.isFinite(Number(gw)) ? Number(gw) : null,
+                points: Number.isFinite(Number(points)) ? Number(points) : null,
                 status: 'pending',
                 timestamp: admin.firestore.FieldValue.serverTimestamp()
             });
@@ -487,6 +489,9 @@ app.post('/api/mpesa/b2c/result', async (req, res) => {
                         amount: amount,
                         receiptId: receipt,
                         winnerName,
+                        winnerId: userId,
+                        gw: Number.isFinite(Number(data.gw)) ? Number(data.gw) : null,
+                        points: Number.isFinite(Number(data.points)) ? Number(data.points) : null,
                         phoneNumber: data.phone,
                         timestamp: admin.firestore.FieldValue.serverTimestamp()
                     });

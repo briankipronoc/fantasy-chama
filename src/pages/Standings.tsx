@@ -48,6 +48,7 @@ export default function Standings() {
     const [inputFplLeagueId, setInputFplLeagueId] = useState('');
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
+    const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
     const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>>([]);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
@@ -133,7 +134,10 @@ export default function Standings() {
                 if (!response.ok) return;
                 const data = await response.json();
                 const current = (data?.events || []).find((event: any) => event.is_current);
-                if (current?.id) setCurrentEvent(current.id);
+                if (current?.id) {
+                    setCurrentEvent(current.id);
+                    setIsCurrentEventFinished(current.finished === true);
+                }
             } catch (err) {
                 console.warn('Could not fetch current FPL event', err);
             }
@@ -201,6 +205,12 @@ export default function Standings() {
     const gwWinner = standingsData.length > 0
         ? standingsData.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current)
         : null;
+    const hasFinalGwChampion = Boolean(
+        gwWinner
+        && isCurrentEventFinished
+        && Number(gwWinner.event_total) > 0
+        && (!currentEvent || Number(gwWinner.event) === Number(currentEvent))
+    );
     const topSeasonLeaders = standingsData.slice(0, 5);
     const seasonPhase = currentEvent
         ? currentEvent >= 33
@@ -210,6 +220,7 @@ export default function Standings() {
                 : 'Early Season'
         : 'In Progress';
     const currentGwLabel = currentEvent ? `GW${currentEvent}` : 'GW';
+    const currentGwHeading = hasFinalGwChampion ? `${currentGwLabel} Champion` : `${currentGwLabel} Live Leader`;
 
     if (isLoading) {
         return (
@@ -328,7 +339,7 @@ export default function Standings() {
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                            <Star className="w-3 h-3 fill-current" /> {currentGwLabel} Champion
+                                            <Star className="w-3 h-3 fill-current" /> {currentGwHeading}
                                         </p>
                                         <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
                                         <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} </p>
@@ -336,7 +347,7 @@ export default function Standings() {
                                 </div>
 
                                 <div className="relative z-10 flex items-center justify-between fc-highlight-surface p-4 rounded-2xl border backdrop-blur-sm">
-                                    <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">GW Score</p>
+                                    <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">{hasFinalGwChampion ? 'GW Score' : 'Live Score'}</p>
                                     <div className="flex items-center gap-3">
                                         <span className="text-[#10B981] font-black text-lg bg-[#10B981]/10 px-3 py-1 rounded-xl border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span>
                                     </div>
@@ -381,7 +392,7 @@ export default function Standings() {
                                         <tr key={row.id} className={clsx(
                                             'transition-colors',
                                             isTop1 ? 'bg-[#10B981]/5' : 'hover:bg-white/[0.02]',
-                                            gwWinner && row.id === gwWinner.id && !isTop1 ? 'bg-[#FBBF24]/5' : '',
+                                            gwWinner && row.id === gwWinner.id && !isTop1 ? (hasFinalGwChampion ? 'bg-[#FBBF24]/5' : 'bg-sky-500/5') : '',
                                             hasPaid === false && 'opacity-50'
                                         )}>
                                             <td className="px-5 py-4">
@@ -439,7 +450,7 @@ export default function Standings() {
                                             <td className="px-5 py-4 text-center font-extrabold text-white tabular-nums">{row.total.toLocaleString()}</td>
                                             <td className="px-5 py-4 text-right">
                                                     {gwWinner && row.id === gwWinner.id
-                                                    ? <span className="font-black text-[#FBBF24] text-xs tracking-tight border border-[#FBBF24]/20 bg-[#FBBF24]/10 px-2 py-1 rounded-lg">{currentGwLabel} Winner</span>
+                                                    ? <span className={clsx('font-black text-xs tracking-tight border px-2 py-1 rounded-lg', hasFinalGwChampion ? 'text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10' : 'text-sky-300 border-sky-400/20 bg-sky-500/10')}>{hasFinalGwChampion ? `${currentGwLabel} Winner` : `${currentGwLabel} Leader`}</span>
                                                     : <span className="text-gray-600">—</span>
                                                 }
                                             </td>

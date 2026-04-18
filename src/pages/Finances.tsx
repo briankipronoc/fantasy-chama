@@ -17,7 +17,7 @@ export default function Finances() {
 
     const [transactions, setTransactions] = useState<any[]>([]);
     const [gameweekStake, setMonthlyContribution] = useState(0);
-    const [rules, setRules] = useState({ weekly: 70, vault: 30, seasonWinnersCount: 3 });
+    const [rules, setRules] = useState<any>({ weekly: 70, vault: 30, seasonWinnersCount: 3, seasonWinnersMode: 'top3', seasonDistribution: [50, 30, 20] });
     const [leagueChairmanId, setLeagueChairmanId] = useState<string | null>(null);
     const [leagueName, setLeagueName] = useState('League');
     const [showVaultChart, setShowVaultChart] = useState(false);
@@ -117,6 +117,33 @@ export default function Finances() {
     const paidMembers = members.filter(m => m.hasPaid && m.isActive !== false);
     const totalSecured = paidMembers.length * (gameweekStake || 1400);
     const seasonVault = totalSecured * (rules.vault / 100);
+    const activeMembersCount = members.filter((member) => member.isActive !== false).length;
+    const configuredWinnersCount = Number(rules.seasonWinnersCount || 3);
+    const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
+
+    const getSeasonVaultPercentages = (winnerCount: number) => {
+        if (winnerCount === 1) return [100];
+        if (winnerCount === 3) return [50, 30, 20];
+        return [45, 25, 15, 10, 5];
+    };
+
+    const configuredDistribution = Array.isArray(rules.seasonDistribution) && rules.seasonDistribution.length > 0
+        ? rules.seasonDistribution.map((value: any) => Number(value || 0)).filter((value: number) => Number.isFinite(value) && value >= 0)
+        : getSeasonVaultPercentages(configuredWinnersCount);
+    const seasonVaultPercentages = configuredDistribution.length > 0
+        ? configuredDistribution
+        : getSeasonVaultPercentages(configuredWinnersCount);
+    const seasonVaultPreview = seasonVaultPercentages
+        .slice(0, eligibleWinnersCount)
+        .map((percentage: number, index: number) => {
+            const place = index + 1;
+            return {
+                place,
+                percentage,
+                amount: Math.round(seasonVault * (percentage / 100)),
+            };
+        });
+    const isPreviewCapped = activeMembersCount < configuredWinnersCount;
 
     const currentUser = members.find(m => m.id === activeUserId) || members.find(m => m.phone === memberPhone);
     const isAdmin = role === 'admin';
@@ -389,6 +416,50 @@ export default function Finances() {
                             <p className="flex justify-between text-white text-sm pt-2 border-t border-white/10"><span>Net</span><span className={netThisGw >= 0 ? 'text-emerald-300' : 'text-red-300'}>{netThisGw >= 0 ? '+' : '-'} KES {Math.abs(netThisGw).toLocaleString()}</span></p>
                         </div>
                     </article>
+                </section>
+
+                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] p-5 md:p-6 mb-8">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24]">Vault payout preview</p>
+                            <h2 className="text-2xl font-black text-white mt-1">Configured by Chairman</h2>
+                            <p className="text-sm text-gray-400 mt-2 max-w-2xl">
+                                The preview below mirrors the league's current season winner setup. It automatically caps itself when the league has fewer active members than the configured payout ladder.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-left lg:text-right">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Season winners</p>
+                            <p className="text-lg font-black text-white tabular-nums">Top {configuredWinnersCount}</p>
+                            <p className="text-[11px] text-gray-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {seasonVaultPreview.map((tier: { place: number; percentage: number; amount: number }) => (
+                            <div key={tier.place} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">#{tier.place}</p>
+                                    <span className={clsx(
+                                        'text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border',
+                                        tier.place === 1 ? 'border-[#FBBF24]/30 bg-[#FBBF24]/10 text-[#FBBF24]' : tier.place === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-300' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
+                                    )}>
+                                        {tier.percentage}%
+                                    </span>
+                                </div>
+                                <p className="mt-3 text-xl font-black text-[#FBBF24] tabular-nums">KES {tier.amount.toLocaleString()}</p>
+                                <p className="mt-1 text-[11px] text-gray-400">Projected share of the season vault</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {isPreviewCapped && (
+                        <div className="mt-4 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Tier capped</p>
+                            <p className="text-sm text-amber-50/90 mt-1">
+                                This league currently has only {activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'}, so the vault preview stops at Top {eligibleWinnersCount}. The chairman's configured ladder will expand automatically once there are enough active players.
+                            </p>
+                        </div>
+                    )}
                 </section>
 
                 {isAdmin && (redZoneMembers.length > 0 || pendingApprovals.length > 0) && (

@@ -47,6 +47,7 @@ export default function MemberDashboard() {
 
     // Phase 29: Winner's Circle logic
     const [gwWinner, setGwWinner] = useState<any>(null);
+    const [currentFplEvent, setCurrentFplEvent] = useState<{ id: number; finished: boolean } | null>(null);
 
     // Phase 30: Expanded Winner's Circle
     const [showAllWinners, setShowAllWinners] = useState(false);
@@ -105,7 +106,7 @@ export default function MemberDashboard() {
         && coAdminId !== activeUserId
         && coChairMember
         && coChairMember.isActive !== false
-        && ((coChairMember as any).role === 'admin')
+        && (((coChairMember as any).role === 'admin') || ((coChairMember as any).role === 'co-chair'))
         ? coAdminId
         : null;
 
@@ -226,6 +227,28 @@ export default function MemberDashboard() {
         if (!leagueName) return;
         setIsLoading(false);
     }, [members.length, currentUser, leagueName]);
+
+    useEffect(() => {
+        const fetchCurrentEvent = async () => {
+            try {
+                const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
+                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                const current = (data?.events || []).find((event: any) => event.is_current);
+                if (current?.id) {
+                    setCurrentFplEvent({
+                        id: current.id,
+                        finished: current.finished === true,
+                    });
+                }
+            } catch (err) {
+                console.warn('Could not fetch current FPL event', err);
+            }
+        };
+
+        fetchCurrentEvent();
+    }, []);
 
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
@@ -594,12 +617,13 @@ export default function MemberDashboard() {
             };
 
     // Phase 30: Is the logged-in user the current GW Winner?
-    const isCurrentUserGwWinner = gwWinner && currentUser && (
+    const isCurrentUserGwWinner = Boolean(gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0 && currentUser && (
         (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
         (currentUser.secondFplTeamId && Number(currentUser.secondFplTeamId) === Number(gwWinner.entry)) ||
         currentUser.displayName?.toLowerCase().includes(gwWinner.player_name?.toLowerCase()) ||
         gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
-    );
+    ));
+    const hasFinalGwChampion = Boolean(gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0);
 
 
 
@@ -612,7 +636,11 @@ export default function MemberDashboard() {
     };
     const greetingText = getGreeting();
     const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
-    const currentGwBadge = gwWinner?.event ? `GW ${gwWinner.event} Active` : 'GW Active';
+    const currentGwBadge = currentFplEvent
+        ? `GW ${currentFplEvent.id} ${currentFplEvent.finished ? 'Complete' : 'Live'}`
+        : gwWinner?.event
+            ? `GW ${gwWinner.event} Active`
+            : 'GW Active';
     const ledgerMembers = [...members].sort((a, b) => {
         if (!!a.hasPaid !== !!b.hasPaid) return a.hasPaid ? 1 : -1; // Red Zone first
         if (a.id === currentUser?.id) return -1;
@@ -810,6 +838,22 @@ export default function MemberDashboard() {
                             🏆 Share My Win
                         </button>
                     </div>
+                ) : gwWinner && !currentFplEvent?.finished ? (
+                    <div className="w-full rounded-[2rem] border border-white/10 bg-[#161d24]/90 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-2xl shadow-black/30">
+                        <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                            <Trophy className="w-7 h-7 text-[#FBBF24]" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1">Gameweek still live</p>
+                            <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
+                            <p className="text-sm text-gray-400 mt-1">Current standings are still moving, so the dashboard waits for the final whistle before naming a winner.</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center flex-shrink-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Live leader</p>
+                            <p className="text-lg font-black text-white tabular-nums">{gwWinner.player_name}</p>
+                            <p className="text-[11px] text-[#FBBF24] font-bold tabular-nums">{Number(gwWinner.event_total || 0).toLocaleString()} pts</p>
+                        </div>
+                    </div>
                 ) : (
                     <>
                         {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
@@ -861,7 +905,7 @@ export default function MemberDashboard() {
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                            <Star className="w-3 h-3 fill-current" /> Gameweek Champion
+                                            <Star className="w-3 h-3 fill-current" /> {hasFinalGwChampion ? 'Gameweek Champion' : 'Live Leader'}
                                         </p>
                                         <h3 className="text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
                                         <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>

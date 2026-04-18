@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import { Megaphone, Share2, RefreshCw, Banknote, ChevronDown, CheckCircle2, Trophy, AlertTriangle, UserPlus, Bell, ShieldCheck, Star, Download, ShieldAlert, ClipboardList, ListChecks } from 'lucide-react';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
-import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import confetti from 'canvas-confetti';
@@ -44,6 +44,7 @@ export default function AdminCommandCenter() {
 
     // Phase 29: FPL GW Winner logic
     const [gwWinner, setGwWinner] = useState<any>(null);
+    const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
 
     const handleNudge = async () => {
         if (!activeLeagueId) return;
@@ -188,12 +189,12 @@ export default function AdminCommandCenter() {
         && coAdminId !== activeUserId
         && !!coChairMember
         && coChairMember.isActive !== false
-        && ((coChairMember as any).role === 'admin');
+        && (((coChairMember as any).role === 'admin') || ((coChairMember as any).role === 'co-chair'));
     const notices = {
         nudge: (count: number, total: number) => `Action required: Chairman reminder (${count}/3). Please review ${total} pending payout request${total === 1 ? '' : 's'} now.`,
-        payoutApproval: (amount: number, winner: string, points: number) => `Payout approval requested: KES ${amount.toLocaleString()} to ${winner} (GW26, ${points} pts).`,
+        payoutApproval: (gw: number, amount: number, winner: string, points: number) => `Payout approval requested: KES ${amount.toLocaleString()} to ${winner} (GW${gw}, ${points} pts).`,
         payoutQueuedChairman: (winner: string, amount: number, points: number) => `Chairman signature required: ${winner} leads with ${points} pts. Dispatch KES ${amount.toLocaleString()} after review.`,
-        payoutBroadcast: (winner: string, points: number, amount: number) => `Gameweek finalized: ${winner} tops GW26 with ${points} pts. Payout KES ${amount.toLocaleString()} is queued.`
+        payoutBroadcast: (gw: number, winner: string, points: number, amount: number) => `Gameweek finalized: ${winner} tops GW${gw} with ${points} pts. Payout KES ${amount.toLocaleString()} is queued.`
     };
 
     const handleInitializeOperations = () => {
@@ -236,6 +237,18 @@ export default function AdminCommandCenter() {
                     setMonthlyContribution(data.gameweekStake || 0);
                     setCoAdminId(data.coAdminId || null);
                     if (data.rules) setRules(data.rules);
+
+                    try {
+                        const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
+                        const bootstrapRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`);
+                        if (bootstrapRes.ok) {
+                            const bootstrapData = await bootstrapRes.json();
+                            const current = (bootstrapData?.events || []).find((event: any) => event.is_current);
+                            setIsCurrentEventFinished(current?.finished === true);
+                        }
+                    } catch (bootstrapErr: any) {
+                        console.warn('[command-center] bootstrap fetch skipped:', bootstrapErr?.message || bootstrapErr);
+                    }
 
                     // Fetch Live GW Winner with 'Banner Off' Heuristic
                     if (data.fplLeagueId) {
@@ -282,6 +295,8 @@ export default function AdminCommandCenter() {
         });
         return () => unsub();
     }, [activeLeagueId]);
+
+    const hasFinalGwChampion = Boolean(gwWinner && isCurrentEventFinished && Number(gwWinner.event_total) > 0);
 
     // Module 3B: Listen to pending disputes
     useEffect(() => {
@@ -561,6 +576,23 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) return;
         setIsResolving(true);
         try {
+            const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
+            const bootstrapRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`);
+            if (!bootstrapRes.ok) throw new Error('Failed to fetch current gameweek status.');
+            const bootstrapData = await bootstrapRes.json();
+            const currentEvent = (bootstrapData?.events || []).find((event: any) => event.is_current);
+            const gwNumber = Number(currentEvent?.id || 0);
+            const isGwFinished = currentEvent?.finished === true;
+
+            if (!gwNumber) {
+                throw new Error('Current gameweek is unavailable from FPL. Try again shortly.');
+            }
+            if (!isGwFinished) {
+                showToast(`GW${gwNumber} is still live. Resolution is only available after final FPL lock.`);
+                setShowResolveModal(false);
+                return;
+            }
+
             // 1. Fetch live FPL Standings via generic proxy
             const leagueRef = doc(db, 'leagues', activeLeagueId);
             const leagueSnap = await getDoc(leagueRef);
@@ -572,7 +604,19 @@ export default function AdminCommandCenter() {
 
             const standings = data.standings.results || [];
             // Sort by GW points (event_total)
-            const sortedStandings = standings.sort((a: any, b: any) => b.event_total - a.event_total);
+            const sortedStandings = [...standings].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+
+            const pendingPayoutQ = query(
+                collection(db, 'leagues', activeLeagueId, 'pending_payouts'),
+                where('gw', '==', gwNumber),
+                where('status', '==', 'awaiting_approval')
+            );
+            const existingPending = await getDocs(pendingPayoutQ);
+            if (!existingPending.empty) {
+                showToast(`GW${gwNumber} already has a pending payout approval in queue.`);
+                setShowResolveModal(false);
+                return;
+            }
 
             // 2. Chama Rule: Filter the top scorer against Firebase memberships list.
             let winner: any = null;
@@ -587,24 +631,23 @@ export default function AdminCommandCenter() {
                 );
 
                 if (dbMember) {
-                    if (dbMember.hasPaid) {
+                    if (dbMember.hasPaid && dbMember.isActive !== false && Number(fplManager.event_total || 0) > 0) {
                         winner = dbMember;
-                        // @ts-ignore - Intentionally not passing winningPoints to backend logic for now
-                        winningPoints = fplManager.event_total || 0;
+                        winningPoints = Number(fplManager.event_total || 0);
                         break;
                     }
                 }
             }
 
-            // Fallback for simulation
             if (!winner) {
-                winner = members.find(m => m.hasPaid);
-                winningPoints = 85; // mock points if fallback
+                showToast(`No eligible paid winner found for GW${gwNumber}.`);
+                setIsResolving(false);
+                setShowResolveModal(false);
+                return;
             }
 
-            if (!winner) {
-                showToast("No eligible paid members found in the league!");
-                setIsResolving(false);
+            if (winningPoints <= 0) {
+                showToast(`GW${gwNumber} has no positive winner score yet. Resolution blocked.`);
                 setShowResolveModal(false);
                 return;
             }
@@ -620,10 +663,11 @@ export default function AdminCommandCenter() {
                     winnerPhone: winner.phone,
                     amount: weeklyPot,
                     points: winningPoints,
-                    gw: 26,
+                    gw: gwNumber,
                     status: 'awaiting_approval',
                     method: payoutMethod,
                     requestedBy,
+                    approvalTarget: 'co-chair',
                     timestamp: serverTimestamp()
                 });
 
@@ -631,15 +675,16 @@ export default function AdminCommandCenter() {
                 const notifsRef = collection(db, 'leagues', activeLeagueId, 'notifications');
                 await addDoc(notifsRef, {
                     type: 'warning',
-                    message: notices.payoutApproval(weeklyPot, winner.displayName, winningPoints),
+                    message: notices.payoutApproval(gwNumber, weeklyPot, winner.displayName, winningPoints),
                     timestamp: serverTimestamp(),
-                    readBy: []
+                    readBy: [],
+                    targetMemberId: coAdminId
                 });
 
                 // Notify Everyone that the GW is locked
                 await addDoc(notifsRef, {
                     type: 'info',
-                    message: notices.payoutBroadcast(winner.displayName, winningPoints, weeklyPot),
+                    message: notices.payoutBroadcast(gwNumber, winner.displayName, winningPoints, weeklyPot),
                     timestamp: serverTimestamp(),
                     readBy: []
                 });
@@ -647,13 +692,13 @@ export default function AdminCommandCenter() {
                 // Log to Live Escrow Feed
                 await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
                     eventType: 'resolution',
-                    message: `GW26 resolved — ${winner.displayName} leads with ${winningPoints} pts. Payout pending Co-Chair approval.`,
+                    message: `GW${gwNumber} resolved — ${winner.displayName} leads with ${winningPoints} pts. Payout pending Co-Chair approval.`,
                     actor: auth.currentUser?.displayName || 'Chairman',
                     timestamp: serverTimestamp()
                 });
 
                 setShowResolveModal(false);
-                showToast(`Gameweek 26 calculated. Payout sent to Co-Chair for Approval!`);
+                showToast(`GW${gwNumber} resolved. Payout sent to Co-Chair for approval.`);
                 triggerResolutionPulse();
                 confetti({ particleCount: 90, spread: 70, origin: { y: 0.55 }, colors: ['#10B981', '#FBBF24', '#FFFFFF'] });
                 setActionTimeline((prev) => ({ ...prev, resolved: true, approvalPending: true }));
@@ -666,7 +711,7 @@ export default function AdminCommandCenter() {
                     winnerPhone: winner.phone,
                     amount: weeklyPot,
                     points: winningPoints,
-                    gw: 26,
+                    gw: gwNumber,
                     status: 'awaiting_approval',
                     method: payoutMethod,
                     requestedBy,
@@ -678,24 +723,25 @@ export default function AdminCommandCenter() {
                     type: 'warning',
                     message: notices.payoutQueuedChairman(winner.displayName, weeklyPot, winningPoints),
                     timestamp: serverTimestamp(),
-                    readBy: []
+                    readBy: [],
+                    targetMemberId: activeUserId
                 });
 
                 await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
                     eventType: 'resolution',
-                    message: `GW26 payout queued for Chairman approval — ${winner.displayName} (${winningPoints} pts).`,
+                    message: `GW${gwNumber} payout queued for Chairman approval — ${winner.displayName} (${winningPoints} pts).`,
                     actor: requestedBy,
                     timestamp: serverTimestamp()
                 });
 
                 setShowResolveModal(false);
-                showToast(`Payout request created. Chairman signature required for ${winner.displayName}.`);
+                showToast(`GW${gwNumber} payout request created. Chairman signature required for ${winner.displayName}.`);
                 triggerResolutionPulse();
                 setActionTimeline((prev) => ({ ...prev, resolved: true, approvalPending: true }));
             }
         } catch (error) {
             console.error("Resolution Error:", error);
-            showToast("Gameweek Resolution Failed");
+            showToast(`Gameweek Resolution Failed${(error as any)?.message ? `: ${(error as any).message}` : ''}`);
         } finally {
             setIsResolving(false);
         }
@@ -706,6 +752,9 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) return;
         setIsApprovingPayout(payout.id);
         try {
+            if (Number(payout.points || 0) <= 0) {
+                throw new Error('Cannot approve payout with zero GW points.');
+            }
             const winnerMember = members.find((member) =>
                 member.id === payout.winnerId ||
                 member.displayName === payout.winnerName
@@ -727,7 +776,9 @@ export default function AdminCommandCenter() {
                         winnerName: payout.winnerName,
                         remarks: `FantasyChama GW${payout.gw} Approved Payout`,
                         userId: payout.winnerId,
-                        leagueId: activeLeagueId
+                        leagueId: activeLeagueId,
+                        gw: Number(payout.gw || 0),
+                        points: Number(payout.points || 0)
                     })
                 });
                 data = await res.json();
@@ -757,6 +808,32 @@ export default function AdminCommandCenter() {
                     winnerAmount: payout.amount
                 })
             });
+
+            if (payout.method === 'cash') {
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'payout',
+                    amount: payout.amount,
+                    winnerName: payout.winnerName,
+                    winnerId: payout.winnerId,
+                    winnerPhone: payoutPhone || null,
+                    points: Number(payout.points || 0),
+                    gw: Number(payout.gw || 0),
+                    receiptId: `CASH_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp()
+                });
+
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                    type: 'transactionSuccess',
+                    isWinnerEvent: true,
+                    winnerId: payout.winnerId,
+                    winnerName: payout.winnerName,
+                    points: Number(payout.points || 0),
+                    gw: Number(payout.gw || 0),
+                    message: `Cash handoff confirmed: ${payout.winnerName} received KES ${Number(payout.amount || 0).toLocaleString()} for GW${Number(payout.gw || 0)} (${Number(payout.points || 0)} pts).`,
+                    timestamp: serverTimestamp(),
+                    readBy: []
+                });
+            }
 
             showToast(`✅ Approved! ${payout.method === 'cash' ? 'Cash Handoff logged for' : 'B2C Dispatch sent to'} ${payout.winnerName} (KES ${payout.amount.toLocaleString()}).`);
             triggerResolutionPulse();
@@ -1115,7 +1192,7 @@ export default function AdminCommandCenter() {
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                    <Star className="w-3 h-3 fill-current" /> Gameweek Champion
+                                    <Star className="w-3 h-3 fill-current" /> {hasFinalGwChampion ? 'Gameweek Champion' : 'Live Leader'}
                                 </p>
                                 <h3 className="text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
                                 <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>
@@ -1157,7 +1234,8 @@ export default function AdminCommandCenter() {
                         <div className="space-y-3">
                             {sortedPendingPayouts.map((payout) => (
                                 (() => {
-                                    const payoutRequiresCoChair = payout.approvalTarget === 'co-chair' ? hasValidCoChair : false;
+                                                    const requiresCoChairSignature = payout.approvalTarget === 'co-chair';
+                                                    const canCurrentUserApprove = requiresCoChairSignature ? isCoChairSession : !isCoChairSession;
                                     const winnerMember = members.find((member) => member.id === payout.winnerId || member.displayName === payout.winnerName);
                                     const payoutPhone = payout.winnerPhone || winnerMember?.phone;
                                     const duplicateCandidate = sortedPendingPayouts.filter((item: any) => Number(item.gw) === Number(payout.gw) && item.status === 'awaiting_approval').length > 1;
@@ -1184,7 +1262,7 @@ export default function AdminCommandCenter() {
                                     </div>
                                     <div className="flex gap-2 flex-wrap shrink-0">
                                         <span className="px-5 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center gap-2 shadow-inner">
-                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {payoutRequiresCoChair ? 'Awaiting Co-Chair Signature' : 'Awaiting Chairman Signature'}
+                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> {requiresCoChairSignature ? 'Awaiting Co-Chair Signature' : 'Awaiting Chairman Signature'}
                                         </span>
                                         <button
                                             onClick={() => generateWhatsAppReceipt(payout)}
@@ -1198,7 +1276,7 @@ export default function AdminCommandCenter() {
                                         >
                                             <ShieldAlert className="w-3.5 h-3.5" /> Reject
                                         </button>
-                                        {!payoutRequiresCoChair && (
+                                        {canCurrentUserApprove && (
                                             <button
                                                 onClick={() => handleApprovePayout(payout)}
                                                 disabled={isApprovingPayout === payout.id}
@@ -1554,6 +1632,15 @@ export default function AdminCommandCenter() {
                                 <strong className="text-[#FBBF24] font-bold">Are you sure?</strong> This will calculate the top scorer, execute the selected payout method, dispatch <span className="text-white font-bold tracking-tight">KES {isStealthMode ? '****' : weeklyPot.toLocaleString()}</span> to the winner, and record the gameweek in the audit log permanently.
                             </p>
 
+                            {(!isCurrentEventFinished || !gwWinner || Number(gwWinner.event_total || 0) <= 0) && (
+                                <div className="mb-5 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2.5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Resolution locked</p>
+                                    <p className="text-xs text-red-100/90 mt-1">
+                                        You can only resolve after FPL marks the current gameweek as finished and the winner has a positive GW score.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Payout Method Toggle */}
                             <div className="mb-6">
                                 <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">Disbursement Method</label>
@@ -1585,7 +1672,7 @@ export default function AdminCommandCenter() {
                                 </button>
                                 <button
                                     onClick={handleResolveGameweek}
-                                    disabled={isResolving}
+                                    disabled={isResolving || !isCurrentEventFinished || !gwWinner || Number(gwWinner.event_total || 0) <= 0}
                                     className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-white text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isResolving ? (

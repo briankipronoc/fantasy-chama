@@ -27,12 +27,56 @@ export default function Profile() {
     const [gameweekStake, setMonthlyContribution] = useState<number>(0);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState<number>(70);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
+    const [seasonWinnersMode, setSeasonWinnersMode] = useState<'top1' | 'top3' | 'top5' | 'custom'>('top3');
+    const [customWinnerCount, setCustomWinnerCount] = useState<number>(3);
+    const [customWinnerRatios, setCustomWinnerRatios] = useState<string[]>(['50', '30', '20']);
     const [fplLeagueId, setFplLeagueId] = useState('');
     const [inviteCode, setInviteCode] = useState('');
+    const [chairmanPhone, setChairmanPhone] = useState('');
     const [coAdminId, setCoAdminId] = useState('');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
+
+    const activeMembersCount = members.filter((member) => member.isActive !== false).length;
+    const maxAllowedWinners = Math.max(1, Math.min(10, Math.floor(Math.max(2, activeMembersCount) / 2)));
+    const normalizedCustomWinnerCount = Math.max(1, Math.min(maxAllowedWinners, customWinnerCount));
+
+    const getPresetDistribution = (count: number) => {
+        if (count === 1) return [100];
+        if (count === 5) return [45, 25, 15, 10, 5];
+        return [50, 30, 20];
+    };
+
+    const normalizeDistribution = (ratioInputs: string[], winnerCount: number) => {
+        const parsed = Array.from({ length: winnerCount }, (_, idx) => {
+            const raw = Number(ratioInputs[idx] || 0);
+            return Number.isFinite(raw) && raw >= 0 ? raw : 0;
+        });
+        const sum = parsed.reduce((acc, value) => acc + value, 0);
+        if (sum <= 0) {
+            const base = Math.floor(100 / winnerCount);
+            const remainder = 100 - base * winnerCount;
+            return parsed.map((_, idx) => base + (idx === 0 ? remainder : 0));
+        }
+        const scaled = parsed.map((value) => (value / sum) * 100);
+        const rounded = scaled.map((value) => Math.floor(value));
+        const floorSum = rounded.reduce((acc, value) => acc + value, 0);
+        rounded[0] += (100 - floorSum);
+        return rounded;
+    };
+
+    const effectiveSeasonWinnersCount = seasonWinnersMode === 'top1'
+        ? 1
+        : seasonWinnersMode === 'top5'
+            ? 5
+            : seasonWinnersMode === 'custom'
+                ? normalizedCustomWinnerCount
+                : 3;
+
+    const effectiveSeasonDistribution = seasonWinnersMode === 'custom'
+        ? normalizeDistribution(customWinnerRatios, effectiveSeasonWinnersCount)
+        : getPresetDistribution(effectiveSeasonWinnersCount);
 
     // Financial Locks
     const [isFinancialsLocked, setIsFinancialsLocked] = useState(true);
@@ -56,8 +100,14 @@ export default function Profile() {
                     setMonthlyContribution(data.gameweekStake || 1400);
                     setWeeklyPrizePercent(data.rules?.weekly || 70);
                     setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
+                    setSeasonWinnersMode(data.rules?.seasonWinnersMode || ((data.rules?.seasonWinnersCount || 3) === 1 ? 'top1' : (data.rules?.seasonWinnersCount || 3) === 5 ? 'top5' : 'top3'));
+                    setCustomWinnerCount(data.rules?.seasonWinnersCount || 3);
+                    if (Array.isArray(data.rules?.seasonDistribution)) {
+                        setCustomWinnerRatios(data.rules.seasonDistribution.map((value: number) => String(value)));
+                    }
                     setInviteCode(data.inviteCode || 'N/A');
                     setCoAdminId(data.coAdminId || '');
+                    setChairmanPhone(data.chairmanPhone || '');
                     if (data.chairmanId) setChairmanId(data.chairmanId);
 
                     const fplId = data.fplLeagueId;
@@ -114,6 +164,24 @@ export default function Profile() {
             }
         }
     }, [members, activeUserId, role]);
+
+    useEffect(() => {
+        if (customWinnerCount > maxAllowedWinners) {
+            setCustomWinnerCount(maxAllowedWinners);
+        }
+    }, [customWinnerCount, maxAllowedWinners]);
+
+    useEffect(() => {
+        if (seasonWinnersMode !== 'custom') return;
+        setCustomWinnerRatios((prev) => {
+            const next = [...prev];
+            if (next.length > normalizedCustomWinnerCount) return next.slice(0, normalizedCustomWinnerCount);
+            if (next.length < normalizedCustomWinnerCount) {
+                while (next.length < normalizedCustomWinnerCount) next.push('0');
+            }
+            return next;
+        });
+    }, [seasonWinnersMode, normalizedCustomWinnerCount]);
 
     // Red Zone: is current user unpaid?
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
@@ -175,9 +243,12 @@ export default function Profile() {
                 gameweekStake: Number(gameweekStake),
                 'rules.weekly': Number(weeklyPrizePercent),
                 'rules.vault': 100 - Number(weeklyPrizePercent),
-                'rules.seasonWinnersCount': seasonWinnersCount,
+                'rules.seasonWinnersCount': effectiveSeasonWinnersCount,
+                'rules.seasonWinnersMode': seasonWinnersMode,
+                'rules.seasonDistribution': effectiveSeasonDistribution,
                 fplLeagueId: fplLeagueId ? Number(fplLeagueId) : null,
-                coAdminId: coAdminId || null
+                coAdminId: coAdminId || null,
+                chairmanPhone: chairmanPhone || null
             });
             localStorage.setItem('chairmanAvatarSeed', avatarSeed);
             setToast({ message: 'League rules updated successfully!', type: 'success' });
@@ -442,6 +513,18 @@ export default function Profile() {
                                     </p>
                                 </div>
 
+                                <div>
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Pochi Receiving Number</label>
+                                    <input
+                                        type="tel"
+                                        value={chairmanPhone}
+                                        onChange={(e) => setChairmanPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                        placeholder="e.g. 0712345678"
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
+                                    />
+                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
+                                </div>
+
                                 {/* Co-Chair Designation */}
                                 <div>
                                     <div className="flex justify-between items-center mb-2">
@@ -500,24 +583,77 @@ export default function Profile() {
                                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                                         </label>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {[1, 3, 5].map(count => (
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {[
+                                            { key: 'top1', label: 'Top 1' },
+                                            { key: 'top3', label: 'Top 3' },
+                                            { key: 'top5', label: 'Top 5' },
+                                            { key: 'custom', label: 'Custom' },
+                                        ].map((option) => (
                                             <button
-                                                key={count}
+                                                key={option.key}
                                                 type="button"
                                                 disabled={isFinancialsLocked}
-                                                onClick={() => setSeasonWinnersCount(count)}
+                                                onClick={() => {
+                                                    const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
+                                                    setSeasonWinnersMode(mode);
+                                                    if (mode === 'top1') setSeasonWinnersCount(1);
+                                                    if (mode === 'top3') setSeasonWinnersCount(3);
+                                                    if (mode === 'top5') setSeasonWinnersCount(5);
+                                                }}
                                                 className={clsx(
                                                     "py-3 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-                                                    seasonWinnersCount === count
+                                                    seasonWinnersMode === option.key
                                                         ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
                                                         : "bg-[#161d24] border-white/5 text-gray-400 hover:bg-white/[0.02]"
                                                 )}
                                             >
-                                                Top {count}
+                                                {option.label}
                                             </button>
                                         ))}
                                     </div>
+
+                                    {seasonWinnersMode === 'custom' && (
+                                        <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3.5">
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max={maxAllowedWinners}
+                                                    disabled={isFinancialsLocked}
+                                                    value={normalizedCustomWinnerCount}
+                                                    onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
+                                                    className="mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                                                />
+                                                <p className="text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (half of active members).</p>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
+                                                    <div key={`profile-ratio-${idx}`} className="flex items-center gap-2">
+                                                        <span className="w-12 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            disabled={isFinancialsLocked}
+                                                            value={customWinnerRatios[idx] || '0'}
+                                                            onChange={(e) => {
+                                                                const next = [...customWinnerRatios];
+                                                                next[idx] = e.target.value;
+                                                                setCustomWinnerRatios(next);
+                                                            }}
+                                                            className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+                                                        />
+                                                        <span className="text-[10px] font-black text-gray-500">%</span>
+                                                        <span className="w-16 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <p className="text-[9px] text-gray-500">Raw custom inputs are auto-normalized to total 100%.</p>
+                                        </div>
+                                    )}
+                                    <p className="text-[9px] text-gray-500 mt-2">Stored baseline winner count: Top {seasonWinnersCount}.</p>
                                 </div>
 
                                 {isFinancialsLocked ? (

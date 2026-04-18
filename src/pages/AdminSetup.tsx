@@ -32,6 +32,7 @@ export default function AdminSetup() {
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
+    const [chairmanPayoutPhone, setChairmanPayoutPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
@@ -43,6 +44,9 @@ export default function AdminSetup() {
     const [monthlyFee, setMonthlyFee] = useState(200);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(70);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
+    const [seasonWinnersMode, setSeasonWinnersMode] = useState<'top1' | 'top3' | 'top5' | 'custom'>('top3');
+    const [customWinnerCount, setCustomWinnerCount] = useState<number>(3);
+    const [customWinnerRatios, setCustomWinnerRatios] = useState<string[]>(['50', '30', '20']);
     const [estimatedMembers, setEstimatedMembers] = useState(5);
     const [allowMultipleTeams, setAllowMultipleTeams] = useState(false); // dual-team league toggle
     // Step 3: Members
@@ -64,7 +68,49 @@ export default function AdminSetup() {
     const [copied, setCopied] = useState(false);
 
     // Derived calculations
-    const totalMonthlyPool = monthlyFee * estimatedMembers;
+    const MAX_LEAGUE_MEMBERS = 20;
+    const normalizedEstimatedMembers = Math.min(MAX_LEAGUE_MEMBERS, Math.max(2, estimatedMembers));
+    const maxAllowedWinners = Math.max(1, Math.min(10, Math.floor(normalizedEstimatedMembers / 2)));
+    const normalizedCustomWinnerCount = Math.max(1, Math.min(maxAllowedWinners, customWinnerCount));
+
+    const getPresetDistribution = (count: number) => {
+        if (count === 1) return [100];
+        if (count === 5) return [45, 25, 15, 10, 5];
+        return [50, 30, 20];
+    };
+
+    const normalizeDistribution = (ratioInputs: string[], winnerCount: number) => {
+        const parsed = Array.from({ length: winnerCount }, (_, idx) => {
+            const raw = Number(ratioInputs[idx] || 0);
+            return Number.isFinite(raw) && raw >= 0 ? raw : 0;
+        });
+        const sum = parsed.reduce((acc, value) => acc + value, 0);
+        if (sum <= 0) {
+            const base = Math.floor(100 / winnerCount);
+            const remainder = 100 - base * winnerCount;
+            return parsed.map((_, idx) => base + (idx === 0 ? remainder : 0));
+        }
+
+        const scaled = parsed.map((value) => (value / sum) * 100);
+        const rounded = scaled.map((value) => Math.floor(value));
+        const floorSum = rounded.reduce((acc, value) => acc + value, 0);
+        rounded[0] += (100 - floorSum);
+        return rounded;
+    };
+
+    const effectiveSeasonWinnersCount = seasonWinnersMode === 'top1'
+        ? 1
+        : seasonWinnersMode === 'top5'
+            ? 5
+            : seasonWinnersMode === 'custom'
+                ? normalizedCustomWinnerCount
+                : 3;
+
+    const effectiveSeasonDistribution = seasonWinnersMode === 'custom'
+        ? normalizeDistribution(customWinnerRatios, effectiveSeasonWinnersCount)
+        : getPresetDistribution(effectiveSeasonWinnersCount);
+
+    const totalMonthlyPool = monthlyFee * normalizedEstimatedMembers;
     const escrowFee = Math.round(totalMonthlyPool * 0.10);
     const chairmanCut = Math.round(totalMonthlyPool * 0.035);
     const mpesaFee = Math.round(totalMonthlyPool * 0.015);
@@ -73,6 +119,28 @@ export default function AdminSetup() {
 
     const weeklyPrize = Math.round(netPool * (weeklyPrizePercent / 100));
     const grandVault = netPool - weeklyPrize;
+
+    useEffect(() => {
+        if (estimatedMembers > MAX_LEAGUE_MEMBERS) setEstimatedMembers(MAX_LEAGUE_MEMBERS);
+    }, [estimatedMembers]);
+
+    useEffect(() => {
+        if (customWinnerCount > maxAllowedWinners) {
+            setCustomWinnerCount(maxAllowedWinners);
+        }
+    }, [customWinnerCount, maxAllowedWinners]);
+
+    useEffect(() => {
+        if (seasonWinnersMode !== 'custom') return;
+        setCustomWinnerRatios((prev) => {
+            const next = [...prev];
+            if (next.length > normalizedCustomWinnerCount) return next.slice(0, normalizedCustomWinnerCount);
+            if (next.length < normalizedCustomWinnerCount) {
+                while (next.length < normalizedCustomWinnerCount) next.push('0');
+            }
+            return next;
+        });
+    }, [seasonWinnersMode, normalizedCustomWinnerCount]);
 
     const passwordStrengthResult = useMemo(() => {
         let score = 0;
@@ -113,6 +181,7 @@ export default function AdminSetup() {
         setFullName(localStorage.getItem('fc-setup-fullName') || '');
         setEmail(localStorage.getItem('fc-setup-email') || '');
         setPhone(localStorage.getItem('fc-setup-phone') || '');
+        setChairmanPayoutPhone(localStorage.getItem('fc-setup-chairmanPayoutPhone') || '');
         setLeagueName(localStorage.getItem('fc-setup-leagueName') || '');
         setFplLeagueId(localStorage.getItem('fc-setup-fplLeagueId') || '');
 
@@ -123,7 +192,32 @@ export default function AdminSetup() {
         if (!Number.isNaN(savedWeeklyPercent)) setWeeklyPrizePercent(savedWeeklyPercent);
 
         const savedSeasonWinners = Number(localStorage.getItem('fc-setup-seasonWinnersCount'));
-        if ([1, 3, 5].includes(savedSeasonWinners)) setSeasonWinnersCount(savedSeasonWinners);
+        if ([1, 3, 5].includes(savedSeasonWinners)) {
+            setSeasonWinnersCount(savedSeasonWinners);
+            setSeasonWinnersMode(savedSeasonWinners === 1 ? 'top1' : savedSeasonWinners === 5 ? 'top5' : 'top3');
+        }
+
+        const savedSeasonMode = localStorage.getItem('fc-setup-seasonWinnersMode');
+        if (savedSeasonMode === 'top1' || savedSeasonMode === 'top3' || savedSeasonMode === 'top5' || savedSeasonMode === 'custom') {
+            setSeasonWinnersMode(savedSeasonMode);
+        }
+
+        const savedCustomWinnerCount = Number(localStorage.getItem('fc-setup-customWinnerCount'));
+        if (!Number.isNaN(savedCustomWinnerCount) && savedCustomWinnerCount > 0) {
+            setCustomWinnerCount(savedCustomWinnerCount);
+        }
+
+        const savedCustomRatiosRaw = localStorage.getItem('fc-setup-customWinnerRatios');
+        if (savedCustomRatiosRaw) {
+            try {
+                const parsed = JSON.parse(savedCustomRatiosRaw);
+                if (Array.isArray(parsed)) {
+                    setCustomWinnerRatios(parsed.map((item) => String(item)));
+                }
+            } catch (error) {
+                console.warn('Could not restore custom winner ratios', error);
+            }
+        }
 
         const savedEstimatedMembers = Number(localStorage.getItem('fc-setup-estimatedMembers'));
         if (!Number.isNaN(savedEstimatedMembers) && savedEstimatedMembers > 0) setEstimatedMembers(savedEstimatedMembers);
@@ -134,13 +228,23 @@ export default function AdminSetup() {
     useEffect(() => { localStorage.setItem('fc-setup-fullName', fullName); }, [fullName]);
     useEffect(() => { localStorage.setItem('fc-setup-email', email); }, [email]);
     useEffect(() => { localStorage.setItem('fc-setup-phone', phone); }, [phone]);
+    useEffect(() => { localStorage.setItem('fc-setup-chairmanPayoutPhone', chairmanPayoutPhone); }, [chairmanPayoutPhone]);
     useEffect(() => { localStorage.setItem('fc-setup-leagueName', leagueName); }, [leagueName]);
     useEffect(() => { localStorage.setItem('fc-setup-fplLeagueId', fplLeagueId); }, [fplLeagueId]);
     useEffect(() => { localStorage.setItem('fc-setup-monthlyFee', String(monthlyFee)); }, [monthlyFee]);
     useEffect(() => { localStorage.setItem('fc-setup-weeklyPrizePercent', String(weeklyPrizePercent)); }, [weeklyPrizePercent]);
     useEffect(() => { localStorage.setItem('fc-setup-seasonWinnersCount', String(seasonWinnersCount)); }, [seasonWinnersCount]);
+    useEffect(() => { localStorage.setItem('fc-setup-seasonWinnersMode', seasonWinnersMode); }, [seasonWinnersMode]);
+    useEffect(() => { localStorage.setItem('fc-setup-customWinnerCount', String(customWinnerCount)); }, [customWinnerCount]);
+    useEffect(() => { localStorage.setItem('fc-setup-customWinnerRatios', JSON.stringify(customWinnerRatios)); }, [customWinnerRatios]);
     useEffect(() => { localStorage.setItem('fc-setup-estimatedMembers', String(estimatedMembers)); }, [estimatedMembers]);
     useEffect(() => { localStorage.setItem('fc-setup-allowMultipleTeams', String(allowMultipleTeams)); }, [allowMultipleTeams]);
+
+    useEffect(() => {
+        if (!chairmanPayoutPhone && phone) {
+            setChairmanPayoutPhone(phone);
+        }
+    }, [chairmanPayoutPhone, phone]);
 
     const handleConfirmLeague = async () => {
         setIsSubmitting(true);
@@ -157,13 +261,15 @@ export default function AdminSetup() {
                 fplLeagueId,
                 gameweekStake: monthlyFee,
                 chairmanId: userCredential.user.uid,
-                chairmanPhone: phone,
+                chairmanPhone: chairmanPayoutPhone || phone,
                 chairmanEmail: email,
                 allowMultipleTeams,
                 rules: {
                     weekly: weeklyPrizePercent,
                     vault: 100 - weeklyPrizePercent,
-                    seasonWinnersCount: seasonWinnersCount
+                    seasonWinnersCount: effectiveSeasonWinnersCount,
+                    seasonWinnersMode: seasonWinnersMode,
+                    seasonDistribution: effectiveSeasonDistribution
                 },
                 inviteCode: generatedCode,
                 createdAt: serverTimestamp()
@@ -247,12 +353,13 @@ export default function AdminSetup() {
         const imported = fplStandings
             .filter(e => e.player_name !== fullName) // exclude chairman
             .map(e => ({ displayName: e.player_name, phone: '', fplEntryId: e.entry }));
-        setMembers(imported);
+        setMembers(imported.slice(0, 19));
     };
 
     const addLocalMember = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMemberName || !newMemberPhone) return;
+        if (members.length >= 19) return;
         const secondTeamId = newMemberSecondTeam ? Number(newMemberSecondTeam) : undefined;
         setMembers([...members, { displayName: newMemberName, phone: newMemberPhone, ...(secondTeamId ? { secondFplTeamId: secondTeamId } : {}) }]);
         setNewMemberName('');
@@ -531,12 +638,24 @@ export default function AdminSetup() {
                                 <input
                                     type="number"
                                     min="2"
+                                    max="20"
                                     value={estimatedMembers}
-                                    onChange={e => setEstimatedMembers(Math.max(2, Number(e.target.value)))}
+                                    onChange={e => setEstimatedMembers(Math.min(20, Math.max(2, Number(e.target.value) || 2)))}
                                     className={inputClasses}
                                     placeholder="e.g. 10"
                                 />
-                                <p className="text-[9px] text-gray-500 mt-1.5">Used purely for projection below.</p>
+                                <p className="text-[9px] text-gray-500 mt-1.5">Used purely for projection below. Max 20 members.</p>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Pochi Receiving Number</label>
+                                <input
+                                    type="tel"
+                                    value={chairmanPayoutPhone}
+                                    onChange={e => setChairmanPayoutPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                    className={inputClasses}
+                                    placeholder="e.g. 0712345678"
+                                />
+                                <p className="text-[9px] text-gray-500 mt-1.5">This is the chairman payout destination used for Pochi/cash fallback references.</p>
                             </div>
                         </div>
                     </div>
@@ -614,23 +733,78 @@ export default function AdminSetup() {
                                 <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">
                                     <Users className="w-4 h-4 text-[#22c55e]" /> End of Season Winners
                                 </label>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {[1, 3, 5].map(count => (
+                                <div className="grid grid-cols-4 gap-3">
+                                    {[
+                                        { key: 'top1', label: 'Top 1' },
+                                        { key: 'top3', label: 'Top 3' },
+                                        { key: 'top5', label: 'Top 5' },
+                                        { key: 'custom', label: 'Custom' },
+                                    ].map((option) => (
                                         <button
-                                            key={count}
-                                            onClick={() => setSeasonWinnersCount(count)}
+                                            key={option.key}
+                                            type="button"
+                                            onClick={() => {
+                                                const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
+                                                setSeasonWinnersMode(mode);
+                                                if (mode === 'top1') setSeasonWinnersCount(1);
+                                                if (mode === 'top3') setSeasonWinnersCount(3);
+                                                if (mode === 'top5') setSeasonWinnersCount(5);
+                                            }}
                                             className={clsx(
                                                 "py-2 rounded-xl border text-xs font-bold transition-all",
-                                                seasonWinnersCount === count
+                                                seasonWinnersMode === option.key
                                                     ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
                                                     : "bg-[#161d24] border-white/5 text-gray-400 hover:bg-white/[0.02]"
                                             )}
                                         >
-                                            Top {count}
+                                            {option.label}
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-[9px] text-gray-500 mt-2">The Grand Vault will be split among the top {seasonWinnersCount} player{seasonWinnersCount > 1 ? 's' : ''}.</p>
+                                <p className="text-[9px] text-gray-500 mt-2">Winners are capped at half the league size and at most 10.</p>
+
+                                {seasonWinnersMode === 'custom' && (
+                                    <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3.5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max={maxAllowedWinners}
+                                                    value={normalizedCustomWinnerCount}
+                                                    onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
+                                                    className="mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white"
+                                                />
+                                                <p className="text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (half of {normalizedEstimatedMembers} members).</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
+                                                <div key={`ratio-${idx}`} className="flex items-center gap-2">
+                                                    <span className="w-12 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={customWinnerRatios[idx] || '0'}
+                                                        onChange={(e) => {
+                                                            const next = [...customWinnerRatios];
+                                                            next[idx] = e.target.value;
+                                                            setCustomWinnerRatios(next);
+                                                        }}
+                                                        className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white"
+                                                    />
+                                                    <span className="text-[10px] font-black text-gray-500">%</span>
+                                                    <span className="w-16 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <p className="text-[9px] text-gray-500">Raw custom inputs are auto-normalized to total 100%.</p>
+                                    </div>
+                                )}
+
+                                <p className="text-[9px] text-gray-400 mt-3">The Grand Vault will be split among top {effectiveSeasonWinnersCount} player{effectiveSeasonWinnersCount > 1 ? 's' : ''}.</p>
                             </div>
                         </div>
 
@@ -681,26 +855,12 @@ export default function AdminSetup() {
 
                         <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
                             <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-2">Season Projections</h4>
-                            {seasonWinnersCount === 1 ? [100].map((percent, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400">
-                                        <span className="min-w-[28px] text-center inline-block font-black text-[#FBBF24] opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border border-[#FBBF24]/30">#1</span> Champion Takes All
-                                    </span>
-                                    <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
-                                </div>
-                            )) : seasonWinnersCount === 5 ? [45, 25, 15, 10, 5].map((percent, idx) => (
+                            {effectiveSeasonDistribution.map((percent, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
                                     <span className="flex items-center gap-2 text-gray-400">
                                         <span className={clsx("min-w-[28px] text-center inline-block font-black opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : idx === 2 ? "text-amber-600 border-amber-600/30" : "text-gray-500 border-gray-500/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
                                     </span>
-                                    <span className="font-bold tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
-                                </div>
-                            )) : [50, 30, 20].map((percent, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400">
-                                        <span className={clsx("min-w-[28px] text-center inline-block font-black opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : "text-amber-600 border-amber-600/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
-                                    </span>
-                                    <span className="font-bold tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
+                                    <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
                                 </div>
                             ))}
                         </div>

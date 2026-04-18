@@ -246,8 +246,11 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                             />
                             <div className="fc-notif-panel absolute top-3 right-3 md:top-4 md:right-4 w-[min(92vw,28rem)] bg-[#0e1419]/92 border border-white/10 rounded-[1.5rem] shadow-[0_24px_60px_rgba(0,0,0,0.32)] overflow-hidden animate-in zoom-in-95 fade-in slide-in-from-top-3 duration-300 origin-top-right fc-notif-dropdown fc-card">
                                 {/* Header row with Mark All Read */}
-                                <div className="px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/30 backdrop-blur-md">
-                                    <h3 className="font-bold text-sm tracking-wide">Mission Control</h3>
+                                <div className="fc-notif-header px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/30 backdrop-blur-md">
+                                    <div>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-400/90 mb-0.5">Alerts</p>
+                                        <h3 className="font-bold text-sm tracking-wide text-white">Mission Control</h3>
+                                    </div>
                                     {(unreadPersonalCount > 0 || unreadSystemCount > 0) && (
                                         <div className="flex items-center gap-1.5">
                                             {unreadFilteredCount > 0 && (
@@ -273,11 +276,11 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                 </div>
 
                                 {/* Tabs */}
-                                <div className="flex border-b border-white/5 bg-black/15 backdrop-blur-sm">
+                                <div className="fc-notif-tabs flex border-b border-white/5 bg-black/15 backdrop-blur-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setActiveTab('personal'); }}
                                         className={clsx(
-                                            "flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
+                                            "fc-notif-tab flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
                                             activeTab === 'personal' ? "text-emerald-400" : "text-gray-500 hover:text-gray-300"
                                         )}
                                     >
@@ -294,7 +297,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setActiveTab('system'); }}
                                         className={clsx(
-                                            "flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
+                                            "fc-notif-tab flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
                                             activeTab === 'system' ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
                                         )}
                                     >
@@ -310,7 +313,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                     </button>
                                 </div>
                                 {/* Notification Category Chips */}
-                                <div className="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto bg-white/[0.02]">
+                                <div className="fc-notif-chip-row px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto bg-white/[0.02]">
                                     {[
                                         { key: 'all', label: 'All' },
                                         { key: 'payout', label: 'Payouts' },
@@ -321,7 +324,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                             key={chip.key}
                                             onClick={(e) => { e.stopPropagation(); setNotifView(chip.key as any); }}
                                             className={clsx(
-                                                'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-colors',
+                                                'fc-notif-chip px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-colors',
                                                 notifView === chip.key
                                                     ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
                                                     : 'bg-white/[0.03] border-white/10 text-gray-500 hover:text-gray-300'
@@ -359,13 +362,13 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                                         }
                                                     }}
                                                     className={clsx(
-                                                        "p-4 transition-colors group flex gap-3 cursor-pointer outline-none",
+                                                        "fc-notif-item p-4 transition-colors group flex gap-3 cursor-pointer outline-none",
                                                         isRead
                                                             ? "bg-slate-500/[0.08] hover:bg-slate-500/[0.12] opacity-85"
                                                             : "hover:bg-white/[0.04] bg-white/[0.02]"
                                                     )}
                                                 >
-                                                    <div className="mt-0.5 flex-shrink-0">
+                                                    <div className="fc-notif-icon mt-0.5 flex-shrink-0">
                                                         {notif.type === 'success' && <CheckCircle2 className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#10B981]")} />}
                                                         {notif.type === 'transactionSuccess' && <CheckCircle2 className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#10B981]")} />}
                                                         {notif.type === 'warning' && <AlertTriangle className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#ef4444]")} />}
@@ -409,7 +412,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                                 </div>
                                             );
                                         }) : (
-                                            <div className="p-10 text-center text-gray-600">
+                                            <div className="fc-notif-empty p-10 text-center text-gray-600">
                                                 <Bell className="w-7 h-7 mx-auto mb-3 opacity-20" />
                                                 <p className="text-sm font-medium">All clear. No alerts.</p>
                                             </div>
