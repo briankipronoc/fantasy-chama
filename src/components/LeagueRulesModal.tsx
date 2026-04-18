@@ -53,7 +53,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
             <div className="fc-rules-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
 
             {/* Modal Body */}
-            <div className="fc-rules-modal relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#161d24] border border-white/10 rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+            <div className="fc-rules-modal relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#161d24] border border-white/10 rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
 
                 {/* Header */}
                 <div className="fc-rules-header flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/60">

@@ -5,6 +5,7 @@ import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftC
 import { db } from '../firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
+import { useNotifications } from '../components/NotificationProvider';
 
 export default function AppLayout() {
     const role = useStore((state) => state.role);
@@ -20,6 +21,7 @@ export default function AppLayout() {
     const [coChairMemberId, setCoChairMemberId] = useState<string | null>(null);
     const previousFinanceBadgeCountRef = useRef(0);
     const activeUserId = localStorage.getItem('activeUserId');
+    const { unreadCount } = useNotifications();
 
     if (!role && !activeLeagueId) {
         return <Navigate to="/login" replace />;
@@ -139,10 +141,10 @@ export default function AppLayout() {
     };
 
     return (
-        <div className="fc-app-shell flex xl:h-[100dvh] w-full bg-[#111613] text-white font-sans relative overflow-hidden">
+        <div className="fc-app-shell flex xl:h-[100dvh] w-full text-white font-sans relative overflow-hidden">
             {/* Desktop Sidebar (Unified) */}
             <nav className={clsx(
-                'bg-[#0a100a] hidden lg:flex flex-shrink-0 z-10 relative p-4 xl:p-5 transition-[width] duration-300 ease-out',
+                'hidden lg:flex flex-shrink-0 z-20 relative p-4 xl:p-5 transition-[width] duration-300 ease-out lg:sticky lg:top-0 lg:h-[100dvh]',
                 isSidebarCollapsed ? 'w-24' : 'w-72'
             )}>
                 <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/10 bg-[#0b1014]/85 backdrop-blur-xl p-5 flex flex-col relative overflow-hidden">
@@ -206,7 +208,7 @@ export default function AppLayout() {
                                     title={isSidebarCollapsed ? item.name : undefined}
                                 >
                                     <span className={clsx(
-                                        'fc-sidebar-link-icon inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
+                                        'fc-sidebar-link-icon relative inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
                                         isSidebarCollapsed
                                             ? (isActive
                                                 ? 'h-11 w-11 border border-emerald-500/40 bg-emerald-500/18 text-emerald-300'
@@ -216,6 +218,11 @@ export default function AppLayout() {
                                         !isSidebarCollapsed && !isActive ? 'bg-white/[0.02] border-white/10 text-gray-500 group-hover:text-white' : ''
                                     )}>
                                         <Icon className={clsx(isSidebarCollapsed ? 'h-5.5 w-5.5' : 'h-4.5 w-4.5')} />
+                                        {item.path === '/dashboard' && unreadCount > 0 && (
+                                            <span className="fc-sidebar-notif-badge absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] rounded-full border flex items-center justify-center px-1">
+                                                <span className="text-[9px] font-black leading-none tabular-nums">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                                            </span>
+                                        )}
                                     </span>
                                     {!isSidebarCollapsed && <span className="tracking-wide text-center flex-1 ml-3">{item.name}</span>}
                                     {!isSidebarCollapsed && typeof item.badge === 'number' && item.badge > 0 && (
@@ -254,7 +261,7 @@ export default function AppLayout() {
             </nav>
 
             {/* Main Content Area */}
-            <main className="fc-main-shell flex-1 w-full bg-[#0A0E17] relative overflow-hidden flex flex-col h-[100dvh] min-h-[100dvh]">
+            <main className="fc-main-shell flex-1 w-full relative overflow-hidden flex flex-col h-[100dvh] min-h-[100dvh]">
                 <div className={clsx('fc-main-scroll fc-route-stage flex-1 overflow-y-auto pb-28 lg:pb-0 scroll-smooth', routeTransitionClass)}>
                     <Outlet />
                 </div>

@@ -22,6 +22,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const setActiveTab = activeTabState[1];
     const [notifView, setNotifView] = useState<'all' | 'payout' | 'security' | 'updates'>('all');
     const [showConstitution, setShowConstitution] = useState(false);
+    const [notifListMotion, setNotifListMotion] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const location = useLocation();
@@ -71,6 +72,13 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const handleBellClick = () => {
         setIsDropdownOpen(!isDropdownOpen);
     };
+
+    useEffect(() => {
+        if (!isDropdownOpen) return;
+        setNotifListMotion('fc-notif-list-enter');
+        const timer = window.setTimeout(() => setNotifListMotion(''), 220);
+        return () => window.clearTimeout(timer);
+    }, [activeTab, notifView, isDropdownOpen]);
 
     const handleMarkAllRead = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -164,12 +172,12 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 )}
 
                 {/* Theme Toggle — 3-way pill: Dark | System | Light */}
-                <div className="hidden sm:flex items-center bg-[#0d1218] border border-white/10 rounded-xl p-1 gap-0.5">
+                <div className="fc-theme-toggle-shell hidden sm:flex items-center rounded-xl p-1 gap-0.5">
                     {(['dark', 'system', 'light'] as const).map((mode) => (
                         <button
                             key={mode}
                             onClick={() => setTheme(mode)}
-                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            className={`fc-theme-toggle-btn flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                 currentTheme === mode
                                     ? mode === 'dark' ? 'bg-slate-700 text-white shadow-sm'
                                     : mode === 'light' ? 'bg-amber-400/20 text-amber-300 shadow-sm'
@@ -186,7 +194,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Mobile compact cycle */}
                 <button
                     onClick={() => setTheme(currentTheme === 'dark' ? 'system' : currentTheme === 'system' ? 'light' : 'dark')}
-                    className="sm:hidden p-2.5 bg-[#161d24] border border-white/5 rounded-xl text-gray-400 hover:text-white transition-all hover:bg-white/5 active:scale-95"
+                    className="fc-theme-toggle-mobile sm:hidden p-2.5 border rounded-xl text-gray-400 hover:text-white transition-all active:scale-95"
                     title={`Theme: ${currentTheme} — tap to cycle`}
                 >
                     {currentTheme === 'dark' ? <Moon className="w-5 h-5" /> : currentTheme === 'light' ? <Sun className="w-5 h-5 text-amber-300" /> : <span className="text-[9px] font-black text-emerald-400">OS</span>}
@@ -195,7 +203,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Stealth Mode Toggle */}
                 <button
                     onClick={toggleStealthMode}
-                    className="p-2.5 md:p-3 bg-[#161d24] border border-white/5 rounded-xl text-gray-400 hover:text-white transition-all hover:bg-white/5 active:scale-95"
+                    className="fc-stealth-toggle p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-white transition-all active:scale-95"
                     title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                 >
                     {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
@@ -204,7 +212,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Constitution Icon Button */}
                 <button
                     onClick={() => setShowConstitution(true)}
-                    className="p-2.5 md:p-3 bg-[#161d24] border border-white/5 rounded-xl text-gray-400 hover:text-emerald-400 transition-all hover:bg-emerald-500/5 hover:border-emerald-500/20 active:scale-95"
+                    className="fc-constitution-trigger p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-emerald-400 transition-all hover:border-emerald-500/20 active:scale-95"
                     title="League Constitution"
                 >
                     <Scroll className="w-5 h-5 md:w-6 md:h-6" />
@@ -230,8 +238,8 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     {/* Dropdown */}
                     {isDropdownOpen && (
                         <>
-                            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90]" onClick={() => setIsDropdownOpen(false)} />
-                            <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#0e1419]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[100] animate-in slide-in-from-top-2 fade-in duration-200 fc-notif-dropdown fc-card">
+                            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] animate-in fade-in duration-200" onClick={() => setIsDropdownOpen(false)} />
+                            <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#0e1419]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[100] animate-in zoom-in-95 slide-in-from-top-2 fade-in duration-200 origin-top-right fc-notif-dropdown fc-card">
                                 {/* Header row with Mark All Read */}
                                 <div className="px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/20">
                                     <h3 className="font-bold text-sm tracking-wide">Mission Control</h3>
@@ -331,7 +339,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                         .notif-scroll::-webkit-scrollbar-thumb { background: #1e2935; border-radius: 99px; }
                                         .notif-scroll::-webkit-scrollbar-thumb:hover { background: #2d3f4f; }
                                     `}</style>
-                                    <div className="notif-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.04]">
+                                    <div className={clsx('notif-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.04] transition-all duration-200', notifListMotion)}>
                                         {filteredNotifs.length > 0 ? filteredNotifs.map((notif) => {
                                             const isRead = notif.readBy?.includes(realActiveUser);
                                             return (

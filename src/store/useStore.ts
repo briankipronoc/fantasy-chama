@@ -74,7 +74,18 @@ export const useStore = create<AppState>((set) => ({
         set({ role });
     },
     setLeagueSettings: (settings) => set({ league: settings }),
-    toggleStealthMode: () => set((state) => ({ isStealthMode: !state.isStealthMode })),
+    toggleStealthMode: () => {
+        if (typeof document !== 'undefined') {
+            document.documentElement.classList.remove('fc-stealth-anim');
+            // Force reflow so repeated taps replay animation reliably.
+            void document.documentElement.offsetWidth;
+            document.documentElement.classList.add('fc-stealth-anim');
+            window.setTimeout(() => {
+                document.documentElement.classList.remove('fc-stealth-anim');
+            }, 280);
+        }
+        set((state) => ({ isStealthMode: !state.isStealthMode }));
+    },
     addMember: (member) =>
         set((state) => ({
             members: [
