@@ -194,7 +194,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Mobile compact cycle */}
                 <button
                     onClick={() => setTheme(currentTheme === 'dark' ? 'system' : currentTheme === 'system' ? 'light' : 'dark')}
-                    className="fc-theme-toggle-mobile sm:hidden p-2.5 border rounded-xl text-gray-400 hover:text-white transition-all active:scale-95"
+                    className="fc-theme-toggle-mobile sm:hidden p-2.5 border rounded-xl text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
                     title={`Theme: ${currentTheme} — tap to cycle`}
                 >
                     {currentTheme === 'dark' ? <Moon className="w-5 h-5" /> : currentTheme === 'light' ? <Sun className="w-5 h-5 text-amber-300" /> : <span className="text-[9px] font-black text-emerald-400">OS</span>}
@@ -203,7 +203,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Stealth Mode Toggle */}
                 <button
                     onClick={toggleStealthMode}
-                    className="fc-stealth-toggle p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-white transition-all active:scale-95"
+                    className="fc-stealth-toggle p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
                     title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                 >
                     {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
@@ -212,7 +212,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Constitution Icon Button */}
                 <button
                     onClick={() => setShowConstitution(true)}
-                    className="fc-constitution-trigger p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-emerald-400 transition-all hover:border-emerald-500/20 active:scale-95"
+                    className="fc-constitution-trigger p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-emerald-400 transition-all duration-300 ease-out hover:border-emerald-500/20 active:scale-95"
                     title="League Constitution"
                 >
                     <Scroll className="w-5 h-5 md:w-6 md:h-6" />
@@ -239,7 +239,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     {isDropdownOpen && (
                         <>
                             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] animate-in fade-in duration-200" onClick={() => setIsDropdownOpen(false)} />
-                            <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#0e1419]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[100] animate-in zoom-in-95 slide-in-from-top-2 fade-in duration-200 origin-top-right fc-notif-dropdown fc-card">
+                            <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#0e1419]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[100] animate-in zoom-in-95 slide-in-from-top-2 fade-in duration-300 origin-top-right fc-notif-dropdown fc-card">
                                 {/* Header row with Mark All Read */}
                                 <div className="px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/20">
                                     <h3 className="font-bold text-sm tracking-wide">Mission Control</h3>

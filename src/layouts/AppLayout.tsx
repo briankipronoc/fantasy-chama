@@ -32,8 +32,20 @@ export default function AppLayout() {
     }, [isSidebarCollapsed]);
 
     useEffect(() => {
+        const applySidebarWidth = () => {
+            const desktop = window.matchMedia('(min-width: 1024px)').matches;
+            const width = desktop ? (isSidebarCollapsed ? 96 : 288) : 0;
+            document.documentElement.style.setProperty('--fc-sidebar-width', `${width}px`);
+        };
+
+        applySidebarWidth();
+        window.addEventListener('resize', applySidebarWidth);
+        return () => window.removeEventListener('resize', applySidebarWidth);
+    }, [isSidebarCollapsed]);
+
+    useEffect(() => {
         setRouteTransitionClass('fc-route-enter');
-        const timer = window.setTimeout(() => setRouteTransitionClass(''), 240);
+        const timer = window.setTimeout(() => setRouteTransitionClass(''), 340);
         return () => window.clearTimeout(timer);
     }, [location.pathname]);
 
@@ -140,8 +152,16 @@ export default function AppLayout() {
         }
     };
 
+    const shellBackgroundClass = useMemo(() => {
+        if (location.pathname.startsWith('/standings')) return 'fc-shell-standings';
+        if (location.pathname.startsWith('/finances')) return 'fc-shell-finances';
+        if (location.pathname.startsWith('/profile')) return 'fc-shell-profile';
+        if (location.pathname.startsWith('/dashboard')) return 'fc-shell-warroom';
+        return 'fc-shell-default';
+    }, [location.pathname]);
+
     return (
-        <div className="fc-app-shell flex xl:h-[100dvh] w-full text-white font-sans relative overflow-hidden">
+        <div className={clsx('fc-app-shell flex xl:h-[100dvh] w-full text-white font-sans relative overflow-hidden', shellBackgroundClass)}>
             {/* Desktop Sidebar (Unified) */}
             <nav className={clsx(
                 'hidden lg:flex flex-shrink-0 z-20 relative p-4 xl:p-5 transition-[width] duration-300 ease-out lg:sticky lg:top-0 lg:h-[100dvh]',

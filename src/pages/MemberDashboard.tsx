@@ -227,28 +227,6 @@ export default function MemberDashboard() {
         setIsLoading(false);
     }, [members.length, currentUser, leagueName]);
 
-    useEffect(() => {
-        const vv = window.visualViewport;
-        if (!vv) return;
-
-        const syncViewportOffset = () => {
-            const bottomOffset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-            document.documentElement.style.setProperty('--fc-vv-bottom-offset', `${bottomOffset}px`);
-        };
-
-        syncViewportOffset();
-        vv.addEventListener('resize', syncViewportOffset);
-        vv.addEventListener('scroll', syncViewportOffset);
-        window.addEventListener('resize', syncViewportOffset);
-
-        return () => {
-            vv.removeEventListener('resize', syncViewportOffset);
-            vv.removeEventListener('scroll', syncViewportOffset);
-            window.removeEventListener('resize', syncViewportOffset);
-            document.documentElement.style.setProperty('--fc-vv-bottom-offset', '0px');
-        };
-    }, []);
-
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
         if (!activeLeagueId) return;
@@ -746,7 +724,7 @@ export default function MemberDashboard() {
             </div>
 
             {/* Top Navigation Frame */}
-            <div className="pt-6 px-4 md:pt-10 md:px-8 w-full max-w-6xl mx-auto z-50 space-y-3">
+            <div className="fc-member-top-rail sticky top-0 pt-4 px-4 md:pt-6 md:px-8 w-full max-w-6xl mx-auto z-50 space-y-3">
                 <Header
                     role="member"
                     title={leagueName || 'The Big League'}
@@ -810,7 +788,7 @@ export default function MemberDashboard() {
                                 You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
                             </p>
                         </div>
-                        <div className="relative z-10 bg-[#0b1014]/60 backdrop-blur-sm p-4 rounded-2xl border border-[#FBBF24]/30 text-center flex-shrink-0">
+                        <div className="fc-win-payout-card relative z-10 p-4 rounded-2xl text-center flex-shrink-0">
                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
                             <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                         </div>
@@ -827,7 +805,7 @@ export default function MemberDashboard() {
                                     showToast('✅ Win link copied! Share it!');
                                 }
                             }}
-                            className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-300 border border-amber-300 text-[#111827] text-xs font-black rounded-xl transition-all active:scale-95"
+                            className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95"
                         >
                             🏆 Share My Win
                         </button>
@@ -1330,19 +1308,21 @@ export default function MemberDashboard() {
             </main>
 
             {/* Fixed Bottom Actions */}
-            <div className="hidden lg:flex fc-member-bottom-actions fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent justify-center z-30 pb-4">
-                <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
-                    {actionButtons}
-                </div>
-            </div>
             {typeof document !== 'undefined' && createPortal(
+                <>
+                <div className="hidden lg:flex fc-member-bottom-actions-desktop right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent justify-center z-[118] pb-4">
+                    <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
+                        {actionButtons}
+                    </div>
+                </div>
                 <div className="lg:hidden fc-member-bottom-actions-mobile left-0 right-0 p-3 z-[120]">
                     <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#0b1014]/92 backdrop-blur-xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.45)] pb-[max(0.4rem,env(safe-area-inset-bottom))]">
                         <div className="flex gap-2.5 w-full pointer-events-auto">
                             {actionButtons}
                         </div>
                     </div>
-                </div>,
+                </div>
+                </>,
                 document.body
             )}
 
