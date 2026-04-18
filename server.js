@@ -1195,6 +1195,26 @@ const runFPLAutopilot = async () => {
                     continue;
                 }
 
+                // Add queue dedupe guard for repeated “0 pts autopilot”
+                if (winningPoints <= 0) {
+                    const zeroPtsNotifSnap = await db.collection(`leagues/${leagueId}/notifications`)
+                        .where('gw', '==', gwId)
+                        .limit(1)
+                        .get();
+                    if (!zeroPtsNotifSnap.empty) {
+                        console.log(`[AUTOPILOT] League ${leagueId}: GW${gwId} 0 pts dedupe blocked.`);
+                        continue;
+                    }
+                    await db.collection(`leagues/${leagueId}/notifications`).add({
+                        type: 'warning',
+                        message: `🤖 AUTOPILOT: ${gwName} is complete! Top scorer ${winner.displayName} has 0 pts. Resolution aborted.`,
+                        gw: gwId,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        readBy: []
+                    });
+                    continue;
+                }
+
                 // Create the pending payout (Maker/Checker: Co-Chair must approve)
                 await db.collection(`leagues/${leagueId}/pending_payouts`).add({
                     winnerId: winner.id,

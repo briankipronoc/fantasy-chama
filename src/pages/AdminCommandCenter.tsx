@@ -6,6 +6,7 @@ import PotVaultSwapper from '../components/PotVaultSwapper';
 import { db, auth } from '../firebase';
 import { doc, getDoc, collection, addDoc, serverTimestamp, updateDoc, onSnapshot, query, where, increment, orderBy, limit, getDocs } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
+import { getApiBaseUrl } from '../utils/api';
 import clsx from 'clsx';
 import confetti from 'canvas-confetti';
 import { driver } from "driver.js";
@@ -15,19 +16,6 @@ export default function AdminCommandCenter() {
     const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const activeUserId = localStorage.getItem('activeUserId');
-    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
-    const getApiBaseUrl = () => {
-        const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) {
-            const normalized = configured.replace(/\/$/, '');
-            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
-                return normalized.replace(/^http:\/\//i, 'https://');
-            }
-            return normalized;
-        }
-        if (import.meta.env.DEV) return 'http://localhost:5001';
-        return DEFAULT_RENDER_API_URL;
-    };
 
     const [leagueName, setLeagueName] = useState('');
     const [inviteCode, setInviteCode] = useState('');

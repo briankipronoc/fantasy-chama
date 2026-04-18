@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet, TrendingUp, CheckCircle2, RefreshCw, ShieldAlert, Clock3 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { getApiBaseUrl } from '../utils/api';
 import { collection, onSnapshot, query, orderBy, doc, addDoc, updateDoc, serverTimestamp, where, increment } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import clsx from 'clsx';
@@ -13,19 +14,6 @@ export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
     const activeUserId = localStorage.getItem('activeUserId');
-    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
-    const getApiBaseUrl = () => {
-        const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) {
-            const normalized = configured.replace(/\/$/, '');
-            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
-                return normalized.replace(/^http:\/\//i, 'https://');
-            }
-            return normalized;
-        }
-        if (import.meta.env.DEV) return 'http://localhost:5001';
-        return DEFAULT_RENDER_API_URL;
-    };
     const { members, listenToLeagueMembers, isStealthMode, role } = useStore();
 
     const [transactions, setTransactions] = useState<any[]>([]);
@@ -43,6 +31,11 @@ export default function Finances() {
     const [cashTopUpNote, setCashTopUpNote] = useState('');
     const [isSubmittingCashTopUpRequest, setIsSubmittingCashTopUpRequest] = useState(false);
     const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
+        setTimeout(() => setActionMessage(null), 5000);
+    }, []);
 
     const txDate = (tx: any) => {
         const raw = tx?.timestamp;

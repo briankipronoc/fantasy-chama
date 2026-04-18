@@ -6,6 +6,7 @@ import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Acti
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
+import { getApiBaseUrl } from '../utils/api';
 import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import clsx from 'clsx';
@@ -87,20 +88,7 @@ export default function MemberDashboard() {
     const listenToLeagueTransactions = useStore(state => state.listenToLeagueTransactions);
     const [showPochiInstructions, setShowPochiInstructions] = useState(false);
     const [isNudgingHQ, setIsNudgingHQ] = useState(false);
-    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
 
-    const getApiBaseUrl = () => {
-        const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) {
-            const normalized = configured.replace(/\/$/, '');
-            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
-                return normalized.replace(/^http:\/\//i, 'https://');
-            }
-            return normalized;
-        }
-        if (import.meta.env.DEV) return 'http://localhost:5001';
-        return DEFAULT_RENDER_API_URL;
-    };
 
     const handleNudgeHQ = async () => {
         if (!activeLeagueId || !currentUser) return;

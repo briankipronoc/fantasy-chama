@@ -1557,3 +1557,33 @@ html {
   color: #111827 !important;
   border-color: #e5e7eb !important;
 }
+/* Light Mode Overrides for Analytics/Risk Cards */
+[data-theme="light"] .fc-risk-radar-card,
+[data-theme="light"] .fc-decision-audit-card,
+[data-theme="light"] .fc-guided-workflow-card,
+[data-theme="light"] .fc-cashflow-health-card {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+[data-theme="light"] .fc-risk-radar-card h3,
+[data-theme="light"] .fc-decision-audit-card h3,
+[data-theme="light"] .fc-guided-workflow-card h3,
+[data-theme="light"] .fc-cashflow-health-card h3,
+[data-theme="light"] .fc-cashflow-health-card p,
+[data-theme="light"] .fc-risk-radar-card span,
+[data-theme="light"] .fc-decision-audit-card span,
+[data-theme="light"] .fc-guided-workflow-card span,
+[data-theme="light"] .fc-cashflow-health-card span,
+[data-theme="light"] .fc-guided-workflow-card p,
+[data-theme="light"] .fc-guided-workflow-card div {
+    color: #0f172a !important;
+}
+
+[data-theme="light"] .fc-risk-radar-item,
+[data-theme="light"] .fc-guided-workflow-item {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
