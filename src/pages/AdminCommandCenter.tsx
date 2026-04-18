@@ -41,6 +41,11 @@ export default function AdminCommandCenter() {
     // Module 3B: Dispute/Claim alerts
     const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
     const [processingDispute, setProcessingDispute] = useState<string | null>(null);
+    const [hqReceiptCode, setHqReceiptCode] = useState('');
+    const [hqPaymentAmount, setHqPaymentAmount] = useState(0);
+    const [isSubmittingHqSettlement, setIsSubmittingHqSettlement] = useState(false);
+    const [latestHqSettlement, setLatestHqSettlement] = useState<any | null>(null);
+    const [showHqSettlementForm, setShowHqSettlementForm] = useState(false);
 
     // Phase 29: FPL GW Winner logic
     const [gwWinner, setGwWinner] = useState<any>(null);
@@ -144,6 +149,32 @@ export default function AdminCommandCenter() {
         };
     }, [activeLeagueId]);
 
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const settlementQuery = query(
+            collection(db, 'leagues', activeLeagueId, 'hq_settlements'),
+            orderBy('submittedAt', 'desc'),
+            limit(1)
+        );
+        const unsub = onSnapshot(settlementQuery, (snap) => {
+            if (snap.empty) {
+                setLatestHqSettlement(null);
+                return;
+            }
+            const latestDoc = snap.docs[0];
+            setLatestHqSettlement({ id: latestDoc.id, ...latestDoc.data() });
+        }, (err) => {
+            console.warn('[admin-command] hq settlements listener failed:', err?.message || err);
+            setLatestHqSettlement(null);
+        });
+
+        return () => {
+            try { unsub(); } catch (err) {
+                console.warn('[admin-command] hq settlements cleanup failed:', err);
+            }
+        };
+    }, [activeLeagueId]);
+
     // Filter & Modal State
     const [paymentFilter, setPaymentFilter] = useState<'All' | 'Verified' | 'Red Zone'>('All');
     const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -174,6 +205,13 @@ export default function AdminCommandCenter() {
     
     const isSuspended = leagueSettings?.isSuspended === true || isGracePeriodOver;
     const isWithinGracePeriod = pendingHQDebt > 0 && !isGracePeriodOver && leagueSettings?.isSuspended !== true;
+    const hqPochiNumber = import.meta.env.VITE_HQ_POCHI_NUMBER || '07XXXXXXXX';
+
+    useEffect(() => {
+        if (pendingHQDebt > 0) {
+            setHqPaymentAmount(Math.max(1, Math.round(Number(pendingHQDebt || 0))));
+        }
+    }, [pendingHQDebt]);
     
     const suspensionNudges = leagueSettings?.suspensionNudges || [];
 
@@ -747,6 +785,58 @@ export default function AdminCommandCenter() {
         }
     };
 
+    const handleSubmitHqSettlement = async () => {
+        if (!activeLeagueId) return;
+        if (pendingHQDebt <= 0) {
+            showToast('No outstanding HQ debt right now.');
+            return;
+        }
+
+        const receipt = hqReceiptCode.trim().toUpperCase();
+        if (receipt.length < 6) {
+            showToast('Enter a valid M-Pesa receipt code before submitting.');
+            return;
+        }
+
+        const amount = Math.min(
+            Math.max(1, Number(hqPaymentAmount || 0)),
+            Number(pendingHQDebt || 0)
+        );
+
+        setIsSubmittingHqSettlement(true);
+        try {
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'hq_settlements'), {
+                leagueId: activeLeagueId,
+                leagueName: leagueName || 'League',
+                amount,
+                debtSnapshot: Number(pendingHQDebt || 0),
+                receiptCode: receipt,
+                channel: 'pochi',
+                status: 'submitted',
+                submittedById: activeUserId || auth.currentUser?.uid || null,
+                submittedByName: auth.currentUser?.displayName || 'Chairman',
+                submittedByPhone: localStorage.getItem('memberPhone') || null,
+                submittedAt: serverTimestamp(),
+            });
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                message: `HQ settlement submitted: receipt ${receipt} for KES ${Number(amount).toLocaleString()}. Waiting HQ verification.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+
+            setHqReceiptCode('');
+            setShowHqSettlementForm(false);
+            showToast('HQ payment receipt submitted. Awaiting SuperAdmin verification.');
+        } catch (error: any) {
+            console.error('HQ settlement submit failed:', error);
+            showToast(`Failed to submit HQ receipt: ${error?.message || 'Unknown error'}`);
+        } finally {
+            setIsSubmittingHqSettlement(false);
+        }
+    };
+
     // Co-Chair: Approve a pending payout and fire real B2C
     const handleApprovePayout = async (payout: any) => {
         if (!activeLeagueId) return;
@@ -932,8 +1022,49 @@ export default function AdminCommandCenter() {
                 <div className="bg-yellow-500/10 border-b border-yellow-500/30 text-center py-2.5 px-4 flex items-center justify-center gap-3 fixed top-0 w-full z-[80] animate-in slide-in-from-top">
                     <AlertTriangle className="w-4 h-4 text-yellow-500 animate-pulse" />
                     <p className="text-[10px] sm:text-xs font-bold font-mono text-yellow-200 uppercase tracking-widest truncate">
-                        HQ Action Required: Owed Platform Fee is <span className="text-black bg-yellow-500 px-1.5 py-0.5 rounded ml-1">KES {pendingHQDebt.toLocaleString()}</span>. Settle via Pochi [07XXXXXXXX] within 48h to avoid suspension.
+                        HQ Action Required: Owed Platform Fee is <span className="text-black bg-yellow-500 px-1.5 py-0.5 rounded ml-1">KES {pendingHQDebt.toLocaleString()}</span>. Settle via Pochi [{hqPochiNumber}] within 48h to avoid suspension.
                     </p>
+                    <button
+                        onClick={() => setShowHqSettlementForm((prev) => !prev)}
+                        className="px-3 py-1.5 rounded-lg border border-yellow-500/40 bg-yellow-500/20 text-[10px] font-black uppercase tracking-widest text-yellow-100"
+                    >
+                        {showHqSettlementForm ? 'Hide Receipt Form' : 'Submit HQ Receipt'}
+                    </button>
+                </div>
+            )}
+
+            {isWithinGracePeriod && showHqSettlementForm && (
+                <div className="fixed top-12 w-full z-[79] px-4">
+                    <div className="mx-auto max-w-3xl rounded-2xl border border-yellow-500/35 bg-[#1a1500] px-4 py-3 shadow-2xl">
+                        <p className="text-[10px] uppercase tracking-widest text-yellow-300 font-black mb-2">Submit HQ Settlement Receipt</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <input
+                                type="text"
+                                value={hqReceiptCode}
+                                onChange={(e) => setHqReceiptCode(e.target.value.toUpperCase().trim())}
+                                placeholder="M-Pesa Receipt (e.g. QWE123ABC)"
+                                className="sm:col-span-2 px-3 py-2 rounded-xl bg-black/30 border border-white/15 text-white text-sm"
+                            />
+                            <input
+                                type="number"
+                                min="1"
+                                max={Math.max(1, Number(pendingHQDebt || 1))}
+                                value={hqPaymentAmount}
+                                onChange={(e) => setHqPaymentAmount(Math.max(1, Number(e.target.value || 0)))}
+                                className="px-3 py-2 rounded-xl bg-black/30 border border-white/15 text-white text-sm"
+                            />
+                        </div>
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                            <p className="text-[10px] text-yellow-100/80">Latest HQ status: <span className="font-black uppercase">{latestHqSettlement?.status || 'none submitted yet'}</span></p>
+                            <button
+                                onClick={handleSubmitHqSettlement}
+                                disabled={isSubmittingHqSettlement}
+                                className="px-4 py-2 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black text-[10px] font-black uppercase tracking-widest disabled:opacity-60"
+                            >
+                                {isSubmittingHqSettlement ? 'Submitting...' : 'Send Receipt'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -960,9 +1091,31 @@ export default function AdminCommandCenter() {
                             <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> HQ Pochi Instructions</p>
                             <ol className="text-xs text-gray-300 space-y-2 list-decimal pl-4 marker:text-gray-500">
                                 <li>Open M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
-                                <li>Send to HQ Mobile: <strong>07XXXXXXXX</strong></li>
+                                <li>Send to HQ Mobile: <strong>{hqPochiNumber}</strong></li>
                                 <li>Enter Amount: <strong>KES {pendingHQDebt}</strong></li>
                             </ol>
+                        </div>
+
+                        <div className="w-full bg-[#161d24] border border-white/10 rounded-xl p-4 text-left">
+                            <p className="text-[10px] font-black text-yellow-300 uppercase tracking-widest mb-2">Submit Proof to HQ</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                <input
+                                    type="text"
+                                    value={hqReceiptCode}
+                                    onChange={(e) => setHqReceiptCode(e.target.value.toUpperCase().trim())}
+                                    placeholder="Receipt code"
+                                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-black/30 border border-white/15 text-white text-sm"
+                                />
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={Math.max(1, Number(pendingHQDebt || 1))}
+                                    value={hqPaymentAmount}
+                                    onChange={(e) => setHqPaymentAmount(Math.max(1, Number(e.target.value || 0)))}
+                                    className="px-3 py-2 rounded-lg bg-black/30 border border-white/15 text-white text-sm"
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-2">Status: <span className="font-black uppercase text-gray-300">{latestHqSettlement?.status || 'awaiting submission'}</span></p>
                         </div>
                         
                         {suspensionNudges.length > 0 && (
@@ -980,8 +1133,12 @@ export default function AdminCommandCenter() {
                         )}
 
                         <div className="w-full space-y-3 mt-2">
-                            <button onClick={() => { /* SuperAdmin will verify, but we can give them placebo button */ }} className="w-full py-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-black uppercase tracking-widest text-[11px] rounded-xl transition-all shadow-lg active:scale-95">
-                                I Have Paid HQ
+                            <button
+                                onClick={handleSubmitHqSettlement}
+                                disabled={isSubmittingHqSettlement}
+                                className="w-full py-4 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-black uppercase tracking-widest text-[11px] rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                            >
+                                {isSubmittingHqSettlement ? 'Submitting Proof...' : 'I Have Paid HQ (Submit Receipt)'}
                             </button>
                             <button onClick={() => navigate('/')} className="w-full py-4 bg-white/5 hover:bg-white/10 text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all border border-white/5">
                                 Sign out for now
@@ -1140,13 +1297,55 @@ export default function AdminCommandCenter() {
                         </div>
                         <button
                             onClick={() => setShowResolveModal(true)}
-                            disabled={hasPreflightBlockers}
-                            className="w-full px-4 py-3 rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/15 text-[#FBBF24] text-[11px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+                            className={clsx(
+                                "w-full px-4 py-3 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all",
+                                hasPreflightBlockers
+                                    ? 'border-red-500/30 bg-red-500/15 text-red-300'
+                                    : 'border-[#FBBF24]/30 bg-[#FBBF24]/15 text-[#FBBF24]'
+                            )}
                         >
-                            {hasPreflightBlockers ? 'Resolve Blocked: Fix Preflight' : 'One-Click Close Gameweek'}
+                            {hasPreflightBlockers ? 'Continue With Caution: Preflight Warnings' : 'One-Click Close Gameweek'}
                         </button>
                     </div>
                 </section>
+
+                {pendingHQDebt > 0 && !isSuspended && (
+                    <section className="fc-card rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-yellow-300">HQ Settlement Workflow</h3>
+                                <p className="text-xs text-gray-300 mt-1">1) Pay HQ via Pochi ({hqPochiNumber}) 2) Submit receipt here 3) SuperAdmin verifies 4) Debt clears and next GW runs cleanly.</p>
+                                {latestHqSettlement && (
+                                    <p className="text-[10px] text-gray-400 mt-2">Latest submission: <span className="font-black uppercase text-white">{latestHqSettlement.status}</span>{latestHqSettlement.receiptCode ? ` • ${latestHqSettlement.receiptCode}` : ''}</p>
+                                )}
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-stretch gap-2 w-full md:w-auto">
+                                <input
+                                    type="text"
+                                    value={hqReceiptCode}
+                                    onChange={(e) => setHqReceiptCode(e.target.value.toUpperCase().trim())}
+                                    placeholder="Paste M-Pesa receipt"
+                                    className="px-3 py-2 rounded-xl border border-white/15 bg-black/20 text-sm text-white"
+                                />
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={Math.max(1, Number(pendingHQDebt || 1))}
+                                    value={hqPaymentAmount}
+                                    onChange={(e) => setHqPaymentAmount(Math.max(1, Number(e.target.value || 0)))}
+                                    className="px-3 py-2 rounded-xl border border-white/15 bg-black/20 text-sm text-white w-32"
+                                />
+                                <button
+                                    onClick={handleSubmitHqSettlement}
+                                    disabled={isSubmittingHqSettlement}
+                                    className="px-4 py-2 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black text-[11px] font-black uppercase tracking-widest disabled:opacity-60"
+                                >
+                                    {isSubmittingHqSettlement ? 'Sending...' : 'Send to HQ'}
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                )}
 
                 {/* Chairman Action Timeline */}
                 <section className="fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
@@ -1154,12 +1353,13 @@ export default function AdminCommandCenter() {
                         <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Resolution Timeline</h3>
                         <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">Live</span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
                         {[
                             { key: 'resolved', label: 'Resolve GW', active: actionTimeline.resolved },
                             { key: 'approval', label: 'Approval Pending', active: actionTimeline.approvalPending },
                             { key: 'sent', label: 'Payout Sent', active: actionTimeline.payoutSent },
                             { key: 'confirmed', label: 'Confirmed', active: actionTimeline.confirmed },
+                            { key: 'hq-settled', label: 'HQ Settled', active: pendingHQDebt <= 0 || latestHqSettlement?.status === 'approved' },
                         ].map((step, idx) => (
                             <div key={step.key} className={clsx(
                                 'rounded-xl border p-3 transition-all duration-300 relative',
@@ -1620,7 +1820,7 @@ export default function AdminCommandCenter() {
                 {/* Gameweek Resolution Modal */}
                 {showResolveModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/80 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
+                        <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
                             <div className="w-12 h-12 rounded-full bg-[#FBBF24]/10 flex items-center justify-center mb-6 border border-[#FBBF24]/20">
                                 <AlertTriangle className="w-6 h-6 text-[#FBBF24]" />
                             </div>
@@ -1633,7 +1833,7 @@ export default function AdminCommandCenter() {
                             </p>
 
                             {(!isCurrentEventFinished || !gwWinner || Number(gwWinner.event_total || 0) <= 0) && (
-                                <div className="mb-5 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2.5">
+                                <div className="fc-resolve-lock-banner mb-5 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2.5">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Resolution locked</p>
                                     <p className="text-xs text-red-100/90 mt-1">
                                         You can only resolve after FPL marks the current gameweek as finished and the winner has a positive GW score.
@@ -1647,19 +1847,20 @@ export default function AdminCommandCenter() {
                                 <div className="flex gap-3">
                                     <button 
                                         onClick={() => setPayoutMethod('mpesa')}
-                                        className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === 'mpesa' ? 'bg-[#10B981]/10 border-[#10B981]/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20'}`}
+                                        className={`fc-disburse-option flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === 'mpesa' ? 'bg-[#10B981]/10 border-[#10B981]/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20'}`}
                                     >
                                         <div className={`font-black uppercase tracking-widest mb-1 text-sm ${payoutMethod === 'mpesa' ? 'text-[#10B981]' : ''}`}>M-Pesa B2C</div>
-                                        <div className="text-[10px] opacity-80 text-center font-bold">Auto-disbursed via API</div>
+                                        <div className="text-[10px] opacity-90 text-center font-bold">Instant API disbursement + callback receipt</div>
                                     </button>
                                     <button 
                                         onClick={() => setPayoutMethod('cash')}
-                                        className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === 'cash' ? 'bg-[#FBBF24]/10 border-[#FBBF24]/50 shadow-[0_0_15px_rgba(251,191,36,0.15)]' : 'bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20'}`}
+                                        className={`fc-disburse-option flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === 'cash' ? 'bg-[#FBBF24]/10 border-[#FBBF24]/50 shadow-[0_0_15px_rgba(251,191,36,0.15)]' : 'bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20'}`}
                                     >
                                         <div className={`font-black uppercase tracking-widest mb-1 text-sm ${payoutMethod === 'cash' ? 'text-[#FBBF24]' : ''}`}>Cash Handoff</div>
-                                        <div className="text-[10px] opacity-80 text-center font-bold">Manual External Payout</div>
+                                        <div className="text-[10px] opacity-90 text-center font-bold">Manual payout + mandatory receipt/audit logging</div>
                                     </button>
                                 </div>
+                                <p className="mt-2 text-[10px] text-gray-400">Selected: <span className="font-black text-white uppercase">{payoutMethod === 'mpesa' ? 'M-Pesa B2C' : 'Cash Handoff'}</span></p>
                             </div>
 
                             <div className="flex flex-col sm:flex-row items-center justify-end gap-3 sm:gap-4 mt-8">
@@ -1672,7 +1873,7 @@ export default function AdminCommandCenter() {
                                 </button>
                                 <button
                                     onClick={handleResolveGameweek}
-                                    disabled={isResolving || !isCurrentEventFinished || !gwWinner || Number(gwWinner.event_total || 0) <= 0}
+                                    disabled={isResolving}
                                     className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-white text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isResolving ? (

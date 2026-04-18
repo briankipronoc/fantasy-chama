@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc, addDoc, serverTimestamp, runTransaction, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function SuperAdminDashboard() {
     const [treasuryEvents, setTreasuryEvents] = useState<any[]>([]);
     const [leagues, setLeagues] = useState<any[]>([]);
     const [stealthMode, setStealthMode] = useState(false);
-    const [activeTab, setActiveTab] = useState<'overview' | 'leagues' | 'ledger'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'leagues' | 'ledger' | 'settlements'>('overview');
     const [stats, setStats] = useState({
         totalGrossVolume: 0,
         totalPlatformRev: 0,
@@ -25,6 +25,10 @@ export default function SuperAdminDashboard() {
         activeMembers: 0,
         totalResolutions: 0
     });
+    const [settlements, setSettlements] = useState<any[]>([]);
+    const [settlementActionId, setSettlementActionId] = useState<string | null>(null);
+    const [reviewNoteById, setReviewNoteById] = useState<Record<string, string>>({});
+    const [hqNotice, setHqNotice] = useState('');
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -92,6 +96,125 @@ export default function SuperAdminDashboard() {
         return () => { if (unsubLeagues) unsubLeagues(); };
     }, [isAuthorized]);
 
+    useEffect(() => {
+        if (!isAuthorized) return;
+        const settlementQuery = query(
+            collectionGroup(db, 'hq_settlements'),
+            orderBy('submittedAt', 'desc'),
+            limit(200)
+        );
+        const unsub = onSnapshot(settlementQuery, (snapshot) => {
+            const docs = snapshot.docs.map((item) => ({
+                id: item.id,
+                settlementPath: item.ref.path,
+                ...item.data(),
+            } as any));
+            setSettlements(docs);
+        }, (error) => {
+            console.warn('[hq] settlements listener failed:', error?.message || error);
+            setSettlements([]);
+        });
+
+        return () => {
+            try { unsub(); } catch (error) {
+                console.warn('[hq] settlements listener cleanup failed:', error);
+            }
+        };
+    }, [isAuthorized]);
+
+    const showHqNotice = (message: string) => {
+        setHqNotice(message);
+        window.setTimeout(() => setHqNotice(''), 3500);
+    };
+
+    const handleApproveSettlement = async (settlement: any) => {
+        if (!settlement?.settlementPath || !settlement?.leagueId) return;
+        setSettlementActionId(settlement.id);
+        try {
+            const reviewNote = (reviewNoteById[settlement.id] || '').trim();
+            const settlementRef = doc(db, settlement.settlementPath);
+            const leagueRef = doc(db, 'leagues', settlement.leagueId);
+
+            const txResult = await runTransaction(db, async (tx) => {
+                const settlementSnap = await tx.get(settlementRef);
+                if (!settlementSnap.exists()) throw new Error('Settlement request no longer exists.');
+                const settlementData = settlementSnap.data() as any;
+                if (settlementData.status !== 'submitted') {
+                    throw new Error('Settlement already processed by another HQ operator.');
+                }
+
+                const leagueSnap = await tx.get(leagueRef);
+                if (!leagueSnap.exists()) throw new Error('Target league no longer exists.');
+
+                const currentDebt = Number(leagueSnap.data()?.pendingHQDebt || 0);
+                const requestedAmount = Number(settlementData.amount || 0);
+                const approvedAmount = Math.min(Math.max(requestedAmount, 0), currentDebt);
+                const remainingDebt = Math.max(0, currentDebt - approvedAmount);
+
+                tx.update(settlementRef, {
+                    status: 'approved',
+                    approvedAmount,
+                    remainingDebt,
+                    reviewedAt: serverTimestamp(),
+                    reviewedById: auth.currentUser?.uid || 'hq',
+                    reviewedByName: auth.currentUser?.displayName || 'HQ',
+                    reviewNote: reviewNote || 'Receipt verified by HQ.'
+                });
+
+                tx.update(leagueRef, {
+                    pendingHQDebt: remainingDebt,
+                    ...(remainingDebt === 0 ? { isSuspended: false, suspensionNudges: [] } : {})
+                });
+
+                return { approvedAmount, remainingDebt };
+            });
+
+            await addDoc(collection(db, 'leagues', settlement.leagueId, 'notifications'), {
+                type: 'success',
+                message: `HQ verified receipt ${settlement.receiptCode || ''}. KES ${Number(txResult.approvedAmount || 0).toLocaleString()} posted against platform debt. Remaining debt: KES ${Number(txResult.remainingDebt || 0).toLocaleString()}.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+
+            showHqNotice(`Settlement approved for ${settlement.leagueName || settlement.leagueId}.`);
+        } catch (error: any) {
+            console.error('Settlement approval failed:', error);
+            showHqNotice(`Approval failed: ${error?.message || 'Unknown error'}`);
+        } finally {
+            setSettlementActionId(null);
+        }
+    };
+
+    const handleRejectSettlement = async (settlement: any) => {
+        if (!settlement?.settlementPath || !settlement?.leagueId) return;
+        setSettlementActionId(settlement.id);
+        try {
+            const reviewNote = (reviewNoteById[settlement.id] || '').trim();
+            const settlementRef = doc(db, settlement.settlementPath);
+            await updateDoc(settlementRef, {
+                status: 'rejected',
+                reviewedAt: serverTimestamp(),
+                reviewedById: auth.currentUser?.uid || 'hq',
+                reviewedByName: auth.currentUser?.displayName || 'HQ',
+                reviewNote: reviewNote || 'Receipt not verifiable. Re-submit with the exact M-Pesa code.'
+            });
+
+            await addDoc(collection(db, 'leagues', settlement.leagueId, 'notifications'), {
+                type: 'warning',
+                message: `HQ rejected settlement receipt ${settlement.receiptCode || ''}. Please re-submit the correct M-Pesa code.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+
+            showHqNotice(`Settlement rejected for ${settlement.leagueName || settlement.leagueId}.`);
+        } catch (error: any) {
+            console.error('Settlement rejection failed:', error);
+            showHqNotice(`Rejection failed: ${error?.message || 'Unknown error'}`);
+        } finally {
+            setSettlementActionId(null);
+        }
+    };
+
     const handleClearDebt = async (leagueId: string) => {
         if (!window.confirm('Mark this league\'s HQ debt as PAID via Pochi La Biashara?')) return;
         await updateDoc(doc(db, 'leagues', leagueId), { pendingHQDebt: 0 });
@@ -148,6 +271,11 @@ export default function SuperAdminDashboard() {
             .map(([week, rev]) => ({ week, rev }));
     })();
 
+            const pendingSettlements = settlements.filter((item: any) => item.status === 'submitted');
+            const approvedSettlements = settlements.filter((item: any) => item.status === 'approved');
+            const rejectedSettlements = settlements.filter((item: any) => item.status === 'rejected');
+            const totalSettlementClears = approvedSettlements.reduce((sum: number, item: any) => sum + Number(item.approvedAmount || item.amount || 0), 0);
+
     const fmt = (n: number) => stealthMode ? '****' : `KES ${Math.round(n).toLocaleString()}`;
 
     if (isAuthLoading) {
@@ -164,10 +292,14 @@ export default function SuperAdminDashboard() {
     }
 
     return (
-        <div className="min-h-screen text-gray-200 font-sans"
-            style={{ background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(16,185,129,0.08) 0%, transparent 60%), #070b10' }}
-        >
+        <div className="fc-hq-shell min-h-screen text-gray-200 font-sans">
             <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 md:py-12 space-y-8">
+
+                {hqNotice && (
+                    <div className="fc-inline-toast fc-inline-toast-info fixed bottom-8 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 text-xs font-black uppercase tracking-widest">
+                        {hqNotice}
+                    </div>
+                )}
 
                 {/* Header */}
                 <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/[0.05] pb-6">
@@ -210,6 +342,8 @@ export default function SuperAdminDashboard() {
                         { label: 'Co-Chair Kickbacks', value: fmt(stats.totalCoAdminPayouts), sub: '1% audit fee', color: 'text-purple-400', icon: <Users className="w-4 h-4 text-purple-400" />, glow: 'bg-purple-500/5' },
                         { label: 'M-Pesa Fees', value: fmt(stats.totalSafaricomFees), sub: '1.5% network', color: 'text-red-400', icon: <TrendingUp className="w-4 h-4 text-red-400" />, glow: 'bg-red-500/5' },
                         { label: 'Avg Rev / League', value: stats.activeLeagues > 0 ? fmt(stats.totalPlatformRev / stats.activeLeagues) : 'KES 0', sub: 'LTV estimate', color: 'text-emerald-300', icon: <ArrowUpRight className="w-4 h-4 text-emerald-300" />, glow: 'bg-emerald-500/5' },
+                        { label: 'Pending Receipts', value: stealthMode ? '**' : String(pendingSettlements.length), sub: `${rejectedSettlements.length} rejected`, color: 'text-amber-300', icon: <ShieldAlert className="w-4 h-4 text-amber-300" />, glow: 'bg-amber-500/5' },
+                        { label: 'Cleared By Receipts', value: fmt(totalSettlementClears), sub: `${approvedSettlements.length} approved`, color: 'text-cyan-300', icon: <Check className="w-4 h-4 text-cyan-300" />, glow: 'bg-cyan-500/5' },
                     ].map((stat, i) => (
                         <div key={i} className={`${stat.glow} bg-[#0d1218] p-4 rounded-xl border border-white/5 hover:border-white/10 transition-colors`}>
                             <p className="text-[9px] font-black uppercase text-gray-600 mb-2 flex items-center gap-1.5 tracking-widest">{stat.icon} {stat.label}</p>
@@ -259,13 +393,98 @@ export default function SuperAdminDashboard() {
 
                 {/* Tab Navigation */}
                 <div className="flex gap-1 bg-[#0d1218] p-1 rounded-xl border border-white/5 w-fit">
-                    {(['overview', 'leagues', 'ledger'] as const).map(tab => (
+                    {(['overview', 'settlements', 'leagues', 'ledger'] as const).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
                             className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === tab ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-600 hover:text-gray-400'}`}>
                             {tab}
                         </button>
                     ))}
                 </div>
+
+                {(activeTab === 'settlements' || activeTab === 'overview') && (
+                    <section className="bg-[#0d1218] border border-white/5 rounded-2xl p-5 md:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> HQ Settlement Queue
+                                </h2>
+                                <p className="text-xs text-gray-500 mt-1">Verify chairman receipts, clear debt, and unlock affected leagues automatically when balance reaches zero.</p>
+                            </div>
+                            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                                {pendingSettlements.length} pending
+                            </span>
+                        </div>
+
+                        <div className="space-y-3">
+                            {settlements.length === 0 && (
+                                <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-6 text-center text-xs text-gray-500 font-bold uppercase tracking-widest">
+                                    No HQ settlement receipts submitted yet.
+                                </div>
+                            )}
+
+                            {settlements.slice(0, 12).map((item: any) => {
+                                const submittedAt = item.submittedAt?.toDate ? item.submittedAt.toDate() : null;
+                                const reviewedAt = item.reviewedAt?.toDate ? item.reviewedAt.toDate() : null;
+                                const isPending = item.status === 'submitted';
+                                const isBusy = settlementActionId === item.id;
+
+                                return (
+                                    <div key={`${item.settlementPath}-${item.id}`} className="rounded-xl border border-white/10 bg-black/20 p-3.5">
+                                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-black text-white">{item.leagueName || item.leagueId}</p>
+                                                <p className="text-[11px] text-gray-400 mt-1">
+                                                    Receipt <span className="font-mono text-white">{item.receiptCode || 'N/A'}</span> • Requested KES {Number(item.amount || 0).toLocaleString()} • Debt snapshot KES {Number(item.debtSnapshot || 0).toLocaleString()}
+                                                </p>
+                                                <p className="text-[10px] text-gray-500 mt-1">
+                                                    Submitted by {item.submittedByName || 'Chairman'} {submittedAt ? `on ${submittedAt.toLocaleString()}` : ''}
+                                                </p>
+                                                {reviewedAt && (
+                                                    <p className="text-[10px] text-gray-500 mt-1">Reviewed {reviewedAt.toLocaleString()} by {item.reviewedByName || 'HQ'}</p>
+                                                )}
+                                            </div>
+                                            <span className={clsx(
+                                                'text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border',
+                                                isPending && 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+                                                item.status === 'approved' && 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+                                                item.status === 'rejected' && 'bg-red-500/10 text-red-300 border-red-500/30'
+                                            )}>
+                                                {item.status || 'submitted'}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-3 flex flex-col md:flex-row gap-2.5">
+                                            <input
+                                                type="text"
+                                                value={reviewNoteById[item.id] || ''}
+                                                onChange={(e) => setReviewNoteById((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                                placeholder="Review note (optional)"
+                                                className="flex-1 px-3 py-2 rounded-lg border border-white/15 bg-[#0d1218] text-sm text-white"
+                                                disabled={!isPending || isBusy}
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleRejectSettlement(item)}
+                                                    disabled={!isPending || isBusy}
+                                                    className="px-3.5 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                                                >
+                                                    Reject
+                                                </button>
+                                                <button
+                                                    onClick={() => handleApproveSettlement(item)}
+                                                    disabled={!isPending || isBusy}
+                                                    className="px-3.5 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px] font-black uppercase tracking-widest disabled:opacity-40"
+                                                >
+                                                    {isBusy ? 'Processing...' : 'Approve'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
 
                 {/* Leagues Panel */}
                 {activeTab === 'leagues' && leagues.length > 0 && (

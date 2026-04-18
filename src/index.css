@@ -108,6 +108,24 @@
     border: 1px solid rgba(59, 130, 246, 0.35);
   }
 
+  .fc-hq-shell {
+    background:
+      radial-gradient(ellipse 80% 40% at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 60%),
+      #070b10;
+  }
+
+  .fc-resolve-modal {
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+  }
+
+  .fc-resolve-lock-banner {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .fc-disburse-option {
+    min-height: 92px;
+  }
+
   .fc-error-boundary {
     background: rgba(13, 18, 24, 0.9);
     border: 1px solid rgba(239, 68, 68, 0.28);
@@ -480,6 +498,11 @@
   background-color: #f0f4f0;
   color: #111827;
 }
+[data-theme="light"] .fc-hq-shell {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #f8fafc 0%, #edf5ef 100%) !important;
+}
 [data-theme="light"] .bg-\[\#0a0e17\],
 [data-theme="light"] .bg-\[\#0A0E17\],
 [data-theme="light"] .bg-\[\#0b1014\],
@@ -557,6 +580,22 @@
 [data-theme="light"] .bg-\[\#0d1117\]\/40,
 [data-theme="light"] .bg-\[\#0e1419\]\/98 {
   background-color: rgba(255, 255, 255, 0.96) !important;
+}
+[data-theme="light"] .fc-resolve-modal {
+  background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18) !important;
+}
+[data-theme="light"] .fc-resolve-lock-banner {
+  background: rgba(254, 226, 226, 0.85) !important;
+  border-color: rgba(185, 28, 28, 0.3) !important;
+}
+[data-theme="light"] .fc-disburse-option {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
+}
+[data-theme="light"] .fc-disburse-option .text-\[10px\] {
+  color: #334155 !important;
 }
 [data-theme="light"] .bg-\[\#0d1218\],
 [data-theme="light"] .bg-\[\#161d24\] {
