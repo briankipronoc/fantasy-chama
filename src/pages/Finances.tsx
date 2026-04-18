@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet, TrendingUp, CheckCircle2, RefreshCw, ShieldAlert, Clock3 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { collection, onSnapshot, query, orderBy, doc, addDoc, updateDoc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, addDoc, updateDoc, serverTimestamp, where, increment } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import clsx from 'clsx';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -31,6 +31,11 @@ export default function Finances() {
     const [isApprovingPayoutId, setIsApprovingPayoutId] = useState<string | null>(null);
     const [isRejectingPayoutId, setIsRejectingPayoutId] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [pendingWalletTopUpRequests, setPendingWalletTopUpRequests] = useState<any[]>([]);
+    const [cashTopUpAmount, setCashTopUpAmount] = useState('');
+    const [cashTopUpNote, setCashTopUpNote] = useState('');
+    const [isSubmittingCashTopUpRequest, setIsSubmittingCashTopUpRequest] = useState(false);
+    const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<string | null>(null);
 
     const txDate = (tx: any) => {
         const raw = tx?.timestamp;
@@ -119,6 +124,40 @@ export default function Finances() {
             }
         };
     }, [activeLeagueId, role]);
+
+    useEffect(() => {
+        if (!activeLeagueId) {
+            setPendingWalletTopUpRequests([]);
+            return;
+        }
+
+        const requestsRef = collection(db, 'leagues', activeLeagueId, 'wallet_topup_requests');
+        const requestsQuery = query(requestsRef, where('status', '==', 'pending'));
+        const unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
+            const items = snapshot.docs
+                .map((item) => ({ id: item.id, ...item.data() }))
+                .sort((a: any, b: any) => {
+                    const aTs = a?.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+                    const bTs = b?.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+                    return bTs - aTs;
+                });
+            if (role === 'admin') {
+                setPendingWalletTopUpRequests(items);
+                return;
+            }
+            const own = items.filter((item: any) => item.memberId === activeUserId || item.phone === memberPhone);
+            setPendingWalletTopUpRequests(own);
+        }, (err) => {
+            console.warn('[finances] wallet top-up request listener failed:', err?.message || err);
+            setPendingWalletTopUpRequests([]);
+        });
+
+        return () => {
+            try { unsubscribeRequests(); } catch (err) {
+                console.warn('[finances] wallet top-up request listener cleanup failed:', err);
+            }
+        };
+    }, [activeLeagueId, role, activeUserId, memberPhone]);
 
     const paidMembers = members.filter(m => m.hasPaid && m.isActive !== false);
     const totalSecured = paidMembers.length * (gameweekStake || 1400);
@@ -268,11 +307,154 @@ export default function Finances() {
         window.setTimeout(() => setActionMessage(null), 3500);
     };
 
+    const handleSubmitCashTopUpRequest = async () => {
+        if (!activeLeagueId || !currentUser || !activeUserId) return;
+
+        const amount = Math.max(1, Math.floor(Number(cashTopUpAmount || 0)));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            showActionMessage('error', 'Enter a valid wallet top-up amount first.');
+            return;
+        }
+
+        setIsSubmittingCashTopUpRequest(true);
+        try {
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'wallet_topup_requests'), {
+                memberId: activeUserId,
+                memberName: currentUser.displayName || 'Member',
+                phone: currentUser.phone || memberPhone || '',
+                amount,
+                note: cashTopUpNote.trim() || null,
+                method: 'cash_handoff',
+                status: 'pending',
+                nudgeCount: 0,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                message: `Cash handoff wallet top-up request: ${currentUser.displayName} requested KES ${amount.toLocaleString()} manual credit approval.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+
+            setCashTopUpAmount('');
+            setCashTopUpNote('');
+            showActionMessage('success', 'Cash handoff request submitted. Chairman can approve wallet credit from Action Queue.');
+        } catch (err: any) {
+            showActionMessage('error', `Request failed: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setIsSubmittingCashTopUpRequest(false);
+        }
+    };
+
+    const handleNudgeWalletCreditRequest = async (requestItem: any) => {
+        if (!activeLeagueId) return;
+        try {
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'wallet_topup_requests', requestItem.id), {
+                nudgeCount: increment(1),
+                lastNudgedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                message: `Wallet credit nudge: ${requestItem.memberName} is still waiting for cash handoff approval (KES ${Number(requestItem.amount || 0).toLocaleString()}).`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+            showActionMessage('success', 'Nudge sent to Chairman queue.');
+        } catch (err: any) {
+            showActionMessage('error', `Nudge failed: ${err?.message || 'Unknown error'}`);
+        }
+    };
+
+    const handleApproveWalletTopUpRequest = async (requestItem: any) => {
+        if (!activeLeagueId || !requestItem?.memberId) return;
+
+        setIsResolvingWalletRequestId(requestItem.id);
+        try {
+            const amount = Math.max(1, Math.floor(Number(requestItem.amount || 0)));
+            const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', requestItem.memberId);
+
+            await updateDoc(memberRef, {
+                walletBalance: increment(amount),
+                hasPaid: true,
+            });
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                type: 'deposit',
+                amount,
+                memberId: requestItem.memberId,
+                memberName: requestItem.memberName || 'Member',
+                phoneNumber: requestItem.phone || null,
+                paymentMethod: 'cash_handoff',
+                receiptId: `CASH_TOPUP_${Date.now().toString().slice(-6)}`,
+                note: requestItem.note || 'Manual cash handoff wallet top-up',
+                timestamp: serverTimestamp()
+            });
+
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'wallet_topup_requests', requestItem.id), {
+                status: 'approved',
+                approvedAt: serverTimestamp(),
+                approvedBy: auth.currentUser?.displayName || 'Chairman',
+                updatedAt: serverTimestamp()
+            });
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'success',
+                targetMemberId: requestItem.memberId,
+                message: `Wallet credited: KES ${amount.toLocaleString()} cash handoff top-up approved.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+
+            showActionMessage('success', `Approved wallet credit for ${requestItem.memberName} (KES ${amount.toLocaleString()}).`);
+        } catch (err: any) {
+            showActionMessage('error', `Wallet approval failed: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setIsResolvingWalletRequestId(null);
+        }
+    };
+
+    const handleRejectWalletTopUpRequest = async (requestItem: any) => {
+        if (!activeLeagueId) return;
+        setIsResolvingWalletRequestId(requestItem.id);
+        try {
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'wallet_topup_requests', requestItem.id), {
+                status: 'rejected',
+                rejectedAt: serverTimestamp(),
+                rejectedBy: auth.currentUser?.displayName || 'Chairman',
+                updatedAt: serverTimestamp()
+            });
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: requestItem.memberId,
+                message: `Wallet top-up request rejected. Contact Chairman for manual reconciliation details.`,
+                timestamp: serverTimestamp(),
+                readBy: []
+            });
+
+            showActionMessage('success', `Rejected wallet request for ${requestItem.memberName}.`);
+        } catch (err: any) {
+            showActionMessage('error', `Reject failed: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setIsResolvingWalletRequestId(null);
+        }
+    };
+
     const handleApprovePendingPayout = async (payout: any) => {
         if (!activeLeagueId) return;
 
         setIsApprovingPayoutId(payout.id);
         try {
+            const payoutPoints = Number(
+                payout.points ??
+                payout.winningPoints ??
+                payout.gwPoints ??
+                payout.event_total ??
+                0
+            );
             const winnerMember = members.find((member) =>
                 member.id === payout.winnerId ||
                 member.displayName === payout.winnerName
@@ -294,10 +476,15 @@ export default function Finances() {
                         amount: payout.amount,
                         winnerName: payout.winnerName,
                         remarks: `FantasyChama GW${payout.gw} Approved Payout`,
-                        userId: payout.winnerId,
-                        leagueId: activeLeagueId
+                        userId: payout.winnerId || winnerMember?.id || activeUserId,
+                        leagueId: activeLeagueId,
+                        gw: Number(payout.gw || 0),
+                        points: payoutPoints
                     })
                 });
+                if (!payoutRes.ok) {
+                    throw new Error(`Payment dispatch failed (${payoutRes.status}).`);
+                }
                 const payoutData = await payoutRes.json();
                 if (!payoutData.success) throw new Error(payoutData.message || 'B2C dispatch failed');
             }
@@ -311,7 +498,7 @@ export default function Finances() {
 
             const gwApiUrl = getApiBaseUrl();
             if (!gwApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
-            await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
+            const gwDeductRes = await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -324,10 +511,18 @@ export default function Finances() {
                     winnerAmount: payout.amount
                 })
             });
+            if (!gwDeductRes.ok) {
+                throw new Error(`Stake deduction failed (${gwDeductRes.status}).`);
+            }
 
             showActionMessage('success', `Resolved & paid ${payout.winnerName} (KES ${Number(payout.amount || 0).toLocaleString()}).`);
         } catch (err: any) {
-            showActionMessage('error', `Approval failed: ${err?.message || 'Unknown error'}`);
+            const message = err?.message || 'Unknown error';
+            if (/failed to fetch|networkerror|network error|load failed/i.test(String(message))) {
+                showActionMessage('error', 'Approval failed: Cannot reach payment server. Confirm Render backend URL and CORS settings.');
+            } else {
+                showActionMessage('error', `Approval failed: ${message}`);
+            }
         } finally {
             setIsApprovingPayoutId(null);
         }
@@ -424,6 +619,50 @@ export default function Finances() {
                             <p className="flex justify-between text-white text-sm pt-2 border-t border-white/10"><span>Net</span><span className={netThisGw >= 0 ? 'text-emerald-300' : 'text-red-300'}>{netThisGw >= 0 ? '+' : '-'} KES {Math.abs(netThisGw).toLocaleString()}</span></p>
                         </div>
                     </article>
+
+                    {!isAdmin && (
+                        <article className="fc-card rounded-2xl p-5 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-[#161d24] to-[#161d24]">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Wallet Top-Up</p>
+                                <Wallet className="w-4 h-4 text-amber-300" />
+                            </div>
+
+                            <div className="space-y-2.5">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    value={cashTopUpAmount}
+                                    onChange={(e) => setCashTopUpAmount(e.target.value)}
+                                    placeholder="Amount (KES)"
+                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
+                                />
+                                <input
+                                    type="text"
+                                    value={cashTopUpNote}
+                                    onChange={(e) => setCashTopUpNote(e.target.value)}
+                                    placeholder="Optional note (cash handoff ref)"
+                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => navigate('/deposit')}
+                                        className="px-3 py-2 rounded-lg border border-emerald-500/35 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors"
+                                    >
+                                        M-Pesa Top Up
+                                    </button>
+                                    <button
+                                        onClick={handleSubmitCashTopUpRequest}
+                                        disabled={isSubmittingCashTopUpRequest}
+                                        className="px-3 py-2 rounded-lg border border-amber-500/35 bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/25 transition-colors disabled:opacity-50"
+                                    >
+                                        {isSubmittingCashTopUpRequest ? 'Sending...' : 'Cash Handoff'}
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-400">If you already handed cash to Chairman, send a request here. They can approve and credit your wallet from Action Queue.</p>
+                            </div>
+                        </article>
+                    )}
                 </section>
 
                 <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] p-5 md:p-6 mb-8">
@@ -470,7 +709,7 @@ export default function Finances() {
                     )}
                 </section>
 
-                {isAdmin && (redZoneMembers.length > 0 || pendingApprovals.length > 0) && (
+                {isAdmin && (redZoneMembers.length > 0 || pendingApprovals.length > 0 || pendingWalletTopUpRequests.length > 0) && (
                     <section className="fc-card mb-8 rounded-2xl border border-[#FBBF24]/25 bg-gradient-to-br from-[#FBBF24]/10 to-[#161d24] p-5 md:p-6">
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
@@ -494,6 +733,11 @@ export default function Finances() {
                                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Pending Payout Approvals</p>
                                 <p className="text-2xl font-black tabular-nums text-white mt-1">{pendingApprovals.length}</p>
                                 <p className="text-xs text-gray-400 mt-1">Review maker-checker queue now.</p>
+                            </div>
+                            <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Wallet Cash Handoff Requests</p>
+                                <p className="text-2xl font-black tabular-nums text-white mt-1">{pendingWalletTopUpRequests.length}</p>
+                                <p className="text-xs text-gray-400 mt-1">Approve manual wallet credits from members.</p>
                             </div>
                         </div>
 
@@ -541,6 +785,59 @@ export default function Finances() {
                                 )}
                             </div>
                         )}
+
+                        {pendingWalletTopUpRequests.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                                {pendingWalletTopUpRequests.slice(0, 5).map((requestItem: any) => (
+                                    <div key={requestItem.id} className="rounded-xl border border-sky-500/25 bg-black/20 px-3 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                        <div>
+                                            <p className="text-xs font-black text-white">Cash Handoff • {requestItem.memberName || 'Member'}</p>
+                                            <p className="text-[11px] text-gray-400 mt-0.5">KES {Number(requestItem.amount || 0).toLocaleString()} • {requestItem.phone || 'No phone'} {requestItem.note ? `• ${requestItem.note}` : ''}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleRejectWalletTopUpRequest(requestItem)}
+                                                disabled={isResolvingWalletRequestId === requestItem.id}
+                                                className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-[11px] font-black uppercase tracking-widest hover:bg-red-500/20 disabled:opacity-50"
+                                            >
+                                                Reject
+                                            </button>
+                                            <button
+                                                onClick={() => handleApproveWalletTopUpRequest(requestItem)}
+                                                disabled={isResolvingWalletRequestId === requestItem.id}
+                                                className="px-3 py-2 rounded-lg border border-emerald-500/35 bg-emerald-500/15 text-emerald-300 text-[11px] font-black uppercase tracking-widest hover:bg-emerald-500/25 disabled:opacity-50"
+                                            >
+                                                {isResolvingWalletRequestId === requestItem.id ? 'Approving...' : 'Approve Credit'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {!isAdmin && pendingWalletTopUpRequests.length > 0 && (
+                    <section className="fc-card mb-8 rounded-2xl border border-sky-500/25 bg-gradient-to-br from-sky-500/10 to-[#161d24] p-5 md:p-6">
+                        <h3 className="text-[11px] font-black uppercase tracking-widest text-sky-300">Pending Wallet Credit Requests</h3>
+                        <p className="text-xs text-gray-400 mt-1">If you already handed cash and your wallet is not credited yet, nudge Chairman here.</p>
+
+                        <div className="mt-4 space-y-2">
+                            {pendingWalletTopUpRequests.slice(0, 3).map((requestItem: any) => (
+                                <div key={requestItem.id} className="rounded-xl border border-sky-500/25 bg-black/20 px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-black text-white">KES {Number(requestItem.amount || 0).toLocaleString()} • awaiting approval</p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">{requestItem.note || 'Cash handoff wallet credit request'}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleNudgeWalletCreditRequest(requestItem)}
+                                        className="px-3 py-2 rounded-lg border border-sky-500/35 bg-sky-500/15 text-sky-300 text-[10px] font-black uppercase tracking-widest hover:bg-sky-500/25"
+                                    >
+                                        Nudge Chairman
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </section>
                 )}
 

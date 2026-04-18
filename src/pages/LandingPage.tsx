@@ -37,8 +37,8 @@ function LedgerDemo() {
     }, []);
 
     return (
-        <div className="fc-landing-card w-full rounded-[2rem] bg-[#161d24] border border-white/5 overflow-hidden shadow-2xl relative">
-            <div className="fc-landing-card-chrome px-6 py-4 border-b border-white/5 flex items-center justify-between bg-[#161d24] z-20 relative">
+        <div className="fc-landing-card fc-landing-standings w-full rounded-[2rem] bg-[#161d24] border border-white/5 overflow-hidden shadow-2xl relative">
+            <div className="fc-landing-card-chrome fc-landing-standings-chrome px-6 py-4 border-b border-white/5 flex items-center justify-between bg-[#161d24] z-20 relative">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Live FPL Standings</span>
                 <span className="flex items-center gap-2 text-xs font-medium text-emerald-400">
                     <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -46,13 +46,13 @@ function LedgerDemo() {
                 </span>
             </div>
             
-            <div className="fc-landing-pane relative h-[320px] w-full bg-[#0d1620]/50 z-10">
+            <div className="fc-landing-pane fc-landing-standings-pane relative h-[320px] w-full bg-[#0d1620]/50 z-10">
                 {members.map((m, index) => {
                     const isHighlighted = highlightId === m.id;
                     return (
                         <div
                             key={m.id}
-                            className={`absolute left-0 right-0 px-6 flex items-center gap-4 transition-all duration-700 ease-in-out border-b border-white/[0.02] ${isHighlighted ? 'bg-emerald-500/10 z-20' : 'bg-transparent z-10'}`}
+                            className={`fc-landing-standings-row absolute left-0 right-0 px-6 flex items-center gap-4 transition-all duration-700 ease-in-out border-b border-white/[0.02] ${isHighlighted ? 'bg-emerald-500/10 z-20' : 'bg-transparent z-10'}`}
                             style={{ 
                                 top: `${index * 64}px`, 
                                 height: '64px',
@@ -61,8 +61,8 @@ function LedgerDemo() {
                             <div className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors duration-500 ${isHighlighted ? 'bg-emerald-500 text-white' : m.paid ? 'bg-white/5 text-gray-400' : 'bg-red-500/10 text-red-400'}`}>
                                 {m.name[0]}
                             </div>
-                            <span className={`flex-1 text-base font-medium transition-colors ${isHighlighted ? 'text-white' : 'text-gray-200'}`}>{m.name}</span>
-                            <span className="text-sm text-gray-400 font-medium tabular-nums">{m.pts} pts</span>
+                            <span className={`fc-landing-standings-name flex-1 text-base font-medium transition-colors ${isHighlighted ? 'text-white' : 'text-gray-200'}`}>{m.name}</span>
+                            <span className="fc-landing-standings-points text-sm text-gray-400 font-medium tabular-nums">{m.pts} pts</span>
                             <span className={`text-xs font-medium px-3 py-1.5 rounded-full w-24 text-center transition-colors ${m.paid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
                                 {m.paid ? `KES ${m.balance}` : 'Red Zone'}
                             </span>
@@ -71,7 +71,7 @@ function LedgerDemo() {
                 })}
             </div>
 
-            <div className="fc-landing-card-chrome px-6 py-4 bg-[#161d24] border-t border-white/5 flex items-center justify-between z-20 relative">
+            <div className="fc-landing-card-chrome fc-landing-standings-chrome px-6 py-4 bg-[#161d24] border-t border-white/5 flex items-center justify-between z-20 relative">
                 <span className="text-xs text-gray-500 font-medium tracking-wide">GW26 · Escrow Pot</span>
                 <span className="font-bold text-emerald-400 text-base">KES 1,680</span>
             </div>
@@ -141,15 +141,14 @@ function TrustSlider() {
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
-    const members = useStore(state => state.members);
 
     useEffect(() => {
         const leagueId = localStorage.getItem('activeLeagueId');
-        const phone = localStorage.getItem('memberPhone');
-        if (leagueId && phone && members.length > 0) {
-            navigate(role === 'admin' ? '/' : '/', { replace: true });
+        const activeUserId = localStorage.getItem('activeUserId');
+        if (leagueId && (role || activeUserId)) {
+            navigate('/dashboard', { replace: true });
         }
-    }, [role, members, navigate]);
+    }, [role, navigate]);
 
     return (
         <div className="fc-landing-shell bg-[#0a0e17] text-[#dfe2ef] min-h-screen font-sans selection:bg-emerald-500 selection:text-[#002113]">

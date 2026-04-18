@@ -854,9 +854,13 @@ export default function AdminCommandCenter() {
         if (!activeLeagueId) return;
         setIsApprovingPayout(payout.id);
         try {
-            if (Number(payout.points || 0) <= 0) {
-                throw new Error('Cannot approve payout with zero GW points.');
-            }
+            const payoutPoints = Number(
+                payout.points ??
+                payout.winningPoints ??
+                payout.gwPoints ??
+                payout.event_total ??
+                0
+            );
             const winnerMember = members.find((member) =>
                 member.id === payout.winnerId ||
                 member.displayName === payout.winnerName
@@ -878,10 +882,10 @@ export default function AdminCommandCenter() {
                         amount: payout.amount,
                         winnerName: payout.winnerName,
                         remarks: `FantasyChama GW${payout.gw} Approved Payout`,
-                        userId: payout.winnerId,
+                        userId: payout.winnerId || winnerMember?.id || activeUserId,
                         leagueId: activeLeagueId,
                         gw: Number(payout.gw || 0),
-                        points: Number(payout.points || 0)
+                        points: payoutPoints
                     })
                 });
                 data = await res.json();
@@ -920,7 +924,7 @@ export default function AdminCommandCenter() {
                     winnerName: payout.winnerName,
                     winnerId: payout.winnerId,
                     winnerPhone: payoutPhone || null,
-                    points: Number(payout.points || 0),
+                        points: payoutPoints,
                     gw: Number(payout.gw || 0),
                     receiptId: `CASH_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`,
                     timestamp: serverTimestamp()
@@ -931,9 +935,9 @@ export default function AdminCommandCenter() {
                     isWinnerEvent: true,
                     winnerId: payout.winnerId,
                     winnerName: payout.winnerName,
-                    points: Number(payout.points || 0),
+                        points: payoutPoints,
                     gw: Number(payout.gw || 0),
-                    message: `Cash handoff confirmed: ${payout.winnerName} received KES ${Number(payout.amount || 0).toLocaleString()} for GW${Number(payout.gw || 0)} (${Number(payout.points || 0)} pts).`,
+                        message: `Cash handoff confirmed: ${payout.winnerName} received KES ${Number(payout.amount || 0).toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts).`,
                     timestamp: serverTimestamp(),
                     readBy: []
                 });
@@ -944,7 +948,10 @@ export default function AdminCommandCenter() {
             confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 }, colors: ['#10B981', '#FBBF24', '#FFFFFF'] });
             setActionTimeline((prev) => ({ ...prev, payoutSent: true, confirmed: true, approvalPending: false }));
         } catch (err: any) {
-            const message = err?.message || 'Unknown error during payout approval';
+            const rawMessage = err?.message || 'Unknown error during payout approval';
+            const message = /failed to fetch|networkerror|network error|load failed/i.test(String(rawMessage))
+                ? 'Cannot reach payment server. Confirm Render backend URL and CORS settings.'
+                : rawMessage;
             showToast(`Approval failed: ${message}`);
         } finally {
             setIsApprovingPayout(null);
@@ -1836,8 +1843,8 @@ export default function AdminCommandCenter() {
 
                 {/* Gameweek Resolution Modal */}
                 {showResolveModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/80 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-lg rounded-2xl p-6 shadow-2xl">
+                    <div className="fc-resolve-modal-overlay fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 bg-[#0a100a]/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+                        <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-lg rounded-2xl p-5 sm:p-6 shadow-2xl my-4 sm:my-0 max-h-[92vh] overflow-y-auto">
                             <div className="w-12 h-12 rounded-full bg-[#FBBF24]/10 flex items-center justify-center mb-6 border border-[#FBBF24]/20">
                                 <AlertTriangle className="w-6 h-6 text-[#FBBF24]" />
                             </div>

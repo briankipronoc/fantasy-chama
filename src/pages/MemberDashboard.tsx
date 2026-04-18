@@ -382,7 +382,12 @@ export default function MemberDashboard() {
             }
         } catch (error) {
             console.error("STK Push Error:", error);
-            showToast("Network Error: Could not reach payment server.", "error");
+            const message = (error as any)?.message || '';
+            if (/failed to fetch|networkerror|network error|load failed/i.test(message)) {
+                showToast("Network Error: Could not reach payment server.", "error");
+            } else {
+                showToast(`Top-up failed: ${message || 'Unknown error'}`, "error");
+            }
         } finally {
             setIsPushingMpesa(false);
             setIsSubmittingTopUp(false);
@@ -1006,7 +1011,7 @@ export default function MemberDashboard() {
                         </button>
                     </div>
                 ) : gwWinner && !currentFplEvent?.finished ? (
-                    <div className="w-full rounded-[2rem] border border-white/10 bg-[#161d24]/90 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-2xl shadow-black/30">
+                    <div className="fc-gw-live-banner w-full rounded-[2rem] border border-white/10 bg-[#161d24]/90 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-2xl shadow-black/30">
                         <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
                             <Trophy className="w-7 h-7 text-[#FBBF24]" />
                         </div>
@@ -1015,7 +1020,7 @@ export default function MemberDashboard() {
                             <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
                             <p className="text-sm text-gray-400 mt-1">Current standings are still moving, so the dashboard waits for the final whistle before naming a winner.</p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center flex-shrink-0">
+                        <div className="fc-gw-live-leader rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center flex-shrink-0">
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Live leader</p>
                             <p className="text-lg font-black text-white tabular-nums">{gwWinner.player_name}</p>
                             <p className="text-[11px] text-[#FBBF24] font-bold tabular-nums">{Number(gwWinner.event_total || 0).toLocaleString()} pts</p>

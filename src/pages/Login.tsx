@@ -21,6 +21,7 @@ export default function Login() {
     // Admin State
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [infoMessage, setInfoMessage] = useState('');
 
     const navigate = useNavigate();
     const setRole = useStore((state) => state.setRole);
@@ -100,6 +101,7 @@ export default function Login() {
         if (!phone || fullCode.length !== 6) return;
 
         setError('');
+        setInfoMessage('');
         setIsLoading(true);
 
         try {
@@ -153,7 +155,7 @@ export default function Login() {
             // strictly set role to member. If it's the Chairman logging in here, 
             // they do it to experience the clean Member View.
             setRole('member');
-            navigate('/', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` } });
+            navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
 
         } catch (err) {
             console.error(err);
@@ -171,6 +173,7 @@ export default function Login() {
         }
 
         setError('');
+        setInfoMessage('');
         setIsLoading(true);
 
         try {
@@ -211,7 +214,7 @@ export default function Login() {
 
             console.log("6. Opening War Room portal...");
             setRole('admin');
-            navigate('/');
+            navigate('/dashboard', { replace: true });
         } catch (err: any) {
             console.error(err);
             if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
@@ -376,6 +379,7 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={async () => {
+                                        setInfoMessage('');
                                         if (!email) {
                                             setError('Please enter your email first to receive a password reset link.');
                                             return;
@@ -383,7 +387,7 @@ export default function Login() {
                                         try {
                                             await sendPasswordResetEmail(auth, email);
                                             setError('');
-                                            alert(`A secure password reset link has been dispatched to ${email}. Check your inbox.`);
+                                            setInfoMessage(`A secure password reset link has been sent to ${email}. Check your inbox and spam folder.`);
                                         } catch (err: any) {
                                             setError(err.message || 'Failed to dispatch reset link.');
                                         }
@@ -399,6 +403,13 @@ export default function Login() {
                             <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] md:text-xs font-medium p-3 rounded-lg flex items-start gap-2 mb-4">
                                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                                 <span>{error}</span>
+                            </div>
+                        )}
+
+                        {infoMessage && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] md:text-xs font-medium p-3 rounded-lg flex items-start gap-2 mb-4">
+                                <Shield className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <span>{infoMessage}</span>
                             </div>
                         )}
 

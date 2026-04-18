@@ -44,10 +44,11 @@ const RootRoute = () => {
   const role = useStore(state => state.role);
 
   // Auth detection pattern:
-  // Core authentication only strictly mandates leagueId and role.
-  // Member logins also set phone, but Admin logins just require role.
+  // Core authentication requires an active league plus either role or active user id.
+  // This prevents bounce-to-landing during transient role hydration.
   const leagueId = localStorage.getItem('activeLeagueId');
-  const isAuthenticated = !!(leagueId && role);
+  const activeUserId = localStorage.getItem('activeUserId');
+  const isAuthenticated = !!(leagueId && (role || activeUserId));
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
