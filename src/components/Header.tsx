@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
@@ -29,7 +30,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const { theme: currentTheme, setTheme } = useTheme();
     const [headerMotion, setHeaderMotion] = useState('');
 
-    const currentMember = members.find(m => m.id === activeUserId) || members[0];
+    const currentMember = members.find(m => m.id === realActiveUser) || members.find(m => m.id === activeUserId) || null;
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
     useEffect(() => {
@@ -44,10 +45,12 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     }, [activeUserId]);
 
     useEffect(() => {
-        if (currentMember && currentMember.hasAcceptedRules !== true && currentMember.role !== 'admin') {
+        if (!currentMember) return;
+        if (currentMember.id !== realActiveUser) return;
+        if (currentMember.hasAcceptedRules !== true && currentMember.role !== 'admin') {
             setShowConstitution(true);
         }
-    }, [currentMember]);
+    }, [currentMember, realActiveUser]);
 
     useEffect(() => {
         setHeaderMotion('fc-header-enter');
@@ -58,16 +61,14 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const displayName = fullDisplayName.split(' ')[0];
     const avatarSeed = (currentMember as any)?.avatarSeed || fullDisplayName;
 
-    // Click outside handler
     useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsDropdownOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        if (!isDropdownOpen) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setIsDropdownOpen(false);
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isDropdownOpen]);
 
     const handleBellClick = () => {
         setIsDropdownOpen(!isDropdownOpen);
@@ -236,12 +237,16 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     </button>
 
                     {/* Dropdown */}
-                    {isDropdownOpen && (
-                        <>
-                            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] animate-in fade-in duration-200" onClick={() => setIsDropdownOpen(false)} />
-                            <div className="absolute right-0 mt-3 w-80 md:w-96 bg-[#0e1419]/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden z-[100] animate-in zoom-in-95 slide-in-from-top-2 fade-in duration-300 origin-top-right fc-notif-dropdown fc-card">
+                    {isDropdownOpen && typeof document !== 'undefined' && createPortal(
+                        <div className="fc-notif-backdrop-wrap fixed inset-0 z-[120]">
+                            <div
+                                className="fc-notif-backdrop absolute inset-y-0 right-0 bg-black/22 backdrop-blur-xl"
+                                style={{ left: 'var(--fc-sidebar-width, 0px)' }}
+                                onClick={() => setIsDropdownOpen(false)}
+                            />
+                            <div className="fc-notif-panel absolute top-3 right-3 md:top-4 md:right-4 w-[min(92vw,28rem)] bg-[#0e1419]/92 border border-white/10 rounded-[1.5rem] shadow-[0_24px_60px_rgba(0,0,0,0.32)] overflow-hidden animate-in zoom-in-95 fade-in slide-in-from-top-3 duration-300 origin-top-right fc-notif-dropdown fc-card">
                                 {/* Header row with Mark All Read */}
-                                <div className="px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/20">
+                                <div className="px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/30 backdrop-blur-md">
                                     <h3 className="font-bold text-sm tracking-wide">Mission Control</h3>
                                     {(unreadPersonalCount > 0 || unreadSystemCount > 0) && (
                                         <div className="flex items-center gap-1.5">
@@ -252,7 +257,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                                     title="Mark visible notifications as read"
                                                 >
                                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                                    Visible
+                                                    Mark visible
                                                 </button>
                                             )}
                                             <button
@@ -261,14 +266,14 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                                 title="Mark all as read"
                                             >
                                                 <CheckCheck className="w-3.5 h-3.5" />
-                                                All
+                                                Mark all as read
                                             </button>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Tabs */}
-                                <div className="flex border-b border-white/5">
+                                <div className="flex border-b border-white/5 bg-black/15 backdrop-blur-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setActiveTab('personal'); }}
                                         className={clsx(
@@ -304,9 +309,8 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                         )}
                                     </button>
                                 </div>
-
                                 {/* Notification Category Chips */}
-                                <div className="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto">
+                                <div className="px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto bg-white/[0.02]">
                                     {[
                                         { key: 'all', label: 'All' },
                                         { key: 'payout', label: 'Payouts' },
@@ -339,7 +343,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                         .notif-scroll::-webkit-scrollbar-thumb { background: #1e2935; border-radius: 99px; }
                                         .notif-scroll::-webkit-scrollbar-thumb:hover { background: #2d3f4f; }
                                     `}</style>
-                                    <div className={clsx('notif-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.04] transition-all duration-200', notifListMotion)}>
+                                    <div className={clsx('notif-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.06] transition-all duration-300 ease-out', notifListMotion)}>
                                         {filteredNotifs.length > 0 ? filteredNotifs.map((notif) => {
                                             const isRead = notif.readBy?.includes(realActiveUser);
                                             return (
@@ -413,7 +417,8 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                     </div>
                                 </div>
                             </div>
-                        </>
+                        </div>,
+                        document.body
                     )}
                 </div>
                 <LeagueSwitcher />

@@ -164,9 +164,9 @@ export default function AppLayout() {
         <div className={clsx('fc-app-shell flex xl:h-[100dvh] w-full text-white font-sans relative overflow-hidden', shellBackgroundClass)}>
             {/* Desktop Sidebar (Unified) */}
             <nav className={clsx(
-                'hidden lg:flex flex-shrink-0 z-20 relative p-4 xl:p-5 transition-[width] duration-300 ease-out lg:sticky lg:top-0 lg:h-[100dvh]',
+                'hidden lg:flex fixed left-4 top-4 bottom-4 z-20 p-0 transition-[width] duration-300 ease-out',
                 isSidebarCollapsed ? 'w-24' : 'w-72'
-            )}>
+            )} style={{ width: isSidebarCollapsed ? '96px' : '288px' }}>
                 <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/10 bg-[#0b1014]/85 backdrop-blur-xl p-5 flex flex-col relative overflow-hidden">
                     <div className="fc-sidebar-glow absolute -top-24 -right-20 w-56 h-56 rounded-full bg-emerald-500/10 blur-[80px] pointer-events-none" />
 

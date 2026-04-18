@@ -209,8 +209,8 @@
 
   .fc-notif-list-enter {
     opacity: 0;
-    transform: translateY(8px);
-    filter: blur(1px);
+    transform: translateY(10px);
+    filter: blur(1.5px);
   }
 
   .fc-theme-toggle-shell {
@@ -330,7 +330,7 @@
 
   .fc-stealth-anim .tabular-nums,
   .fc-stealth-anim [data-sensitive='true'] {
-    animation: fcStealthSwap 560ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: fcStealthSwap 720ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .fc-route-stage {
@@ -566,6 +566,15 @@
   background-color: rgba(255, 255, 255, 0.98) !important;
   border-color: rgba(15, 23, 42, 0.12) !important;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16) !important;
+}
+[data-theme="light"] .fc-notif-backdrop {
+  background: rgba(241, 245, 249, 0.2) !important;
+  backdrop-filter: blur(14px);
+}
+[data-theme="light"] .fc-notif-panel {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14) !important;
 }
 [data-theme="light"] .bg-black\/20,
 [data-theme="light"] .bg-black\/30,
@@ -838,10 +847,7 @@
     linear-gradient(180deg, #f8fafc 0%, #eef6f1 100%) !important;
 }
 [data-theme="light"] .fc-profile-page {
-  background:
-    radial-gradient(980px 500px at -10% 8%, rgba(59, 130, 246, 0.16), transparent 62%),
-    radial-gradient(820px 440px at 98% 92%, rgba(16, 185, 129, 0.13), transparent 66%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%) !important;
+  background: transparent !important;
 }
 [data-theme="light"] .fc-standings-page {
   background:
@@ -856,6 +862,14 @@
   background: rgba(255, 255, 255, 0.96) !important;
   border-color: rgba(15, 23, 42, 0.12) !important;
   box-shadow: 0 20px 38px rgba(15, 23, 42, 0.18) !important;
+}
+[data-theme="light"] .fc-member-bottom-actions-desktop {
+  background: linear-gradient(to top, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0.74), rgba(248, 250, 252, 0)) !important;
+}
+[data-theme="light"] .fc-member-bottom-actions-desktop > div {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 20px 38px rgba(15, 23, 42, 0.12) !important;
 }
 [data-theme="light"] .fc-member-dashboard .border-white\/5 {
   border-color: rgba(15, 23, 42, 0.12) !important;
@@ -967,6 +981,12 @@
   min-height: 100dvh;
 }
 
+@media (min-width: 1024px) {
+  .fc-main-shell {
+    padding-left: calc(var(--fc-sidebar-width, 0px) + 2rem);
+  }
+}
+
 .fc-main-scroll {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
@@ -980,10 +1000,7 @@
 }
 
 .fc-profile-page {
-  background:
-    radial-gradient(980px 500px at -10% 8%, rgba(16, 185, 129, 0.12), transparent 62%),
-    radial-gradient(820px 440px at 98% 92%, rgba(245, 158, 11, 0.1), transparent 66%),
-    linear-gradient(180deg, #0b1014 0%, #13201a 100%);
+  background: transparent;
 }
 
 .fc-standings-page {

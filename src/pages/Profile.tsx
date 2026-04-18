@@ -227,10 +227,10 @@ export default function Profile() {
     };
 
     return (
-        <div className="fc-profile-page min-h-full p-5 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white relative overflow-hidden">
+        <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white relative overflow-hidden bg-transparent">
             <div className="absolute inset-0 pointer-events-none opacity-75">
-                <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
-                <div className="absolute bottom-0 right-[4%] h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-emerald-500/12 blur-3xl" />
+                <div className="absolute bottom-0 right-[4%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
             </div>
             <div className="max-w-6xl mx-auto space-y-10">
                 <div>
@@ -259,12 +259,12 @@ export default function Profile() {
                             </div>
                         )}
                         <h2 className="text-xl font-bold flex items-center gap-2 mb-6 text-white">
-                            <User className="w-5 h-5 text-[#3b82f6]" /> Personal Details
+                            <User className="w-5 h-5 text-[#10B981]" /> Personal Details
                         </h2>
 
                         {/* Avatar Generation */}
                         <div className="flex flex-col items-center justify-center mb-8">
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#1c272c] to-[#11171a] p-1 mb-4 shadow-xl border border-white/10">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#1b2b22] to-[#101613] p-1 mb-4 shadow-xl border border-white/10">
                                 <img
                                     src={`https://api.dicebear.com/7.x/notionists/svg?seed=${avatarSeed}&backgroundColor=transparent`}
                                     alt="Avatar"

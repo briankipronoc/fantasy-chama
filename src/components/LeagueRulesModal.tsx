@@ -12,6 +12,7 @@ interface LeagueRulesModalProps {
 
 export default function LeagueRulesModal({ isOpen, onClose, currentMember }: LeagueRulesModalProps) {
     const overlayRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const [gameweekStake, setMonthlyContribution] = useState<number | null>(null);
     const [isAccepting, setIsAccepting] = useState(false);
@@ -41,22 +42,31 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        const timer = window.requestAnimationFrame(() => {
+            if (contentRef.current) contentRef.current.scrollTop = 0;
+            if (overlayRef.current) overlayRef.current.scrollTop = 0;
+        });
+        return () => window.cancelAnimationFrame(timer);
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (
         <div
             ref={overlayRef}
-            className="fc-rules-overlay fixed inset-0 z-[200] flex items-center justify-center p-4"
+            className="fc-rules-overlay fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto p-0 md:p-4"
             onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
         >
             {/* Backdrop */}
-            <div className="fc-rules-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
+            <div className="fc-rules-backdrop absolute inset-0 bg-black/55 animate-in fade-in duration-200" />
 
             {/* Modal Body */}
-            <div className="fc-rules-modal relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#161d24] border border-white/10 rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+            <div className="fc-rules-modal relative w-full h-[100dvh] md:h-[calc(100dvh-2rem)] max-w-6xl flex flex-col bg-[#161d24] border border-white/10 rounded-none md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
 
                 {/* Header */}
-                <div className="fc-rules-header flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/60">
+                <div className="fc-rules-header sticky top-0 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/80 backdrop-blur-md z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                             <Shield className="w-4.5 h-4.5 text-emerald-400" />
@@ -79,9 +89,16 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
 
                 {/* Scrollable Content */}
                 <div
+                    ref={contentRef}
                     className="overflow-y-auto flex-1 px-6 py-5 space-y-4"
                     style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
                 >
+                    {hasAccepted && (
+                        <div className="fc-rules-accepted-banner rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 mb-1">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">You are good to go</p>
+                            <p className="text-sm text-emerald-50/90 mt-1">You have already accepted the constitution. Review it anytime without signing again.</p>
+                        </div>
+                    )}
                     {/* Rules map moved inline */}
                     {[
                         {
