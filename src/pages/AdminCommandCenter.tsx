@@ -15,11 +15,18 @@ export default function AdminCommandCenter() {
     const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const activeUserId = localStorage.getItem('activeUserId');
+    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
     const getApiBaseUrl = () => {
         const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) return configured.replace(/\/$/, '');
+        if (configured) {
+            const normalized = configured.replace(/\/$/, '');
+            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
+                return normalized.replace(/^http:\/\//i, 'https://');
+            }
+            return normalized;
+        }
         if (import.meta.env.DEV) return 'http://localhost:5001';
-        return '';
+        return DEFAULT_RENDER_API_URL;
     };
 
     const [leagueName, setLeagueName] = useState('');
@@ -1267,30 +1274,30 @@ export default function AdminCommandCenter() {
                         </div>
                     </div>
 
-                    <div className="xl:col-span-5 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                    <div className="xl:col-span-5 fc-card fc-risk-radar-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5 text-[#FBBF24]" /> Risk Radar</h3>
                             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-[#FBBF24]/20 bg-[#FBBF24]/10 text-[#FBBF24]">Auto Flags</span>
                         </div>
                         <div className="space-y-2">
-                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>Stale payout approvals (&gt;30m)</span><span className="font-black text-white tabular-nums">{stalePendingPayouts.length}</span></div>
-                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>Pending payouts missing winner phone</span><span className="font-black text-white tabular-nums">{missingWinnerPhoneCount}</span></div>
-                            <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>2+ missed GW risk members</span><span className="font-black text-white tabular-nums">{highRiskTwoWeekMisses}</span></div>
+                            <div className="fc-risk-radar-item rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>Stale payout approvals (&gt;30m)</span><span className="font-black text-white tabular-nums">{stalePendingPayouts.length}</span></div>
+                            <div className="fc-risk-radar-item rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>Pending payouts missing winner phone</span><span className="font-black text-white tabular-nums">{missingWinnerPhoneCount}</span></div>
+                            <div className="fc-risk-radar-item rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-gray-300 flex justify-between"><span>2+ missed GW risk members</span><span className="font-black text-white tabular-nums">{highRiskTwoWeekMisses}</span></div>
                         </div>
                     </div>
                 </section>
 
                 <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                    <div className="xl:col-span-7 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                    <div className="xl:col-span-7 fc-card fc-decision-audit-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5 text-emerald-400" /> Decision Audit Trail</h3>
                             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">Immutable Feed</span>
                         </div>
-                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        <div className="fc-decision-audit-list space-y-2 max-h-56 overflow-y-auto pr-1">
                             {recentGovernanceEvents.length > 0 ? recentGovernanceEvents.slice(0, 8).map((event) => {
                                 const eventTime = event.timestamp?.toDate ? event.timestamp.toDate() : null;
                                 return (
-                                    <div key={event.id} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                                    <div key={event.id} className="fc-decision-audit-item rounded-lg border border-white/10 bg-black/20 px-3 py-2">
                                         <p className="text-xs text-white font-bold leading-tight">{event.message || 'Governance action logged'}</p>
                                         <p className="text-[10px] text-gray-500 mt-1">{eventTime ? eventTime.toLocaleString() : 'Recent'}</p>
                                     </div>
@@ -1301,14 +1308,14 @@ export default function AdminCommandCenter() {
                         </div>
                     </div>
 
-                    <div className="xl:col-span-5 fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
+                    <div className="xl:col-span-5 fc-card fc-guided-workflow-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2"><ListChecks className="w-3.5 h-3.5 text-[#FBBF24]" /> Guided Close Workflow</h3>
                             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-[#FBBF24]/20 bg-[#FBBF24]/10 text-[#FBBF24]">Preflight</span>
                         </div>
                         <div className="space-y-2 mb-4">
                             {preflightChecks.map((check) => (
-                                <div key={check.label} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between">
+                                <div key={check.label} className="fc-guided-workflow-item rounded-lg border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between">
                                     <span className="text-xs text-gray-300">{check.label}</span>
                                     <span className={clsx('text-[10px] font-black uppercase tracking-widest', check.ok ? 'text-emerald-400' : 'text-red-400')}>
                                         {check.ok ? 'Clear' : 'Blocker'}

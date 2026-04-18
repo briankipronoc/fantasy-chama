@@ -9,11 +9,18 @@ export default function Deposit() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
+    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
     const getApiBaseUrl = () => {
         const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) return configured.replace(/\/$/, '');
+        if (configured) {
+            const normalized = configured.replace(/\/$/, '');
+            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
+                return normalized.replace(/^http:\/\//i, 'https://');
+            }
+            return normalized;
+        }
         if (import.meta.env.DEV) return 'http://localhost:5001';
-        return '';
+        return DEFAULT_RENDER_API_URL;
     };
 
     const [phoneNumber, setPhoneNumber] = useState('254700000000');

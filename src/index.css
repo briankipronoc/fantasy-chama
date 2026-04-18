@@ -943,6 +943,39 @@
   background: rgba(16, 185, 129, 0.12) !important;
   color: #047857 !important;
 }
+[data-theme="light"] .fc-risk-radar-card,
+[data-theme="light"] .fc-decision-audit-card,
+[data-theme="light"] .fc-guided-workflow-card,
+[data-theme="light"] .fc-cashflow-health-card {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1) !important;
+}
+[data-theme="light"] .fc-risk-radar-item,
+[data-theme="light"] .fc-decision-audit-item,
+[data-theme="light"] .fc-guided-workflow-item,
+[data-theme="light"] .fc-cashflow-health-card .bg-black\/20 {
+  background: rgba(15, 23, 42, 0.05) !important;
+  border-color: rgba(148, 163, 184, 0.26) !important;
+}
+[data-theme="light"] .fc-risk-radar-card .text-white,
+[data-theme="light"] .fc-decision-audit-card .text-white,
+[data-theme="light"] .fc-guided-workflow-card .text-white,
+[data-theme="light"] .fc-cashflow-health-card .text-white {
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-risk-radar-card .text-gray-400,
+[data-theme="light"] .fc-decision-audit-card .text-gray-400,
+[data-theme="light"] .fc-guided-workflow-card .text-gray-400,
+[data-theme="light"] .fc-cashflow-health-card .text-gray-400 {
+  color: #334155 !important;
+}
+[data-theme="light"] .fc-risk-radar-card .text-gray-500,
+[data-theme="light"] .fc-decision-audit-card .text-gray-500,
+[data-theme="light"] .fc-guided-workflow-card .text-gray-500,
+[data-theme="light"] .fc-cashflow-health-card .text-gray-500 {
+  color: #64748b !important;
+}
 [data-theme="light"] .fc-sidebar-notif-badge {
   background: #f59e0b !important;
   color: #111827 !important;

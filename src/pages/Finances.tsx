@@ -13,11 +13,18 @@ export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
     const activeUserId = localStorage.getItem('activeUserId');
+    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
     const getApiBaseUrl = () => {
         const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) return configured.replace(/\/$/, '');
+        if (configured) {
+            const normalized = configured.replace(/\/$/, '');
+            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
+                return normalized.replace(/^http:\/\//i, 'https://');
+            }
+            return normalized;
+        }
         if (import.meta.env.DEV) return 'http://localhost:5001';
-        return '';
+        return DEFAULT_RENDER_API_URL;
     };
     const { members, listenToLeagueMembers, isStealthMode, role } = useStore();
 
@@ -608,7 +615,7 @@ export default function Finances() {
                         </article>
                     )}
 
-                    <article className="fc-card rounded-2xl p-5 border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-[#161d24] to-[#161d24]">
+                    <article className="fc-card fc-cashflow-health-card rounded-2xl p-5 border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-[#161d24] to-[#161d24]">
                         <div className="flex items-center justify-between mb-3">
                             <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Cashflow Health</p>
                             <TrendingUp className="w-4 h-4 text-sky-300" />

@@ -87,12 +87,19 @@ export default function MemberDashboard() {
     const listenToLeagueTransactions = useStore(state => state.listenToLeagueTransactions);
     const [showPochiInstructions, setShowPochiInstructions] = useState(false);
     const [isNudgingHQ, setIsNudgingHQ] = useState(false);
+    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
 
     const getApiBaseUrl = () => {
         const configured = import.meta.env.VITE_API_URL?.trim();
-        if (configured) return configured.replace(/\/$/, '');
+        if (configured) {
+            const normalized = configured.replace(/\/$/, '');
+            if (typeof window !== 'undefined' && window.location.protocol === 'https:' && normalized.startsWith('http://')) {
+                return normalized.replace(/^http:\/\//i, 'https://');
+            }
+            return normalized;
+        }
         if (import.meta.env.DEV) return 'http://localhost:5001';
-        return '';
+        return DEFAULT_RENDER_API_URL;
     };
 
     const handleNudgeHQ = async () => {
