@@ -15,6 +15,7 @@ export default function MemberDashboard() {
     const navigate = useNavigate();
     const location = useLocation();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const activeUserIdStored = localStorage.getItem('activeUserId');
     const memberPhone = localStorage.getItem('memberPhone');
 
     const [gameweekStake, setMonthlyContribution] = useState(0);
@@ -94,7 +95,7 @@ export default function MemberDashboard() {
     const isStealthMode = useStore(state => state.isStealthMode);
     const { notifications } = useNotifications();
 
-    const currentUser = members.find(m => m.phone === memberPhone);
+    const currentUser = members.find(m => m.id === activeUserIdStored) || members.find(m => m.phone === memberPhone);
     const walletBalance = currentUser?.walletBalance || 0;
     const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
     const activeUserId = currentUser?.id || 'dummy';
@@ -183,7 +184,6 @@ export default function MemberDashboard() {
         // Initialize Live Ledger for Members
         const unsubscribeMembers = listenToLeagueMembers(activeLeagueId);
         const unsubscribeTransactions = listenToLeagueTransactions(activeLeagueId);
-        setIsLoading(false);
 
         // Update lastLoginAt for retention tracking
         if (activeUserId && activeUserId !== 'dummy') {
@@ -218,6 +218,13 @@ export default function MemberDashboard() {
             }
         };
     }, [activeLeagueId, memberPhone, navigate, listenToLeagueMembers, listenToLeagueTransactions, location.state, currentUser?.fplTeamId, currentUser?.secondFplTeamId]);
+
+    useEffect(() => {
+        if (members.length === 0) return;
+        if (!currentUser) return;
+        if (!leagueName) return;
+        setIsLoading(false);
+    }, [members.length, currentUser, leagueName]);
 
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
@@ -787,7 +794,7 @@ export default function MemberDashboard() {
                 ) : (
                     <>
                         {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
-                        {(winnerConfirmation || !hasPaid) && (
+                        {(currentUser && (winnerConfirmation || !hasPaid)) && (
                             <div className={clsx(
                                 "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
                                 winnerConfirmation
@@ -1172,7 +1179,7 @@ export default function MemberDashboard() {
 
                 {/* === ROW 3: Verification Ledger (Directory Rail) === */}
                 <div className="fc-member-ledger w-full bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] overflow-hidden">
-                    <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div className="px-5 py-4 flex items-center justify-between">
                         <div>
                             <h4 className="flex items-center gap-2 text-sm font-black text-white tracking-tight">
                                 <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Active Managers
