@@ -39,3 +39,7 @@ docs/MEMBER_GUIDE.md
 docs/INVESTOR_BRIEF.md
 docs/USER_MANUAL.md
 docs/daraja_go_live_playbook.md
+
+# Test/report artifacts (keep local)
+playwright-report/
+test-results/

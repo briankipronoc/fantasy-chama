@@ -12,10 +12,52 @@
 # Error details
 
 ```
-Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/
-Call log:
-  - navigating to "http://localhost:5173/", waiting until "load"
+Error: expect(received).toContain(expected) // indexOf
 
+Expected substring: "/dashboard"
+Received string:    "http://localhost:5173/login"
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic:
+    - img
+  - generic [ref=e4]:
+    - generic [ref=e9]: FANTASY CHAMA
+    - generic [ref=e10]:
+      - img [ref=e11]
+      - generic [ref=e13]: Secure Wealth Circle
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - heading "Enter the League" [level=1] [ref=e16]
+      - paragraph [ref=e17]: Exclusive access for high-stakes wealth management
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]: M-Pesa Phone Number
+        - generic [ref=e21]:
+          - img [ref=e22]
+          - textbox "e.g. 0712345678" [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]: League Invite Code
+        - generic [ref=e27]:
+          - textbox [ref=e28]
+          - textbox [ref=e29]
+          - textbox [ref=e30]
+          - textbox [ref=e31]
+          - textbox [ref=e32]
+          - textbox [ref=e33]
+        - paragraph [ref=e34]: "Tip: paste a copied code to auto-fill all boxes instantly"
+        - paragraph [ref=e35]: Required for Entry
+      - button "JOIN LEAGUE" [disabled] [ref=e36]:
+        - text: JOIN LEAGUE
+        - img [ref=e37]
+    - generic [ref=e41]: Authorized Personal Only
+  - button "Chairman Access" [ref=e43]:
+    - img [ref=e44]
+    - text: Chairman Access
+  - paragraph [ref=e47]: © 2026 Fantasy Chama Global Wealth Management. All Rights Reserved.
 ```
 
 # Test source
@@ -26,8 +68,7 @@ Call log:
   3  | test.describe('Access Control Protections', () => {
   4  |   test('Should not allow Standard Member to view Admin Setup', async ({ page }) => {
   5  |     // Navigate to the app
-> 6  |     await page.goto('/');
-     |                ^ Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5173/
+  6  |     await page.goto('/');
   7  | 
   8  |     // Inject "Standard Member" context via localStorage (BOLA simulation)
   9  |     await page.evaluate(() => {
@@ -47,7 +88,8 @@ Call log:
   23 |     
   24 |     // In our app model, /setup redirect happens if activeLeagueId exists already
   25 |     // so we should be pushed to the member dashboard.
-  26 |     expect(page.url()).toContain('/dashboard');
+> 26 |     expect(page.url()).toContain('/dashboard');
+     |                        ^ Error: expect(received).toContain(expected) // indexOf
   27 |   });
   28 | 
   29 |   test('Should block Standard Member from Admin Command Center', async ({ page }) => {
