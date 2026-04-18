@@ -499,7 +499,7 @@ export default function Standings() {
                                 <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">Scroll for GW 1-38</span>
                             </div>
                         </div>
-                        <div ref={ledgerRailRef} className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory">
+                        <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
                             {gwWinnersLedger.map((item) => {
                                 const resolved = item.winnerName !== 'Pending';
                                 const isCurrentGw = currentEvent === item.gw;
@@ -508,8 +508,8 @@ export default function Standings() {
                                         key={item.gw}
                                         data-gw-card={item.gw}
                                         className={clsx(
-                                            'snap-start shrink-0 w-[calc((100%-0.625rem)/2)] sm:w-[calc((100%-1rem)/3)] lg:w-[calc((100%-2.5rem)/6)] rounded-xl border p-3',
-                                            resolved ? 'border-emerald-500/25 bg-emerald-500/8' : 'border-white/10 bg-black/20',
+                                            'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3',
+                                            resolved ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/25',
                                             isCurrentGw && 'ring-2 ring-[#FBBF24]/55'
                                         )}
                                     >

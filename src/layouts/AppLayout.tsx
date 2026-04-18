@@ -237,13 +237,13 @@ export default function AppLayout() {
                             onClick={handleLogout}
                             className={clsx(
                                 'fc-sidebar-logout group w-full rounded-xl transition-all font-bold text-sm border border-transparent text-gray-400 hover:text-white focus:outline-none',
-                                isSidebarCollapsed ? 'h-12 flex items-center justify-center px-0' : 'flex items-center justify-center px-3 py-2.5'
+                                isSidebarCollapsed ? 'h-14 flex items-center justify-center px-0' : 'flex items-center justify-center px-3 py-3'
                             )}
                             title={isSidebarCollapsed ? 'Sign Out' : undefined}
                         >
                             <span className={clsx(
-                                'fc-sidebar-logout-icon fc-sidebar-link-icon inline-flex items-center justify-center rounded-xl border text-red-400 group-hover:text-red-300',
-                                isSidebarCollapsed ? 'h-10 w-10' : 'h-8 w-8'
+                                'fc-sidebar-logout-icon-base inline-flex items-center justify-center rounded-xl border border-red-500/35 bg-red-500/15 text-red-400 group-hover:bg-red-500/22 group-hover:text-red-300 transition-colors',
+                                isSidebarCollapsed ? 'h-11 w-11' : 'h-9 w-9'
                             )}>
                                 <LogOut className="h-4.5 w-4.5" />
                             </span>

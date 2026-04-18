@@ -605,6 +605,12 @@ export default function MemberDashboard() {
     const greetingText = getGreeting();
     const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
     const currentGwBadge = gwWinner?.event ? `GW ${gwWinner.event} Active` : 'GW Active';
+    const ledgerMembers = [...members].sort((a, b) => {
+        if (!!a.hasPaid !== !!b.hasPaid) return a.hasPaid ? 1 : -1; // Red Zone first
+        if (a.id === currentUser?.id) return -1;
+        if (b.id === currentUser?.id) return 1;
+        return (a.displayName || '').localeCompare(b.displayName || '');
+    });
 
     if (isLoading) {
         return <DashboardSkeleton />;
@@ -709,7 +715,7 @@ export default function MemberDashboard() {
                             {firstName}!
                         </span>
                     </p>
-                    <span className="hidden sm:block text-[10px] font-bold text-gray-600 uppercase tracking-widest border border-white/5 bg-white/[0.03] px-2 py-0.5 rounded-full">
+                    <span className="fc-gw-active-chip hidden sm:block text-[10px] font-bold uppercase tracking-widest border px-2 py-0.5 rounded-full">
                         {currentGwBadge}
                     </span>
                 </div>
@@ -752,7 +758,7 @@ export default function MemberDashboard() {
                             <h3 className="text-2xl md:text-3xl font-black text-white leading-tight tracking-tight">
                                 Congratulations, {firstName}!
                             </h3>
-                            <p className="fc-gw-winner-subline text-sm font-bold text-gray-300 mt-1">
+                            <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
                                 You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
                             </p>
                         </div>
@@ -847,7 +853,7 @@ export default function MemberDashboard() {
             </div>
 
             {/* Main Content — Dense Grid Layout */}
-            <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-6 z-10 relative mt-2">
+            <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-40 lg:pb-28 z-10 relative mt-2">
 
                 {/* === ROW 1: Vault (8) + Weekly Pot Status (4) === */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
@@ -1164,42 +1170,39 @@ export default function MemberDashboard() {
                     </div>
                 </div>
 
-                {/* === ROW 3: Full-width Red Zone / Verification Ledger === */}
+                {/* === ROW 3: Verification Ledger (Directory Rail) === */}
                 <div className="fc-member-ledger w-full bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] overflow-hidden">
                     <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
-                            <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" /> Verification Ledger
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
-                        </h4>
+                        <div>
+                            <h4 className="flex items-center gap-2 text-sm font-black text-white tracking-tight">
+                                <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Active Managers
+                            </h4>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Live League Directory</p>
+                        </div>
                         <span className="bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 text-[10px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest">
                             {paidMembersCount}/{members.length} Paid
                         </span>
                     </div>
-                    <div
-                        className="max-h-56 overflow-y-auto divide-y divide-white/[0.04]"
-                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
-                    >
-                        {members.length === 0 ? (
+                    <div className="px-5 pb-4 overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}>
+                        <div className="flex gap-3 min-w-max">
+                        {ledgerMembers.length === 0 ? (
                             <div className="p-8 text-center text-gray-600 text-xs font-bold uppercase tracking-widest">No members enrolled</div>
-                        ) : members.map((member) => (
+                        ) : ledgerMembers.map((member) => (
                             <div key={member.id} className={clsx(
-                                "px-5 py-3 flex items-center justify-between transition-colors",
-                                member.id === currentUser?.id ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"
+                                "fc-verification-rail-card w-52 shrink-0 rounded-2xl border px-4 py-3 transition-colors",
+                                member.id === currentUser?.id ? "bg-white/[0.03] border-emerald-500/30" : "border-white/10 hover:bg-white/[0.02]"
                             )}>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-center text-center gap-2">
                                     <div className={clsx(
-                                        "w-8 h-8 rounded-full border p-0.5 flex-shrink-0",
+                                        "w-12 h-12 rounded-full border p-0.5",
                                         member.hasPaid ? "border-[#10B981]/50 bg-[#10B981]/10" : "border-white/10 opacity-40 grayscale"
                                     )}>
                                         <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(member as any).avatarSeed || member.displayName}&backgroundColor=transparent`} alt="Avatar" className="w-full h-full rounded-full" />
                                     </div>
-                                    <div>
-                                        <div className="font-bold text-white text-sm leading-tight">{member.displayName}
-                                            {member.id === currentUser?.id && <span className="ml-1.5 text-[10px] text-gray-500 font-medium">(you)</span>}
-                                        </div>
-                                        <div className="text-[10px] text-gray-500 font-mono">{member.phone}</div>
+                                    <div className="min-w-0 w-full">
+                                        <div className="font-bold text-white text-sm leading-tight truncate">{member.displayName}</div>
+                                        {member.id === currentUser?.id && <div className="text-[10px] text-gray-500 font-medium">(you)</div>}
                                     </div>
-                                </div>
                                 <span className={clsx(
                                     "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border",
                                     member.hasPaid
@@ -1209,8 +1212,10 @@ export default function MemberDashboard() {
                                     <span className={clsx("w-1.5 h-1.5 rounded-full", member.hasPaid ? "bg-[#10B981]" : "bg-[#FBBF24]")} />
                                     {member.hasPaid ? "Funded" : "Red Zone"}
                                 </span>
+                                </div>
                             </div>
                         ))}
+                        </div>
                     </div>
                 </div>
 
@@ -1277,7 +1282,7 @@ export default function MemberDashboard() {
             </main>
 
             {/* Fixed Bottom Actions */}
-            <div className="fc-member-bottom-actions sticky bottom-[calc(65px+env(safe-area-inset-bottom))] lg:bottom-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pb-2 lg:pb-4">
+            <div className="fc-member-bottom-actions fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:pb-4">
                 <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
                     <button
                         onClick={handleMpesaSTKPush}
