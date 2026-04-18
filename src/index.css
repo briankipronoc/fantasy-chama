@@ -638,6 +638,32 @@
   color: #0f172a !important;
   background: linear-gradient(180deg, #f8fafc, #f1f5f9) !important;
 }
+[data-theme="light"] .fc-finances-page {
+  background:
+    radial-gradient(1200px 520px at 90% -10%, rgba(16, 185, 129, 0.16), transparent 64%),
+    radial-gradient(820px 460px at 6% 94%, rgba(245, 158, 11, 0.14), transparent 68%),
+    linear-gradient(180deg, #f8fafc 0%, #eef6f1 100%) !important;
+}
+[data-theme="light"] .fc-profile-page {
+  background:
+    radial-gradient(980px 500px at -10% 8%, rgba(59, 130, 246, 0.16), transparent 62%),
+    radial-gradient(820px 440px at 98% 92%, rgba(16, 185, 129, 0.13), transparent 66%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%) !important;
+}
+[data-theme="light"] .fc-standings-page {
+  background:
+    radial-gradient(920px 440px at 84% -14%, rgba(59, 130, 246, 0.12), transparent 64%),
+    radial-gradient(760px 400px at 10% 100%, rgba(16, 185, 129, 0.13), transparent 66%),
+    linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%) !important;
+}
+[data-theme="light"] .fc-greeting-copy {
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-member-bottom-actions-mobile > div {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 20px 38px rgba(15, 23, 42, 0.18) !important;
+}
 [data-theme="light"] .fc-member-dashboard .border-white\/5 {
   border-color: rgba(15, 23, 42, 0.12) !important;
 }
@@ -739,6 +765,49 @@
   border-color: rgba(148, 163, 184, 0.22);
   background: rgba(2, 6, 23, 0.35);
 }
+
+.fc-app-shell {
+  min-height: 100dvh;
+}
+
+.fc-main-shell {
+  min-height: 100dvh;
+}
+
+.fc-main-scroll {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fc-finances-page {
+  background:
+    radial-gradient(1200px 520px at 88% -10%, rgba(16, 185, 129, 0.14), transparent 65%),
+    radial-gradient(800px 420px at 6% 94%, rgba(245, 158, 11, 0.1), transparent 68%),
+    linear-gradient(180deg, #0b1014 0%, #0e1511 100%);
+}
+
+.fc-profile-page {
+  background:
+    radial-gradient(980px 500px at -10% 8%, rgba(56, 189, 248, 0.14), transparent 62%),
+    radial-gradient(820px 440px at 98% 92%, rgba(16, 185, 129, 0.1), transparent 66%),
+    linear-gradient(180deg, #0b1014 0%, #111827 100%);
+}
+
+.fc-standings-page {
+  background:
+    radial-gradient(900px 420px at 80% -12%, rgba(56, 189, 248, 0.1), transparent 64%),
+    radial-gradient(720px 380px at 8% 100%, rgba(16, 185, 129, 0.12), transparent 66%),
+    linear-gradient(180deg, #0a0e17 0%, #111827 100%);
+}
+
+.fc-greeting-copy {
+  color: #d1d5db;
+}
+
+.fc-member-bottom-actions-mobile {
+  padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
+}
+
 [data-theme="light"] .fc-member-priority-strip,
 [data-theme="light"] .fc-member-trust-strip {
   background: rgba(255, 255, 255, 0.95) !important;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet, TrendingUp, CheckCircle2, RefreshCw, ShieldAlert } from 'lucide-react';
+import { ReceiptText, History, Download, ShieldCheck, Trophy, Wallet, TrendingUp, CheckCircle2, RefreshCw, ShieldAlert, Clock3 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { collection, onSnapshot, query, orderBy, doc, addDoc, updateDoc, serverTimestamp, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -120,6 +120,16 @@ export default function Finances() {
 
     const currentUser = members.find(m => m.id === activeUserId) || members.find(m => m.phone === memberPhone);
     const isAdmin = role === 'admin';
+    const nowMs = Date.now();
+
+    const toMillis = (value: any): number | null => {
+        if (!value) return null;
+        if (typeof value?.toDate === 'function') return value.toDate().getTime();
+        if (value instanceof Date) return value.getTime();
+        if (typeof value === 'number') return value;
+        const parsed = Date.parse(String(value));
+        return Number.isNaN(parsed) ? null : parsed;
+    };
 
     // My winnings received via B2C payouts
     const myWinnings = transactions
@@ -144,6 +154,50 @@ export default function Finances() {
         .reduce((acc, tx) => acc + (tx.amount || 0), 0);
     const myTotalContributed = depositTxSum || (currentUser?.hasPaid ? (gameweekStake || 1400) : 0);
     const redZoneMembers = members.filter((member) => member.role !== 'admin' && member.isActive !== false && !member.hasPaid);
+
+        const inferredGw = transactions.reduce((maxGw, tx) => {
+            const value = Number(tx.gameweek || tx.gw || 0);
+            return Number.isFinite(value) ? Math.max(maxGw, value) : maxGw;
+        }, 0);
+
+        const scopeTx = isAdmin ? transactions : myTransactions;
+        const gwScopedTx = scopeTx.filter((tx) => {
+            if (inferredGw > 0) {
+                const txGw = Number(tx.gameweek || tx.gw || 0);
+                return txGw === inferredGw;
+            }
+            const txTs = toMillis(tx.timestamp);
+            if (!txTs) return false;
+            return nowMs - txTs <= 7 * 24 * 60 * 60 * 1000;
+        });
+
+        const inflowThisGw = gwScopedTx
+            .filter((tx) => tx.type === 'deposit')
+            .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+        const outflowThisGw = gwScopedTx
+            .filter((tx) => tx.type === 'payout')
+            .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+        const netThisGw = inflowThisGw - outflowThisGw;
+
+        const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nowMs + 72 * 60 * 60 * 1000);
+        const dueDate = new Date(dueTs);
+        const nextDueStatus = currentUser?.hasPaid ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue');
+        const nextDueLabel = nextDueStatus === 'on-time' ? 'On Time' : nextDueStatus === 'grace' ? 'Grace Window' : 'Overdue';
+        const nextDueTone = nextDueStatus === 'on-time'
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+            : nextDueStatus === 'grace'
+                ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                : 'border-red-500/30 bg-red-500/10 text-red-300';
+
+        const pendingAgesHours = pendingApprovals
+            .map((item) => {
+                const created = toMillis((item as any).createdAt) || toMillis((item as any).timestamp) || toMillis((item as any).requestedAt);
+                if (!created) return 0;
+                return Math.max(0, (nowMs - created) / (1000 * 60 * 60));
+            })
+            .filter((hours) => Number.isFinite(hours));
+        const oldestPendingHours = pendingAgesHours.length > 0 ? Math.max(...pendingAgesHours) : 0;
+        const staleApprovalCount = pendingAgesHours.filter((hours) => hours >= 6).length;
 
     const exportLedgerCSV = () => {
         const exportRows = (isAdmin ? transactions : myTransactions).map((tx: any) => {
@@ -277,7 +331,11 @@ export default function Finances() {
     }
 
     return (
-        <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#0b1014]">
+        <div className="fc-finances-page p-5 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto relative">
+            <div className="absolute inset-0 pointer-events-none opacity-70">
+                <div className="absolute -top-20 right-[8%] h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="absolute bottom-10 left-[6%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
+            </div>
             <div className="w-full max-w-6xl mx-auto">
                 <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
                 <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -294,6 +352,44 @@ export default function Finances() {
                         </button>
                     </div>
                 </div>
+
+                <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    {!isAdmin && currentUser && (
+                        <article className="fc-card rounded-2xl p-5 border border-emerald-500/20 bg-gradient-to-br from-emerald-500/12 via-[#161d24] to-[#161d24]">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Next Due</p>
+                                <Clock3 className="w-4 h-4 text-emerald-300" />
+                            </div>
+                            <p className="text-2xl font-black tabular-nums text-white">KES {Number(gameweekStake || 0).toLocaleString()}</p>
+                            <p className="text-[11px] text-gray-400 mt-1">Deadline: {dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                            <span className={clsx('mt-3 inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border', nextDueTone)}>{nextDueLabel}</span>
+                        </article>
+                    )}
+
+                    {isAdmin && (
+                        <article className="fc-card rounded-2xl p-5 border border-amber-500/25 bg-gradient-to-br from-amber-500/14 via-[#161d24] to-[#161d24]">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Approval SLA</p>
+                                <RefreshCw className="w-4 h-4 text-amber-300" />
+                            </div>
+                            <p className="text-2xl font-black tabular-nums text-white">{oldestPendingHours.toFixed(1)}h</p>
+                            <p className="text-[11px] text-gray-400 mt-1">Oldest pending payout age</p>
+                            <p className="text-[11px] font-bold text-amber-300 mt-3">{staleApprovalCount} stale ({'>'}=6h)</p>
+                        </article>
+                    )}
+
+                    <article className="fc-card rounded-2xl p-5 border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-[#161d24] to-[#161d24]">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Cashflow Health</p>
+                            <TrendingUp className="w-4 h-4 text-sky-300" />
+                        </div>
+                        <div className="space-y-1.5 text-[11px] font-bold">
+                            <p className="flex justify-between text-gray-300"><span>Inflow {inferredGw > 0 ? `GW${inferredGw}` : '7d'}</span><span className="text-emerald-300">+ KES {inflowThisGw.toLocaleString()}</span></p>
+                            <p className="flex justify-between text-gray-300"><span>Outflow {inferredGw > 0 ? `GW${inferredGw}` : '7d'}</span><span className="text-amber-300">- KES {outflowThisGw.toLocaleString()}</span></p>
+                            <p className="flex justify-between text-white text-sm pt-2 border-t border-white/10"><span>Net</span><span className={netThisGw >= 0 ? 'text-emerald-300' : 'text-red-300'}>{netThisGw >= 0 ? '+' : '-'} KES {Math.abs(netThisGw).toLocaleString()}</span></p>
+                        </div>
+                    </article>
+                </section>
 
                 {isAdmin && (redZoneMembers.length > 0 || pendingApprovals.length > 0) && (
                     <section className="fc-card mb-8 rounded-2xl border border-[#FBBF24]/25 bg-gradient-to-br from-[#FBBF24]/10 to-[#161d24] p-5 md:p-6">

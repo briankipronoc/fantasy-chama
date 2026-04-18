@@ -223,7 +223,7 @@ export default function Standings() {
 
     return (
         <div
-            className="min-h-screen w-full font-sans text-white relative overflow-hidden bg-[#0a0e17]"
+            className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden"
         >
             {/* ── Ambient background grid ─────────────────────────── */}
             <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"

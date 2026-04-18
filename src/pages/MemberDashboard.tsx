@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import Header from '../components/Header';
 import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone } from 'lucide-react';
 import { db } from '../firebase';
@@ -619,6 +620,24 @@ export default function MemberDashboard() {
         return (a.displayName || '').localeCompare(b.displayName || '');
     });
 
+    const actionButtons = (
+        <>
+            <button
+                onClick={handleMpesaSTKPush}
+                disabled={isPushingMpesa || hasPaid}
+                className="fc-member-bottom-primary flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-60 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+            >
+                <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
+            </button>
+            <button
+                onClick={() => navigate('/standings')}
+                className="fc-member-bottom-secondary flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+            >
+                <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings &amp; Vault
+            </button>
+        </>
+    );
+
     if (isLoading) {
         return <DashboardSkeleton />;
     }
@@ -716,7 +735,7 @@ export default function MemberDashboard() {
                     <span className="text-lg md:text-xl">
                         {greetingText === 'Good morning' ? '🌅' : greetingText === 'Good afternoon' ? '☀️' : '🌙'}
                     </span>
-                    <p className="text-base md:text-lg font-semibold text-gray-300 tracking-tight">
+                    <p className="fc-greeting-copy text-base md:text-lg font-semibold text-gray-300 tracking-tight">
                         {greetingText},{' '}
                         <span className="text-white font-extrabold bg-gradient-to-r from-[#FBBF24] to-[#f59e0b] bg-clip-text text-transparent">
                             {firstName}!
@@ -1289,23 +1308,21 @@ export default function MemberDashboard() {
             </main>
 
             {/* Fixed Bottom Actions */}
-            <div className="fc-member-bottom-actions fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent flex justify-center z-30 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:pb-4">
+            <div className="hidden lg:flex fc-member-bottom-actions fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-[#0b100a] via-[#0b100a]/90 to-transparent justify-center z-30 pb-4">
                 <div className="flex gap-4 w-full max-w-6xl mx-auto pointer-events-auto">
-                    <button
-                        onClick={handleMpesaSTKPush}
-                        disabled={isPushingMpesa || hasPaid}
-                        className="fc-member-bottom-primary flex-1 bg-[#10B981] hover:bg-[#10B981]/90 disabled:opacity-60 text-black font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                    >
-                        <Banknote className="w-5 h-5" /> {hasPaid ? 'Contribution Secured ✓' : 'Pay via M-Pesa'}
-                    </button>
-                    <button
-                        onClick={() => navigate('/standings')}
-                        className="fc-member-bottom-secondary flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
-                    >
-                        <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings &amp; Vault
-                    </button>
+                    {actionButtons}
                 </div>
             </div>
+            {typeof document !== 'undefined' && createPortal(
+                <div className="lg:hidden fc-member-bottom-actions-mobile fixed left-0 right-0 bottom-0 p-3 z-[120]">
+                    <div className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#0b1014]/92 backdrop-blur-xl p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.45)] pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+                        <div className="flex gap-2.5 w-full pointer-events-auto">
+                            {actionButtons}
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Missing Payment? Receipt Query Modal */}
             {showReceiptModal && (

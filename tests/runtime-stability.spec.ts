@@ -15,7 +15,7 @@ test.describe('Runtime Stability Smoke', () => {
   test('dashboard, finances and profile should not crash into ErrorBoundary', async ({ page }) => {
     await seedSession(page);
 
-    const routes = ['/dashboard', '/finances', '/profile'];
+    const routes = ['/dashboard', '/finances', '/standings', '/profile'];
 
     for (const route of routes) {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
@@ -23,4 +23,5 @@ test.describe('Runtime Stability Smoke', () => {
       await expect(page.getByText(fallbackText)).toHaveCount(0, { timeout: 5000 });
     }
   });
+
 });

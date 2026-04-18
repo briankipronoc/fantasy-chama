@@ -139,7 +139,7 @@ export default function AppLayout() {
     };
 
     return (
-        <div className="flex xl:h-screen w-full bg-[#111613] text-white font-sans relative overflow-hidden">
+        <div className="fc-app-shell flex xl:h-[100dvh] w-full bg-[#111613] text-white font-sans relative overflow-hidden">
             {/* Desktop Sidebar (Unified) */}
             <nav className={clsx(
                 'bg-[#0a100a] hidden lg:flex flex-shrink-0 z-10 relative p-4 xl:p-5 transition-[width] duration-300 ease-out',
@@ -254,8 +254,8 @@ export default function AppLayout() {
             </nav>
 
             {/* Main Content Area */}
-            <main className="flex-1 w-full bg-[#0A0E17] relative overflow-hidden flex flex-col h-screen">
-                <div className={clsx('fc-route-stage flex-1 overflow-y-auto pb-24 lg:pb-0 scroll-smooth', routeTransitionClass)}>
+            <main className="fc-main-shell flex-1 w-full bg-[#0A0E17] relative overflow-hidden flex flex-col h-[100dvh] min-h-[100dvh]">
+                <div className={clsx('fc-main-scroll fc-route-stage flex-1 overflow-y-auto pb-28 lg:pb-0 scroll-smooth', routeTransitionClass)}>
                     <Outlet />
                 </div>
             </main>

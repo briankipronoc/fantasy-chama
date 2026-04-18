@@ -227,7 +227,11 @@ export default function Profile() {
     };
 
     return (
-        <div className="min-h-full p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white bg-[#0b1014]">
+        <div className="fc-profile-page min-h-full p-5 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white relative overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none opacity-75">
+                <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
+                <div className="absolute bottom-0 right-[4%] h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+            </div>
             <div className="max-w-6xl mx-auto space-y-10">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight mb-2 flex items-center gap-3">
