@@ -112,7 +112,7 @@ function TrustSlider() {
                             step="100" 
                             value={potSize} 
                             onChange={(e) => setPotSize(Number(e.target.value))}
-                            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                            className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
                         />
                     </div>
 

@@ -75,7 +75,15 @@ export default function AdminSetup() {
 
     const getPresetDistribution = (count: number) => {
         if (count === 1) return [100];
-        if (count === 5) return [45, 25, 15, 10, 5];
+        if (count === 2) return [65, 35];
+        if (count === 3) return [50, 30, 20];
+        if (count === 4) return [40, 30, 20, 10];
+        if (count === 5) return [35, 25, 20, 12, 8];
+        if (count === 6) return [30, 22, 16, 12, 10, 10];
+        if (count === 7) return [28, 20, 15, 12, 10, 8, 7];
+        if (count === 8) return [25, 18, 14, 12, 10, 8, 7, 6];
+        if (count === 9) return [24, 18, 13, 11, 10, 8, 6, 5, 5];
+        if (count === 10) return [22, 17, 13, 11, 10, 8, 7, 5, 4, 3];
         return [50, 30, 20];
     };
 
@@ -136,11 +144,20 @@ export default function AdminSetup() {
             const next = [...prev];
             if (next.length > normalizedCustomWinnerCount) return next.slice(0, normalizedCustomWinnerCount);
             if (next.length < normalizedCustomWinnerCount) {
-                while (next.length < normalizedCustomWinnerCount) next.push('0');
+                const preset = getPresetDistribution(normalizedCustomWinnerCount).map(String);
+                return preset.slice(0, normalizedCustomWinnerCount);
+            }
+            if (next.every((value) => Number(value || 0) <= 0)) {
+                return getPresetDistribution(normalizedCustomWinnerCount).map(String);
             }
             return next;
         });
     }, [seasonWinnersMode, normalizedCustomWinnerCount]);
+
+    useEffect(() => {
+        if (seasonWinnersMode === 'custom') return;
+        setCustomWinnerRatios(getPresetDistribution(effectiveSeasonWinnersCount).map(String));
+    }, [seasonWinnersMode, effectiveSeasonWinnersCount]);
 
     const passwordStrengthResult = useMemo(() => {
         let score = 0;
@@ -289,7 +306,8 @@ export default function AdminSetup() {
                 walletBalance: 0,
                 role: 'admin',
                 trustScore: 100,
-                avatarSeed: Math.random().toString(36).substring(7)
+                avatarSeed: Math.random().toString(36).substring(7),
+                joinedAt: serverTimestamp(),
             });
 
             // Enroll Other Members
@@ -309,7 +327,8 @@ export default function AdminSetup() {
                     walletBalance: 0,
                     role: isCoAdmin ? 'co-chair' : 'member',
                     trustScore: 100,
-                    avatarSeed: Math.random().toString(36).substring(7)
+                    avatarSeed: Math.random().toString(36).substring(7),
+                    joinedAt: serverTimestamp(),
                 };
                 if (member.fplEntryId) memberData.fplTeamId = member.fplEntryId;
                 if (member.secondFplTeamId) memberData.secondFplTeamId = member.secondFplTeamId;
@@ -326,6 +345,23 @@ export default function AdminSetup() {
             }
 
             await batch.commit();
+
+            await Promise.all([
+                addDoc(collection(db, 'leagues', leagueId, 'notifications'), {
+                    type: 'info',
+                    message: `League setup completed for ${leagueName}. Season rules and member roster are now live.`,
+                    timestamp: serverTimestamp(),
+                    readBy: [],
+                    targetMemberId: null,
+                }),
+                addDoc(collection(db, 'leagues', leagueId, 'league_events'), {
+                    eventType: 'operations',
+                    title: 'League setup completed',
+                    message: `${fullName} created ${leagueName} with ${members.length + 1} members.`,
+                    actorId: userCredential.user.uid,
+                    timestamp: serverTimestamp(),
+                }),
+            ]);
 
             // Store active league and move to success screen
             localStorage.setItem('activeLeagueId', leagueId);
@@ -703,24 +739,11 @@ export default function AdminSetup() {
                                     step="1"
                                     value={weeklyPrizePercent}
                                     onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
-                                    className="w-full h-2 rounded-lg appearance-none cursor-pointer outline-none"
+                                    className="fc-range w-full h-2 rounded-lg appearance-none cursor-pointer outline-none"
                                     style={{
                                         background: `linear-gradient(to right, #22c55e ${weeklyPrizePercent}%, #FBBF24 ${weeklyPrizePercent}%)`
                                     }}
                                 />
-                                {/* Hidden style for thumb */}
-                                <style dangerouslySetInnerHTML={{
-                                    __html: `
-                                    input[type=range]::-webkit-slider-thumb {
-                                        appearance: none;
-                                        width: 20px;
-                                        height: 20px;
-                                        background: #fff;
-                                        border: 2px solid border-white/20;
-                                        border-radius: 50%;
-                                        cursor: pointer;
-                                    }
-                                `}} />
                                 <div className="flex justify-between mt-2 text-[9px] text-gray-500 font-bold px-1 mb-2">
                                     <span>Season Payout Only</span>
                                     <span>Adjust Split</span>

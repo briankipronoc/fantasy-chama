@@ -38,6 +38,7 @@ const fetchFplStandings = async (leagueId: number) => {
 
 export default function Standings() {
     const role = useStore(state => state.role);
+    const league = useStore(state => state.league);
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -211,7 +212,28 @@ export default function Standings() {
         && Number(gwWinner.event_total) > 0
         && (!currentEvent || Number(gwWinner.event) === Number(currentEvent))
     );
-    const topSeasonLeaders = standingsData.slice(0, 5);
+    const leagueRules = (league as any)?.rules || {};
+    const configuredSeasonWinnersCount = Math.max(1, Number(leagueRules.seasonWinnersCount || 3));
+    const seasonWinnersMode = String(
+        leagueRules.seasonWinnersMode || (
+            configuredSeasonWinnersCount === 1
+                ? 'top1'
+                : configuredSeasonWinnersCount === 5
+                    ? 'top5'
+                    : 'top3'
+        ),
+    );
+    const visibleSeasonWinnerCount = seasonWinnersMode === 'custom'
+        ? configuredSeasonWinnersCount
+        : seasonWinnersMode === 'top1'
+            ? 1
+            : seasonWinnersMode === 'top5'
+                ? 5
+                : 3;
+    const topSeasonLeaders = standingsData.slice(0, Math.min(visibleSeasonWinnerCount, standingsData.length));
+    const seasonSnapshotLabel = seasonWinnersMode === 'custom'
+        ? `Custom top ${visibleSeasonWinnerCount}`
+        : `Top ${visibleSeasonWinnerCount}`;
     const seasonPhase = currentEvent
         ? currentEvent >= 33
             ? 'Final Stretch'
@@ -469,10 +491,15 @@ export default function Standings() {
                     </div>
                 )}
 
-                {!error && topSeasonLeaders.length > 0 && (
+                {!error && topSeasonLeaders.length > 0 && (Number(leagueRules.vault ?? 30) > 0) && (
                     <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
                         <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="text-sm md:text-base font-black text-white tracking-tight">Season Race Snapshot</h3>
+                            <div>
+                                <h3 className="text-sm md:text-base font-black text-white tracking-tight">Season Race Snapshot</h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">
+                                    {seasonSnapshotLabel} • end-season vault leaders only
+                                </p>
+                            </div>
                             <div className="flex items-center gap-2">
                                 {currentEvent && (
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
@@ -491,6 +518,11 @@ export default function Standings() {
                                     <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
                                     <p className="text-[10px] text-gray-400 truncate">{leader.entry_name}</p>
                                     <p className="text-sm font-black text-[#10B981] tabular-nums mt-1">{leader.total.toLocaleString()} pts</p>
+                                    <p className="text-[10px] text-gray-500 font-bold mt-1">
+                                        {idx === 0
+                                            ? 'Vault leader'
+                                            : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`}
+                                    </p>
                                 </div>
                             ))}
                         </div>

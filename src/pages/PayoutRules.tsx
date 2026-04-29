@@ -1,7 +1,10 @@
-import { Shield, TrendingUp, Wallet, CheckCircle2, ChevronRight, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Shield, TrendingUp, Wallet, CheckCircle2, ChevronRight, Lock, FileText } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
 export default function PayoutRules() {
+    const [activePage, setActivePage] = useState<1 | 2>(1);
     const league = useStore((state) => state.league);
     const members = useStore((state) => state.members);
     const monthlyFee = league?.monthlyFee || 1400; // default 1400 if league not initialized yet
@@ -18,8 +21,21 @@ export default function PayoutRules() {
 
     const getVaultPercentages = (winnerCount: number) => {
         if (winnerCount === 1) return [100];
+        if (winnerCount === 2) return [60, 40];
         if (winnerCount === 3) return [50, 30, 20];
+        if (winnerCount === 4) return [40, 30, 20, 10];
         return [45, 25, 15, 10, 5];
+    };
+
+    const normalizeToHundred = (ratios: number[], count: number) => {
+        const sliced = ratios.slice(0, count).map((value) => Math.max(0, Number(value || 0)));
+        const sum = sliced.reduce((acc, value) => acc + value, 0);
+        if (sum <= 0) return getVaultPercentages(count);
+        const scaled = sliced.map((value) => (value / sum) * 100);
+        const rounded = scaled.map((value) => Math.floor(value));
+        const roundedSum = rounded.reduce((acc, value) => acc + value, 0);
+        rounded[0] += 100 - roundedSum;
+        return rounded;
     };
 
     const configuredDistribution = Array.isArray((league as any)?.rules?.seasonDistribution)
@@ -27,10 +43,11 @@ export default function PayoutRules() {
             .map((value) => Number(value || 0))
             .filter((value) => Number.isFinite(value) && value >= 0)
         : [];
-    const vaultPercentages = configuredDistribution.length > 0
+    const vaultPercentagesRaw = configuredDistribution.length > 0
         ? configuredDistribution
         : getVaultPercentages(configuredWinnersCount);
-    const visibleVaultTiers = vaultPercentages.slice(0, eligibleWinnersCount).map((percentage, index) => ({
+    const vaultPercentages = normalizeToHundred(vaultPercentagesRaw, eligibleWinnersCount);
+    const visibleVaultTiers = vaultPercentages.map((percentage, index) => ({
         place: index + 1,
         percentage,
         value: seasonVaultProj * (percentage / 100),
@@ -38,14 +55,29 @@ export default function PayoutRules() {
     const isCapped = activeMembersCount < configuredWinnersCount;
 
     return (
-        <div className="min-h-screen bg-[#0d1316] text-white p-6 md:p-10 font-sans max-w-5xl mx-auto space-y-12 animate-in fade-in duration-500 pb-24">
-
-            {/* Page Header */}
-            <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3">League Constitution & Payouts</h1>
-                <p className="text-gray-400 text-lg">Transparent breakdown of all funds distributed within the Fantasy Chama Escrow system.</p>
+        <div className="min-h-screen bg-[#0d1316] text-white p-6 md:p-10 font-sans max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-24">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">League Constitution & Policy Stack</h1>
+                    <p className="text-sm text-gray-400">Read the league economics and policy requirements in one place.</p>
+                </div>
+                <div className="inline-flex rounded-xl border border-white/10 bg-black/20 p-1 self-start">
+                    <button
+                        onClick={() => setActivePage(1)}
+                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${activePage === 1 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        1/2 Constitution
+                    </button>
+                    <button
+                        onClick={() => setActivePage(2)}
+                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${activePage === 2 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        2/2 Terms & Privacy
+                    </button>
+                </div>
             </div>
 
+            {activePage === 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
                 {/* 70/30 Fund Split Architecture */}
@@ -160,6 +192,60 @@ export default function PayoutRules() {
                 </div>
 
             </div>
+            )}
+
+            {activePage === 2 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-[#1c272c] border border-white/5 rounded-3xl p-8 shadow-xl">
+                    <div className="flex items-center gap-2 mb-6">
+                        <FileText className="w-5 h-5 text-amber-300" />
+                        <h2 className="text-xl font-bold uppercase tracking-wider text-slate-200">Terms Snapshot</h2>
+                    </div>
+                    <ul className="space-y-3 text-sm text-slate-300 leading-relaxed">
+                        <li>All participants consent to automated scoring and payout allocation logic.</li>
+                        <li>Member deposits and payout approvals are logged as immutable audit records.</li>
+                        <li>HQ settlement compliance is mandatory within the configured monthly window.</li>
+                        <li>Maker-checker rules supersede manual overrides for payout execution.</li>
+                    </ul>
+                    <div className="mt-6">
+                        <Link to="/terms" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-amber-300 hover:text-amber-200">
+                            Open Full Terms <ChevronRight className="w-3 h-3" />
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-emerald-500/30 rounded-3xl p-8 shadow-[0_0_40px_rgba(16,185,129,0.06)]">
+                    <div className="flex items-center gap-2 mb-6">
+                        <Shield className="w-5 h-5 text-emerald-300" />
+                        <h2 className="text-xl font-bold uppercase tracking-wider text-slate-200">Privacy Snapshot</h2>
+                    </div>
+                    <ul className="space-y-3 text-sm text-slate-300 leading-relaxed">
+                        <li>M-Pesa references and ledger entries are stored for reconciliation and dispute handling.</li>
+                        <li>Role access controls separate chairman, co-chair, and member operations.</li>
+                        <li>Device tokens and contact metadata are used only for league operations and alerts.</li>
+                        <li>No payouts are processed without required governance checks.</li>
+                    </ul>
+                    <div className="mt-6">
+                        <Link to="/privacy-policy" className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-200">
+                            Open Full Privacy Policy <ChevronRight className="w-3 h-3" />
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-2 rounded-2xl border border-sky-500/25 bg-sky-500/10 px-5 py-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">User Manuals</p>
+                    <p className="text-sm text-sky-50/90 mt-1">Open the full operational playbooks below.</p>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                        <Link to="/manual/member" className="px-4 py-2 rounded-lg border border-sky-400/40 bg-sky-500/15 text-sky-100 text-xs font-black uppercase tracking-widest hover:bg-sky-500/25">
+                            Member Manual
+                        </Link>
+                        <Link to="/manual/chairman" className="px-4 py-2 rounded-lg border border-sky-400/40 bg-sky-500/15 text-sky-100 text-xs font-black uppercase tracking-widest hover:bg-sky-500/25">
+                            Chairman Manual
+                        </Link>
+                    </div>
+                </div>
+            </div>
+            )}
         </div>
     );
 }

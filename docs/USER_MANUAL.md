@@ -18,7 +18,13 @@ As Chairman, your job is frictionless. When a Gameweek ends:
 1. **Members Pay In (via M-Pesa)**: The dashboard marks them green. Members who miss payments drop into the Red Zone.
 2. **Resolve Gameweek**: The AI detects the FPL winner. Click the Gold **"Resolve"** button in your Command Center.
 3. **Chairman Cash-Out**: The system sets aside an operational fee (9%). You physically keep **4%** as your Governance Fee (deposited into your virtual wallet). 
-4. **Settle with HQ**: The platform requires a 4% usage fee + 1% network buffer. A red banner will appear. You have a **48-Hour Grace Period** to send this cut to HQ via Pochi La Biashara. If you default, HQ triggers a permanent network lockout until you settle.
+4. **Settle with HQ Monthly**: HQ settlement is no longer a weekly timeline step. Settle at month-end (last GW of month) or the first days of next month. If a balance remains unpaid in the grace window, a warning banner appears. If you default, HQ triggers a lockout until you settle.
+
+### 2.0 Chairman Command Board (Overview)
+- The **Master Invite Code** card now lives on Overview (not finance), with WhatsApp sharing in one tap.
+- The **Resolution Timeline** is interactive: tap any step to jump to the action queue it needs.
+- Completed steps glow for visibility.
+- Once all required steps are complete, a **Return to Overview** button appears.
 
 ### 2.1 Season Payout Modes
 The league can run season vault payouts in four modes:
@@ -35,6 +41,7 @@ Custom mode supports explicit percentage control per winner tier with safety lim
 Promote a trusted friend to **Co-Chairman** to increase transparency.
 - The Co-Chairman's screen must electronically "Approve" all payouts before B2C triggers.
 - In this structure, the Chairman split becomes **3%** and the Co-Chair receives an exclusive **1%** audit fee for clicking approve.
+- Approval can be finalized either as **M-Pesa dispatch** or **Cash Handoff**. Cash handoff approvals are written into the ledger for audit tracking.
 
 ---
 
@@ -57,6 +64,7 @@ If you joined using the Chairman's 6-digit code, you must link your identity.
 - If it's you, your screen goes full gold.
 - **The Winner takes home exactly 91%** of the gross pot — seamlessly dispatched via Safaricom B2C (or via Chairman manual cash relay). 
 - Winners can also request wallet credit instead of a cash payout if they want to keep the winnings in their balance.
+- If payout is done through cash handoff, the Chairman records it and the transaction appears in the league ledger.
 
 Champion display logic:
 - During an active GW, cards show **Live Leader**

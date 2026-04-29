@@ -79,6 +79,11 @@ export default function Deposit() {
         }
     };
 
+    useEffect(() => {
+        if (!toast) return;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [toast]);
+
     return (
         <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#111613] flex flex-col items-center justify-center">
 
@@ -155,8 +160,8 @@ export default function Deposit() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed bottom-24 md:bottom-10 right-4 left-4 md:left-auto md:right-10 md:w-96 p-4 rounded-xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50 fc-inline-toast",
-                toast ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none",
+                "fixed top-4 right-4 left-auto w-[calc(100vw-2rem)] md:w-96 p-4 rounded-2xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50 fc-inline-toast",
+                toast ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0 pointer-events-none",
                 toast?.type === 'success' ? "fc-inline-toast-success" : "fc-inline-toast-error"
             )}>
                 {toast?.type === 'success' ? <CheckCircle2 className="w-6 h-6 flex-shrink-0 mt-0.5" /> : <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />}

@@ -70,6 +70,8 @@ Your dashboard (`/dashboard`) is a full financial command center. It shows:
 - **Live Escrow Feed** — real-time event log of every payment and resolution
 - **Export Audit CSV** — one click to download a full financial audit spreadsheet
 
+Overview now includes an interactive **Resolution Timeline**. Tap any step and the UI takes you directly to the queue that needs action.
+
 ### Green Zone vs Red Zone
 - **Green Zone ✅**: Member's wallet covers the current GW stake. They are eligible for the pot.
 - **Red Zone ❌**: Wallet is empty. Member is excluded from this week's payout.
@@ -92,8 +94,8 @@ When a Gameweek ends on the FPL website:
    - Creates a **Pending Payout** for Co-Admin approval
    - Dispatches a **push notification** to all league members
    - Updates every member's **payment streak** badge
-4. If you have a Co-Admin, they must click **Approve** before the M-Pesa B2C fires
-5. The winner receives an M-Pesa B2C payment automatically
+4. If you have a Co-Admin, they must click **Approve** before settlement is finalized
+5. Settlement can be completed through **M-Pesa dispatch** or **Cash Handoff** and is recorded in ledger history
 
 Resolution protection rules:
 - Resolution is blocked while GW is still live.
@@ -132,15 +134,16 @@ Your 4% is automatically credited to your **wallet balance** in real-time. Check
 
 ## Part 5: Paying HQ (The 48-Hour Window)
 
-After every GW resolution, HQ's 3.5% share accumulates as a `pendingHQDebt` on your league.
+HQ dues still accumulate from GW operations, but settlement is managed on a monthly cycle.
 
 ### Your timeline:
-1. **GW Resolves** → 48-hour window opens
-2. **0–48 hours** → Yellow warning banner visible. Dashboard is fully functional.
-3. **After 48 hours** → **Full blur lockout** activates. Your dashboard is frozen. Members see a suspension banner and can nudge you.
-4. **To unlock**: Send the owed amount to **FPL Chama via Pochi La Biashara**. HQ manually verifies and lifts the suspension.
+1. **Month-end / early next month** → settlement window is due
+2. **Grace period** → Yellow warning banner visible. Dashboard stays functional.
+3. **After grace expiry** → **Full blur lockout** activates. Dashboard freezes until settlement.
+4. **To unlock**: Send owed amount to **FPL Chama via Pochi La Biashara**, then submit receipt. HQ verifies and clears debt.
 
 The exact amount owed is always displayed on the warning banner.
+The timeline shows **HQ Settled** only when monthly settlement is relevant (window open, debt pending, or receipt under review).
 
 ---
 

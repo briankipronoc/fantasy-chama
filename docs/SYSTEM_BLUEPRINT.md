@@ -1,5 +1,5 @@
-# FantasyChama — Master System Blueprint v3.0
-*Last updated: April 2026 — Phase 8 complete*
+# FantasyChama — Master System Blueprint v3.1
+*Last updated: April 2026 — Chairman command flow refresh*
 
 ---
 
@@ -41,10 +41,10 @@ leagues: [ { leagueId, leagueName, role } ]
 ```
 
 #### `platform_treasury/{docId}`
-HQ revenue log — every GW resolution writes a receipt here.
+HQ revenue log — ledgered monthly settlement cycle.
 ```
-leagueId, leagueName, gameweek, grossPot, platformNetRevenue (3.5%),
-chairmanCut (4% or 3% with co-chair), coAdminCut, mpesaFee (1.5%), timestamp
+leagueId, leagueName, monthKey, settlementWindow,
+platformDueAmount, platformPaidAmount, status, receiptCode, timestamp
 ```
 
 #### `referrals/{code}`
@@ -66,9 +66,10 @@ paymentStreak, fcmToken, authUid
 
 #### `transactions/{txId}`
 ```
-type ('deposit' | 'payout' | 'kickback_withdrawal'),
+type ('deposit' | 'payout' | 'kickback_withdrawal' | 'wallet_funding'),
 amount, receiptId, phoneNumber, winnerName, winnerPhone,
-mpesaCode, timestamp, gameweek
+mpesaCode, settlementChannel ('mpesa' | 'cash'), cashHandoffDate,
+note, timestamp, gameweek
 ```
 
 #### `league_events/{eventId}`
@@ -94,7 +95,8 @@ message, timestamp, readBy[], targetMemberId, isWinnerEvent
 Maker/Checker queue. Payouts must be Co-Admin approved.
 ```
 winnerId, winnerName, amount, status ('awaiting_approval' | 'approved' | 'rejected'),
-gw, gwName, points, payoutMethod ('mpesa' | 'cash')
+gw, gwName, points, payoutMethod ('mpesa' | 'cash'),
+method ('mpesa' | 'cash'), cashHandoffDate, approvalTarget
 ```
 
 #### `winner_confirmations/{confId}`
@@ -150,11 +152,18 @@ Gross Pot = paidMembers × gameweekStake
 - Co-Admin approves pending payout → Daraja B2C fires
 - `winner_confirmations` created for winner to acknowledge receipt
 
-### HQ Revenue Cycle (48-Hour Enforcement)
-- After every GW resolution, `pendingHQDebt` accumulates on the league
-- Chairman has **48 hours** to pay HQ via Pochi La Biashara
-- Within 48h: yellow warning banner on Chairman dashboard
-- After 48h: full blur lockout on Chairman + red banner for all members
+### HQ Revenue Cycle (Monthly Settlement Window)
+- HQ dues still accrue from GW operations, but operational settlement is now monthly.
+- Settlement is expected at month-end (last GW of the month) or early next month.
+- The HQ step appears in the Resolution Timeline only during the monthly window or when debt/submission exists.
+- Within grace: yellow warning banner on Chairman dashboard with receipt form.
+- After grace expiry on unpaid debt: full blur lockout on Chairman + red banner for all members.
+
+### Chairman Command Surface (Overview)
+- The Overview now carries the full Master Invite Card (code, WhatsApp share, regenerate placeholder).
+- Resolution Timeline tiles are tappable and route to the exact workflow queue.
+- Completed timeline tiles glow, and a Return to Overview action appears when cycle steps are complete.
+- Pending payout approval supports both M-Pesa dispatch and direct cash handoff, with ledger write-through.
 
 ### Deployment Contract
 - Frontend must set `VITE_API_URL` to the public Render backend URL in production.

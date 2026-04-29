@@ -124,6 +124,7 @@ export default function SuperAdminDashboard() {
 
     const showHqNotice = (message: string) => {
         setHqNotice(message);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         window.setTimeout(() => setHqNotice(''), 3500);
     };
 
@@ -319,17 +320,17 @@ export default function SuperAdminDashboard() {
     }
 
     return (
-        <div className="fc-hq-shell min-h-screen text-gray-200 font-sans">
+        <div className="fc-hq-shell min-h-screen text-slate-800 dark:text-gray-200 font-sans">
             <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 md:py-12 space-y-8">
 
                 {hqNotice && (
-                    <div className="fc-inline-toast fc-inline-toast-info fixed bottom-8 left-1/2 -translate-x-1/2 z-300 px-5 py-3 text-xs font-black uppercase tracking-widest">
+                    <div className="fc-inline-toast fc-inline-toast-info fixed top-4 right-4 z-300 max-w-[24rem] px-5 py-3 text-xs font-black uppercase tracking-widest rounded-2xl shadow-2xl">
                         {hqNotice}
                     </div>
                 )}
 
                 {/* Header */}
-                <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
+                <header className="fc-hq-panel rounded-3xl p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">

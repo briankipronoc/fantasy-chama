@@ -347,6 +347,7 @@ export default function MemberDashboard() {
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToastMessage(msg);
         setToastType(type);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         setTimeout(() => setToastMessage(''), 3000);
     };
 
@@ -783,12 +784,6 @@ export default function MemberDashboard() {
             >
                 <Wallet className="w-5 h-5" /> Top Up Wallet
             </button>
-            <button
-                onClick={() => navigate('/standings')}
-                className="fc-member-bottom-secondary flex-1 bg-[#161d24] hover:bg-[#1c272c] border border-white/5 hover:border-white/20 text-white font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
-            >
-                <BarChart3 className="w-5 h-5 text-[#FBBF24]" /> Standings &amp; Vault
-            </button>
         </>
     );
 
@@ -861,8 +856,8 @@ export default function MemberDashboard() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
-                toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95",
+                "fixed top-4 right-4 px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
+                toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-2 scale-95",
                 toastType === 'error'
                     ? "fc-inline-toast-error"
                     : toastType === 'info'

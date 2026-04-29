@@ -15,7 +15,7 @@ export function initializeTheme() {
     const hasExplicitUserTheme = localStorage.getItem(THEME_USER_SET_KEY) === '1';
     const savedTheme = (localStorage.getItem(THEME_KEY) as Theme | null);
     const root = document.documentElement;
-    const resolvedTheme: Theme = hasExplicitUserTheme && savedTheme ? savedTheme : 'system';
+    const resolvedTheme: Theme = hasExplicitUserTheme && savedTheme ? savedTheme : 'dark';
 
     if (resolvedTheme === 'system') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -30,7 +30,7 @@ export function initializeTheme() {
 
 export function useTheme() {
     const [theme, setTheme] = useState<Theme>(() => {
-        return (localStorage.getItem(THEME_KEY) as Theme) || 'system';
+        return (localStorage.getItem(THEME_KEY) as Theme) || 'dark';
     });
 
     useEffect(() => {

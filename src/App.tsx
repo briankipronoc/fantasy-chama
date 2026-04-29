@@ -20,6 +20,8 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Terms = lazy(() => import('./pages/Terms'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const FAQ = lazy(() => import('./pages/FAQ'));
+const MemberManual = lazy(() => import('./pages/MemberManual'));
+const ChairmanManual = lazy(() => import('./pages/ChairmanManual'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const WinSharePage = lazy(() => import('./pages/WinSharePage'));
 const Error808 = lazy(() => import('./pages/Error808'));
@@ -90,6 +92,8 @@ function App() {
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/manual/member" element={<MemberManual />} />
+            <Route path="/manual/chairman" element={<ChairmanManual />} />
             <Route path="/hq" element={<SuperAdminDashboard />} />
             <Route path="/win" element={<WinSharePage />} />
             <Route path="*" element={<Error808 />} />

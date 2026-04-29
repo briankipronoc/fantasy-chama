@@ -13,6 +13,7 @@ import {
   UserPlus,
   Bell,
   ShieldCheck,
+  Star,
   Download,
   ShieldAlert,
 } from "lucide-react";
@@ -66,7 +67,6 @@ export default function AdminCommandCenter() {
   });
   const [payoutMethod, setPayoutMethod] = useState<"mpesa" | "cash">("mpesa");
   const [coAdminId, setCoAdminId] = useState<string | null>(null);
-  const [chairmanId, setChairmanId] = useState<string | null>(null);
   const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
   const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(
     null,
@@ -91,7 +91,6 @@ export default function AdminCommandCenter() {
   // Phase 29: FPL GW Winner logic
   const [gwWinner, setGwWinner] = useState<any>(null);
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
-  const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
 
   const handleNudge = async () => {
     if (!activeLeagueId) return;
@@ -192,10 +191,17 @@ export default function AdminCommandCenter() {
     );
     const unsub = onSnapshot(
       eventsQuery,
-      () => {
-        // Keep listener warm for governance stream readiness.
+      (snap) => {
+        const events = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }) as any)
+          .filter((item) =>
+            /approve|reject|resolve|rule|payout|co-chair|chairman/i.test(
+              item.message || "",
+            ),
+          );
+        // setRecentGovernanceEvents(events);
       },
-      (err: any) => {
+      (err) => {
         console.warn(
           "[admin-command] governance events listener failed:",
           err?.message || err,
@@ -267,61 +273,11 @@ export default function AdminCommandCenter() {
   const [showPrefundOptions, setShowPrefundOptions] = useState(false);
   const [prefundData, setPrefundData] = useState<{ [id: string]: string }>({});
   const [isPrefunding, setIsPrefunding] = useState(false);
-  const [prefundUpdateRecentActivity, setPrefundUpdateRecentActivity] = useState(true);
-  const [showWalletFundModal, setShowWalletFundModal] = useState(false);
-  const [fundTargetMemberId, setFundTargetMemberId] = useState("");
-  const [fundAmount, setFundAmount] = useState("");
-  const [fundMethod, setFundMethod] = useState<"mpesa" | "cash">("mpesa");
-  const [fundTransactionCode, setFundTransactionCode] = useState("");
-  const [fundCashDate, setFundCashDate] = useState("");
-  const [fundNote, setFundNote] = useState("");
-  const [isFundingWallet, setIsFundingWallet] = useState(false);
-  const [isSendingWalletPrompt, setIsSendingWalletPrompt] = useState(false);
-  const [fundPromptSent, setFundPromptSent] = useState(false);
-
-  const recordOperationEvent = async (payload: {
-    title: string;
-    message: string;
-    targetMemberId?: string | null;
-    type?: string;
-  }) => {
-    if (!activeLeagueId) return;
-
-    await Promise.all([
-      addDoc(collection(db, "leagues", activeLeagueId, "notifications"), {
-        type: payload.type || "info",
-        message: payload.message,
-        timestamp: serverTimestamp(),
-        readBy: [],
-        targetMemberId: payload.targetMemberId ?? null,
-      }),
-      addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
-        eventType: "operations",
-        title: payload.title,
-        message: payload.message,
-        actorId: auth.currentUser?.uid || activeUserId || null,
-        targetMemberId: payload.targetMemberId ?? null,
-        timestamp: serverTimestamp(),
-      }),
-    ]);
-  };
-
-  useEffect(() => {
-    if (
-      showAddMemberModal ||
-      showPrefundOptions ||
-      showResolveModal ||
-      showWalletFundModal
-    ) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal]);
 
   // Phase 40: HQ Debt Ledger & Onboarding
   const [showTutorial, setShowTutorial] = useState(false);
   const leagueSettings = useStore((state) => state.league);
-  const isPilotMode = leagueSettings?.pilotMode === true; // Pilot: no HQ cut yet
-  const pendingHQDebt = isPilotMode ? 0 : (leagueSettings?.pendingHQDebt || 0);
+  const pendingHQDebt = leagueSettings?.pendingHQDebt || 0;
 
   // Auto-Lockout: 48 Hour Grace Period
   const lastResolvedTS = leagueSettings?.lastResolvedDate;
@@ -355,6 +311,7 @@ export default function AdminCommandCenter() {
     (state) => state.togglePaymentStatus,
   );
   const isStealthMode = useStore((state) => state.isStealthMode);
+  const role = useStore((state) => state.role);
   const tutorialSeenKey =
     activeLeagueId && activeUserId
       ? `chairman_initialized_${activeLeagueId}_${activeUserId}`
@@ -364,18 +321,6 @@ export default function AdminCommandCenter() {
       ? `hasSeenAdminTour_${activeLeagueId}_${activeUserId}`
       : null;
   const coChairMember = members.find((m) => m.id === coAdminId);
-  const authUid = auth.currentUser?.uid || null;
-  const coAdminMemberAuthUid = coAdminId
-    ? members.find((m) => m.id === coAdminId)?.authUid || null
-    : null;
-  const coAdminResolvedUid = coAdminMemberAuthUid || coAdminId || null;
-  const diagnosticsIsChairman = !!authUid && !!chairmanId && authUid === chairmanId;
-  const diagnosticsIsCoAdmin = !!authUid && !!coAdminResolvedUid && authUid === coAdminResolvedUid;
-  const diagnosticsIsAdmin = diagnosticsIsChairman || diagnosticsIsCoAdmin;
-  const diagnosticsStatusTone = diagnosticsIsAdmin
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-    : "border-red-500/30 bg-red-500/10 text-red-300";
-  const diagnosticsStatusLabel = diagnosticsIsAdmin ? "Admin Access: Granted" : "Admin Access: Denied";
   const hasValidCoChair =
     !!coAdminId &&
     coAdminId !== activeUserId &&
@@ -452,7 +397,6 @@ export default function AdminCommandCenter() {
           setInviteCode(data.inviteCode || "------");
           setMonthlyContribution(data.gameweekStake || 0);
           setCoAdminId(data.coAdminId || null);
-          setChairmanId(data.chairmanId || null);
           if (data.rules) setRules(data.rules);
 
           try {
@@ -467,7 +411,6 @@ export default function AdminCommandCenter() {
                 (event: any) => event.is_current,
               );
               setIsCurrentEventFinished(current?.finished === true);
-              setCurrentGwNumber(Number(current?.id || 0) || null);
             }
           } catch (bootstrapErr: any) {
             console.warn(
@@ -520,7 +463,7 @@ export default function AdminCommandCenter() {
     initDashboard();
   }, [activeLeagueId, navigate, listenToLeagueMembers, tutorialSeenKey]);
 
-  // Listen for all payouts (pending + approved) for real-time UI state
+  // Listen for pending payouts in real-time (for Co-Chair approval)
   useEffect(() => {
     if (!activeLeagueId) return;
     const pendingRef = collection(
@@ -529,11 +472,7 @@ export default function AdminCommandCenter() {
       activeLeagueId,
       "pending_payouts",
     );
-    // Listen to both awaiting and approved so we can show the right UI state
-    const q = query(
-      pendingRef,
-      where("status", "in", ["awaiting_approval", "approved"]),
-    );
+    const q = query(pendingRef, where("status", "==", "awaiting_approval"));
     const unsub = onSnapshot(q, (snap) => {
       setPendingPayouts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
@@ -543,26 +482,6 @@ export default function AdminCommandCenter() {
   const hasFinalGwChampion = Boolean(
     gwWinner && isCurrentEventFinished && Number(gwWinner.event_total) > 0,
   );
-  const tabCopy = {
-    dashboard: {
-      eyebrow: "Chairman priorities",
-      title: "League Control Snapshot",
-      description:
-        "Quickly scan league risk, payout pressure, and funding health before executing actions below.",
-    },
-    ledger: {
-      eyebrow: "Chairman ledger",
-      title: "The Master Ledger",
-      description:
-        "See who is paid, who is in the red zone, and fund wallets directly from this queue.",
-    },
-    finance: {
-      eyebrow: "Chairman treasury",
-      title: "Treasury Operations Board",
-      description:
-        "Keep invite actions in Overview while you track vault flow, settlement health, and live operations here.",
-    },
-  } as const;
 
   // Module 3B: Listen to pending disputes
   useEffect(() => {
@@ -648,62 +567,33 @@ export default function AdminCommandCenter() {
       try {
         const driverObj = driver({
           showProgress: true,
-          smoothScroll: true,
-          onNextClick: (_element: any, _step: any, options: any) => {
-            const activeIndex = options?.state?.activeIndex ?? 0;
-            if (activeIndex === 0) {
-              setActiveTab("ledger");
-              window.setTimeout(() => options.driver.moveNext(), 250);
-              return;
-            }
-            if (activeIndex === 1) {
-              setActiveTab("finance");
-              window.setTimeout(() => options.driver.moveNext(), 250);
-              return;
-            }
-            options.driver.moveNext();
-          },
-          onPrevClick: (_element: any, _step: any, options: any) => {
-            const activeIndex = options?.state?.activeIndex ?? 0;
-            if (activeIndex === 1) {
-              setActiveTab("dashboard");
-              window.setTimeout(() => options.driver.movePrevious(), 250);
-              return;
-            }
-            if (activeIndex === 2) {
-              setActiveTab("ledger");
-              window.setTimeout(() => options.driver.movePrevious(), 250);
-              return;
-            }
-            options.driver.movePrevious();
-          },
           steps: [
             {
               element: "#tour-add-member",
               popover: {
-                title: "Overview",
+                title: "Add League Members",
                 description:
-                  "Start in Overview, then use Next to move through Ledger & Access and Finance & Ops.",
+                  "Start by manually enrolling members into the Chama using their M-Pesa phone number.",
                 side: "bottom",
                 align: "start",
               },
             },
             {
-              element: "#master-ledger",
+              element: "#tour-resolve-gw",
               popover: {
-                title: "Ledger & Access",
+                title: "Resolve Gameweeks",
                 description:
-                  "Review the master ledger, then continue to Finance & Ops for vault, payouts, and support workflows.",
+                  "At the end of an FPL gameweek, click this to automatically calculate the highest scorer and dispatch the weekly pot.",
                 side: "bottom",
                 align: "start",
               },
             },
             {
-              element: "#tour-finance-ops",
+              element: "#tour-ledger",
               popover: {
-                title: "Finance & Ops",
+                title: "Live Ledger Tracker",
                 description:
-                  "Use this section for vault tracking, finance approvals, and prefund operations.",
+                  "Monitor all deposits here. Once you mark a member as Paid, the ledger updates in real-time.",
                 side: "top",
                 align: "start",
               },
@@ -766,50 +656,6 @@ export default function AdminCommandCenter() {
           receiptId:
             "DEP" + Math.random().toString(36).substring(2, 10).toUpperCase(),
         });
-
-        await recordOperationEvent({
-          title: "Manual deposit verified",
-          message: `Manual deposit recorded for ${memberName}: KES ${Number(gameweekStake || 0).toLocaleString()}.`,
-          targetMemberId: memberId,
-          type: "success",
-        });
-      } else {
-        const adminId = localStorage.getItem("activeUserId") || "chairman";
-        const notifsRef = collection(
-          db,
-          "leagues",
-          activeLeagueId,
-          "notifications",
-        );
-        await addDoc(notifsRef, {
-          type: "warning",
-          message: `Ledger correction recorded for ${memberName}. The mistaken deposit was cancelled and retained in the master ledger for audit.`,
-          timestamp: serverTimestamp(),
-          readBy: [adminId],
-          targetMemberId: memberId,
-        });
-
-        const targetMember = members.find((m) => m.id === memberId);
-        const txRef = collection(db, "leagues", activeLeagueId, "transactions");
-        await addDoc(txRef, {
-          type: "ledger_adjustment",
-          source: "manual_reversal",
-          amount: gameweekStake ? -gameweekStake : 0,
-          memberId,
-          memberName,
-          phoneNumber: targetMember?.phone || "",
-          receiptId:
-            "REV" + Math.random().toString(36).substring(2, 10).toUpperCase(),
-          note: `Chairman cancelled a mistaken deposit for ${memberName}.`,
-          timestamp: serverTimestamp(),
-        });
-
-        await recordOperationEvent({
-          title: "Ledger adjustment recorded",
-          message: `Manual reversal recorded for ${memberName}: KES ${Number(gameweekStake || 0).toLocaleString()}.`,
-          targetMemberId: memberId,
-          type: "warning",
-        });
       }
     } catch (error) {
       console.error("Error toggling payment", error);
@@ -818,7 +664,6 @@ export default function AdminCommandCenter() {
 
   const showToast = (message: string) => {
     setToastMessage(message);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => setToastMessage(""), 3000);
   };
 
@@ -831,198 +676,63 @@ export default function AdminCommandCenter() {
     return true;
   });
 
-  const memberHasFunding = (member: any) => {
-    return member.isActive !== false && member.hasPaid === true;
-  };
-
-  const fundedMembersCount = members.filter(memberHasFunding).length;
-  const activeMembersCount = members.filter(
-    (m) => m.isActive !== false,
+  const paidMembersCount = members.filter(
+    (m) => m.hasPaid && m.isActive !== false,
   ).length;
-  const totalSecured = fundedMembersCount * gameweekStake;
-  const exactCurrentGwFormula = `${fundedMembersCount} × KES ${Number(gameweekStake || 0).toLocaleString()} = KES ${Number(totalSecured || 0).toLocaleString()}`;
-
-    useEffect(() => {
-      if (
-        showAddMemberModal ||
-        showPrefundOptions ||
-        showResolveModal ||
-        showWalletFundModal
-      ) {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal]);
   const redZoneMembers = members.filter(
-    (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false,
+    (m) => !m.hasPaid && m.role !== "admin" && m.isActive !== false,
   );
-  const allPayableMembersFunded =
-    activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
-  const totalCollected = totalSecured;
+  const totalCollected = paidMembersCount * gameweekStake;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  const projectionGwNumber = Math.min(38, Math.max(1, Number(currentGwNumber || 1)));
-  const remainingGameweeks = Math.max(1, 39 - projectionGwNumber);
-  const seasonVault = totalCollected * remainingGameweeks * (rules.vault / 100);
+  // Formula: Active members * Gameweek Stake * 38 GWs * Vault Percentage
+  const seasonVault = members.length * gameweekStake * 38 * (rules.vault / 100);
   const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
+  const stalePendingPayouts = pendingPayouts.filter((payout: any) => {
+    const ts = payout.timestamp?.toDate
+      ? payout.timestamp.toDate().getTime()
+      : 0;
+    return ts > 0 && Date.now() - ts > 30 * 60 * 1000;
+  });
+  const missingWinnerPhoneCount = pendingPayouts.filter((payout: any) => {
+    const winnerMember = members.find(
+      (member) =>
+        member.id === payout.winnerId ||
+        member.displayName === payout.winnerName,
+    );
+    return !(payout.winnerPhone || winnerMember?.phone);
+  }).length;
   const highRiskTwoWeekMisses = members.filter(
     (member: any) =>
       member.isActive !== false &&
       member.role !== "admin" &&
       Number(member.missedGameweeks || 0) >= 2,
   ).length;
-  const sortedPendingPayouts = [...pendingPayouts]
-    .filter((p: any) => p.status === "awaiting_approval")
-    .sort((a: any, b: any) => {
-      const aTs = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
-      const bTs = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
-      return aTs - bTs;
-    });
+  const preflightChecks = [
+    { label: "At least one paid member", ok: paidMembersCount > 0 },
+    {
+      label: "No pending payout with missing winner phone",
+      ok: missingWinnerPhoneCount === 0,
+    },
+    {
+      label: "No stale approvals older than 30 min",
+      ok: stalePendingPayouts.length === 0,
+    },
+    {
+      label: "No unresolved disputes blocking trust",
+      ok: pendingDisputes.length === 0,
+    },
+  ];
+  // const hasPreflightBlockers = preflightChecks.some((check) => !check.ok);
+  const sortedPendingPayouts = [...pendingPayouts].sort((a: any, b: any) => {
+    const aTs = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+    const bTs = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+    return aTs - bTs;
+  });
   const getEffectiveApprovalTarget = (payout: any) => {
     if (payout.approvalTarget === "chairman") return "chairman";
     if (payout.approvalTarget === "co-chair" && hasValidCoChair)
       return "co-chair";
     return hasValidCoChair ? "co-chair" : "chairman";
-  };
-  const monthlySettlementDay = new Date().getDate();
-  const isMonthlySettlementWindow =
-    monthlySettlementDay >= 25 || monthlySettlementDay <= 5;
-  const shouldShowHqStep =
-    isMonthlySettlementWindow ||
-    pendingHQDebt > 0 ||
-    Boolean(latestHqSettlement);
-  const isHqSettled =
-    pendingHQDebt <= 0 || latestHqSettlement?.status === "approved";
-  const isTimelineComplete =
-    actionTimeline.resolved &&
-    !actionTimeline.approvalPending &&
-    actionTimeline.payoutSent &&
-    actionTimeline.confirmed &&
-    (!shouldShowHqStep || isHqSettled);
-  const timelineSteps = [
-    {
-      key: "resolved",
-      label: "Resolve GW",
-      hint: "Lock the winner after FPL marks the week as finished.",
-      active: actionTimeline.resolved,
-    },
-    {
-      key: "approval",
-      label: "Approval Pending",
-      hint: "Approve pending payouts or route them to cash handoff.",
-      active: actionTimeline.approvalPending,
-    },
-    {
-      key: "sent",
-      label: "Payout Sent",
-      hint: "Dispatch to M-Pesa or confirm cash handoff.",
-      active: actionTimeline.payoutSent,
-    },
-    {
-      key: "confirmed",
-      label: "Confirmed",
-      hint: "Winner gets notified and ledger is updated.",
-      active: actionTimeline.confirmed,
-    },
-    {
-      key: "hq-settled",
-      label: "HQ Settled",
-      hint: "Monthly step: submit HQ receipt in the month-end window.",
-      active: isHqSettled,
-    },
-  ].filter((step) => step.key !== "hq-settled" || shouldShowHqStep);
-
-  const scrollToSection = (id: string) => {
-    const node = document.getElementById(id);
-    if (!node) return;
-    node.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const shareInviteCode = () => {
-    navigator.clipboard.writeText(inviteCode);
-    const message = `🎯 Join my Fantasy Chama League: *${leagueName}*\n\n🔑 Access Code: *${inviteCode}*\n💰 Weekly Stake: KES ${gameweekStake || 0}\n\nJoin here: https://fantasy-chama.vercel.app`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-    showToast("Invite code copied. WhatsApp share opened.");
-  };
-
-  const shareWalletFundingReceipt = (payload: {
-    memberName: string;
-    amount: number;
-    method: "mpesa" | "cash";
-    receiptId: string;
-    cashDate?: string;
-  }) => {
-    const appUrl = import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app";
-    const message = [
-      `🧾 *${leagueName} Wallet Funding Receipt*`,
-      "",
-      `👤 Member: *${payload.memberName}*`,
-      `💰 Amount: *KES ${payload.amount.toLocaleString()}*`,
-      `💳 Method: *${payload.method === "mpesa" ? "M-Pesa" : "Cash Handoff"}*`,
-      `🔖 Receipt: *${payload.receiptId}*`,
-      payload.cashDate ? `📅 Cash Date: *${payload.cashDate}*` : "",
-      "",
-      `🔗 ${appUrl}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-  };
-
-  const openAddMemberModal = () => {
-    setShowAddMemberModal(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const openPrefundModal = () => {
-    setShowAddMemberModal(false);
-    setShowWalletFundModal(false);
-    setShowResolveModal(false);
-    setPrefundData({});
-    setShowPrefundOptions(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleTimelineStepTap = (stepKey: string) => {
-    if (stepKey === "resolved") {
-      if (!hasFinalGwChampion) {
-        showToast(
-          "Resolution unlocks once FPL marks the gameweek as finished.",
-        );
-        return;
-      }
-      setShowResolveModal(true);
-      showToast("Resolve modal opened. Confirm payout method and proceed.");
-      return;
-    }
-
-    if (stepKey === "approval") {
-      if (pendingPayouts.length === 0) {
-        showToast("No payout approvals are pending right now.");
-        return;
-      }
-      setActiveTab("dashboard");
-      setTimeout(() => scrollToSection("pending-payout-queue"), 150);
-      showToast("Jumped to approval queue. Choose M-Pesa or cash handoff.");
-      return;
-    }
-
-    if (stepKey === "sent" || stepKey === "confirmed") {
-      setActiveTab("ledger");
-      setPaymentFilter("Verified");
-      setTimeout(() => scrollToSection("master-ledger"), 150);
-      showToast("Viewing verified payouts and ledger confirmation trail.");
-      return;
-    }
-
-    if (stepKey === "hq-settled") {
-      if (pendingHQDebt <= 0 && latestHqSettlement?.status !== "submitted") {
-        showToast("HQ is already settled for the current monthly cycle.");
-        return;
-      }
-      setShowHqSettlementForm(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      showToast("HQ receipt form opened for the monthly settlement step.");
-    }
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -1082,16 +792,12 @@ export default function AdminCommandCenter() {
   const handleBulkNudge = async () => {
     if (!activeLeagueId) return;
 
+    showToast("Bulk Nudge dispatched via SMS to all Red Zone members!");
+
+    // Actually push to members' individual notification feeds
     const redZoneMembers = members.filter(
-      (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false,
+      (m) => !m.hasPaid && m.role !== "admin" && m.isActive !== false,
     );
-
-    if (redZoneMembers.length === 0) {
-      showToast("No members in the Red Zone.");
-      return;
-    }
-
-    setNudgeSent(true);
 
     for (const member of redZoneMembers) {
       try {
@@ -1112,21 +818,10 @@ export default function AdminCommandCenter() {
         console.error("Failed to nudge member", member.id, err);
       }
     }
-
-    const redZoneNames = redZoneMembers.map((m) => `• ${m.displayName}`).join("\n");
-    const message = `🚨 *${leagueName} Red Zone Alert*\n\nThe following members have not yet deposited for the upcoming Gameweek:\n\n${redZoneNames}\n\nPlease complete your contributions to avoid lockout. 💰⚽`;
-    
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-    showToast("Bulk Nudge saved to system. Opening WhatsApp for group share.");
-
-    setTimeout(() => setNudgeSent(false), 2000);
   };
 
   const handlePrefundSubmit = async () => {
-    if (!activeLeagueId) {
-      showToast("League is still loading. Try again in a moment.");
-      return;
-    }
+    if (!activeLeagueId) return;
     const entries = Object.entries(prefundData)
       .filter(([_, amount]) => Number(amount) > 0)
       .map(([memberId, amount]) => ({ memberId, amount: Number(amount) }));
@@ -1137,260 +832,37 @@ export default function AdminCommandCenter() {
     }
 
     setIsPrefunding(true);
-    console.log("[prefund] Starting seed for", entries.length, 'members');
-    try {
-      const seededMembers: any[] = [];
-      
-      for (const { memberId, amount } of entries) {
-        const member = members.find((item) => item.id === memberId);
-        if (!member) {
-          console.warn('[prefund] Member not found:', memberId);
-          continue;
-        }
-        
-        const currentWallet = Number(member?.walletBalance ?? 0);
-        const nextWallet = Math.max(0, currentWallet + amount);
-        const walletCoversStake = gameweekStake > 0 ? nextWallet >= gameweekStake : nextWallet > 0;
-        const shouldIncreaseStreak = walletCoversStake && !(member as any)?.hasPaid;
-
-        console.log('[prefund] Seeding', member.displayName, '- Current:', currentWallet, 'Add:', amount, 'New:', nextWallet, 'Covers:', walletCoversStake);
-
-        // Update membership doc
-        await updateDoc(doc(db, "leagues", activeLeagueId, "memberships", memberId), {
-          walletBalance: increment(amount),
-          hasPaid: walletCoversStake,
-          paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
-        });
-
-        // Create transaction record
-        await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
-          type: "wallet_funding",
-          source: "legacy_seed",
-          amount,
-          userId: memberId,
-          memberId,
-          memberName: member?.displayName || "Member",
-          winnerName: member?.displayName || "Member",
-          phoneNumber: member?.phone || "",
-          receiptId: `SEED_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-          note: "ADMIN_PREFUND • Pilot pre-fund wallet seed",
-          timestamp: serverTimestamp(),
-        });
-
-        seededMembers.push({
-          id: memberId,
-          name: member?.displayName,
-          walletDelta: amount,
-          hasPaid: walletCoversStake,
-        });
-      }
-
-      console.log('[prefund] Successfully seeded', seededMembers.length, 'members');
-
-      // Record operation event if toggle is enabled
-      if (prefundUpdateRecentActivity) {
-        console.log('[prefund] Recording operation event for recent activity');
-        await recordOperationEvent({
-          title: "Pilot pre-fund completed",
-          message: `✅ Bulk legacy wallet seed applied to ${seededMembers.length} member${seededMembers.length === 1 ? '' : 's'}. Wallets updated: ${seededMembers.map(m => `${m.name} +KES ${m.walletDelta.toLocaleString()}`).join(', ')}. No new Daraja prompts triggered.`,
-          type: "success",
-        });
-      }
-
-      showToast(`✅ Pilot Pre-Fund Complete! ${seededMembers.length} wallet${seededMembers.length === 1 ? '' : 's'} seeded.`);
-      setShowPrefundOptions(false);
-      setPrefundData({});
-      setPrefundUpdateRecentActivity(true);
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-    } catch (err: any) {
-      console.error("[prefund] Error:", err);
-      showToast(`❌ Prefund Failed: ${err?.message || 'Unknown error'}`);
-    } finally {
-      setIsPrefunding(false);
-    }
-  };
-
-  const handlePrefundCancel = () => {
-    setIsPrefunding(false);
-    setShowPrefundOptions(false);
-    setPrefundData({});
-  };
-
-  const openWalletFundModal = (memberId?: string) => {
-    setFundTargetMemberId(memberId || "");
-    setFundAmount("");
-    setFundMethod("mpesa");
-    setFundTransactionCode("");
-    setFundCashDate(new Date().toISOString().slice(0, 10));
-    setFundNote("");
-    setFundPromptSent(false);
-    setShowWalletFundModal(true);
-  };
-
-  useEffect(() => {
-    const pendingWalletVerifyRaw = localStorage.getItem('fc-open-wallet-fund-target');
-    if (!pendingWalletVerifyRaw) return;
-
-    try {
-      const parsed = JSON.parse(pendingWalletVerifyRaw);
-      if (parsed?.memberId) {
-        openWalletFundModal(parsed.memberId);
-        if (parsed.amount) setFundAmount(String(parsed.amount));
-        if (parsed.note) setFundNote(String(parsed.note));
-        if (parsed.method === 'cash' || parsed.method === 'mpesa') {
-          setFundMethod(parsed.method);
-        }
-      }
-    } catch (error) {
-      console.warn('[admin-command] wallet verify handoff parse failed:', error);
-    } finally {
-      localStorage.removeItem('fc-open-wallet-fund-target');
-    }
-  }, [activeLeagueId]);
-
-  const handleSendWalletPrompt = async () => {
-    if (!activeLeagueId || !fundTargetMemberId) {
-      showToast("Select a member before sending a prompt.");
-      return;
-    }
-
-    const amount = Number(fundAmount || 0);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showToast("Enter a valid amount before sending the prompt.");
-      return;
-    }
-
-    const member = members.find((m) => m.id === fundTargetMemberId);
-    if (!member?.phone) {
-      showToast("This member has no phone number on file.");
-      return;
-    }
-
-    setIsSendingWalletPrompt(true);
     try {
       const payoutApiUrl = getApiBaseUrl();
       if (!payoutApiUrl)
         throw new Error(
           "Payment server is not configured. Set VITE_API_URL for production.",
         );
-
-      const res = await fetch(`${payoutApiUrl}/api/mpesa/stkpush`, {
+      const res = await fetch(`${payoutApiUrl}/api/league/prefund`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phoneNumber: member.phone,
-          amount,
-          userId: fundTargetMemberId,
           leagueId: activeLeagueId,
+          chairmanId: auth.currentUser?.uid,
+          entries: entries,
         }),
       });
-
       const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || "Failed to send M-Pesa prompt.");
+      if (data.success) {
+        showToast(
+          `Pilot Pre-Fund Complete! ${entries.length} wallets updated.`,
+        );
+        setShowPrefundOptions(false);
+        setPrefundData({});
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+      } else {
+        throw new Error(data.message || "Error executing pre-fund.");
       }
-
-      setFundPromptSent(true);
-      showToast(`M-Pesa prompt sent to ${member.displayName}. Waiting for callback.`);
     } catch (err: any) {
-      console.error("Prompt send failed:", err);
-      showToast(`Prompt send failed: ${err?.message || "Unknown error"}`);
+      console.error("Prefund failed:", err);
+      showToast(`Prefund Failed: ${err.message}`);
     } finally {
-      setIsSendingWalletPrompt(false);
-    }
-  };
-
-  const handleWalletFundSubmit = async () => {
-    if (!activeLeagueId || !fundTargetMemberId) {
-      showToast("Select a member to fund.");
-      return;
-    }
-
-    const amount = Number(fundAmount || 0);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showToast("Enter a valid wallet funding amount.");
-      return;
-    }
-
-    if (fundMethod === "mpesa" && !fundTransactionCode.trim()) {
-      showToast("Enter the M-Pesa transaction code.");
-      return;
-    }
-
-    if (fundMethod === "cash" && !fundCashDate) {
-      showToast("Capture the cash handoff date.");
-      return;
-    }
-
-    setIsFundingWallet(true);
-    try {
-      const member = members.find(
-        (m) =>
-          m.id === fundTargetMemberId ||
-          m.authUid === fundTargetMemberId ||
-          (m as any).phone === fundTargetMemberId ||
-          m.displayName === fundTargetMemberId,
-      );
-      const targetMemberId = member?.id || fundTargetMemberId;
-      const currentWallet = Number((member as any)?.walletBalance ?? 0);
-      const nextWallet = Math.max(0, currentWallet + amount);
-      const paymentNowCovered = gameweekStake > 0 ? nextWallet >= gameweekStake : nextWallet > 0;
-      const shouldIncreaseStreak = paymentNowCovered && !(member as any)?.hasPaid;
-      const receiptId =
-        fundMethod === "mpesa"
-          ? fundTransactionCode.trim().toUpperCase()
-          : `CASH_${Date.now().toString().slice(-6)}`;
-
-      if (!member) {
-        throw new Error("Member not found in the current league.");
-      }
-
-      await updateDoc(doc(db, "leagues", activeLeagueId, "memberships", targetMemberId), {
-        walletBalance: increment(amount),
-        hasPaid: paymentNowCovered,
-        paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
-      });
-
-      await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
-        type: "wallet_funding",
-        source: fundMethod,
-        amount,
-        userId: targetMemberId,
-        memberId: targetMemberId,
-        memberName: member?.displayName || "Member",
-        winnerName: member?.displayName || "Member",
-        phoneNumber: member?.phone || "",
-        receiptId,
-        cashHandoffDate: fundMethod === "cash" ? fundCashDate : null,
-        note: fundNote.trim() || null,
-        timestamp: serverTimestamp(),
-      });
-
-      await addDoc(collection(db, "leagues", activeLeagueId, "notifications"), {
-        type: "success",
-        message:
-          fundMethod === "mpesa"
-            ? `Wallet funded: KES ${amount.toLocaleString()} recorded for ${member?.displayName || "member"} via M-Pesa ${fundTransactionCode.trim().toUpperCase()}.`
-            : `Wallet funded: KES ${amount.toLocaleString()} recorded for ${member?.displayName || "member"} via cash handoff on ${fundCashDate}.`,
-        timestamp: serverTimestamp(),
-        readBy: [],
-        targetMemberId,
-      });
-
-      setShowWalletFundModal(false);
-      showToast(`Wallet funded for ${member?.displayName || "member"}.`);
-      shareWalletFundingReceipt({
-        memberName: member?.displayName || "Member",
-        amount,
-        method: fundMethod,
-        receiptId,
-        cashDate: fundMethod === "cash" ? fundCashDate : undefined,
-      });
-    } catch (err: any) {
-      console.error("Wallet funding failed:", err);
-      showToast(`Wallet funding failed: ${err?.message || "Unknown error"}`);
-    } finally {
-      setIsFundingWallet(false);
+      setIsPrefunding(false);
     }
   };
 
@@ -1398,36 +870,23 @@ export default function AdminCommandCenter() {
     if (!activeLeagueId) return;
     setIsResolving(true);
     try {
-      // Try fetching fresh bootstrap; fall back to cached state if proxy fails
-      let gwNumber = currentGwNumber || 0;
-      let isGwFinished = isCurrentEventFinished;
-
-      try {
-        const bootstrapUrl =
-          "https://fantasy.premierleague.com/api/bootstrap-static/";
-        const bootstrapRes = await fetch(
-          `https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`,
-          { signal: AbortSignal.timeout(8000) },
-        );
-        if (bootstrapRes.ok) {
-          const bootstrapData = await bootstrapRes.json();
-          const currentEvent = (bootstrapData?.events || []).find(
-            (event: any) => event.is_current,
-          );
-          if (currentEvent) {
-            gwNumber = Number(currentEvent.id || 0);
-            isGwFinished = currentEvent.finished === true;
-            setCurrentGwNumber(gwNumber || null);
-          }
-        }
-      } catch (proxyErr) {
-        console.warn("[resolve] bootstrap proxy failed, using cached state:", proxyErr);
-        // Use cached page-load state — still workable for the pilot
-      }
+      const bootstrapUrl =
+        "https://fantasy.premierleague.com/api/bootstrap-static/";
+      const bootstrapRes = await fetch(
+        `https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`,
+      );
+      if (!bootstrapRes.ok)
+        throw new Error("Failed to fetch current gameweek status.");
+      const bootstrapData = await bootstrapRes.json();
+      const currentEvent = (bootstrapData?.events || []).find(
+        (event: any) => event.is_current,
+      );
+      const gwNumber = Number(currentEvent?.id || 0);
+      const isGwFinished = currentEvent?.finished === true;
 
       if (!gwNumber) {
         throw new Error(
-          "Current gameweek is unavailable. Check FPL is live and try again.",
+          "Current gameweek is unavailable from FPL. Try again shortly.",
         );
       }
       if (!isGwFinished) {
@@ -1487,7 +946,8 @@ export default function AdminCommandCenter() {
 
         if (dbMember) {
           if (
-            memberHasFunding(dbMember) &&
+            dbMember.hasPaid &&
+            dbMember.isActive !== false &&
             Number(fplManager.event_total || 0) > 0
           ) {
             winner = dbMember;
@@ -1724,10 +1184,7 @@ export default function AdminCommandCenter() {
   };
 
   // Co-Chair: Approve a pending payout and fire real B2C
-  const handleApprovePayout = async (
-    payout: any,
-    overrideMethod?: "mpesa" | "cash",
-  ) => {
+  const handleApprovePayout = async (payout: any) => {
     if (!activeLeagueId) return;
     setIsApprovingPayout(payout.id);
     try {
@@ -1744,11 +1201,9 @@ export default function AdminCommandCenter() {
           member.displayName === payout.winnerName,
       );
       const payoutPhone = payout.winnerPhone || winnerMember?.phone;
-      const resolvedMethod = overrideMethod || payout.method || "mpesa";
-      const cashHandoffDate = new Date().toISOString().slice(0, 10);
 
       let data: any = { success: true };
-      if (resolvedMethod === "mpesa") {
+      if (payout.method === "mpesa" || !payout.method) {
         if (!payoutPhone) {
           throw new Error(
             "Winner phone number is missing. Update member phone in league settings and retry approval.",
@@ -1782,45 +1237,33 @@ export default function AdminCommandCenter() {
         doc(db, "leagues", activeLeagueId, "pending_payouts", payout.id),
         {
           status: "approved",
-          method: resolvedMethod,
-          cashHandoffDate: resolvedMethod === "cash" ? cashHandoffDate : null,
           approvedBy: auth.currentUser?.displayName || "Co-Chair",
           winnerPhone: payoutPhone || null,
           approvedAt: serverTimestamp(),
         },
       );
 
-      // Deduct gameweek stake from each funded member's wallet directly via Firestore
-      const fundedMembers = members.filter(
-        (m) => m.isActive !== false && m.hasPaid && gameweekStake > 0,
-      );
-      for (const m of fundedMembers) {
-        const memberRef = doc(
-          db,
-          "leagues",
-          activeLeagueId,
-          "memberships",
-          m.id,
+      // Fire proper deduct-gw-cost backend logic to accurately decrement wallets and flag red zones
+      const gwApiUrl = getApiBaseUrl();
+      if (!gwApiUrl)
+        throw new Error(
+          "Payment server is not configured. Set VITE_API_URL for production.",
         );
-        const newBalance = Math.max(0, (m.walletBalance || 0) - gameweekStake);
-        await updateDoc(memberRef, {
-          walletBalance: newBalance,
-          hasPaid: newBalance >= gameweekStake,
-        });
-      }
+      await fetch(`${gwApiUrl}/api/league/deduct-gw-cost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leagueId: activeLeagueId,
+          gwCostPerRound: gameweekStake,
+          gwNumber: payout.gw,
+          winnerName: payout.winnerName,
+          payoutMethod: payout.method,
+          chairmanId: auth.currentUser?.uid,
+          winnerAmount: payout.amount,
+        }),
+      });
 
-      // Record the GW deduction in league_events audit log
-      await addDoc(
-        collection(db, "leagues", activeLeagueId, "league_events"),
-        {
-          eventType: "gw_deduction",
-          message: `GW${payout.gw} stake deducted: KES ${gameweekStake} × ${fundedMembers.length} members. Winner: ${payout.winnerName} (${resolvedMethod}).`,
-          actor: auth.currentUser?.displayName || "Chairman",
-          timestamp: serverTimestamp(),
-        },
-      );
-
-      if (resolvedMethod === "cash") {
+      if (payout.method === "cash") {
         await addDoc(
           collection(db, "leagues", activeLeagueId, "transactions"),
           {
@@ -1832,7 +1275,6 @@ export default function AdminCommandCenter() {
             points: payoutPoints,
             gw: Number(payout.gw || 0),
             receiptId: `CASH_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`,
-            cashHandoffDate,
             timestamp: serverTimestamp(),
           },
         );
@@ -1854,7 +1296,7 @@ export default function AdminCommandCenter() {
       }
 
       showToast(
-        `✅ Approved! ${resolvedMethod === "cash" ? "Cash Handoff logged for" : "B2C Dispatch sent to"} ${payout.winnerName} (KES ${payout.amount.toLocaleString()}).`,
+        `✅ Approved! ${payout.method === "cash" ? "Cash Handoff logged for" : "B2C Dispatch sent to"} ${payout.winnerName} (KES ${payout.amount.toLocaleString()}).`,
       );
       triggerResolutionPulse();
       confetti({
@@ -1863,20 +1305,6 @@ export default function AdminCommandCenter() {
         origin: { y: 0.6 },
         colors: ["#10B981", "#FBBF24", "#FFFFFF"],
       });
-      // Write lastResolvedDate + lastResolvedGw to league doc for champion card 48h logic
-      if (!isPilotMode) {
-        // Production: update HQ debt
-        await updateDoc(doc(db, "leagues", activeLeagueId), {
-          lastResolvedDate: serverTimestamp(),
-          lastResolvedGw: Number(payout.gw || 0),
-        });
-      } else {
-        // Pilot mode: just track the date, no HQ debt
-        await updateDoc(doc(db, "leagues", activeLeagueId), {
-          lastResolvedDate: serverTimestamp(),
-          lastResolvedGw: Number(payout.gw || 0),
-        });
-      }
       setActionTimeline((prev) => ({
         ...prev,
         payoutSent: true,
@@ -2277,66 +1705,33 @@ export default function AdminCommandCenter() {
 
       <div
         className={clsx(
-          "fc-standings-page transition-all duration-700 min-h-screen w-full font-sans text-white relative overflow-hidden",
+          "transition-all duration-700 w-full flex-1 flex flex-col",
           isSuspended
-            ? "blur-xl opacity-20 pointer-events-none select-none scale-[0.98]"
+            ? "blur-xl opacity-20 pointer-events-none select-none scale-[0.98] h-screen overflow-hidden"
             : "",
           isWithinGracePeriod ? "pt-12" : "",
         )}
       >
-        <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
-        <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
-        <div className="fixed bottom-0 left-0 w-full h-[600px] pointer-events-none z-0" style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%)' }} />
         {/* Unified Global Toast Notification */}
         <div
           className={clsx(
-            "fixed top-4 right-4 px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
+            "fixed bottom-12 left-1/2 -translate-x-1/2 px-6 py-3.5 rounded-full text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
             toastMessage
               ? "opacity-100 translate-y-0 scale-100"
-              : "opacity-0 -translate-y-2 scale-95",
+              : "opacity-0 translate-y-8 scale-95",
           )}
         >
           <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
           {toastMessage}
         </div>
 
-        <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8 pb-28">
+        <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-10">
           {/* Top Header */}
           <Header
             role="admin"
             title={leagueName || "Command Center"}
             subtitle="Chairman Hub"
           />
-
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pt-2 pb-4">
-            <div>
-              <h2 className="fc-dashboard-header-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
-                <ShieldCheck className="w-7 h-7 text-[#FBBF24]" /> {tabCopy.dashboard.title}
-              </h2>
-              <p className="fc-dashboard-header-copy text-sm font-medium max-w-xl leading-relaxed">
-                {tabCopy.dashboard.description}
-              </p>
-            </div>
-            
-            {!isCoChairSession && (
-              <div className="flex flex-wrap gap-3 w-full lg:w-auto justify-start lg:justify-end items-end">
-                <button
-                  id="tour-add-member"
-                  onClick={openAddMemberModal}
-                  className="fc-add-member-btn flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 text-slate-900 dark:text-white text-sm font-bold rounded-xl transition-colors shrink-0 shadow-sm"
-                >
-                  <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
-                </button>
-                <button
-                  onClick={handleBulkNudge}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(239,68,68,0.28)] shrink-0"
-                >
-                  <Megaphone className="w-4 h-4" /> Bulk Nudge
-                </button>
-              </div>
-            )}
-
-          </div>
 
           {/* Main Tab Navigation */}
           <div
@@ -2370,166 +1765,74 @@ export default function AdminCommandCenter() {
                 : "hidden"
             }
           >
-            <section className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
-              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-4xl border border-amber-300/40 dark:border-[#FBBF24]/24 bg-gradient-to-br from-amber-100 via-white to-slate-100 dark:from-[#FBBF24]/12 dark:via-[#161d24] dark:to-[#161d24] p-5 md:p-7 shadow-xl">
-                <div className="flex flex-col items-center text-center gap-5 mb-5">
-                  <div className="max-w-2xl space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-600 dark:text-[#FBBF24] mb-2">
-                      Chairman priorities
-                    </p>
-                    <h3 className="fc-command-board-title fc-command-board-title-heading text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm" style={{ color: '#1f2937' }}>
-                      Priority Actions
-                    </h3>
-                    <p className="fc-command-board-copy text-sm md:text-base mt-2 max-w-xl mx-auto leading-relaxed" style={{ color: '#334155' }}>
-                      Resolve the highest-risk items first, then move into the ledger and finance queues.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 w-full">
-                  <div
-                    className={clsx(
-                      "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/35 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      pendingPayouts.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
-                    )}
-                  >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
-                      approve payouts
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {pendingPayouts.length}
-                    </p>
-                  </div>
-                  <div
-                    className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      redZoneMembers.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
-                    )}
-                  >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
-                      red zone follow-ups
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {redZoneMembers.length}
-                    </p>
-                  </div>
-                  <div
-                    className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      pendingDisputes.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
-                    )}
-                  >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
-                      unresolved disputes
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {pendingDisputes.length}
-                    </p>
-                  </div>
-                  <div
-                    className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      highRiskTwoWeekMisses > 0 ? "fc-metric-alert" : "fc-metric-stable",
-                    )}
-                  >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
-                      2-week risk members
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {highRiskTwoWeekMisses}
-                    </p>
-                  </div>
-                  <div
-                    className={clsx(
-                      "fc-card rounded-2xl border p-4 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      allPayableMembersFunded
-                        ? "border-emerald-500/35 bg-gradient-to-br from-emerald-500/14 via-[#161d24] to-[#0f1419] fc-metric-stable"
-                        : "border-red-500/35 bg-gradient-to-br from-red-500/14 via-[#161d24] to-[#0f1419] fc-metric-alert",
-                    )}
-                  >
-                    <p
-                      className={clsx(
-                        "fc-metric-label text-xs tracking-wide font-semibold",
-                        allPayableMembersFunded
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-red-700 dark:text-red-300",
-                      )}
-                    >
-                      members paid
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {fundedMembersCount}/{Math.max(1, members.length)}
-                    </p>
-                    <p
-                      className={clsx(
-                        "text-[11px] font-medium mt-1",
-                        allPayableMembersFunded
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-red-700 dark:text-red-300",
-                      )}
-                    >
-                      {!allPayableMembersFunded ? "funding incomplete" : ""}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <button
-                    onClick={() => setShowResolveModal(true)}
-                    disabled={!hasFinalGwChampion}
-                    className="min-w-[200px] px-4 py-2.5 rounded-xl border border-[#FBBF24]/40 bg-[#FBBF24]/85 text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F59E0B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-center"
-                  >
-                    {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber ?? "??"} ongoing...`}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab("ledger");
-                      setPaymentFilter("Red Zone");
-                    }}
-                    className="min-w-[200px] px-4 py-2.5 rounded-xl border border-red-500/40 bg-red-500/85 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors text-center"
-                  >
-                    Open Red Zone
-                  </button>
-                </div>
+            <div className="fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5 w-full">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
+                  Weekly Command Board
+                </h3>
+                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                  High Signal
+                </span>
               </div>
-
-              <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
-                <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
-                  <span className="text-[#10B981] text-xs font-bold tracking-widest uppercase mb-4 mt-4">
-                    Master Invite Code
-                  </span>
-                  <div className="text-5xl lg:text-6xl font-black text-[#FBBF24] tracking-tight mb-6 tabular-nums">
-                    {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
-                  </div>
-                  <p className="text-gray-400 text-sm leading-relaxed mb-8">
-                    Share this 6-digit PIN to grant access to{" "}
-                    <strong>{leagueName}</strong>.
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 hover:bg-emerald-500/15 transition-colors">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-black">
+                    Approve Payouts
                   </p>
-                  <div className="flex flex-col gap-3 mt-auto">
-                    <button
-                      onClick={shareInviteCode}
-                      className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl transition-colors shadow-[0_0_15px_rgba(37,211,102,0.3)]"
-                    >
-                      <Share2 className="w-4 h-4" /> Share via WhatsApp
-                    </button>
-                    <button
-                      className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-3 hover:bg-white/5 border border-white/10 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
-                      disabled
-                    >
-                      <RefreshCw className="w-4 h-4" /> Regenerate
-                    </button>
-                  </div>
+                  <p className="text-2xl font-black text-white mt-1 tabular-nums">
+                    {pendingPayouts.length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-black/20 p-3 hover:bg-white/[0.04] transition-colors">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">
+                    Red Zone Follow-ups
+                  </p>
+                  <p className="text-2xl font-black text-white mt-1 tabular-nums">
+                    {redZoneMembers.length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-black/20 p-3 hover:bg-white/[0.04] transition-colors">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">
+                    Unresolved Disputes
+                  </p>
+                  <p className="text-2xl font-black text-white mt-1 tabular-nums">
+                    {pendingDisputes.length}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-black/20 p-3 hover:bg-white/[0.04] transition-colors">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black">
+                    2-Week Risk Members
+                  </p>
+                  <p className="text-2xl font-black text-white mt-1 tabular-nums">
+                    {highRiskTwoWeekMisses}
+                  </p>
                 </div>
               </div>
-            </section>
-
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowResolveModal(true)}
+                  className="px-3 py-2 rounded-lg border border-[#FBBF24]/30 bg-[#FBBF24]/12 text-[#FBBF24] text-[10px] font-black uppercase tracking-widest"
+                >
+                  Resolve / Close GW
+                </button>
+                <button
+                  onClick={() => setPaymentFilter("Red Zone")}
+                  className="px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/12 text-red-300 text-[10px] font-black uppercase tracking-widest"
+                >
+                  Open Red Zone
+                </button>
+                <button
+                  onClick={() => navigate("/finances")}
+                  className="px-3 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/12 text-emerald-300 text-[10px] font-black uppercase tracking-widest"
+                >
+                  Open Finance Queue
+                </button>
+              </div>
+            </div>
           </div>
 
           {pendingHQDebt > 0 && !isSuspended && (
-            <section
-              id="hq-settlement-workflow"
-              className="fc-card rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-4 md:p-5"
-            >
+            <section className="fc-card rounded-2xl border border-yellow-500/25 bg-yellow-500/10 p-4 md:p-5">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-widest text-yellow-300">
@@ -2586,78 +1889,7 @@ export default function AdminCommandCenter() {
             </section>
           )}
 
-          {activeTab === "dashboard" && diagnosticsIsAdmin && (
-            <section className="fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
-                  Admin Diagnostics
-                </h3>
-                <span
-                  className={clsx(
-                    "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
-                    diagnosticsStatusTone,
-                  )}
-                >
-                  {diagnosticsStatusLabel}
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-400 mb-4">
-                Use this panel before wallet funding, pilot prefund, payment toggles, and GW resolution. If access is denied, your current auth UID does not match chairman/co-chair mapping in Firestore.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">Current Auth UID</p>
-                  <p className="text-white font-mono mt-1 break-all">{authUid ? `•••${authUid.slice(-6)}` : "Not authenticated"}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">League Chairman ID</p>
-                  <p className="text-white font-mono mt-1 break-all">{chairmanId ? `•••${chairmanId.slice(-6)}` : "Not set"}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">League Co-Chair ID</p>
-                  <p className="text-white font-mono mt-1 break-all">{coAdminId ? `•••${coAdminId.slice(-6)}` : "Not set"}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">Resolved Co-Chair UID</p>
-                  <p className="text-white font-mono mt-1 break-all">{coAdminResolvedUid ? `•••${coAdminResolvedUid.slice(-6)}` : "Not resolved"}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className={clsx(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                  diagnosticsIsChairman
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                    : "border-red-500/30 bg-red-500/10 text-red-300"
-                )}>
-                  <span className={clsx("w-1.5 h-1.5 rounded-full", diagnosticsIsChairman ? "bg-emerald-400" : "bg-red-400")} />
-                  Chairman: {String(diagnosticsIsChairman)}
-                </span>
-                <span className={clsx(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                  diagnosticsIsCoAdmin
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                    : "border-red-500/30 bg-red-500/10 text-red-300"
-                )}>
-                  <span className={clsx("w-1.5 h-1.5 rounded-full", diagnosticsIsCoAdmin ? "bg-emerald-400" : "bg-red-400")} />
-                  Co-Admin: {String(diagnosticsIsCoAdmin)}
-                </span>
-                <span className={clsx(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border",
-                  diagnosticsIsAdmin
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                    : "border-red-500/30 bg-red-500/10 text-red-300"
-                )}>
-                  <span className={clsx("w-1.5 h-1.5 rounded-full", diagnosticsIsAdmin ? "bg-emerald-400" : "bg-red-400")} />
-                  Admin: {String(diagnosticsIsAdmin)}
-                </span>
-              </div>
-            </section>
-          )}
-
-          {/* Chairman Action Timeline — show only during active resolution cycle */}
-          {activeTab === "dashboard" && currentGwNumber !== null &&
-            (actionTimeline.resolved || hasFinalGwChampion || pendingPayouts.length > 0) &&
-            !isTimelineComplete && (
+          {/* Chairman Action Timeline */}
           <section className="fc-card rounded-2xl border border-white/10 bg-[#161d24]/85 p-4 md:p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">
@@ -2667,16 +1899,43 @@ export default function AdminCommandCenter() {
                 Live
               </span>
             </div>
-            <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-              {timelineSteps.map((step, idx) => (
-                <button
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+              {[
+                {
+                  key: "resolved",
+                  label: "Resolve GW",
+                  active: actionTimeline.resolved,
+                },
+                {
+                  key: "approval",
+                  label: "Approval Pending",
+                  active: actionTimeline.approvalPending,
+                },
+                {
+                  key: "sent",
+                  label: "Payout Sent",
+                  active: actionTimeline.payoutSent,
+                },
+                {
+                  key: "confirmed",
+                  label: "Confirmed",
+                  active: actionTimeline.confirmed,
+                },
+                {
+                  key: "hq-settled",
+                  label: "HQ Settled",
+                  active:
+                    pendingHQDebt <= 0 ||
+                    latestHqSettlement?.status === "approved",
+                },
+              ].map((step, idx) => (
+                <div
                   key={step.key}
-                  onClick={() => handleTimelineStepTap(step.key)}
                   className={clsx(
-                    "w-full sm:w-[220px] rounded-xl border p-3 transition-all duration-300 relative text-left",
+                    "rounded-xl border p-3 transition-all duration-300 relative",
                     step.active
-                      ? "border-emerald-500/35 bg-emerald-500/10 shadow-[0_0_28px_rgba(16,185,129,0.22)]"
-                      : "border-white/10 bg-black/20 hover:border-[#FBBF24]/35 hover:bg-[#FBBF24]/6",
+                      ? "border-emerald-500/35 bg-emerald-500/10"
+                      : "border-white/10 bg-black/20",
                   )}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -2692,7 +1951,7 @@ export default function AdminCommandCenter() {
                       className={clsx(
                         "h-2 w-2 rounded-full",
                         step.active
-                          ? "bg-emerald-400 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.85)]"
+                          ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
                           : "bg-gray-600",
                       )}
                     />
@@ -2705,59 +1964,34 @@ export default function AdminCommandCenter() {
                   >
                     {step.label}
                   </p>
-                  <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
-                    {step.hint}
-                  </p>
-                </button>
+                </div>
               ))}
             </div>
-            <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center">
-              <p className="fc-timeline-helper text-xs text-gray-300 text-center w-full">
-                Tap any step to jump to the exact action queue.
-              </p>
-              {isTimelineComplete && (
-                <button
-                  onClick={() => {
-                    setActiveTab("dashboard");
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                    showToast("Resolution cycle completed. Returned to overview.");
-                  }}
-                  className="px-3 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest"
-                >
-                  Return to Overview
-                </button>
-              )}
-            </div>
           </section>
-          )}
 
-          {/* Champion Card: show during GW, hide once approved payout exists for this GW */}
-          {(() => {
-            const approvedForThisGw = pendingPayouts.some(
-              (p) => Number(p.gw) === currentGwNumber && p.status === 'approved'
-            );
-            const awaitingForThisGw = pendingPayouts.some(
-              (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
-            );
-            // Show card if: winner exists + not in finance tab + no approved payout for this GW
-            // After approval, hide it (payout done = no card)
-            const shouldShowCard = gwWinner && activeTab !== 'finance' && !approvedForThisGw && !awaitingForThisGw;
-            return shouldShowCard;
-          })() && (
-            <div className={clsx("fc-highlight-card bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-5 md:p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-5 transition-all mt-2", resolutionPulse && "fc-burst-success") }>
-              <div className="absolute top-0 right-0 w-56 h-56 bg-[#FBBF24] blur-[90px] opacity-10 pointer-events-none" />
-              <div className="relative z-10 flex items-center gap-4 w-full md:w-auto">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
+          {/* Live Gameweek Winner Gold UI */}
+          {gwWinner && (
+            <div
+              className={clsx(
+                "fc-highlight-card bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2",
+                resolutionPulse && "fc-burst-success",
+              )}
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
+
+              <div className="relative z-10 flex items-center gap-5 w-full md:w-auto">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
                   <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
-                    <Trophy className="w-6 h-6 text-[#FBBF24]" />
+                    <Trophy className="w-7 h-7 text-[#FBBF24]" />
                   </div>
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3 h-3 fill-current" />
+                    <Star className="w-3 h-3 fill-current" />{" "}
                     {hasFinalGwChampion ? "Gameweek Champion" : "Live Leader"}
                   </p>
-                  <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">
+                  <h3 className="text-2xl font-black text-white leading-tight tracking-tight">
                     {gwWinner.player_name}
                   </h3>
                   <p className="text-sm font-bold text-gray-400 mt-0.5">
@@ -2768,55 +2002,38 @@ export default function AdminCommandCenter() {
                   </p>
                 </div>
               </div>
-              <div className="relative z-10 flex flex-col items-center justify-center w-full md:w-auto fc-highlight-surface p-5 rounded-2xl border backdrop-blur-sm gap-3">
+
+              <div className="relative z-10 flex flex-col items-center flex-shrink-0 justify-center w-full md:w-auto fc-highlight-surface p-6 rounded-2xl border backdrop-blur-sm gap-4 transition-colors hover:bg-black">
                 <div className="flex flex-col items-center justify-center w-full gap-1.5 text-center">
                   <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">
                     Projected Payout
                   </p>
-                  <p className="text-2xl md:text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
-                    KES {(
-                      members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)
+                  <p className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
+                    KES{" "}
+                    {(
+                      members.filter((m) => m.hasPaid && m.isActive !== false)
+                        .length *
+                      gameweekStake *
+                      (rules.weekly / 100)
                     ).toLocaleString()}
                   </p>
                 </div>
-                {hasFinalGwChampion && !pendingPayouts.some((p) => Number(p.gw) === currentGwNumber) && (
+                {role === "admin" && (
                   <button
                     id="tour-resolve-gw"
                     onClick={() => setShowResolveModal(true)}
-                    className="fc-highlight-action w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-[#FBBF24] hover:bg-white text-black text-[11px] font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
+                    className="fc-highlight-action w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#FBBF24] hover:bg-white text-black text-[11px] font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
                   >
                     <Trophy className="w-4 h-4" /> Resolve & Payout
                   </button>
-                )}
-                {pendingPayouts.some((p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval') && (
-                  <div className="w-full rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/8 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#FBBF24]">Payout Queued</p>
-                    <p className="text-xs text-gray-300 mt-1">Awaiting Co-Chair approval below ↓</p>
-                  </div>
-                )}
-                {pendingPayouts.some((p) => Number(p.gw) === currentGwNumber && p.status === 'approved') && (
-                  <div className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">✓ Payout Dispatched</p>
-                    <p className="text-xs text-gray-400 mt-1">GW{currentGwNumber} resolved & paid out</p>
-                  </div>
-                )}
-                {!hasFinalGwChampion && (
-                  <div className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                      Resolve is locked
-                    </p>
-                    <p className="text-sm font-bold text-white mt-1">
-                      GW {currentGwNumber ?? "??"} ongoing...
-                    </p>
-                  </div>
                 )}
               </div>
             </div>
           )}
 
           {/* Co-Chair: Pending Payout Approval Panel */}
-          {sortedPendingPayouts.length > 0 && (
-            <section id="pending-payout-queue" className="space-y-4">
+          {pendingPayouts.length > 0 && (
+            <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-extrabold flex items-center gap-2 text-[#FBBF24]">
                   <AlertTriangle className="w-5 h-5" />{" "}
@@ -2944,34 +2161,18 @@ export default function AdminCommandCenter() {
                             <ShieldAlert className="w-3.5 h-3.5" /> Reject
                           </button>
                           {canCurrentUserApprove && (
-                            <>
-                              <button
-                                onClick={() => handleApprovePayout(payout)}
-                                disabled={isApprovingPayout === payout.id}
-                                className="px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-black text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 flex items-center gap-2"
-                              >
-                                {isApprovingPayout === payout.id ? (
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                )}
-                                {payout.method === "cash"
-                                  ? "Confirm Cash Handoff"
-                                  : "Approve M-Pesa"}
-                              </button>
-                              {payout.method !== "cash" && (
-                                <button
-                                  onClick={() =>
-                                    handleApprovePayout(payout, "cash")
-                                  }
-                                  disabled={isApprovingPayout === payout.id}
-                                  className="px-5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
-                                >
-                                  <Banknote className="w-3.5 h-3.5" />
-                                  Cash Handoff
-                                </button>
+                            <button
+                              onClick={() => handleApprovePayout(payout)}
+                              disabled={isApprovingPayout === payout.id}
+                              className="px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-black text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 flex items-center gap-2"
+                            >
+                              {isApprovingPayout === payout.id ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
                               )}
-                            </>
+                              Resolve & Pay
+                            </button>
                           )}
                         </div>
                       </div>
@@ -2984,7 +2185,6 @@ export default function AdminCommandCenter() {
         </div>
 
         <div
-          id="tour-finance-ops"
           className={
             activeTab === "finance"
               ? "block animate-in fade-in duration-500"
@@ -2992,40 +2192,53 @@ export default function AdminCommandCenter() {
           }
         >
           {/* Generate League Access Section */}
-            <section className="fc-vault-explainer space-y-6">
+          <section className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24] mb-1">
-                  {tabCopy.finance.eyebrow}
-                </p>
-                <h2 className="text-3xl font-extrabold tracking-tight mb-1 flex items-center gap-3 text-white">
-                  <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-[#FBBF24]" />{" "}
-                  {tabCopy.finance.title}
+                <h2 className="text-3xl font-extrabold tracking-tight mb-1 flex items-center gap-3">
+                  <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-[#10B981]" />{" "}
+                  League Access & Economy
                 </h2>
-                <p className="text-gray-400 text-sm max-w-xl">
-                  {tabCopy.finance.description}
+                <p className="text-gray-400 text-sm">
+                  Control your league entry and monitor the live vault deposits.
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 {!isCoChairSession && (
                   <button
-                    onClick={openPrefundModal}
+                    onClick={() => setShowPrefundOptions(true)}
                     className="flex items-center gap-2 px-5 py-2.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-sm font-bold rounded-xl transition-colors"
                   >
                     <Banknote className="w-4 h-4" /> Pilot Prefund
+                  </button>
+                )}
+                {!isCoChairSession && (
+                  <button
+                    id="tour-add-member"
+                    onClick={() => setShowAddMemberModal(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#1a232b] hover:bg-white/5 text-white text-sm font-bold rounded-xl transition-colors border border-white/5"
+                  >
+                    <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
+                  </button>
+                )}
+                {!isCoChairSession && (
+                  <button
+                    onClick={handleBulkNudge}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                  >
+                    <Megaphone className="w-4 h-4" /> Bulk Nudge
                   </button>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
-              <div className="xl:col-span-12 flex flex-col gap-6 w-full">
+              <div className="xl:col-span-8 flex flex-col gap-6 w-full">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 w-full">
                   <PotVaultSwapper
                     weeklyPot={weeklyPot}
                     seasonVault={seasonVault}
                     weeklyRulesPercent={rules.weekly}
-                    remainingGameweeks={remainingGameweeks}
                     isStealthMode={isStealthMode}
                   />
 
@@ -3055,11 +2268,8 @@ export default function AdminCommandCenter() {
                           ? "****"
                           : totalCollected.toLocaleString()}
                       </div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-                        {exactCurrentGwFormula}
-                      </p>
                       <div className="flex items-center gap-2 text-[#10B981] text-[10px] md:text-xs font-bold mt-4">
-                        {fundedMembersCount} members fully funded
+                        {paidMembersCount} members fully paid
                       </div>
                     </div>
                   </div>
@@ -3117,6 +2327,44 @@ export default function AdminCommandCenter() {
                         System
                       </span>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+                <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
+                  {/* Toast Notification Moved to App Root */}
+
+                  <span className="text-[#10B981] text-xs font-bold tracking-widest uppercase mb-4 mt-4">
+                    Master Invite Code
+                  </span>
+                  <div className="text-5xl lg:text-6xl font-black text-[#FBBF24] tracking-tight mb-6 tabular-nums">
+                    {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
+                  </div>
+                  <p className="text-gray-400 text-sm leading-relaxed mb-8">
+                    Share this 6-digit PIN to grant access to{" "}
+                    <strong>{leagueName}</strong>.
+                  </p>
+                  <div className="flex flex-col gap-3 mt-auto">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteCode);
+                        const msg = `🎯 Join my Fantasy Chama League: *${leagueName}*\n\n🔑 Access Code: *${inviteCode}*\n💰 Weekly Stake: KES ${gameweekStake || 0}\n\nJoin here: https://fantasychama.com`;
+                        window.open(
+                          `https://wa.me/?text=${encodeURIComponent(msg)}`,
+                          "_blank",
+                        );
+                      }}
+                      className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl transition-colors shadow-[0_0_15px_rgba(37,211,102,0.3)]"
+                    >
+                      <Share2 className="w-4 h-4" /> Share via WhatsApp
+                    </button>
+                    <button
+                      className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-3 hover:bg-white/5 border border-white/10 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                      disabled
+                    >
+                      <RefreshCw className="w-4 h-4" /> Regenerate
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3198,33 +2446,15 @@ export default function AdminCommandCenter() {
           }
         >
           {/* The Master Ledger Section */}
-          <div className="w-full mx-auto">
-            <section
-              id="master-ledger"
-              className="fc-card rounded-4xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] overflow-hidden shadow-2xl"
-            >
+          <section className="bg-[#161d24] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
             <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24] mb-1">
-                  {tabCopy.ledger.eyebrow}
-                </p>
-                <h2 className="text-2xl font-black tracking-tight text-white">
-                  {tabCopy.ledger.title}
-                </h2>
-                <p className="text-sm text-gray-400 mt-1 max-w-2xl">
-                  {tabCopy.ledger.description}
-                </p>
-              </div>
+              <h2 className="text-xl font-bold tracking-tight">
+                The Master Ledger
+              </h2>
               <div className="flex items-center gap-3 relative">
                 <span className="text-xs text-gray-500 font-medium">
                   Filter by:
                 </span>
-                <button
-                  onClick={() => openWalletFundModal()}
-                  className="flex items-center gap-2 bg-[#FBBF24]/10 border border-[#FBBF24]/20 px-4 py-2 rounded-lg text-sm text-[#FBBF24] font-bold hover:bg-[#FBBF24]/20 transition-colors min-w-[140px] justify-between"
-                >
-                  Fund Wallet <Banknote className="w-4 h-4" />
-                </button>
                 <button
                   onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
                   className="flex items-center gap-2 bg-[#1a232b] border border-white/10 px-4 py-2 rounded-lg text-sm text-white font-bold hover:bg-white/5 transition-colors min-w-[140px] justify-between"
@@ -3235,7 +2465,7 @@ export default function AdminCommandCenter() {
 
                 {/* Dropdown Menu */}
                 {isFilterDropdownOpen && (
-                  <div className="absolute top-full mt-2 right-0 w-48 max-h-56 overflow-y-auto fc-dropdown-scroll bg-[#161d24] border border-white/10 rounded-xl shadow-2xl z-20">
+                  <div className="absolute top-full mt-2 right-0 w-48 bg-[#161d24] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-20">
                     <button
                       onClick={() => {
                         setPaymentFilter("All");
@@ -3267,8 +2497,9 @@ export default function AdminCommandCenter() {
                 )}
               </div>
             </div>
+
             <div className="overflow-x-auto min-h-[300px]">
-              <table className="fc-muted-table w-full text-left border-collapse min-w-[600px]">
+              <table className="w-full text-left border-collapse min-w-[600px]">
                 <thead>
                   <tr className="bg-[#11171a] border-b border-white/5 text-[10px] uppercase tracking-widest text-gray-500 font-bold">
                     <th className="p-4 pl-6 font-medium">Member</th>
@@ -3293,8 +2524,9 @@ export default function AdminCommandCenter() {
                   ) : (
                     filteredMembers.map((row) => {
                       const wallet = (row as any).walletBalance ?? 0;
-                      const gwCost = gameweekStake;
-                      const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
+                      const gwCost = gameweekStake; // fallback until gwCostPerRound is set
+                      const gwsLeft =
+                        gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                       const walletColor =
                         wallet <= 0
                           ? "text-red-400"
@@ -3306,7 +2538,7 @@ export default function AdminCommandCenter() {
                           key={row.id}
                           className={clsx(
                             "transition-colors group",
-                            memberHasFunding(row)
+                            row.hasPaid
                               ? "bg-[#10B981]/5 border-l-2 border-[#10B981]"
                               : "hover:bg-white/[0.02] border-l-2 border-transparent",
                           )}
@@ -3316,7 +2548,7 @@ export default function AdminCommandCenter() {
                               <div
                                 className={clsx(
                                   "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg border relative overflow-hidden",
-                                  memberHasFunding(row)
+                                  row.hasPaid
                                     ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10"
                                     : "border-white/10 bg-[#161d24]",
                                 )}
@@ -3326,7 +2558,7 @@ export default function AdminCommandCenter() {
                                   alt={row.displayName}
                                   className={clsx(
                                     "w-full h-full object-cover",
-                                    !memberHasFunding(row) && "grayscale opacity-80",
+                                    !row.hasPaid && "grayscale opacity-80",
                                   )}
                                 />
                               </div>
@@ -3338,6 +2570,7 @@ export default function AdminCommandCenter() {
                                       Admin
                                     </span>
                                   )}
+                                  {/* Phase 8: Streak Badge */}
                                   {(row as any).paymentStreak >= 2 && (
                                     <span
                                       className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black"
@@ -3351,10 +2584,17 @@ export default function AdminCommandCenter() {
                                   <span>{row.phone}</span>
                                   <span className="text-white/20">•</span>
                                   <button
-                                    onClick={() => handleToggleAdmin(row.id, (row as any).role)}
+                                    onClick={() =>
+                                      handleToggleAdmin(
+                                        row.id,
+                                        (row as any).role,
+                                      )
+                                    }
                                     className="hover:text-white transition-colors"
                                   >
-                                    {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
+                                    {(row as any).role === "admin"
+                                      ? "Revoke Admin"
+                                      : "Make Admin"}
                                   </button>
                                 </div>
                               </div>
@@ -3366,22 +2606,33 @@ export default function AdminCommandCenter() {
                             </span>
                           </td>
                           <td className="p-4">
-                            <div className={clsx("font-bold tabular-nums text-sm", walletColor)}>
-                              {isStealthMode ? "****" : `KES ${wallet.toLocaleString()}`}
+                            <div
+                              className={clsx(
+                                "font-bold tabular-nums text-sm",
+                                walletColor,
+                              )}
+                            >
+                              {isStealthMode
+                                ? "****"
+                                : `KES ${wallet.toLocaleString()}`}
                             </div>
                             <div className="text-[10px] text-gray-600 font-medium mt-0.5">
-                              {gwsLeft > 0 ? `${gwsLeft} GW${gwsLeft !== 1 ? "s" : ""} covered` : "Top up needed"}
+                              {gwsLeft > 0
+                                ? `${gwsLeft} GW${gwsLeft !== 1 ? "s" : ""} covered`
+                                : "Top up needed"}
                             </div>
                           </td>
                           <td className="p-4">
-                            {!memberHasFunding(row) && (
+                            {!row.hasPaid && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a232b] text-[#FBBF24] border border-white/5 text-xs font-bold shadow-sm">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div> Red Zone (Unpaid)
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div>{" "}
+                                Red Zone (Unpaid)
                               </span>
                             )}
-                            {memberHasFunding(row) && (
+                            {row.hasPaid && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-bold shadow-sm">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div> Green Zone (Verified)
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div>{" "}
+                                Green Zone (Verified)
                               </span>
                             )}
                           </td>
@@ -3389,11 +2640,17 @@ export default function AdminCommandCenter() {
                             <label className="relative inline-flex items-center cursor-pointer ml-auto">
                               <input
                                 type="checkbox"
-                                className="sr-only peer fc-ledger-verify-input"
+                                className="sr-only peer"
                                 checked={row.hasPaid}
-                                onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
+                                onChange={() =>
+                                  handleTogglePayment(
+                                    row.id,
+                                    row.hasPaid,
+                                    row.displayName,
+                                  )
+                                }
                               />
-                              <div className="fc-ledger-switch-track w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10"></div>
+                              <div className="w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10"></div>
                             </label>
                           </td>
                         </tr>
@@ -3423,102 +2680,107 @@ export default function AdminCommandCenter() {
               </div>
             </div>
           </section>
-          </div>
 
+          {/* Gameweek Resolution Modal */}
           {showResolveModal && (
-            <div className="fc-resolve-modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-              <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/25 w-full max-w-md rounded-2xl shadow-[0_0_60px_rgba(251,191,36,0.1)] overflow-hidden">
-                {/* Header */}
-                <div className="p-5 pb-4 border-b border-white/5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
-                      <Trophy className="w-5 h-5 text-[#FBBF24]" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black text-white tracking-tight">Resolve Gameweek</h3>
-                      <p className="text-[11px] text-gray-500 font-medium">Finalize winner & queue payout</p>
-                    </div>
-                  </div>
+            <div className="fc-resolve-modal-overlay fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-3 sm:p-4 bg-[#0a100a]/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+              <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-lg rounded-2xl p-5 sm:p-6 shadow-2xl my-4 sm:my-0 max-h-[92vh] overflow-y-auto">
+                <div className="w-12 h-12 rounded-full bg-[#FBBF24]/10 flex items-center justify-center mb-6 border border-[#FBBF24]/20">
+                  <AlertTriangle className="w-6 h-6 text-[#FBBF24]" />
                 </div>
 
-                {/* Body */}
-                <div className="p-5 space-y-4">
-                  {(!isCurrentEventFinished ||
-                    !gwWinner ||
-                    Number(gwWinner.event_total || 0) <= 0) && (
-                    <div className="rounded-xl border border-red-500/25 bg-red-500/8 px-3.5 py-2.5 flex items-start gap-2.5">
-                      <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Resolution locked</p>
-                        <p className="text-[11px] text-red-200/80 mt-0.5">GW must be finished with a positive winner score.</p>
-                      </div>
-                    </div>
-                  )}
+                <h3 className="text-xl font-bold text-white mb-2">
+                  End-of-Gameweek Resolution
+                </h3>
+                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                  <strong className="text-[#FBBF24] font-bold">
+                    Are you sure?
+                  </strong>{" "}
+                  This will calculate the top scorer, execute the selected
+                  payout method, dispatch{" "}
+                  <span className="text-white font-bold tracking-tight">
+                    KES {isStealthMode ? "****" : weeklyPot.toLocaleString()}
+                  </span>{" "}
+                  to the winner, and record the gameweek in the audit log
+                  permanently.
+                </p>
 
-                  {/* Payout summary */}
-                  <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Winner Payout</p>
-                      <p className="text-2xl font-black text-[#FBBF24] tabular-nums mt-0.5">
-                        KES {isStealthMode ? "****" : weeklyPot.toLocaleString()}
-                      </p>
-                    </div>
-                    <Banknote className="w-8 h-8 text-[#FBBF24]/30" />
+                {(!isCurrentEventFinished ||
+                  !gwWinner ||
+                  Number(gwWinner.event_total || 0) <= 0) && (
+                  <div className="fc-resolve-lock-banner mb-5 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-red-300">
+                      Resolution locked
+                    </p>
+                    <p className="text-xs text-red-100/90 mt-1">
+                      You can only resolve after FPL marks the current gameweek
+                      as finished and the winner has a positive GW score.
+                    </p>
                   </div>
+                )}
 
-                  {/* Method toggle */}
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Disbursement Method</p>
-                    <div className="flex bg-black/30 rounded-xl p-1 border border-white/5">
-                      <button
-                        onClick={() => setPayoutMethod("mpesa")}
-                        className={clsx(
-                          "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
-                          payoutMethod === "mpesa"
-                            ? "bg-[#10B981]/15 text-[#10B981] shadow-sm border border-[#10B981]/25"
-                            : "text-gray-500 hover:text-gray-300 border border-transparent"
-                        )}
+                {/* Payout Method Toggle */}
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-gray-500 mb-3 uppercase tracking-widest">
+                    Disbursement Method
+                  </label>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setPayoutMethod("mpesa")}
+                      className={`fc-disburse-option flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === "mpesa" ? "bg-[#10B981]/10 border-[#10B981]/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]" : "bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20"}`}
+                    >
+                      <div
+                        className={`font-black uppercase tracking-widest mb-1 text-sm ${payoutMethod === "mpesa" ? "text-[#10B981]" : ""}`}
                       >
                         M-Pesa B2C
-                      </button>
-                      <button
-                        onClick={() => setPayoutMethod("cash")}
-                        className={clsx(
-                          "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
-                          payoutMethod === "cash"
-                            ? "bg-[#FBBF24]/15 text-[#FBBF24] shadow-sm border border-[#FBBF24]/25"
-                            : "text-gray-500 hover:text-gray-300 border border-transparent"
-                        )}
+                      </div>
+                      <div className="text-[10px] opacity-90 text-center font-bold">
+                        Instant API disbursement + callback receipt
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setPayoutMethod("cash")}
+                      className={`fc-disburse-option flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${payoutMethod === "cash" ? "bg-[#FBBF24]/10 border-[#FBBF24]/50 shadow-[0_0_15px_rgba(251,191,36,0.15)]" : "bg-[#0a100a] text-gray-500 border-white/5 hover:border-white/20"}`}
+                    >
+                      <div
+                        className={`font-black uppercase tracking-widest mb-1 text-sm ${payoutMethod === "cash" ? "text-[#FBBF24]" : ""}`}
                       >
                         Cash Handoff
-                      </button>
-                    </div>
+                      </div>
+                      <div className="text-[10px] opacity-90 text-center font-bold">
+                        Manual payout + mandatory receipt/audit logging
+                      </div>
+                    </button>
                   </div>
+                  <p className="mt-2 text-[10px] text-gray-400">
+                    Selected:{" "}
+                    <span className="font-black text-white uppercase">
+                      {payoutMethod === "mpesa" ? "M-Pesa B2C" : "Cash Handoff"}
+                    </span>
+                  </p>
                 </div>
 
-                {/* Footer */}
-                <div className="p-5 pt-3 border-t border-white/5 flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-center justify-end gap-3 sm:gap-4 mt-8">
                   <button
                     onClick={() => setShowResolveModal(false)}
                     disabled={isResolving}
-                    className="flex-1 px-4 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white border border-white/8 hover:border-white/15 hover:bg-white/5 transition-all text-sm"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleResolveGameweek}
                     disabled={isResolving}
-                    className="flex-1 px-4 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-white text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isResolving ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Resolving...
+                        <RefreshCw className="w-4 h-4 animate-spin" />{" "}
+                        Disbursing...
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="w-4 h-4" />
-                        Confirm & Resolve
+                        <Banknote className="w-4 h-4" /> Disburse Funds
                       </>
                     )}
                   </button>
@@ -3529,16 +2791,19 @@ export default function AdminCommandCenter() {
 
           {/* Pilot Pre-Fund Modal */}
           {showPrefundOptions && (
-            <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-8 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-              <div className="fc-prefund-panel bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-2xl rounded-3xl p-8 shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="bg-[#161d24] border border-[#FBBF24]/30 w-full max-w-2xl rounded-3xl p-8 shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
                       <Banknote className="w-6 h-6 text-[#FBBF24]" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-white tracking-tight">
-                        Pilot Mode: Pre-Fund Wallets
+                      <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                        Pilot Mode: Pre-Fund Wallets{" "}
+                        <span className="bg-red-500/20 text-red-500 text-[10px] px-2 py-0.5 rounded uppercase">
+                          Admin Only
+                        </span>
                       </h3>
                       <p className="text-gray-400 text-xs font-medium mt-1">
                         Bulk seed legacy contributions (offline cash/M-Pesa)
@@ -3550,15 +2815,12 @@ export default function AdminCommandCenter() {
                 </div>
 
                 <div className="overflow-y-auto flex-1 mb-6 px-1 border-t border-b border-white/5 py-4 space-y-3 custom-scrollbar">
-                  {members.filter((m) => m.isActive !== false).length === 0 ? (
-                    <div className="flex items-center justify-center h-28 text-sm text-gray-400">No active members to pre-fund.</div>
-                  ) : (
-                    members
-                      .filter((m) => m.isActive !== false)
-                      .map((m) => (
+                  {members
+                    .filter((m) => m.isActive !== false)
+                    .map((m) => (
                       <div
                         key={m.id}
-                        className="fc-prefund-row flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border rounded-xl transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[#0a100a]/50 border border-white/10 rounded-xl hover:bg-[#0a100a] transition-colors"
                       >
                         <div>
                           <p className="text-white font-bold text-sm flex items-center gap-2">
@@ -3578,7 +2840,6 @@ export default function AdminCommandCenter() {
                           <input
                             type="number"
                             min="0"
-                            placeholder="0"
                             value={prefundData[m.id] || ""}
                             onChange={(e) =>
                               setPrefundData((prev) => ({
@@ -3586,44 +2847,29 @@ export default function AdminCommandCenter() {
                                 [m.id]: e.target.value,
                               }))
                             }
-                            className="fc-prefund-input w-36 rounded-lg py-2 px-3 text-sm focus:border-[#FBBF24]/50 focus:outline-none transition-all tabular-nums text-right"
+                            placeholder="Amount paid offline"
+                            className="w-36 bg-[#1a232b] border border-white/10 rounded-lg py-2 px-3 text-sm text-white focus:border-[#FBBF24]/50 focus:outline-none transition-all tabular-nums text-right"
                           />
                         </div>
                       </div>
-                      ))
-                  )}
+                    ))}
                 </div>
-
-                {/* Toggle for Update Recent Activity */}
-                <div className="mb-4 p-3 bg-white/5 rounded-lg border border-white/10 flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={prefundUpdateRecentActivity}
-                    onChange={(e) => setPrefundUpdateRecentActivity(e.target.checked)}
-                    className="w-4 h-4 accent-[#FBBF24] cursor-pointer"
-                    id="prefund-update-activity"
-                  />
-                  <label htmlFor="prefund-update-activity" className="flex-1 cursor-pointer text-sm text-gray-300">
-                    <span className="font-bold text-white">Update Recent Activity</span>
-                    <p className="text-xs text-gray-500 mt-0.5">Log this prefund operation to notifications & league events (visible to all members)</p>
-                  </label>
-                </div>
-
                 <div className="flex gap-3 mt-auto shrink-0">
                   <button
-                    type="button"
-                    onClick={handlePrefundCancel}
-                    className="fc-modal-secondary flex-1 py-3.5 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors border"
+                    onClick={() => {
+                      setShowPrefundOptions(false);
+                      setPrefundData({});
+                    }}
+                    className="flex-1 py-3.5 bg-[#0b1014] hover:bg-white/5 text-gray-400 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors border border-white/5"
                   >
                     Cancel
                   </button>
                   <button
-                    type="button"
                     onClick={handlePrefundSubmit}
                     disabled={
                       isPrefunding || Object.keys(prefundData).length === 0
                     }
-                    className="flex-1 py-3.5 bg-[#FBBF24] hover:bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl transition-colors shadow-[0_0_15px_rgba(251,191,36,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                    className="flex-1 py-3.5 bg-[#FBBF24] hover:bg-white text-black font-black uppercase tracking-widest text-xs rounded-xl transition-colors shadow-[0_0_15px_rgba(251,191,36,0.2)] disabled:opacity-50 flex justify-center items-center gap-2"
                   >
                     {isPrefunding ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -3636,176 +2882,9 @@ export default function AdminCommandCenter() {
             </div>
           )}
 
-        {showWalletFundModal && (
-          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="fc-prefund-panel bg-[#161d24] border border-[#10B981]/30 w-full max-w-2xl rounded-4xl p-6 md:p-8 shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10B981]">
-                    Direct Wallet Funding
-                  </p>
-                  <h3 className="text-2xl font-black text-white tracking-tight mt-1">
-                    Fund a member wallet
-                  </h3>
-                  <p className="text-gray-400 text-xs font-medium mt-1">
-                    Record an M-Pesa prompt or cash handoff directly on the ledger.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowWalletFundModal(false)}
-                  className="fc-modal-secondary px-3 py-2 rounded-lg border text-xs font-bold"
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Member
-                  </span>
-                  <select
-                    value={fundTargetMemberId}
-                    onChange={(e) => setFundTargetMemberId(e.target.value)}
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  >
-                    <option value="">Select member</option>
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Amount (KES)
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={fundAmount}
-                    onChange={(e) => setFundAmount(e.target.value)}
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Funding Method
-                  </span>
-                  <select
-                    value={fundMethod}
-                    onChange={(e) => {
-                      setFundMethod(e.target.value as "mpesa" | "cash");
-                      setFundPromptSent(false);
-                    }}
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  >
-                    <option value="mpesa">M-Pesa Prompt</option>
-                    <option value="cash">Cash Handoff</option>
-                  </select>
-                </label>
-
-                {fundMethod === "mpesa" ? (
-                  <label className="space-y-2 md:col-span-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                      Transaction Code for Manual Confirm
-                    </span>
-                    <input
-                      type="text"
-                      value={fundTransactionCode}
-                      onChange={(e) => setFundTransactionCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. QWE123ABC"
-                      className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                    />
-                    <p className="text-[10px] text-gray-500 font-medium">
-                      Send prompt first, then wait for the callback. Use manual confirm only if needed.
-                    </p>
-                  </label>
-                ) : (
-                  <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                      Cash Handoff Date
-                    </span>
-                    <input
-                      type="date"
-                      value={fundCashDate}
-                      onChange={(e) => setFundCashDate(e.target.value)}
-                      className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                    />
-                  </label>
-                )}
-
-                  {fundMethod === "mpesa" && fundPromptSent && (
-                    <div className="md:col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 font-medium">
-                      Prompt sent. Waiting for callback. Use Manual Confirm only if the callback does not arrive.
-                    </div>
-                  )}
-
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Note
-                  </span>
-                  <input
-                    type="text"
-                    value={fundNote}
-                    onChange={(e) => setFundNote(e.target.value)}
-                    placeholder="Optional note"
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
-                <button
-                  onClick={() => setShowWalletFundModal(false)}
-                  className="fc-modal-secondary px-4 py-3 rounded-xl border text-xs font-black uppercase tracking-widest"
-                >
-                  Cancel
-                </button>
-                {fundMethod === "mpesa" ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleSendWalletPrompt}
-                      disabled={isSendingWalletPrompt || fundPromptSent}
-                      className="px-5 py-3 rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/12 text-[#FBBF24] text-xs font-black uppercase tracking-widest disabled:opacity-60"
-                    >
-                      {isSendingWalletPrompt
-                        ? "Sending Prompt..."
-                        : fundPromptSent
-                          ? "Prompt Sent"
-                          : "Send Prompt"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleWalletFundSubmit}
-                      disabled={isFundingWallet}
-                      className="px-5 py-3 rounded-xl border border-[#10B981]/30 bg-[#10B981] text-black text-xs font-black uppercase tracking-widest disabled:opacity-60"
-                    >
-                      {isFundingWallet ? "Confirming..." : "Manual Confirm"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleWalletFundSubmit}
-                    disabled={isFundingWallet}
-                    className="px-5 py-3 rounded-xl border border-[#10B981]/30 bg-[#10B981] text-black text-xs font-black uppercase tracking-widest disabled:opacity-60"
-                  >
-                    {isFundingWallet ? "Confirming..." : "Confirm Cash Handoff"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
           {/* Complete Add Member Modal */}
           {showAddMemberModal && (
-            <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-8 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
               <div className="bg-[#161d24] border border-[#10B981]/30 w-full max-w-md rounded-3xl p-8 shadow-2xl text-left">
                 <div className="w-16 h-16 rounded-full bg-[#10B981]/10 flex items-center justify-center mb-6 border border-[#10B981]/20">
                   <UserPlus className="w-8 h-8 text-[#10B981]" />

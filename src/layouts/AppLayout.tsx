@@ -144,6 +144,14 @@ export default function AppLayout() {
         previousFinanceBadgeCountRef.current = currentFinanceBadge;
     }, [role, adminFinanceBadge, redZoneCount]);
 
+    useEffect(() => {
+        const scrollHost = document.querySelector('.fc-main-scroll');
+        if (scrollHost && 'scrollTo' in scrollHost) {
+            (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [location.pathname]);
+
     const handleLogout = () => {
         try {
             logout();
@@ -216,6 +224,13 @@ export default function AppLayout() {
                                 <Link
                                     key={item.path}
                                     to={item.path}
+                                    onClick={() => {
+                                        const scrollHost = document.querySelector('.fc-main-scroll');
+                                        if (scrollHost && 'scrollTo' in scrollHost) {
+                                            (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+                                        }
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
                                     className={clsx(
                                         'fc-sidebar-link group flex items-center w-full py-2.5 rounded-xl transition-all font-bold text-sm border relative',
                                         isSidebarCollapsed ? 'fc-sidebar-link-collapsed px-0 justify-center' : 'px-3',
@@ -296,6 +311,13 @@ export default function AppLayout() {
                         <Link
                             key={item.path}
                             to={item.path}
+                            onClick={() => {
+                                const scrollHost = document.querySelector('.fc-main-scroll');
+                                if (scrollHost && 'scrollTo' in scrollHost) {
+                                    (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
                             className={clsx(
                                 "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all flex-1 basis-0 max-w-[82px]",
                                 isActive ? 'text-[#22c55e] bg-[#22c55e]/12 shadow-[0_0_12px_rgba(34,197,94,0.12)]' : 'text-gray-500 hover:text-white active:scale-95'

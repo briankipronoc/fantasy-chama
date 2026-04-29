@@ -142,11 +142,6 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     <div>
                         <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
                             {title || `${getGreeting()}, ${displayName}!`}
-                            {/* Live sync indicator */}
-                            <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                                Live
-                            </span>
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
                             {role === 'admin' ? (
@@ -337,16 +332,9 @@ export default function Header({ role, title, subtitle }: { role: string, title?
 
                                 {/* Notification list with dark scrollbar */}
                                 <div
-                                    className="max-h-[380px] overflow-y-auto"
-                                    style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
+                                    className="fc-dropdown-scroll max-h-[380px] overflow-y-auto"
                                 >
-                                    <style>{`
-                                        .notif-scroll::-webkit-scrollbar { width: 5px; }
-                                        .notif-scroll::-webkit-scrollbar-track { background: transparent; }
-                                        .notif-scroll::-webkit-scrollbar-thumb { background: #1e2935; border-radius: 99px; }
-                                        .notif-scroll::-webkit-scrollbar-thumb:hover { background: #2d3f4f; }
-                                    `}</style>
-                                    <div className={clsx('notif-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.06] transition-all duration-300 ease-out', notifListMotion)}>
+                                    <div className={clsx('fc-dropdown-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.06] transition-all duration-300 ease-out', notifListMotion)}>
                                         {filteredNotifs.length > 0 ? filteredNotifs.map((notif) => {
                                             const isRead = notif.readBy?.includes(realActiveUser);
                                             return (

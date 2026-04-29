@@ -55,16 +55,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         return isLight
             ? {
-                background: '#ffffff',
-                color: '#047857',
-                border: '1px solid rgba(4,120,87,0.25)',
-                boxShadow: '0 8px 24px rgba(15,23,42,0.12)'
+                background: 'rgba(255,255,255,0.96)',
+                color: '#065f46',
+                border: '1px solid rgba(4,120,87,0.18)',
+                boxShadow: '0 18px 44px rgba(15,23,42,0.16)'
             }
             : {
-                background: '#0e1419',
-                color: '#10B981',
-                border: '1px solid rgba(16,185,129,0.25)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                background: 'rgba(11,16,20,0.92)',
+                color: '#d1fae5',
+                border: '1px solid rgba(16,185,129,0.22)',
+                boxShadow: '0 22px 60px rgba(0,0,0,0.36)'
             };
     };
 
@@ -116,6 +116,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
                 // 🔔 Financial/Personal confirmation toast — slide up from bottom-right
                 const palette = getToastPalette();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 toast.success(newNotif.message, {
                     id: 'financial-toast', // ensures only 1 shown at a time (replaces previous)
                     style: {
@@ -127,6 +128,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         fontSize: '13px',
                         padding: '14px 18px',
                         boxShadow: palette.boxShadow,
+                        backdropFilter: 'blur(18px) saturate(125%)',
+                        WebkitBackdropFilter: 'blur(18px) saturate(125%)',
+                        maxWidth: '24rem',
                     },
                 });
 
@@ -189,11 +193,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return (
         <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead, markAsRead }}>
             {children}
-            {/* Phase 10.5: Strict Toaster — bottom-right, max 1, 4s, financial only */}
+            {/* Phase 10.5: Strict Toaster — top-right, max 1, timed, financial only */}
             <Toaster
-                position="bottom-right"
+                position="top-right"
                 toastOptions={{
-                    duration: 4000,
+                    duration: 3600,
                     style: {
                         fontFamily: 'inherit',
                     },
@@ -201,7 +205,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         iconTheme: { primary: '#10B981', secondary: '#0e1419' },
                     },
                 }}
-                containerStyle={{ bottom: 80 }} // clear the mobile nav bar
+                containerStyle={{ top: 92, right: 20, width: 'min(24rem, calc(100vw - 1.5rem))' }}
             />
         </NotificationContext.Provider>
     );

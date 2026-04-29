@@ -42,8 +42,15 @@ service cloud.firestore {
 
     // Is the requester the Co-Admin of this league?
     function isCoAdmin(leagueId) {
-      return request.auth != null &&
-             leagueData(leagueId).get('coAdminId', null) == request.auth.uid;
+      return request.auth != null && (
+             leagueData(leagueId).get('coAdminId', null) == request.auth.uid
+             ||
+             (
+               leagueData(leagueId).get('coAdminId', null) is string &&
+               exists(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(leagueData(leagueId).get('coAdminId', ''))) &&
+               get(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(leagueData(leagueId).get('coAdminId', ''))).data.get('authUid', '') == request.auth.uid
+             )
+      );
     }
 
     // Is the requester either Chairman or Co-Admin?
@@ -65,6 +72,14 @@ service cloud.firestore {
       // query on subcollections by attribute. 
       // Thus, for a baseline security rule, we rely on the rule below directly applied on the subcollection.
       return isAuthenticated(); // Reined back to isAuthenticated for the root document read
+    }
+
+    // Does the current auth session own a given membership document?
+    function isMembershipOwner(leagueId, memberId) {
+      return isAuthenticated() &&
+             memberId is string &&
+             exists(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(memberId)) &&
+             get(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(memberId)).data.get('authUid', '') == request.auth.uid;
     }
 
     // Does this update attempt to touch financially sensitive fields?
@@ -273,21 +288,51 @@ service cloud.firestore {
         //       Admins can read the full ledger
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
-          resource.data.userId == request.auth.uid
+          resource.data.userId == request.auth.uid ||
+          isMembershipOwner(leagueId, resource.data.get('memberId', '')) ||
+          isMembershipOwner(leagueId, resource.data.get('userId', ''))
         );
 
-        // WRITE: ABSOLUTELY DENIED from the client side.
-        // Official financial receipts are ONLY written by the Node.js
-        // backend after a confirmed Safaricom Daraja callback or B2C ping.
-        // Any client-side write attempt will be rejected with "Permission Denied."
-        allow create, update, delete: if false;
+        // Create: Chairman or Co-Admin can record manual/pilot ledger events.
+        // Update/Delete remain denied from clients.
+        allow create: if isAdmin(leagueId);
+        allow update, delete: if false;
       }
 
       // ────────────────────────────────────────────────────
-      // 1H. /leagues/{leagueId}/mpesa_requests/{requestId}
+      // 1H. /leagues/{leagueId}/wallet_topup_requests/{requestId}
+      //     Members submit requests, admins resolve.
+      // ────────────────────────────────────────────────────
+      match /wallet_topup_requests/{requestId} {
+        allow read: if isAdmin(leagueId) || isMembershipOwner(leagueId, resource.data.get('memberId', ''));
+        allow create: if isMembershipOwner(leagueId, request.resource.data.get('memberId', ''));
+        allow update, delete: if isAdmin(leagueId);
+      }
+
+      // ────────────────────────────────────────────────────
+      // 1I. /leagues/{leagueId}/hq_settlements/{settlementId}
+      //     Monthly HQ settlement records (admin only)
+      // ────────────────────────────────────────────────────
+      match /hq_settlements/{settlementId} {
+        allow read, create, update, delete: if isAdmin(leagueId);
+      }
+
+      // ────────────────────────────────────────────────────
+      // 1J. /leagues/{leagueId}/mpesa_requests/{requestId}
       //     STK Push tracking — admin reads, system writes
       // ────────────────────────────────────────────────────
       match /mpesa_requests/{requestId} {
+        allow read: if isAdmin(leagueId);
+        allow create: if isAuthenticated();
+        allow update: if isAdmin(leagueId);
+        allow delete: if false;
+      }
+
+      // ────────────────────────────────────────────────────
+      // 1K. /leagues/{leagueId}/b2c_requests/{requestId}
+      //     B2C payout tracking (admin visible)
+      // ────────────────────────────────────────────────────
+      match /b2c_requests/{requestId} {
         allow read: if isAdmin(leagueId);
         allow create: if isAuthenticated();
         allow update: if isAdmin(leagueId);
