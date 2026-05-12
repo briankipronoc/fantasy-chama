@@ -271,3 +271,7 @@ Every payout requires:
 | **M-Pesa Network** | **1.5%** | Safaricom telecom API processing buffer |
 
 Season Vault: 30% of all weekly pots accumulate into a season-end prize pool.
+
+
+## Wallet-First Architecture
+To improve cash-float and accommodate varying transaction sizes (from student micro-payments to 4-week bulk top-ups), the core architecture relies on an internal Wallet ledger. Users deposit via M-Pesa to a central holding state. Gameweek stakes are deducted from this wallet programmatically, drastically reducing M-Pesa API STK push fatigue and enabling flexible payment frequencies.

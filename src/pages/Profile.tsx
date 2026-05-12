@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShieldCheck, Trophy, Users, CheckCircle2, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2 } from 'lucide-react';
+import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2 } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import Header from '../components/Header';
+import toast from 'react-hot-toast';
 
 export default function Profile() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -96,7 +97,7 @@ export default function Profile() {
     // Financial Locks
     const [isFinancialsLocked, setIsFinancialsLocked] = useState(true);
 
-    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    
     const [userEmail, setUserEmail] = useState('');
 
     const scrollPageTop = () => {
@@ -146,7 +147,7 @@ export default function Profile() {
                         try {
                             setIsFetchingFpl(true);
                             const STANDINGS_API_URL = `https://fantasy.premierleague.com/api/leagues-classic/${fplId}/standings/`;
-                            const response = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(STANDINGS_API_URL)}`);
+                            const response = await fetch(`https://api.codetabs.com/v1/proxy/?quest=url=${encodeURIComponent(STANDINGS_API_URL)}`);
                             if (response.ok) {
                                 const payload = await response.json();
                                 if (payload.standings && payload.standings.results) {
@@ -221,7 +222,7 @@ export default function Profile() {
         if (!activeLeagueId) return;
 
         setIsSavingMember(true);
-        setToast(null);
+        
 
         try {
             // Using members[0].id for MVP if activeUserId is a fallback
@@ -247,14 +248,14 @@ export default function Profile() {
                 }
 
                 await updateDoc(memberRef, updates);
-                setToast({ message: 'Profile updated successfully!', type: 'success' });
+                toast.success('Profile updated successfully!');
             }
         } catch (error) {
-            setToast({ message: 'Could not save profile changes.', type: 'error' });
+            toast.error('Could not save profile changes.');
             console.error(error);
         } finally {
             setIsSavingMember(false);
-            setTimeout(() => setToast(null), 4000);
+            
         }
     };
 
@@ -268,7 +269,7 @@ export default function Profile() {
 
         setShowWarningModal(false);
         setIsSavingAdmin(true);
-        setToast(null);
+        
 
         try {
             const leagueRef = doc(db, 'leagues', activeLeagueId);
@@ -284,15 +285,15 @@ export default function Profile() {
                 chairmanPhone: chairmanPhone || null
             });
             localStorage.setItem('chairmanAvatarSeed', avatarSeed);
-            setToast({ message: 'League rules updated successfully!', type: 'success' });
+            toast.success('League rules updated successfully!');
             // Re-lock after save
             setIsFinancialsLocked(true);
         } catch (error) {
-            setToast({ message: 'Could not save league settings.', type: 'error' });
+            toast.error('Could not save league settings.');
             console.error(error);
         } finally {
             setIsSavingAdmin(false);
-            setTimeout(() => setToast(null), 4000);
+            
         }
     };
 
@@ -330,18 +331,18 @@ export default function Profile() {
     const handleCopy = () => {
         const link = `https://our-app.com/join?code=${inviteCode}`;
         navigator.clipboard.writeText(link);
-        setToast({ message: 'Invite link copied to clipboard!', type: 'success' });
-        setTimeout(() => setToast(null), 3000);
+        toast.success('Invite link copied to clipboard!');
+        
     };
 
     const handleToggleActive = async (memberId: string, currentStatus: boolean) => {
         if (!activeLeagueId) return;
         try {
             await toggleMemberActiveStatus(activeLeagueId, memberId, !currentStatus);
-            setToast({ message: `Member ${currentStatus ? 'deactivated' : 'reactivated'} successfully.`, type: 'success' });
+            toast.success(`Member ${currentStatus ? 'deactivated' : 'reactivated'} successfully.`);
         } catch (err) {
             console.error(err);
-            setToast({ message: 'Failed to update member status.', type: 'error' });
+            toast.error('Failed to update member status.');
         }
     };
 
@@ -437,10 +438,12 @@ export default function Profile() {
             <div className="max-w-6xl mx-auto space-y-10">
                 <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity, League Controls & Payout Configuration" />
 
-                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-5 md:p-6">
+                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6">
                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24]">Profile & Settings</p>
-                    <h1 className="text-2xl md:text-3xl font-black text-white mt-2">Member Identity and League Controls</h1>
-                    <p className="text-sm text-gray-300 mt-2 max-w-3xl">
+                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 mt-2">
+                        <User className="w-7 h-7 text-[#FBBF24]" /> Member Identity and League Controls
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 max-w-3xl">
                         A transparent control surface for personal profile details, governance access, and payout configuration history across your league.
                     </p>
                 </section>
@@ -469,7 +472,7 @@ export default function Profile() {
                                 <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-white">
                                     <User className="w-5 h-5 text-[#10B981]" /> Personal Details
                                 </h2>
-                                <p className="text-[11px] text-gray-400 font-medium mt-1 max-w-xl leading-relaxed">
+                                <p className="text-[11px] text-gray-600 dark:text-gray-400 font-medium mt-1 max-w-xl leading-relaxed">
                                     Update the member identity that powers invites, payouts, and FPL matching.
                                 </p>
                             </div>
@@ -552,7 +555,7 @@ export default function Profile() {
                                             disabled
                                         />
                                     )}
-                                    <p className="text-[10px] text-gray-400 font-medium mt-1.5 leading-relaxed">
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium mt-1.5 leading-relaxed">
                                         Resolves FPL vs M-Pesa name mismatches perfectly.
                                     </p>
                                 </div>
@@ -593,7 +596,7 @@ export default function Profile() {
                             <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
                                 <Trophy className="w-5 h-5 text-[#FBBF24]" /> League Settings
                             </h2>
-                            <p className="text-[11px] text-gray-400 mb-6 max-w-2xl">
+                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
                                 Configure the financial engine, co-chair permissions, and invite access with changes tracked in your operations history.
                             </p>
 
@@ -609,7 +612,7 @@ export default function Profile() {
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-[#161d24] hover:bg-white/5 text-white font-bold py-3.5 rounded-xl border border-white/5 transition-colors text-sm shadow-md">
-                                        <Copy className="w-4 h-4 text-gray-400" /> Copy
+                                        <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" /> Copy
                                     </button>
                                     <button onClick={handleShare} className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.3)] transition-colors text-sm">
                                         <Share2 className="w-4 h-4" /> Share
@@ -656,8 +659,8 @@ export default function Profile() {
                                         placeholder="e.g. 123456 or paste Standings URL"
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
-                                    <p className="text-[10px] text-gray-400 mt-1.5 font-medium leading-relaxed">
-                                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-300 bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 font-medium leading-relaxed">
+                                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-600 dark:text-gray-300 bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
                                     </p>
                                 </div>
 
@@ -670,7 +673,7 @@ export default function Profile() {
                                         placeholder="e.g. 0712345678"
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
                                     />
-                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
                                 </div>
 
                                 {/* Co-Chair Designation */}
@@ -692,7 +695,7 @@ export default function Profile() {
                                             <option key={m.id} value={m.authUid || m.id}>{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
                                         ))}
                                     </select>
-                                    <p className="text-[10px] text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
                                 </div>
 
                                 <div>
@@ -749,8 +752,8 @@ export default function Profile() {
                                                 disabled={isDisabled}
                                                 onClick={() => {
                                                     if (isOptionLockedBySize) {
-                                                        setToast({ message: `Need at least ${neededMembers} active members for ${option.label}.`, type: 'error' });
-                                                        setTimeout(() => setToast(null), 2500);
+                                                        toast.error(`Need at least ${neededMembers} active members for ${option.label}.`);
+                                                        
                                                         return;
                                                     }
                                                     const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
@@ -763,7 +766,7 @@ export default function Profile() {
                                                     "py-3 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                                                     seasonWinnersMode === option.key
                                                         ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
-                                                        : "bg-[#161d24] border-white/5 text-gray-400 hover:bg-white/[0.02]"
+                                                        : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
                                                 )}
                                                 title={isOptionLockedBySize ? `Requires at least ${neededMembers} active members` : undefined}
                                             >
@@ -832,7 +835,7 @@ export default function Profile() {
                                     <button
                                         type="button"
                                         onClick={handleUnlockFinancials}
-                                        className="w-full bg-[#0b1014] hover:bg-[#1a232b] text-gray-400 hover:text-white border border-white/5 font-bold rounded-xl py-4 flex items-center justify-center gap-2 transition-colors mt-auto text-sm"
+                                        className="w-full bg-[#0b1014] hover:bg-[#1a232b] text-gray-600 dark:text-gray-400 hover:text-white border border-white/5 font-bold rounded-xl py-4 flex items-center justify-center gap-2 transition-colors mt-auto text-sm"
                                     >
                                         <Unlock className="w-4 h-4" /> Unlock to Edit Rules
                                     </button>
@@ -863,7 +866,7 @@ export default function Profile() {
                                 <AlertTriangle className="w-8 h-8" />
                                 <h3 className="text-xl font-black tracking-tight">Modify Core Logistics?</h3>
                             </div>
-                            <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-6 leading-relaxed">
                                 Altering the financial rules mid-season recalculates all projected vaults and weekly payouts. Are you sure you wish to unlock these controls?
                             </p>
                             <div className="flex gap-3">
@@ -889,18 +892,6 @@ export default function Profile() {
                 )
             }
 
-            {/* Toast Notification */}
-            <div className={clsx(
-                "fixed top-4 right-4 left-auto w-[calc(100vw-2rem)] md:w-96 p-4 rounded-2xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50 fc-inline-toast",
-                toast ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0 pointer-events-none",
-                toast?.type === 'success' ? "fc-inline-toast-success" : "fc-inline-toast-error"
-            )}>
-                {toast?.type === 'success' ? <CheckCircle2 className="w-6 h-6 flex-shrink-0 mt-0.5" /> : <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5" />}
-                <div>
-                    <h4 className="font-extrabold text-base mb-1">{toast?.type === 'success' ? 'Success' : 'Error'}</h4>
-                    <p className="font-medium text-sm leading-tight opacity-90">{toast?.message}</p>
-                </div>
-            </div>
 
         </div >
     );

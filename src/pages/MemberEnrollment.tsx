@@ -50,7 +50,7 @@ export default function MemberEnrollment() {
                         <ShieldCheck className="w-4 h-4 text-[#10B981]" />
                         <span className="text-[10px] font-bold text-[#10B981] tracking-widest uppercase">Secured Gateway</span>
                     </div>
-                    <button className="text-gray-400 hover:text-white transition-colors bg-[#1a232b] p-2 rounded-lg border border-white/5">
+                    <button className="text-gray-600 dark:text-gray-400 hover:text-white transition-colors bg-[#1a232b] p-2 rounded-lg border border-white/5">
                         <Bell className="w-5 h-5" />
                     </button>
                     <div className="w-10 h-10 rounded-full bg-[#FBBF24] flex items-center justify-center text-black font-bold border border-white/10">
@@ -69,7 +69,7 @@ export default function MemberEnrollment() {
                         <span className="text-[#FBBF24] text-xs font-bold tracking-widest uppercase">The Gatekeeper</span>
                     </div>
                     <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Member Enrollment</h1>
-                    <p className="text-gray-400 text-lg leading-relaxed">
+                    <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
                         Establish your league's inner circle. Only verified managers can access the treasury and competition dashboard.
                     </p>
                 </div>
@@ -124,7 +124,7 @@ export default function MemberEnrollment() {
                     <div className="bg-[#1a232b] border border-white/5 rounded-2xl flex flex-col overflow-hidden">
                         <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#161d24]">
                             <div className="flex items-center gap-3">
-                                <Users className="w-5 h-5 text-gray-400" />
+                                <Users className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                                 <h2 className="text-lg font-bold tracking-tight">Enrolled Circle (12)</h2>
                             </div>
                             <button className="text-[10px] font-bold tracking-widest uppercase text-gray-500 hover:text-white transition-colors">
@@ -139,7 +139,7 @@ export default function MemberEnrollment() {
                                         <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full border border-white/10" />
                                         <div>
                                             <div className="font-bold text-white mb-0.5">{member.name}</div>
-                                            <div className="text-xs text-gray-400">Team: {member.team}</div>
+                                            <div className="text-xs text-gray-600 dark:text-gray-400">Team: {member.team}</div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-4">
@@ -177,7 +177,7 @@ export default function MemberEnrollment() {
                             <Wallet className="w-6 h-6" />
                         </div>
                         <div>
-                            <div className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-1">Pool Status</div>
+                            <div className="text-[10px] font-bold tracking-widest text-gray-600 dark:text-gray-400 uppercase mb-1">Pool Status</div>
                             <div className="text-xl font-bold text-white">Active</div>
                         </div>
                     </div>
@@ -190,17 +190,17 @@ export default function MemberEnrollment() {
                             <ShieldCheck className="w-6 h-6" />
                         </div>
                         <div className="relative z-10">
-                            <div className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-1">Security Tier</div>
+                            <div className="text-[10px] font-bold tracking-widest text-gray-600 dark:text-gray-400 uppercase mb-1">Security Tier</div>
                             <div className="text-xl font-bold text-white">High (Level 3)</div>
                         </div>
                     </div>
 
                     <div className="bg-[#161d24] border border-white/5 rounded-2xl p-6 flex items-center gap-4">
-                        <div className="bg-white/5 p-3 rounded-xl text-gray-400 border border-white/5">
+                        <div className="bg-white/5 p-3 rounded-xl text-gray-600 dark:text-gray-400 border border-white/5">
                             <Clock className="w-6 h-6" />
                         </div>
                         <div>
-                            <div className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-1">Deadline</div>
+                            <div className="text-[10px] font-bold tracking-widest text-gray-600 dark:text-gray-400 uppercase mb-1">Deadline</div>
                             <div className="text-xl font-bold text-white">48h Left</div>
                         </div>
                     </div>

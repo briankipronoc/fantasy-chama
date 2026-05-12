@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Lock, Wallet, AlertTriangle, Scale, Shield, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -53,10 +54,10 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div
             ref={overlayRef}
-            className="fc-rules-overlay fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto p-2 md:p-4"
+            className="fc-rules-overlay fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto p-2 md:p-4"
             onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
         >
             {/* Backdrop */}
@@ -80,7 +81,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                     {hasAccepted && (
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white transition-all active:scale-95"
+                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.06] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-white transition-all active:scale-95"
                             aria-label="Close"
                         >
                             <X className="w-4 h-4" />
@@ -177,7 +178,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                                 </div>
                             </div>
                             {rule.custom ?? (
-                                <p className="fc-rules-body text-sm text-gray-400 leading-relaxed pl-12">
+                                <p className="fc-rules-body text-sm text-gray-600 dark:text-gray-400 leading-relaxed pl-12">
                                     {rule.body}
                                 </p>
                             )}
@@ -219,6 +220,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

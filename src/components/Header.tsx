@@ -149,7 +149,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                             ) : (
                                 <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FBBF24]" />
                             )}
-                            <span className="text-gray-400 font-medium text-xs md:text-sm">{subtitle || (role === 'admin' ? 'Level 4 Vault Access' : 'League Member')}</span>
+                            <span className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-sm">{subtitle || (role === 'admin' ? 'Level 4 Vault Access' : 'League Member')}</span>
                         </div>
                     </div>
                 </div>
@@ -178,7 +178,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                     ? mode === 'dark' ? 'bg-slate-700 text-white shadow-sm'
                                     : mode === 'light' ? 'bg-amber-400/20 text-amber-300 shadow-sm'
                                     : 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-400'
+                                    : 'text-gray-600 hover:text-gray-600 dark:text-gray-400'
                             }`}
                             title={mode === 'dark' ? 'Force dark mode' : mode === 'light' ? 'Force light mode' : 'Auto-match OS theme'}
                         >
@@ -190,7 +190,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Mobile compact cycle */}
                 <button
                     onClick={() => setTheme(currentTheme === 'dark' ? 'system' : currentTheme === 'system' ? 'light' : 'dark')}
-                    className="fc-theme-toggle-mobile sm:hidden p-2.5 border rounded-xl text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
+                    className="fc-theme-toggle-mobile sm:hidden p-2.5 border rounded-xl text-gray-600 dark:text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
                     title={`Theme: ${currentTheme} — tap to cycle`}
                 >
                     {currentTheme === 'dark' ? <Moon className="w-5 h-5" /> : currentTheme === 'light' ? <Sun className="w-5 h-5 text-amber-300" /> : <span className="text-[9px] font-black text-emerald-400">OS</span>}
@@ -199,7 +199,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Stealth Mode Toggle */}
                 <button
                     onClick={toggleStealthMode}
-                    className="fc-stealth-toggle p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
+                    className="fc-stealth-toggle p-2.5 md:p-3 border rounded-xl text-gray-600 dark:text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
                     title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                 >
                     {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
@@ -208,7 +208,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                 {/* Constitution Icon Button */}
                 <button
                     onClick={() => setShowConstitution(true)}
-                    className="fc-constitution-trigger p-2.5 md:p-3 border rounded-xl text-gray-400 hover:text-emerald-400 transition-all duration-300 ease-out hover:border-emerald-500/20 active:scale-95"
+                    className="fc-constitution-trigger p-2.5 md:p-3 border rounded-xl text-gray-600 dark:text-gray-400 hover:text-emerald-400 transition-all duration-300 ease-out hover:border-emerald-500/20 active:scale-95"
                     title="League Constitution"
                 >
                     <Scroll className="w-5 h-5 md:w-6 md:h-6" />
@@ -219,7 +219,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     <button
                         onClick={handleBellClick}
                         className={clsx(
-                            "p-2.5 md:p-3 border border-white/5 rounded-xl text-gray-400 hover:text-white transition-all active:scale-95",
+                            "p-2.5 md:p-3 border border-white/5 rounded-xl text-gray-600 dark:text-gray-400 hover:text-white transition-all active:scale-95",
                             isDropdownOpen ? "bg-[#22c55e]/10 border-[#22c55e]/50 text-[#22c55e]" : "bg-[#161d24] hover:bg-white/5"
                         )}
                     >
@@ -260,7 +260,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                                             )}
                                             <button
                                                 onClick={handleMarkAllRead}
-                                                className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-emerald-400 transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
+                                                className="flex items-center gap-1 text-[11px] font-bold text-gray-600 dark:text-gray-400 hover:text-emerald-400 transition-colors px-2 py-1 rounded-lg hover:bg-white/5"
                                                 title="Mark all as read"
                                             >
                                                 <CheckCheck className="w-3.5 h-3.5" />

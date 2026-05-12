@@ -54,7 +54,7 @@ export default function WinSharePage() {
                         KES {amount.toLocaleString()}
                     </p>
 
-                    <p className="text-gray-400 text-sm font-medium mb-8">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-8">
                         Claimed the Gameweek {gw} pot from {league}.<br />
                         Powered by FantasyChama — automated payouts, zero drama.
                     </p>

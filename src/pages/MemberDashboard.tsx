@@ -145,7 +145,7 @@ export default function MemberDashboard() {
 
                 // Phase 29: Fetch FPL GW Winner continuously
                 if (data.fplLeagueId) {
-                    fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
+                    fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
                         .then(res => res.json())
                         .then(fplData => {
                             const results = fplData?.standings?.results;
@@ -165,7 +165,7 @@ export default function MemberDashboard() {
 
                                     for (const tId of teamIds) {
                                         try {
-                                            const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${tId}/history/`)}`);
+                                            const r = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${tId}/history/`)}`);
                                             const histData = await r.json();
                                             const current = histData?.current;
                                             if (current && current.length > 0) {
@@ -248,7 +248,7 @@ export default function MemberDashboard() {
         const fetchCurrentEvent = async () => {
             try {
                 const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
-                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`);
+                const response = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bootstrapUrl)}`);
                 if (!response.ok) return;
                 const data = await response.json();
                 const current = (data?.events || []).find((event: any) => event.is_current);
@@ -809,7 +809,7 @@ export default function MemberDashboard() {
                         </div>
                         <div>
                             <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">HQ Lockout</h2>
-                            <p className="text-sm font-medium text-gray-400">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                                 This league has been suspended by <span className="font-bold text-emerald-400">FPL Chama HQ</span>. 
                                 The Chairman has outstanding bills to clear before access can be restored.
                             </p>
@@ -824,7 +824,7 @@ export default function MemberDashboard() {
                             </button>
                             <button 
                                 onClick={logout}
-                                className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all"
+                                className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all"
                             >
                                 Sign Out Waitroom
                             </button>
@@ -879,21 +879,25 @@ export default function MemberDashboard() {
                     title={leagueName || 'The Big League'}
                     subtitle="Member Hub"
                 />
-                {/* Personalised greeting row */}
-                <div className="flex items-center gap-2.5 pl-1">
-                    <span className="text-lg md:text-xl">
-                        {greetingText === 'Good morning' ? '🌅' : greetingText === 'Good afternoon' ? '☀️' : '🌙'}
-                    </span>
-                    <p className="fc-greeting-copy text-base md:text-lg font-semibold text-gray-300 tracking-tight">
-                        {greetingText},{' '}
-                        <span className="text-white font-extrabold bg-gradient-to-r from-[#FBBF24] to-[#f59e0b] bg-clip-text text-transparent">
-                            {firstName}!
-                        </span>
-                    </p>
-                    <span className="fc-gw-active-chip hidden sm:block text-[10px] font-bold uppercase tracking-widest border px-2 py-0.5 rounded-full">
+                <section className="fc-card mt-4 mb-4 rounded-3xl border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-400 mb-2">Member Dashboard</p>
+                        <div className="flex items-center gap-2.5">
+                            <span className="text-xl md:text-2xl">
+                                {greetingText === 'Good morning' ? '🌅' : greetingText === 'Good afternoon' ? '☀️' : '🌙'}
+                            </span>
+                            <p className="text-xl md:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                                {greetingText},{' '}
+                                <span className="bg-gradient-to-r from-sky-400 to-sky-300 bg-clip-text text-transparent">
+                                    {firstName}!
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <span className="fc-gw-active-chip text-[11px] font-bold uppercase tracking-widest border border-sky-500/20 text-sky-300 bg-sky-500/10 px-3 py-1 rounded-full w-fit">
                         {currentGwBadge}
                     </span>
-                </div>
+                </section>
 
                 <div className={clsx(
                     'fc-member-priority-strip rounded-2xl border px-4 py-3 flex items-center justify-between gap-3',
@@ -903,7 +907,7 @@ export default function MemberDashboard() {
                 )}>
                     <div>
                         <p className="text-sm font-black text-white leading-tight">{priorityStrip.title}</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{priorityStrip.subtitle}</p>
+                        <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">{priorityStrip.subtitle}</p>
                     </div>
                     {!hasPaid && (
                         <button
@@ -971,7 +975,7 @@ export default function MemberDashboard() {
                             <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5 justify-center sm:justify-start">
                                 <Star className="w-3 h-3 fill-current" /> You Are This Gameweek's Champion!
                             </p>
-                            <h3 className="text-2xl md:text-3xl font-black text-white leading-tight tracking-tight">
+                            <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
                                 Congratulations, {firstName}!
                             </h3>
                             <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
@@ -979,7 +983,7 @@ export default function MemberDashboard() {
                             </p>
                         </div>
                         <div className="fc-win-payout-card relative z-10 p-4 rounded-2xl text-center flex-shrink-0">
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
+                            <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
                             <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                         </div>
                         {/* Phase 8: Share My Win */}
@@ -1007,8 +1011,8 @@ export default function MemberDashboard() {
                         </div>
                         <div className="flex-1">
                             <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1">Gameweek still live</p>
-                            <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
-                            <p className="text-sm text-gray-400 mt-1">Current standings are still moving, so the dashboard waits for the final whistle before naming a winner.</p>
+                            <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Current standings are still moving, so the dashboard waits for the final whistle before naming a winner.</p>
                         </div>
                         <div className="fc-gw-live-leader rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center flex-shrink-0">
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Live leader</p>
@@ -1070,7 +1074,7 @@ export default function MemberDashboard() {
                                             <Star className="w-3 h-3 fill-current" /> {hasFinalGwChampion ? 'Gameweek Champion' : 'Live Leader'}
                                         </p>
                                         <h3 className="text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
-                                        <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>
+                                        <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>
                                     </div>
                                 </div>
 
@@ -1107,7 +1111,7 @@ export default function MemberDashboard() {
                             </h4>
                             <button
                                 onClick={() => setShowWinnersPanelMobile(prev => !prev)}
-                                className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-300"
+                                className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-600 dark:text-gray-300"
                             >
                                 {showWinnersPanelMobile ? 'Hide' : 'Show'}
                             </button>
@@ -1190,7 +1194,7 @@ export default function MemberDashboard() {
                                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Title Race</p>
                                         {winnerLeaderboard.slice(3, 6).map((entry) => (
                                             <div key={entry.winnerId} className="flex items-center justify-between text-[11px]">
-                                                <span className="text-gray-300 truncate">{entry.winnerName}</span>
+                                                <span className="text-gray-600 dark:text-gray-300 truncate">{entry.winnerName}</span>
                                                 <span className="font-bold text-[#10B981]">{entry.wins} wins</span>
                                             </div>
                                         ))}
@@ -1213,7 +1217,7 @@ export default function MemberDashboard() {
                                 <div key={payout.id} className="bg-black/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                     <div>
                                         <p className="text-white font-bold text-sm tracking-wide">{payout.gwName || `GW${payout.gw}`} Payout Request</p>
-                                        <p className="text-gray-300 text-sm mt-1">
+                                        <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
                                             <span className="text-[#FBBF24] font-black tracking-tight">KES {Number(payout.amount).toLocaleString()}</span> → {payout.winnerName} ({payout.winnerPhone})
                                         </p>
                                         <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
@@ -1291,7 +1295,7 @@ export default function MemberDashboard() {
                             <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : "text-white")}>
                                 {isRecentWinner ? "Champion of the Week 🏆" : (hasPaid ? "Verified & Active" : "Action Required")}
                             </h3>
-                            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
                                 {isRecentWinner
                                     ? "Incredible! You secured the highest points this GW. Payout processing."
                                     : (hasPaid
@@ -1320,7 +1324,7 @@ export default function MemberDashboard() {
                                     {showPochiInstructions && (
                                         <div className="bg-[#1c1a09] border border-[#FBBF24]/30 rounded-xl p-3 text-left animate-in fade-in zoom-in-95 duration-200 mt-1">
                                             <p className="text-[11px] font-bold text-[#FBBF24] uppercase tracking-widest mb-1.5 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Pochi Instructions</p>
-                                            <ol className="text-xs text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-gray-500">
+                                            <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-gray-500">
                                                 <li>Go to M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
                                                 <li>Send to Mobile No. <strong>{payoutDestinationPhone}</strong></li>
                                                 <li>Amount: <strong>KES {gameweekStake}</strong></li>
@@ -1328,14 +1332,14 @@ export default function MemberDashboard() {
                                         </div>
                                     )}
 
-                                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-400">
+                                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-600 dark:text-gray-400">
                                         Destination: <span className="font-black text-[#10B981]">{payoutDestinationPhone}</span>
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row gap-2 mt-1">
                                         <button
                                             onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
-                                            className="flex-1 text-[11px] text-gray-600 hover:text-gray-400 underline underline-offset-2 transition-colors text-center"
+                                            className="flex-1 text-[11px] text-gray-600 hover:text-gray-600 dark:text-gray-400 underline underline-offset-2 transition-colors text-center"
                                         >
                                             Already paid? Verify →
                                         </button>
@@ -1453,14 +1457,14 @@ export default function MemberDashboard() {
 
                 <div className="fc-member-trust-strip w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                        <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400">Last 3 Resolved Payouts</h4>
+                        <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Last 3 Resolved Payouts</h4>
                         <span className="text-[10px] text-gray-500 font-bold">Trust Visibility</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                         {recentResolvedPayouts.length > 0 ? recentResolvedPayouts.map((tx: any) => (
                             <div key={tx.id || `${tx.winnerName}-${tx.gameweek || tx.gw}`} className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
                                 <p className="text-xs font-black text-white truncate">{tx.winnerName || 'Winner'}</p>
-                                <p className="text-[10px] text-gray-400 mt-0.5">GW {tx.gameweek || tx.gw || '-'} • KES {Number(tx.amount || 0).toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">GW {tx.gameweek || tx.gw || '-'} • KES {Number(tx.amount || 0).toLocaleString()}</p>
                                 <p className="text-[10px] text-gray-500 mt-1">{txDate(tx)?.toLocaleString() || 'Recently'}</p>
                             </div>
                         )) : (
@@ -1478,7 +1482,7 @@ export default function MemberDashboard() {
                         <span className="ml-auto font-mono text-[10px] text-gray-700">{leagueName}</span>
                         <button
                             onClick={() => setShowFeedPanelMobile(prev => !prev)}
-                            className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-300"
+                            className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-600 dark:text-gray-300"
                         >
                             {showFeedPanelMobile ? 'Hide' : 'Show'}
                         </button>
@@ -1497,14 +1501,14 @@ export default function MemberDashboard() {
                             const timeStr = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             const tagColor = ev.eventType === 'payment' ? 'text-[#10B981] bg-[#10B981]/10' :
                                 ev.eventType === 'resolution' ? 'text-[#FBBF24] bg-[#FBBF24]/10' :
-                                    ev.eventType === 'rules' ? 'text-blue-400 bg-blue-400/10' : 'text-gray-400 bg-white/5';
+                                    ev.eventType === 'rules' ? 'text-blue-400 bg-blue-400/10' : 'text-gray-600 dark:text-gray-400 bg-white/5';
                             return (
                                 <div key={ev.id} className="px-5 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors animate-in fade-in duration-500">
                                     <span className="text-gray-700 text-[10px] w-12 flex-shrink-0">{timeStr}</span>
                                     <span className={clsx('text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex-shrink-0', tagColor)}>
                                         {ev.eventType || 'SYS'}
                                     </span>
-                                    <span className="text-[11px] text-gray-400 truncate">{ev.message}</span>
+                                    <span className="text-[11px] text-gray-600 dark:text-gray-400 truncate">{ev.message}</span>
                                     {ev.actor && <span className="ml-auto text-[10px] text-gray-700 flex-shrink-0">@{ev.actor}</span>}
                                 </div>
                             );
@@ -1540,13 +1544,13 @@ export default function MemberDashboard() {
                             <h3 className="text-xl font-extrabold text-white mb-1 flex items-center gap-2">
                                 🔍 Verify Your Payment
                             </h3>
-                            <p className="text-sm text-gray-400">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Paid but still showing Red Zone? Enter your M-Pesa confirmation code to self-reconcile.
                             </p>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
+                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
                                 <input
                                     type="text"
                                     value={receiptCode}
@@ -1563,7 +1567,7 @@ export default function MemberDashboard() {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setShowReceiptModal(false)}
-                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
                                 >
                                     Cancel
                                 </button>
@@ -1589,14 +1593,14 @@ export default function MemberDashboard() {
                                 <Wallet className="w-5 h-5 text-[#10B981]" />
                                 <h3 className="text-xl font-extrabold text-white">Top Up Wallet</h3>
                             </div>
-                            <p className="text-sm text-gray-400">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Send any amount to your wallet. Your current balance is not reduced, and the top-up is added separately once M-Pesa confirms it.
                             </p>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Amount to Top Up</label>
+                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Amount to Top Up</label>
                                 <input
                                     type="number"
                                     min="1"
@@ -1607,7 +1611,7 @@ export default function MemberDashboard() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Note for Chairman or Self</label>
+                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Note for Chairman or Self</label>
                                 <textarea
                                     rows={3}
                                     value={topUpNote}
@@ -1616,7 +1620,7 @@ export default function MemberDashboard() {
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors resize-none"
                                 />
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-400 space-y-1">
+                            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-600 dark:text-gray-400 space-y-1">
                                 <p>Wallet balance: <span className="font-black text-white">KES {walletBalance.toLocaleString()}</span></p>
                                 <p>Current GW stake: <span className="font-black text-white">KES {gameweekStake.toLocaleString()}</span></p>
                                 <p>Top-up amount: <span className="font-black text-[#10B981]">KES {Math.max(1, Number(topUpAmount || 0)).toLocaleString()}</span></p>
@@ -1627,7 +1631,7 @@ export default function MemberDashboard() {
                                         setShowTopUpModal(false);
                                         setTopUpNote('');
                                     }}
-                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
                                 >
                                     Cancel
                                 </button>
@@ -1653,7 +1657,7 @@ export default function MemberDashboard() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="font-extrabold text-white text-sm">Chairman disbursed KES {winnerConfirmation.amount?.toLocaleString()} to your M-Pesa</p>
-                            <p className="text-[11px] text-gray-400 mt-0.5">Tap confirm once you receive the funds</p>
+                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">Tap confirm once you receive the funds</p>
                         </div>
                         <button
                             onClick={handleConfirmWinnings}
@@ -1685,7 +1689,7 @@ export default function MemberDashboard() {
                                     <Check className="w-7 h-7 text-[#FBBF24]" />
                                 </div>
                                 <h3 className="text-xl font-extrabold text-white mb-2">Dispute Lodged! 🚨</h3>
-                                <p className="text-sm text-gray-400">Your claim has been flagged to the Chairman for review. You'll be updated within 24 hours.</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Your claim has been flagged to the Chairman for review. You'll be updated within 24 hours.</p>
                             </div>
                         ) : (
                             <>
@@ -1694,13 +1698,13 @@ export default function MemberDashboard() {
                                         <span className="text-[#FBBF24] text-lg">🚨</span>
                                         <h3 className="text-xl font-extrabold text-white">Claim Payment</h3>
                                     </div>
-                                    <p className="text-sm text-gray-400">
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
                                         Paid via M-Pesa but still Red Zone? Submit your receipt and the Chairman will verify it within 24h.
                                     </p>
                                 </div>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
+                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
                                         <input
                                             type="text"
                                             value={claimReceiptCode}
@@ -1709,13 +1713,13 @@ export default function MemberDashboard() {
                                             className="w-full bg-white/5 border border-[#FBBF24]/20 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#FBBF24]/50 transition-colors"
                                         />
                                     </div>
-                                    <div className="bg-[#FBBF24]/5 border border-[#FBBF24]/15 rounded-xl p-3 text-xs text-gray-400 leading-relaxed">
+                                    <div className="bg-[#FBBF24]/5 border border-[#FBBF24]/15 rounded-xl p-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                                         The Chairman will receive an alert to cross-check your M-Pesa receipt with their records. False claims may result in suspension.
                                     </div>
                                     <div className="flex gap-3">
                                         <button
                                             onClick={() => setShowClaimModal(false)}
-                                            className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                            className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
                                         >
                                             Cancel
                                         </button>

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Smartphone, Shield, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, ArrowRight, Wallet } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import clsx from 'clsx';
+import toast from 'react-hot-toast';
 
 export default function Deposit() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -12,24 +12,26 @@ export default function Deposit() {
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
 
     const [phoneNumber, setPhoneNumber] = useState('254700000000');
-    const [amountDue, setAmountDue] = useState<number | null>(null);
+    const [baseStake, setBaseStake] = useState<number>(0);
     const [chairmanPhone, setChairmanPhone] = useState<string>('Not configured');
     const [leagueName, setLeagueName] = useState<string>('Your League');
     const [isLoading, setIsLoading] = useState(false);
-    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+
+    // Payment modes: 'gw', 'month', 'custom'
+    const [paymentMode, setPaymentMode] = useState<'gw'|'month'|'custom'>('gw');
+    const [customAmount, setCustomAmount] = useState<string>('');
 
     useEffect(() => {
         if (activeLeagueId && members.length === 0) {
             listenToLeagueMembers(activeLeagueId);
         }
 
-        // Fetch dynamic amount due
         if (activeLeagueId) {
             getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
                 if (snap.exists()) {
                     const data = snap.data();
                     const stake = Number(data.gameweekStake ?? data.settings?.gameweekStake ?? 0);
-                    setAmountDue(stake > 0 ? stake : null);
+                    setBaseStake(stake);
                     setChairmanPhone(data.chairmanPhone || 'Not configured');
                     setLeagueName(data.leagueName || 'Your League');
                 }
@@ -37,12 +39,18 @@ export default function Deposit() {
         }
     }, [activeLeagueId, listenToLeagueMembers, members.length]);
 
+    const getFinalAmount = () => {
+        if (paymentMode === 'gw') return baseStake;
+        if (paymentMode === 'month') return baseStake * 4;
+        return Number(customAmount) || 0;
+    };
+
     const handlePayment = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!phoneNumber) return;
+        const amount = getFinalAmount();
+        if (!phoneNumber || amount <= 0) return;
 
         setIsLoading(true);
-        setToast(null);
 
         try {
             const apiUrl = getApiBaseUrl();
@@ -56,7 +64,7 @@ export default function Deposit() {
                 },
                 body: JSON.stringify({
                     phoneNumber,
-                    amount: amountDue || 0,
+                    amount: amount,
                     leagueId: activeLeagueId,
                     userId: activeUserId
                 })
@@ -65,24 +73,19 @@ export default function Deposit() {
             const data = await response.json();
 
             if (data.success) {
-                setToast({ message: data.message || 'Awaiting M-Pesa PIN...', type: 'success' });
+                toast.success(data.message || 'Awaiting M-Pesa PIN...');
             } else {
                 throw new Error(data.message || 'Payment failed');
             }
         } catch (error: any) {
-            setToast({ message: error.message || 'Failed to initiate M-Pesa push. Is the backend running?', type: 'error' });
+            toast.error(error.message || 'Failed to initiate M-Pesa push. Is the backend running?');
             console.error(error);
         } finally {
             setIsLoading(false);
-            // Auto hide toast
-            setTimeout(() => setToast(null), 5000);
         }
     };
 
-    useEffect(() => {
-        if (!toast) return;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [toast]);
+    const finalAmount = getFinalAmount();
 
     return (
         <div className="p-6 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto bg-[#111613] flex flex-col items-center justify-center">
@@ -90,36 +93,78 @@ export default function Deposit() {
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#22C55E]/10 mb-4">
-                        <Smartphone className="w-8 h-8 text-[#22C55E]" />
+                        <Wallet className="w-8 h-8 text-[#22C55E]" />
                     </div>
-                    <h1 className="text-3xl font-extrabold tracking-tight mb-2">Fund the Vault</h1>
-                    <p className="text-gray-400 font-medium tracking-wide">
-                        Secure M-Pesa deposit to clear your 🔴 Red Zone status.
+                    <h1 className="text-3xl font-extrabold tracking-tight mb-2">Top Up Wallet</h1>
+                    <p className="text-gray-600 dark:text-gray-400 font-medium text-sm tracking-wide">
+                        Add funds to your FantasyChama wallet via M-Pesa.
                     </p>
                 </div>
 
-                <div className="bg-[#151c18] border border-white/5 p-8 rounded-2xl shadow-2xl relative overflow-hidden">
-                    {/* Glassmorphism ambient glow */}
+                <div className="bg-[#151c18] border border-white/5 p-6 md:p-8 rounded-2xl shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-[#22c55e] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
 
-                    <div className="mb-8 text-center">
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Amount Due</p>
-                        <div className="flex items-center justify-center gap-2">
-                            <span className="text-xl font-bold text-gray-400">KES</span>
-                            <span className="text-5xl font-black text-white tabular-nums tracking-tighter">{amountDue?.toLocaleString() || '---'}</span>
-                        </div>
+                    <div className="mb-6 flex gap-2">
+                        <button 
+                            type="button"
+                            onClick={() => setPaymentMode('month')}
+                            className={`flex-1 py-2 px-1 rounded-lg border text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors ${paymentMode === 'month' ? 'bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]' : 'bg-transparent border-gray-700 text-gray-500'}`}
+                        >
+                            Month (4 GWs)
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => setPaymentMode('gw')}
+                            className={`flex-1 py-2 px-1 rounded-lg border text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors ${paymentMode === 'gw' ? 'bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]' : 'bg-transparent border-gray-700 text-gray-500'}`}
+                        >
+                            This GW
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => setPaymentMode('custom')}
+                            className={`flex-1 py-2 px-1 rounded-lg border text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-colors ${paymentMode === 'custom' ? 'bg-[#22c55e]/20 border-[#22c55e] text-[#22c55e]' : 'bg-transparent border-gray-700 text-gray-500'}`}
+                        >
+                            Custom
+                        </button>
                     </div>
 
-                    <div className="mb-6 rounded-xl border border-[#22c55e]/20 bg-[#0a100a]/60 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-[#22c55e] mb-1">Pochi Destination</p>
-                        <p className="text-sm font-bold text-white">{leagueName}</p>
-                        <p className="text-xs text-gray-400 mt-1">Send to Chairman Pochi Number</p>
-                        <p className="text-lg font-black text-[#22c55e] tabular-nums mt-1">{chairmanPhone}</p>
+                    <div className="mb-8 text-center transition-all">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Deposit Amount</p>
+                        
+                        {paymentMode === 'custom' ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-xl font-bold text-gray-600 dark:text-gray-400">KES</span>
+                                <input 
+                                    type="number" 
+                                    value={customAmount}
+                                    onChange={(e) => setCustomAmount(e.target.value)}
+                                    placeholder="e.g. 50"
+                                    className="bg-transparent text-5xl font-black text-white tabular-nums tracking-tighter w-32 border-b-2 border-[#22c55e]/50 focus:border-[#22c55e] outline-none text-center"
+                                    autoFocus
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-xl font-bold text-gray-600 dark:text-gray-400">KES</span>
+                                <span className="text-5xl font-black text-white tabular-nums tracking-tighter">{finalAmount.toLocaleString()}</span>
+                            </div>
+                        )}
+                        {paymentMode === 'custom' && (
+                            <p className="text-[10px] mt-2 text-yellow-500/80 uppercase font-black tracking-widest">💸 Student / Micro Payment</p>
+                        )}
+                    </div>
+
+                    <div className="mb-6 rounded-xl border border-[#22c55e]/20 bg-[#0a100a]/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-[#22c55e] mb-1">Pochi Transfer</p>
+                            <p className="text-sm font-bold text-white">{leagueName}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">To Chairman: <span className="text-white font-bold">{chairmanPhone}</span></p>
+                        </div>
                     </div>
 
                     <form onSubmit={handlePayment} className="space-y-6 relative z-10">
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Number</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Number</label>
                             <div className="relative">
                                 <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500">
                                     +254
@@ -136,8 +181,8 @@ export default function Deposit() {
 
                         <button
                             type="submit"
-                            disabled={isLoading || !amountDue}
-                            className="w-full flex items-center justify-center gap-3 bg-[#22c55e] hover:bg-[#1ea54c] text-[#0a100a] py-4 px-6 rounded-xl font-extrabold text-lg transition-colors disabled:opacity-70"
+                            disabled={isLoading || finalAmount <= 0}
+                            className="w-full flex items-center justify-center gap-3 bg-[#22c55e] hover:bg-[#1ea54c] text-[#0a100a] py-4 px-6 rounded-xl font-extrabold text-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <>
@@ -146,7 +191,7 @@ export default function Deposit() {
                                 </>
                             ) : (
                                 <>
-                                    Pay with M-Pesa <ArrowRight className="w-5 h-5" />
+                                    Top Up {finalAmount > 0 ? `KES ${finalAmount}` : ''} <ArrowRight className="w-5 h-5" />
                                 </>
                             )}
                         </button>
@@ -157,20 +202,6 @@ export default function Deposit() {
                     </div>
                 </div>
             </div>
-
-            {/* Toast Notification */}
-            <div className={clsx(
-                "fixed top-4 right-4 left-auto w-[calc(100vw-2rem)] md:w-96 p-4 rounded-2xl shadow-2xl transition-all duration-300 transform flex items-start gap-4 z-50 fc-inline-toast",
-                toast ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0 pointer-events-none",
-                toast?.type === 'success' ? "fc-inline-toast-success" : "fc-inline-toast-error"
-            )}>
-                {toast?.type === 'success' ? <CheckCircle2 className="w-6 h-6 flex-shrink-0 mt-0.5" /> : <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />}
-                <div>
-                    <h4 className="font-extrabold text-base mb-1">{toast?.type === 'success' ? 'Push Sent' : 'Error'}</h4>
-                    <p className="font-medium text-sm leading-tight opacity-90">{toast?.message}</p>
-                </div>
-            </div>
-
         </div>
     );
 }

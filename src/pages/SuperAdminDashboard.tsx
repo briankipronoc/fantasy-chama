@@ -350,7 +350,7 @@ export default function SuperAdminDashboard() {
                         <button onClick={() => setStealthMode(!stealthMode)}
                             className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition border border-white/10"
                             title="Toggle figures">
-                            {stealthMode ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                            {stealthMode ? <EyeOff className="w-4 h-4 text-gray-600 dark:text-gray-400" /> : <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />}
                         </button>
                         <button onClick={() => navigate('/')}
                             className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-xs font-bold uppercase tracking-widest rounded-xl transition border border-white/15 text-white">
@@ -365,7 +365,7 @@ export default function SuperAdminDashboard() {
                         { label: 'Gross Volume', value: fmt(stats.totalGrossVolume), sub: 'All-time', color: 'text-white', icon: <BarChart3 className="w-4 h-4 text-blue-400" />, glow: 'bg-blue-500/5' },
                         { label: 'HQ Revenue (3.5%)', value: fmt(stats.totalPlatformRev), sub: 'Platform earnings', color: 'text-emerald-400', icon: <Banknote className="w-4 h-4 text-emerald-400" />, glow: 'bg-emerald-500/10' },
                         { label: 'Active Leagues', value: stealthMode ? '**' : String(stats.activeLeagues), sub: `${stats.activeMembers} members`, color: 'text-white', icon: <Activity className="w-4 h-4 text-cyan-400" />, glow: 'bg-cyan-500/5' },
-                        { label: 'GW Resolutions', value: stealthMode ? '**' : String(stats.totalResolutions), sub: 'Total processed', color: 'text-white', icon: <CheckCircle className="w-4 h-4 text-gray-400" />, glow: 'bg-white/3' },
+                        { label: 'GW Resolutions', value: stealthMode ? '**' : String(stats.totalResolutions), sub: 'Total processed', color: 'text-white', icon: <CheckCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />, glow: 'bg-white/3' },
                         { label: 'Chairman Kickbacks', value: fmt(stats.totalChairmanPayouts), sub: '4% governance', color: 'text-amber-400', icon: <Trophy className="w-4 h-4 text-amber-400" />, glow: 'bg-amber-500/5' },
                         { label: 'Co-Chair Kickbacks', value: fmt(stats.totalCoAdminPayouts), sub: '1% audit fee', color: 'text-purple-400', icon: <Users className="w-4 h-4 text-purple-400" />, glow: 'bg-purple-500/5' },
                         { label: 'M-Pesa Fees', value: fmt(stats.totalSafaricomFees), sub: '1.5% network', color: 'text-red-400', icon: <TrendingUp className="w-4 h-4 text-red-400" />, glow: 'bg-red-500/5' },
@@ -423,7 +423,7 @@ export default function SuperAdminDashboard() {
                 <div className="fc-hq-tabbar flex gap-1 p-1 rounded-xl w-fit">
                     {(['overview', 'settlements', 'leagues', 'ledger'] as const).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === tab ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-600 hover:text-gray-400'}`}>
+                            className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === tab ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-600 hover:text-gray-600 dark:text-gray-400'}`}>
                             {tab}
                         </button>
                     ))}
@@ -433,7 +433,7 @@ export default function SuperAdminDashboard() {
                     <section className="fc-hq-panel rounded-2xl p-5 md:p-6">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                             <div>
-                                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                                <h2 className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 flex items-center gap-2">
                                     <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> HQ Settlement Queue
                                 </h2>
                                 <p className="text-xs text-gray-500 mt-1">Verify chairman receipts, clear debt, and unlock affected leagues automatically when balance reaches zero.</p>
@@ -461,7 +461,7 @@ export default function SuperAdminDashboard() {
                                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                                             <div>
                                                 <p className="text-sm font-black text-white">{item.leagueName || item.leagueId}</p>
-                                                <p className="text-[11px] text-gray-400 mt-1">
+                                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1">
                                                     Receipt <span className="font-mono text-white">{item.receiptCode || 'N/A'}</span> • Requested KES {Number(item.amount || 0).toLocaleString()} • Debt snapshot KES {Number(item.debtSnapshot || 0).toLocaleString()}
                                                 </p>
                                                 <p className="text-[10px] text-gray-500 mt-1">
@@ -584,7 +584,7 @@ export default function SuperAdminDashboard() {
                 {(activeTab === 'ledger' || activeTab === 'overview') && (
                     <div className="fc-hq-panel rounded-xl overflow-hidden shadow-2xl">
                         <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between gap-3">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Treasury Events</h3>
+                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Treasury Events</h3>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-gray-600 bg-white/5 px-2 py-0.5 rounded">{treasuryEvents.length} records</span>
                                 <button
@@ -630,7 +630,7 @@ export default function SuperAdminDashboard() {
                                                 </td>
                                                 <td className="px-5 py-3.5 text-right font-bold text-gray-300 text-xs">{stealthMode ? '****' : `KES ${Number(ev.grossPot || 0).toLocaleString()}`}</td>
                                                 <td className="px-5 py-3.5 text-right text-amber-400 font-medium text-xs">{ev.chairmanCut ? (stealthMode ? '****' : `KES ${Number(ev.chairmanCut).toLocaleString()}`) : '-'}</td>
-                                                <td className="px-5 py-3.5 text-right font-medium text-gray-400 text-xs">{ev.coAdminCut ? (stealthMode ? '****' : `KES ${Number(ev.coAdminCut).toLocaleString()}`) : '-'}</td>
+                                                <td className="px-5 py-3.5 text-right font-medium text-gray-600 dark:text-gray-400 text-xs">{ev.coAdminCut ? (stealthMode ? '****' : `KES ${Number(ev.coAdminCut).toLocaleString()}`) : '-'}</td>
                                                 <td className="px-5 py-3.5 text-right font-medium text-red-400/70 text-xs">{ev.mpesaFee ? (stealthMode ? '****' : `KES ${Number(ev.mpesaFee).toLocaleString()}`) : '-'}</td>
                                                 <td className="px-5 py-3.5 text-right text-emerald-400 font-black text-xs">{stealthMode ? '****' : `KES ${Number(ev.platformNetRevenue || 0).toLocaleString()}`}</td>
                                             </tr>

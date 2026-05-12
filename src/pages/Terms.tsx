@@ -16,7 +16,7 @@ export default function Terms() {
                         Fantasy <span className="text-emerald-400">Chama</span>
                     </Link>
                     <div className="flex items-center gap-6">
-                        <Link to="/" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Return Home</Link>
+                        <Link to="/" className="text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-white transition-colors">Return Home</Link>
                     </div>
                 </div>
             </nav>
@@ -27,7 +27,7 @@ export default function Terms() {
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
                     <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-4 block relative z-10">Legal Architecture</span>
                     <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-white mb-6 relative z-10">The Rules of the Vault.</h1>
-                    <p className="text-gray-400 text-lg md:text-xl font-medium max-w-2xl mx-auto relative z-10">
+                    <p className="text-gray-600 dark:text-gray-400 text-lg md:text-xl font-medium max-w-2xl mx-auto relative z-10">
                         Institutional-grade transparency. Everything you need to know about how the platform routes, protects, and settles your stakes.
                     </p>
                 </div>
@@ -43,10 +43,10 @@ export default function Terms() {
                         </div>
                         <div className="z-10 relative">
                             <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">1. Vault Mechanics & Escrow</h2>
-                            <p className="text-gray-400 leading-relaxed text-base md:text-lg mb-4">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg mb-4">
                                 Fantasy Chama acts exclusively as an automated escrow gateway. When users fund their wallets via M-Pesa STK push, funds are held securely. The platform natively prevents manual withdrawal of active stakes prior to official gameweek settlements.
                             </p>
-                            <p className="text-gray-400 leading-relaxed text-base md:text-lg">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg">
                                 The platform guarantees 100% mathematical accuracy based on the Official FPL API. We do not manually alter points, ranks, or outcomes.
                             </p>
                         </div>
@@ -59,7 +59,7 @@ export default function Terms() {
                             <Terminal className="w-5 h-5 text-amber-400" />
                         </div>
                         <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">2. Admin Powers</h2>
-                        <p className="text-gray-400 leading-relaxed text-sm lg:text-base z-10 relative">
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm lg:text-base z-10 relative">
                             League Chairmen define the stakes. Platform architecture natively redirects customizable administrative commissions directly to their personal wallets upon each successful gameweek resolution.
                         </p>
                     </div>
@@ -71,7 +71,7 @@ export default function Terms() {
                             <AlertOctagon className="w-6 h-6 text-red-400" />
                         </div>
                         <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">3. Red Zone Enforcement</h2>
-                        <p className="text-gray-400 leading-relaxed text-base z-10 relative">
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-base z-10 relative">
                             Users who fail to maintain sufficient wallet balances are automatically demoted to the "Red Zone". While in the Red Zone, managers are explicitly excluded from the active gameweek pot and are ineligible for any B2C payouts until their arrears are cleared.
                         </p>
                     </div>
@@ -83,7 +83,7 @@ export default function Terms() {
                             <Scale className="w-6 h-6 text-blue-400" />
                         </div>
                         <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">4. Safaricom Integrations</h2>
-                        <p className="text-gray-400 leading-relaxed text-base z-10 relative">
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-base z-10 relative">
                             All electronic transactions flow strictly through Safaricom Daraja APIs. Payout speeds and STK push reliability are subject to network uptime. Fantasy Chama is not liable for upstream telecom latency or delayed B2C executions.
                         </p>
                     </div>
@@ -96,10 +96,10 @@ export default function Terms() {
                                 <FileText className="w-7 h-7 text-emerald-400" />
                             </div>
                             <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">5. Operational Indemnity & Platform Fees</h2>
-                            <p className="text-gray-400 leading-relaxed text-lg max-w-4xl mb-4">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg max-w-4xl mb-4">
                                 By deploying or participating in a league engineered by Fantasy Chama, users acknowledge and agree to an irrevocable <strong>9% Gross Operational Cut</strong> per gameweek resolution. This constitutes a 4% Chairman Governance Fee, 3.5% HQ Platform Execution Fee, and a 1.5% Telecom Processing buffer. These fees are algorithmically deducted from the gross pot and are absolutely <strong>non-refundable</strong> under all circumstances, regardless of user dropout or league dissolution.
                             </p>
-                            <p className="text-gray-400 leading-relaxed text-lg max-w-4xl">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg max-w-4xl">
                                 Furthermore, Fantasy Chama operates strictly as a parallel calculation matrix bridging the Official Premier League API and Safaricom's Daraja gateway. We accept <strong>zero liability</strong> for financial misallocations, resolution delays, or payout failures stemming from upstream FPL API outages, catastrophic Safaricom telecom latency, or Chairman fraud via hybrid cash-handoffs. Users assume all sovereign risk when authorizing M-Pesa deposits into the platform.
                             </p>
                         </div>

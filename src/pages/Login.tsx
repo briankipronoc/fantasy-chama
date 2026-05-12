@@ -257,7 +257,7 @@ export default function Login() {
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 text-xs md:text-sm font-medium">
+                <div className="flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-400 text-xs md:text-sm font-medium">
                     <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#FBBF24]" />
                     <span>Secure Wealth Circle</span>
                 </div>
@@ -271,7 +271,7 @@ export default function Login() {
                     <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">
                         {isAdminView ? "Chairman's Portal" : "Enter the League"}
                     </h1>
-                    <p className="text-gray-400 text-xs md:text-sm">
+                    <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">
                         {isAdminView ? "Manage the league economy & master ledger" : "Exclusive access for high-stakes wealth management"}
                     </p>
                 </div>
@@ -286,7 +286,7 @@ export default function Login() {
                         )}
 
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Phone Number</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Phone Number</label>
                             <div className="relative">
                                 <Phone className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                                 <input
@@ -308,7 +308,7 @@ export default function Login() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-4 uppercase tracking-wider text-center">League Invite Code</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-4 uppercase tracking-wider text-center">League Invite Code</label>
                             <div className="flex justify-between gap-1.5 md:gap-2">
                                 {code.map((digit, index) => (
                                     <input
@@ -341,7 +341,7 @@ export default function Login() {
                 ) : (
                     <form onSubmit={handleAdminLogin} className="space-y-6 relative z-10 animate-in fade-in duration-300">
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Email Address</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Email Address</label>
                             <div className="relative">
                                 <Mail className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                                 <input
@@ -362,7 +362,7 @@ export default function Login() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Secure Password</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Secure Password</label>
                             <div className="relative">
                                 <KeyRound className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                                 <input
@@ -422,7 +422,7 @@ export default function Login() {
                         </button>
 
                         <div className="mt-4 text-center">
-                            <p className="text-[11px] md:text-xs text-gray-400">
+                            <p className="text-[11px] md:text-xs text-gray-600 dark:text-gray-400">
                                 New Chairman? <button type="button" onClick={() => navigate('/setup')} className="text-[#10B981] font-bold hover:underline">Create Account here.</button>
                             </p>
                         </div>
@@ -431,7 +431,7 @@ export default function Login() {
 
                 <div className="mt-8 flex items-center justify-center gap-4 relative z-10 opacity-60">
                     <div className="h-px bg-white/10 flex-1"></div>
-                    <span className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest">Authorized Personal Only</span>
+                    <span className="text-[8px] md:text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest">Authorized Personal Only</span>
                     <div className="h-px bg-white/10 flex-1"></div>
                 </div>
             </div>

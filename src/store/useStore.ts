@@ -29,6 +29,7 @@ export interface LeagueSettings {
     inviteCode: string;
     pendingHQDebt?: number;
     isSuspended?: boolean;
+    pilotMode?: boolean;
     suspensionNudges?: string[];
     lastResolvedDate?: any; // Firestore Timestamp — used by 48h grace period engine
     referralCode?: string;  // Unique referral code for this league's chairman

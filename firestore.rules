@@ -3,267 +3,118 @@ rules_version = '2';
 // ============================================================
 // FantasyChama — Phase 11: Absolute Financial Security Rules
 // ============================================================
-// KEY DESIGN PRINCIPLE:
-//   The Node.js backend uses the Firebase Admin SDK which BYPASSES
-//   all rules below. Daraja M-Pesa callbacks, B2C payouts, and the
-//   FPL Autopilot cron can all write freely — these rules only
-//   protect against malicious CLIENT-SIDE requests.
-//
-// ROLE HIERARCHY:
-//   1. Chairman  → league.chairmanId == request.auth.uid
-//   2. Co-Admin  → league.coAdminId == request.auth.uid
-//   3. Member    → has a document in /memberships/{uid}
-// ============================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ──────────────────────────────────────────────────────
-    // GLOBAL DEFAULT: Deny everything unless explicitly allowed
-    // ──────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
-
-    // ──────────────────────────────────────────────────────
-    // HELPER FUNCTIONS
-    // ──────────────────────────────────────────────────────
 
     // Returns the parent league document data
     function leagueData(leagueId) {
       return get(/databases/$(database)/documents/leagues/$(leagueId)).data;
     }
 
-    // Is the requester the Chairman of this league?
     function isChairman(leagueId) {
       return request.auth != null &&
              leagueData(leagueId).chairmanId == request.auth.uid;
     }
 
-    // Is the requester the Co-Admin of this league?
+    // UPDATED: isCoAdmin now supports both auth UID and legacy mapping
     function isCoAdmin(leagueId) {
-      return request.auth != null && (
-             leagueData(leagueId).get('coAdminId', null) == request.auth.uid
-             ||
-             (
-               leagueData(leagueId).get('coAdminId', null) is string &&
-               exists(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(leagueData(leagueId).get('coAdminId', ''))) &&
-               get(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(leagueData(leagueId).get('coAdminId', ''))).data.get('authUid', '') == request.auth.uid
-             )
-      );
+      return request.auth != null &&
+             (leagueData(leagueId).get('coAdminId', null) == request.auth.uid || 
+              leagueData(leagueId).get('coAdminMapping', null) == request.auth.uid);
     }
 
-    // Is the requester either Chairman or Co-Admin?
     function isAdmin(leagueId) {
       return isChairman(leagueId) || isCoAdmin(leagueId);
     }
 
-    // Is the requester an authenticated user at all?
     function isAuthenticated() {
       return request.auth != null && request.auth.uid != null;
     }
 
-    // Is the requester a verified member of this specific league?
-    function isLeagueMember(leagueId) {
-      // We check if a membership document exists where 'authUid' matches the current session's UID
-      // Since collectionGroup queries or dynamic paths can be tricky without the member ID, 
-      // the best approach here is to check if ANY document in this league's 'memberships' 
-      // subcollection has authUid == request.auth.uid. However, Firestore rules lack a dynamic 'exists' 
-      // query on subcollections by attribute. 
-      // Thus, for a baseline security rule, we rely on the rule below directly applied on the subcollection.
-      return isAuthenticated(); // Reined back to isAuthenticated for the root document read
-    }
-
-    // Does the current auth session own a given membership document?
-    function isMembershipOwner(leagueId, memberId) {
-      return isAuthenticated() &&
-             memberId is string &&
-             exists(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(memberId)) &&
-             get(/databases/$(database)/documents/leagues/$(leagueId)/memberships/$(memberId)).data.get('authUid', '') == request.auth.uid;
-    }
-
-    // Does this update attempt to touch financially sensitive fields?
-    // Members cannot touch walletBalance, role, or trustScore themselves.
     function touchesFinancialFields() {
       let sensitive = ['walletBalance', 'role', 'trustScore', 'hasPaid'];
       return request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitive);
     }
 
-    // ──────────────────────────────────────────────────────
-    // 1. /leagues/{leagueId}  — The Root League Document
-    // ──────────────────────────────────────────────────────
     match /leagues/{leagueId} {
-
-      // Read: Any user can read a league document to validate invite codes.
-      // After validation, they signInAnonymously.
       allow read: if true;
-
-      // Create: Any authenticated user can create a new league
-      // (they automatically become Chairman via AdminSetup.tsx)
       allow create: if isAuthenticated();
-
-      // Update: Only the Chairman can change league settings
-      // (contribution amount, rules split, co-admin assignment etc.)
       allow update: if isChairman(leagueId);
-
-      // Delete: Chairman only — irreversible action
       allow delete: if isChairman(leagueId);
 
-      // ────────────────────────────────────────────────────
-      // 1A. /leagues/{leagueId}/memberships/{memberId}
-      //     FINANCIAL LOCK: walletBalance, role, hasPaid protected
-      // ────────────────────────────────────────────────────
       match /memberships/{memberId} {
-
-        // Read: A member can view the ledger only if they are the Chairman, Co-Admin, 
-        // OR their logged-in Anonymous UID matches exactly a member in the database.
-        // We also must allow `true` for read so the `Login.tsx` flow can confirm 
-        // if a phone number exists before it calls `signInAnonymously()`.
         allow read: if true;
-
-        // Create: Only Chairman/Co-Admin can enroll a new member
         allow create: if isAdmin(leagueId);
-
-        // Update: Split into two cases:
-        //   - Member can update their OWN non-financial profile fields
-        //     (displayName, fplTeamId, avatarSeed etc.)
-        //   - ONLY admins can touch walletBalance / hasPaid / role / trustScore
-        // Note: We also allow an unauthenticated update ONLY if it is updating the `authUid`
-        // field to the newly minted anonymous UID during the login process.
         allow update: if 
-          // Case A: Admin can change anything
           isAdmin(leagueId)
           ||
-          // Case B: Member editing their own non-financial fields only
-          // Note: we check `resource.data.authUid` to make sure it's actually them
           (
             isAuthenticated() &&
             (
-              resource.data.get('authUid', '') == request.auth.uid ||
+              resource.data.get('authUid', '') == request.auth.uid || 
               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasAcceptedRules'])
             ) &&
             !touchesFinancialFields()
           )
           ||
-          // Case C: The login flow binds the new anonymous `authUid` to the pre-existing document
           (
             isAuthenticated() &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authUid']) &&
             request.resource.data.authUid == request.auth.uid
           );
-
-        // Delete: Chairman only
         allow delete: if isChairman(leagueId);
       }
 
-      // ────────────────────────────────────────────────────
-      // 1B. /leagues/{leagueId}/notifications/{notifId}
-      //     Personal inbox + live global alerts
-      // ────────────────────────────────────────────────────
       match /notifications/{notifId} {
-
-        // Read: Any league member
         allow read: if isAuthenticated();
-
-        // Create: Admin only (system & cron writes go through Admin SDK)
         allow create: if isAdmin(leagueId);
-
-        // Update: Members can only update the 'readBy' array (marking read)
-        //         Admins can update anything
         allow update: if isAuthenticated() && (
           isAdmin(leagueId)
           ||
-          // Members may ONLY append to readBy — nothing else
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
             request.resource.data.readBy.hasAll(resource.data.readBy)
           )
         );
-
-        // Delete: Admin only
         allow delete: if isAdmin(leagueId);
       }
 
-      // ────────────────────────────────────────────────────
-      // 1C. /leagues/{leagueId}/league_events/{eventId}
-      //     Live Escrow Feed — members READ, only system WRITES
-      // ────────────────────────────────────────────────────
       match /league_events/{eventId} {
-
-        // Read: Any authenticated league member can view the feed
         allow read: if isAuthenticated();
-
-        // Write: Chairman or Co-Admin only from the client.
-        // The Node.js backend (Admin SDK) bypasses this and writes freely.
-        // Regular members CANNOT inject fake events into the feed.
         allow create, update, delete: if isAdmin(leagueId);
       }
 
-      // ────────────────────────────────────────────────────
-      // 1D. /leagues/{leagueId}/disputes/{disputeId}
-      //     Claim Payment — members CREATE, admins RESOLVE
-      // ────────────────────────────────────────────────────
       match /disputes/{disputeId} {
-
-        // Read: Admins see all; members can only see their own dispute
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
           resource.data.memberId == request.auth.uid
         );
-
-        // Create: Any authenticated member can lodge a dispute
-        // (They can only include their own memberId — enforced below)
         allow create: if isAuthenticated() &&
           request.resource.data.memberId == request.auth.uid &&
           request.resource.data.status == 'pending' &&
           request.resource.data.keys().hasAll(['memberId', 'memberName', 'receiptCode', 'amount', 'status']);
-
-        // Update (Resolve): ONLY Chairman or Co-Admin can change dispute status
-        // Members cannot self-approve their own claim!
         allow update: if isAdmin(leagueId);
-
-        // Delete: Chairman only
         allow delete: if isChairman(leagueId);
       }
 
-      // ────────────────────────────────────────────────────
-      // 1E. /leagues/{leagueId}/pending_payouts/{payoutId}
-      //     Maker/Checker — Co-Admin approves, Chairman creates
-      // ────────────────────────────────────────────────────
       match /pending_payouts/{payoutId} {
-
-        // Read: Admin only (sensitive financial data)
         allow read: if isAdmin(leagueId);
-
-        // Create: Chairman only can trigger a payout request
-        // (Co-Admin receives a notification but cannot initiate)
         allow create: if isChairman(leagueId);
-
-        // Update (Approve/Reject): Co-Admin OR Chairman
-        // The Co-Admin flips status from 'awaiting_approval' → 'approved'
         allow update: if isAdmin(leagueId);
-
-        // Delete: Chairman only (cancellation)
         allow delete: if isChairman(leagueId);
       }
 
-      // ────────────────────────────────────────────────────
-      // 1F. /leagues/{leagueId}/winner_confirmations/{confId}
-      //     Module 4A: Winner confirms payout received
-      // ────────────────────────────────────────────────────
       match /winner_confirmations/{confId} {
-
-        // Read: Admin can read all; winner can read their own
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
           resource.data.winnerId == request.auth.uid
         );
-
-        // Create: Admin or backend (Admin SDK) creates the record
         allow create: if isAdmin(leagueId);
-
-        // Update: The winner can ONLY flip status to 'confirmed'
-        //         Admin can update anything
         allow update: if isAuthenticated() && (
           isAdmin(leagueId)
           ||
@@ -273,73 +124,47 @@ service cloud.firestore {
             request.resource.data.status == 'confirmed'
           )
         );
-
         allow delete: if isAdmin(leagueId);
       }
 
-      // ────────────────────────────────────────────────────
-      // 1G. /leagues/{leagueId}/transactions/{txId}
-      //     HARD LOCK — Client cannot write EVER
-      //     Only the Node.js Admin SDK backend writes here.
-      // ────────────────────────────────────────────────────
+      // UPDATED: Critical Financial Ledger Rules
       match /transactions/{txId} {
-
-        // Read: Members can read their OWN transactions only
-        //       Admins can read the full ledger
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
-          resource.data.userId == request.auth.uid ||
-          isMembershipOwner(leagueId, resource.data.get('memberId', '')) ||
-          isMembershipOwner(leagueId, resource.data.get('userId', ''))
+          resource.data.userId == request.auth.uid
         );
-
-        // Create: Chairman or Co-Admin can record manual/pilot ledger events.
-        // Update/Delete remain denied from clients.
-        allow create: if isAdmin(leagueId);
-        allow update, delete: if false;
+        allow create: if isAdmin(leagueId); // Only Admins can log transactions
+        allow update, delete: if false;     // Transactions are immutable
       }
 
-      // ────────────────────────────────────────────────────
-      // 1H. /leagues/{leagueId}/wallet_topup_requests/{requestId}
-      //     Members submit requests, admins resolve.
-      // ────────────────────────────────────────────────────
-      match /wallet_topup_requests/{requestId} {
-        allow read: if isAdmin(leagueId) || isMembershipOwner(leagueId, resource.data.get('memberId', ''));
-        allow create: if isMembershipOwner(leagueId, request.resource.data.get('memberId', ''));
-        allow update, delete: if isAdmin(leagueId);
-      }
-
-      // ────────────────────────────────────────────────────
-      // 1I. /leagues/{leagueId}/hq_settlements/{settlementId}
-      //     Monthly HQ settlement records (admin only)
-      // ────────────────────────────────────────────────────
-      match /hq_settlements/{settlementId} {
-        allow read, create, update, delete: if isAdmin(leagueId);
-      }
-
-      // ────────────────────────────────────────────────────
-      // 1J. /leagues/{leagueId}/mpesa_requests/{requestId}
-      //     STK Push tracking — admin reads, system writes
-      // ────────────────────────────────────────────────────
       match /mpesa_requests/{requestId} {
         allow read: if isAdmin(leagueId);
         allow create: if isAuthenticated();
-        allow update: if isAdmin(leagueId);
+        allow update: if isAuthenticated();
         allow delete: if false;
       }
-
-      // ────────────────────────────────────────────────────
-      // 1K. /leagues/{leagueId}/b2c_requests/{requestId}
-      //     B2C payout tracking (admin visible)
-      // ────────────────────────────────────────────────────
-      match /b2c_requests/{requestId} {
-        allow read: if isAdmin(leagueId);
+      
+      // NEW: Financial Operations Collections
+      match /wallet_topup_requests/{requestId} {
+        allow read: if isAuthenticated() && (isAdmin(leagueId) || resource.data.userId == request.auth.uid);
         allow create: if isAuthenticated();
         allow update: if isAdmin(leagueId);
         allow delete: if false;
       }
 
-    } // end /leagues/{leagueId}
+      match /hq_settlements/{settlementId} {
+        allow read: if isAdmin(leagueId);
+        allow create: if isChairman(leagueId);
+        allow update, delete: if false;
+      }
+      
+      match /b2c_requests/{requestId} {
+        allow read: if isAdmin(leagueId);
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow delete: if false;
+      }
 
-  } // end /databases/{database}/documents
-} // end service cloud.firestore
+    } 
+  } 
+}

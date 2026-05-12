@@ -39,7 +39,7 @@ function LedgerDemo() {
     return (
         <div className="fc-landing-card fc-landing-standings w-full rounded-[2rem] bg-[#161d24] border border-white/5 overflow-hidden shadow-2xl relative">
             <div className="fc-landing-card-chrome fc-landing-standings-chrome px-6 py-4 border-b border-white/5 flex items-center justify-between bg-[#161d24] z-20 relative">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Live FPL Standings</span>
+                <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Live FPL Standings</span>
                 <span className="flex items-center gap-2 text-xs font-medium text-emerald-400">
                     <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                     Live Sync Active
@@ -58,11 +58,11 @@ function LedgerDemo() {
                                 height: '64px',
                             }}
                         >
-                            <div className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors duration-500 ${isHighlighted ? 'bg-emerald-500 text-white' : m.paid ? 'bg-white/5 text-gray-400' : 'bg-red-500/10 text-red-400'}`}>
+                            <div className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors duration-500 ${isHighlighted ? 'bg-emerald-500 text-white' : m.paid ? 'bg-white/5 text-gray-600 dark:text-gray-400' : 'bg-red-500/10 text-red-400'}`}>
                                 {m.name[0]}
                             </div>
                             <span className={`fc-landing-standings-name flex-1 text-base font-medium transition-colors ${isHighlighted ? 'text-white' : 'text-gray-200'}`}>{m.name}</span>
-                            <span className="fc-landing-standings-points text-sm text-gray-400 font-medium tabular-nums">{m.pts} pts</span>
+                            <span className="fc-landing-standings-points text-sm text-gray-600 dark:text-gray-400 font-medium tabular-nums">{m.pts} pts</span>
                             <span className={`text-xs font-medium px-3 py-1.5 rounded-full w-24 text-center transition-colors ${m.paid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
                                 {m.paid ? `KES ${m.balance}` : 'Red Zone'}
                             </span>
@@ -96,7 +96,7 @@ function TrustSlider() {
                 
                 <div className="text-center mb-10">
                     <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-4">The Transparent 9% Engine.</h2>
-                    <p className="text-gray-400 font-medium max-w-2xl mx-auto">We take precisely 9% to run the entire backend intelligence, pay M-Pesa, and compensate the League Chairman. The Winner takes the absolute rest.</p>
+                    <p className="text-gray-600 dark:text-gray-400 font-medium max-w-2xl mx-auto">We take precisely 9% to run the entire backend intelligence, pay M-Pesa, and compensate the League Chairman. The Winner takes the absolute rest.</p>
                 </div>
 
                 <div className="space-y-8">
@@ -126,9 +126,9 @@ function TrustSlider() {
                             <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> Total Ops Fee (9%)</p>
                             <p className="text-3xl font-black text-amber-500 tabular-nums">KES {adminCut.toLocaleString()}</p>
                             <div className="space-y-1.5 mt-4">
-                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-400">Chairman (4%)</span> <span>KES {chairCut.toLocaleString()}</span></div>
-                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-400">Platform HQ (3.5%)</span> <span>KES {hqCut.toLocaleString()}</span></div>
-                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-400">Network Fee (1.5%)</span> <span>KES {mpesaCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-600 dark:text-gray-400">Chairman (4%)</span> <span>KES {chairCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-600 dark:text-gray-400">Platform HQ (3.5%)</span> <span>KES {hqCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-600 dark:text-gray-400">Network Fee (1.5%)</span> <span>KES {mpesaCut.toLocaleString()}</span></div>
                             </div>
                         </div>
                     </div>
@@ -169,7 +169,7 @@ export default function LandingPage() {
                         <Link to="/terms" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Terms</Link>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link hidden sm:block text-sm font-bold text-gray-400 hover:text-white transition-colors">
+                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link hidden sm:block text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-white transition-colors">
                             Sign In
                         </button>
                     </div>
@@ -195,7 +195,7 @@ export default function LandingPage() {
                                 <span className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Vault</span> for <br />
                                 <span className="text-amber-400 italic">FPL.</span>
                             </h1>
-                            <p className="max-w-md text-base md:text-lg text-gray-400 font-medium leading-relaxed">
+                            <p className="max-w-md text-base md:text-lg text-gray-600 dark:text-gray-400 font-medium leading-relaxed">
                                 Connect your mini-league. Automate the stakes. Get paid instantly on M-Pesa the second you win.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 items-center pt-2">
@@ -266,7 +266,7 @@ export default function LandingPage() {
                 <section id="how-it-works" className="fc-landing-band py-24 md:py-32 px-6 md:px-8 bg-[#0d1620]/30 border-t border-b border-white/[0.02]">
                     <div className="max-w-7xl mx-auto">
                         <div className="text-center mb-20 md:mb-24">
-                            <span className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 block">Simple 4-Step Process</span>
+                            <span className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4 block">Simple 4-Step Process</span>
                             <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white mb-6">How It Works</h2>
                             <div className="w-16 h-1 bg-gradient-to-r from-emerald-500 to-emerald-300 mx-auto rounded-full"></div>
                         </div>
@@ -289,7 +289,7 @@ export default function LandingPage() {
                                         </div>
                                         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4">Step {item.step}</div>
                                         <h3 className="font-extrabold text-xl text-white mb-4 tracking-tight">{item.title}</h3>
-                                        <p className="text-gray-400 leading-relaxed font-medium text-sm md:text-base px-2">{item.desc}</p>
+                                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed font-medium text-sm md:text-base px-2">{item.desc}</p>
                                     </div>
                                 ))}
                             </div>
@@ -314,7 +314,7 @@ export default function LandingPage() {
                                     <Lock className="w-6 h-6 text-emerald-400" />
                                 </div>
                                 <h3 className="text-3xl lg:text-4xl font-extrabold text-white tracking-tight">Automated Escrow</h3>
-                                <p className="text-gray-400 text-lg leading-relaxed">
+                                <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
                                     Funds are locked in a programmatic vault at GW1. Automated distribution based on final API standings at GW38. Zero missing funds.
                                 </p>
                             </div>
@@ -327,7 +327,7 @@ export default function LandingPage() {
                                 <Zap className="w-5 h-5 text-blue-400" />
                             </div>
                             <h3 className="text-2xl font-extrabold text-white mb-3 tracking-tight relative z-10">Live FPL Sync</h3>
-                            <p className="text-gray-400 leading-relaxed text-sm lg:text-base relative z-10">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm lg:text-base relative z-10">
                                 Direct integration with Official FPL APIs. Real-time stake valuation as points accumulate globally.
                             </p>
                         </div>
@@ -339,7 +339,7 @@ export default function LandingPage() {
                                 <Trophy className="w-6 h-6 text-amber-400" />
                             </div>
                             <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Automated Admin Incentives</h3>
-                            <p className="max-w-md text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
+                            <p className="max-w-md text-gray-600 dark:text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
                                 Stop managing leagues for free. The platform can natively route a commission directly to the Chairman's wallet upon every gameweek settlement.
                             </p>
                         </div>
@@ -351,7 +351,7 @@ export default function LandingPage() {
                                 <Shield className="w-6 h-6 text-emerald-400" />
                             </div>
                             <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Maker/Checker Protocol</h3>
-                            <p className="max-w-md text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
+                            <p className="max-w-md text-gray-600 dark:text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
                                 Financial integrity verified through dual-authorization protocols by a required Co-Chair before a single B2C payout or Red Zone exclusion executes.
                             </p>
                         </div>
@@ -364,7 +364,7 @@ export default function LandingPage() {
                                     <Banknote className="w-7 h-7 text-emerald-400" />
                                 </div>
                                 <h3 className="text-3xl lg:text-4xl font-extrabold text-white mb-5 tracking-tight">Hybrid Cash Flow</h3>
-                                <p className="text-gray-400 leading-relaxed text-lg">
+                                <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">
                                     Execute payouts securely via Safaricom Daraja, or hand the winner physical cash while the system seamlessly reorganizes the digital ledger.
                                 </p>
                             </div>
@@ -382,7 +382,7 @@ export default function LandingPage() {
                             <h2 className="fc-landing-title-gradient text-6xl md:text-8xl lg:text-[10rem] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40 leading-none">
                                 The League <br/> Starts Now.
                             </h2>
-                            <p className="text-gray-400 text-xl md:text-3xl font-medium max-w-2xl mx-auto drop-shadow-xl mt-8">
+                            <p className="text-gray-600 dark:text-gray-400 text-xl md:text-3xl font-medium max-w-2xl mx-auto drop-shadow-xl mt-8">
                                 Stop managing spreadsheets. Move your mini-league to the only platform that automatically pays you a commission for hosting it.
                             </p>
                         </div>

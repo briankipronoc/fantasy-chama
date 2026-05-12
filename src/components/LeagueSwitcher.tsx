@@ -76,7 +76,7 @@ export default function LeagueSwitcher() {
                 <span className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-gray-300">
                     {leagues.length} Leagues
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-600 dark:text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {showHint && !open && (

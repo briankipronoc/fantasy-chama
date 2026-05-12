@@ -426,14 +426,14 @@ export default function AdminSetup() {
                 <h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight text-white">
                     Chairman Sign Up
                 </h1>
-                <p className="text-gray-400 text-xs">
+                <p className="text-gray-600 dark:text-gray-400 text-xs">
                     Begin your journey as a League Chairman.
                 </p>
             </div>
 
             <form className="space-y-4 relative z-10" onSubmit={(e) => { e.preventDefault(); nextStep(); }}>
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                         Full Name <Tooltip text="Identifies you as the official gatekeeper to joining members." />
                     </label>
                     <div className="relative">
@@ -453,7 +453,7 @@ export default function AdminSetup() {
                 </div>
 
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                         Email Address <Tooltip text="Your primary God Mode login ID. We never spam." />
                     </label>
                     <div className="relative">
@@ -476,7 +476,7 @@ export default function AdminSetup() {
                 </div>
 
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                         M-Pesa Phone Number <Tooltip text={<span><strong>CRITICAL:</strong> Your Chairman kickbacks are sent directly to this M-Pesa line.</span>} />
                     </label>
                     <div className="relative">
@@ -499,7 +499,7 @@ export default function AdminSetup() {
                 </div>
 
                 <div className="space-y-1.5 mb-6">
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                         Secure Password <Tooltip text="Protects the league's financial vault. Treat this like a bank account." />
                     </label>
                     <div className="relative">
@@ -550,7 +550,7 @@ export default function AdminSetup() {
             </form>
 
             <div className="mt-6 pt-5 border-t border-white/5 text-center relative z-10">
-                <p className="text-[11px] md:text-xs text-gray-400">
+                <p className="text-[11px] md:text-xs text-gray-600 dark:text-gray-400">
                     Already a Chairman? <button onClick={() => navigate('/login', { state: { isAdminView: true } })} className="text-[#FBBF24] font-bold hover:underline">Log in here.</button>
                 </p>
             </div>
@@ -561,7 +561,7 @@ export default function AdminSetup() {
         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 w-full col-span-1 md:col-span-2">
             <div className="text-center mb-8 relative z-10">
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">Build Your League's Economy</h2>
-                <p className="text-gray-400 text-xs md:text-sm">Configure your chama rules, contributions, and prize distributions.</p>
+                <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Configure your chama rules, contributions, and prize distributions.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 w-full max-w-5xl mx-auto h-full">
@@ -573,7 +573,7 @@ export default function AdminSetup() {
                         </div>
                         <div className="space-y-4 relative z-10">
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                                     League Name
                                     {fplFetchStatus === 'success' && (
                                         <span className="ml-2 text-[9px] text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20 normal-case tracking-normal">Auto-filled from FPL</span>
@@ -583,7 +583,7 @@ export default function AdminSetup() {
                                 <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. The Alpha Syndicate" />
                             </div>
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                                     Numeric FPL League ID (Optional) <Tooltip text="Skip for now if you don't have it. We need your NUMERIC League ID, not the join code. Find it in your FPL Standings URL." />
                                 </label>
                                 <input type="text" value={fplLeagueId} onChange={e => {
@@ -599,7 +599,7 @@ export default function AdminSetup() {
                                     // Auto-fetch league name when ID looks valid
                                     if (numericId.length >= 4) {
                                         setFplFetchStatus('loading');
-                                        fetch(`https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${numericId}/standings/`)}`)
+                                        fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${numericId}/standings/`)}`)
                                             .then(res => res.json())
                                             .then(data => {
                                                 if (data?.league?.name) {
@@ -663,9 +663,9 @@ export default function AdminSetup() {
                                 </p>
                             </div>
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
                                 <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
-                                    <span className="bg-[#11171a] px-4 flex items-center justify-center text-gray-400 font-bold border-r border-white/5">KES</span>
+                                    <span className="bg-[#11171a] px-4 flex items-center justify-center text-gray-600 dark:text-gray-400 font-bold border-r border-white/5">KES</span>
                                     <input
                                         type="number"
                                         value={monthlyFee === 0 ? '' : monthlyFee}
@@ -676,7 +676,7 @@ export default function AdminSetup() {
                                 <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">How much does each member pay per FPL Gameweek? This amount will be auto-deducted from their Wallet Balance.</p>
                             </div>
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Estimated Members</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Estimated Members</label>
                                 <input
                                     type="number"
                                     min="2"
@@ -689,7 +689,7 @@ export default function AdminSetup() {
                                 <p className="text-[9px] text-gray-500 mt-1.5">Used purely for projection below. Max 20 members.</p>
                             </div>
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Pochi Receiving Number</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Pochi Receiving Number</label>
                                 <input
                                     type="tel"
                                     value={chairmanPayoutPhone}
@@ -722,11 +722,11 @@ export default function AdminSetup() {
                                         onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
                                         className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent border-b border-[#22c55e]/30 focus:border-[#22c55e] outline-none w-20 text-center"
                                     /><span className="text-3xl font-black text-[#22c55e]">%</span>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Weekly Prize</p>
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Weekly Prize</p>
                                 </div>
                                 <div className="text-right">
                                     <span className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">{100 - weeklyPrizePercent}%</span>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Grand Vault</p>
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Grand Vault</p>
                                 </div>
                             </div>
 
@@ -759,7 +759,7 @@ export default function AdminSetup() {
                             </div>
                             {/* Season Winners Selector */}
                             <div className="mt-8 mb-4">
-                                <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">
+                                <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-3 uppercase tracking-wider">
                                     <Users className="w-4 h-4 text-[#22c55e]" /> End of Season Winners
                                 </label>
                                 <div className="grid grid-cols-4 gap-3">
@@ -783,7 +783,7 @@ export default function AdminSetup() {
                                                 "py-2 rounded-xl border text-xs font-bold transition-all",
                                                 seasonWinnersMode === option.key
                                                     ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
-                                                    : "bg-[#161d24] border-white/5 text-gray-400 hover:bg-white/[0.02]"
+                                                    : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
                                             )}
                                         >
                                             {option.label}
@@ -833,18 +833,18 @@ export default function AdminSetup() {
                                     </div>
                                 )}
 
-                                <p className="text-[9px] text-gray-400 mt-3">The Grand Vault will be split among top {effectiveSeasonWinnersCount} player{effectiveSeasonWinnersCount > 1 ? 's' : ''}.</p>
+                                <p className="text-[9px] text-gray-600 dark:text-gray-400 mt-3">The Grand Vault will be split among top {effectiveSeasonWinnersCount} player{effectiveSeasonWinnersCount > 1 ? 's' : ''}.</p>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-[#161d24] border border-white/5 rounded-xl p-4 border-l-2 border-l-[#22c55e]">
-                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Weekly Payout</p>
+                                <p className="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mb-1">Weekly Payout</p>
                                 <h4 className="text-xl font-bold text-white mb-1 tabular-nums">KES {weeklyPrize.toLocaleString()}</h4>
                                 <p className="text-[10px] text-gray-500 leading-tight">Distributed weekly</p>
                             </div>
                             <div className="bg-[#161d24] border border-white/5 rounded-xl p-4 border-l-2 border-l-[#FBBF24]">
-                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Grand Vault</p>
+                                <p className="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mb-1">Grand Vault</p>
                                 <h4 className="text-xl font-bold text-white mb-1 tabular-nums">KES {grandVault.toLocaleString()}</h4>
                                 <p className="text-[10px] text-gray-500 leading-tight">End-of-season rewards</p>
                             </div>
@@ -864,7 +864,7 @@ export default function AdminSetup() {
                                     <div className="w-4 h-4 border-l-2 border-r-2 border-[#22c55e]"></div>
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest mb-0.5">Estimated Weekly Pot</p>
+                                    <p className="text-[9px] font-bold uppercase text-gray-600 dark:text-gray-400 tracking-widest mb-0.5">Estimated Weekly Pot</p>
                                     <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {weeklyPrize.toLocaleString()}</h4>
                                 </div>
                             </div>
@@ -873,7 +873,7 @@ export default function AdminSetup() {
                                     <Trophy className="w-4 h-4 text-[#FBBF24]" />
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest mb-0.5">Estimated Season Vault</p>
+                                    <p className="text-[9px] font-bold uppercase text-gray-600 dark:text-gray-400 tracking-widest mb-0.5">Estimated Season Vault</p>
                                     <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {(grandVault * 38).toLocaleString()}</h4>
                                     <div className="text-[10px] text-[#22c55e] font-bold mt-1.5 flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></div> Based on 38 GWs
@@ -883,10 +883,10 @@ export default function AdminSetup() {
                         </div>
 
                         <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-400 mb-2">Season Projections</h4>
+                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-600 dark:text-gray-400 mb-2">Season Projections</h4>
                             {effectiveSeasonDistribution.map((percent, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400">
+                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                                         <span className={clsx("min-w-[28px] text-center inline-block font-black opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : idx === 2 ? "text-amber-600 border-amber-600/30" : "text-gray-500 border-gray-500/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
                                     </span>
                                     <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
@@ -897,15 +897,15 @@ export default function AdminSetup() {
                         <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
                             <h4 className="text-[10px] uppercase tracking-widest font-bold text-[#FBBF24] mb-2 flex items-center gap-2"><Shield className="w-3 h-3" /> Escrow Deductions (10%)</h4>
                             <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">Your Chairman Cut (3.5%)</span>
+                                <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">Your Chairman Cut (3.5%)</span>
                                 <span className="font-bold tabular-nums text-[#FBBF24]">KES {chairmanCut.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">Platform Revenue (5.0%)</span>
+                                <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">Platform Revenue (5.0%)</span>
                                 <span className="font-bold tabular-nums text-gray-500">KES {platformCut.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                <span className="flex items-center gap-2 text-gray-400">M-Pesa API Fees (1.5%)</span>
+                                <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">M-Pesa API Fees (1.5%)</span>
                                 <span className="font-bold tabular-nums text-gray-500">KES {mpesaFee.toLocaleString()}</span>
                             </div>
                         </div>
@@ -917,19 +917,19 @@ export default function AdminSetup() {
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-[#22c55e]" /> Net Member Pot</span>
+                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-[#22c55e]" /> Net Member Pot</span>
                                     <span className="font-bold tabular-nums text-white">90.0%</span>
                                 </div>
                                 <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-blue-500" /> M-Pesa Gateway</span>
+                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-blue-500" /> M-Pesa Gateway</span>
                                     <span className="font-bold tabular-nums text-white">1.5%</span>
                                 </div>
                                 <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-red-500" /> Platform API</span>
+                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-red-500" /> Platform API</span>
                                     <span className="font-bold tabular-nums text-white">5.0%</span>
                                 </div>
                                 <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-400"><span className="size-1.5 rounded-full bg-[#FBBF24]" /> Chairman Kickback</span>
+                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-[#FBBF24]" /> Chairman Kickback</span>
                                     <span className="font-bold tabular-nums text-white">3.5%</span>
                                 </div>
                             </div>
@@ -955,7 +955,7 @@ export default function AdminSetup() {
             <div className="text-center mb-4">
                 <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">The Gatekeeper</p>
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Member Enrollment</h2>
-                <p className="text-gray-400 text-xs md:text-sm">Establish your league's inner circle. Members will be securely invited via code later.</p>
+                <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Establish your league's inner circle. Members will be securely invited via code later.</p>
             </div>
 
             <div className="max-w-4xl mx-auto bg-[#0f1923] border border-white/10 rounded-2xl px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -978,7 +978,7 @@ export default function AdminSetup() {
                 <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl px-5 py-3.5">
                     <div>
                         <p className="text-[11px] font-black text-[#10B981] uppercase tracking-widest">FPL Import Ready</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{fplStandings.length} managers found in your FPL league. Import to pre-fill names, then add phone numbers.</p>
+                        <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">{fplStandings.length} managers found in your FPL league. Import to pre-fill names, then add phone numbers.</p>
                     </div>
                     <button
                         type="button"
@@ -1000,7 +1000,7 @@ export default function AdminSetup() {
 
                     <form onSubmit={addLocalMember} className="space-y-4 flex-1 relative z-10">
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                                 Member Display Name <Tooltip text="Their recognizable alias or FPL Team name." />
                             </label>
                             <input
@@ -1012,7 +1012,7 @@ export default function AdminSetup() {
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                                 M-Pesa Phone Number <Tooltip text={<span><strong>Strict verification:</strong> Only this precise phone number will be allowed to log in and withdraw payouts via Safaricom.</span>} />
                             </label>
                             <input
@@ -1037,7 +1037,7 @@ export default function AdminSetup() {
                         {/* Second FPL Team (only shown when allowMultipleTeams is enabled) */}
                         {allowMultipleTeams && (
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                                     2nd FPL Team ID <Tooltip text="Optional. The FPL entry ID of their second team. Leave blank if they only have one team." />
                                 </label>
                                 <input
@@ -1060,7 +1060,7 @@ export default function AdminSetup() {
 
                         <div className="mt-8 bg-white/5 border border-white/10 rounded-xl p-4 flex gap-3 items-start">
                             <div className="size-5 rounded-full bg-[#FBBF24]/20 text-[#FBBF24] flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">i</div>
-                            <p className="text-[11px] text-gray-400 leading-relaxed">
+                            <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
                                 <strong className="text-white">Tip:</strong> Enrolled members verify themselves when setting up their Profile later using your generated join code.
                             </p>
                         </div>
@@ -1088,7 +1088,7 @@ export default function AdminSetup() {
                                         {fullName || "Chairman"}
                                         <Shield className="w-3.5 h-3.5 text-[#FBBF24]" />
                                     </p>
-                                    <p className="text-[10px] text-gray-400 tabular-nums">{phone || "Pending Phone"}</p>
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 tabular-nums">{phone || "Pending Phone"}</p>
                                 </div>
                             </div>
                             <div className="flex items-center">
@@ -1123,7 +1123,7 @@ export default function AdminSetup() {
                                                     {coAdminIndex === i && <Shield className="w-3 h-3 text-[#FBBF24]" />}
                                                     {m.secondFplTeamId && <span className="text-[9px] font-black text-[#10B981] border border-[#10B981]/30 bg-[#10B981]/10 px-1.5 py-0.5 rounded tracking-widest uppercase">Dual</span>}
                                                 </div>
-                                                <p className="text-[10px] text-gray-400">
+                                                <p className="text-[10px] text-gray-600 dark:text-gray-400">
                                                     {m.phone || <span className="text-[#FBBF24] italic">⚠ Phone needed</span>}
                                                     {m.fplEntryId && <span className="ml-2 text-[#10B981] opacity-60">FPL#{m.fplEntryId}</span>}
                                                 </p>
@@ -1135,7 +1135,7 @@ export default function AdminSetup() {
                                                 onClick={() => setCoAdminIndex(coAdminIndex === i ? null : i)}
                                                 className={clsx(
                                                     "text-[10px] font-bold uppercase tracking-widest px-2 py-1 border rounded transition-colors flex items-center gap-1",
-                                                    coAdminIndex === i ? "bg-[#FBBF24] text-black border-[#FBBF24]" : "text-gray-400 border-gray-600 hover:text-white"
+                                                    coAdminIndex === i ? "bg-[#FBBF24] text-black border-[#FBBF24]" : "text-gray-600 dark:text-gray-400 border-gray-600 hover:text-white"
                                                 )}
                                             >
                                                 {coAdminIndex === i ? "Co-Chair" : "Co-Chair"}
@@ -1189,7 +1189,7 @@ export default function AdminSetup() {
             <div className="text-center mb-8">
                 <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Final Verification</p>
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Confirm League Details</h2>
-                <p className="text-gray-400 text-xs md:text-sm">Review your economy and members before activating the league.</p>
+                <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Review your economy and members before activating the league.</p>
             </div>
 
             <div className="bg-[#151c18] border border-white/5 rounded-2xl p-6 md:p-8 w-full max-w-3xl mx-auto shadow-xl relative overflow-hidden space-y-8">
@@ -1233,11 +1233,11 @@ export default function AdminSetup() {
                         </div>
                         <div className="space-y-3">
                             <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
-                                <span className="text-gray-400">Weekly Prize ({weeklyPrizePercent}%)</span>
+                                <span className="text-gray-600 dark:text-gray-400">Weekly Prize ({weeklyPrizePercent}%)</span>
                                 <span className="font-bold text-white tabular-nums">KES {weeklyPrize}</span>
                             </div>
                             <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
-                                <span className="text-gray-400 text-xs">Season Vault ({100 - weeklyPrizePercent}%)</span>
+                                <span className="text-gray-600 dark:text-gray-400 text-xs">Season Vault ({100 - weeklyPrizePercent}%)</span>
                                 <span className="font-bold text-[#FBBF24] tabular-nums text-sm">KES {grandVault * 38} <span className="text-[9px] text-gray-500 font-normal">/38GWs</span></span>
                             </div>
                         </div>
@@ -1258,7 +1258,7 @@ export default function AdminSetup() {
                             {members.slice(0, 4).map((m, i) => (
                                 <div key={i} className="flex justify-between items-center bg-[#0a100a]/50 p-2.5 rounded-lg border border-white/5 text-xs">
                                     <span className="font-medium text-gray-200">{m.displayName}</span>
-                                    <span className="text-gray-400 tabular-nums">{m.phone}</span>
+                                    <span className="text-gray-600 dark:text-gray-400 tabular-nums">{m.phone}</span>
                                 </div>
                             ))}
                             {members.length > 4 && (
@@ -1295,7 +1295,7 @@ export default function AdminSetup() {
                     <Check className="w-10 h-10 text-[#22c55e]" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">League Created Successfully!</h2>
-                <p className="text-gray-400 max-w-sm mx-auto">Your league economy is actively monitoring. You must share this unique join code with your enrolled members securely.</p>
+                <p className="text-gray-600 dark:text-gray-400 max-w-sm mx-auto">Your league economy is actively monitoring. You must share this unique join code with your enrolled members securely.</p>
             </div>
 
             <div className="bg-[#151c18] border border-[#FBBF24]/30 p-10 rounded-[2rem] w-full max-w-sm text-center shadow-[0_0_50px_rgba(251,191,36,0.05)] relative overflow-hidden">
@@ -1355,7 +1355,7 @@ export default function AdminSetup() {
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 text-xs md:text-sm font-medium">
+                <div className="flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-400 text-xs md:text-sm font-medium">
                     <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#FBBF24]" />
                     <span>Secure Wealth Circle</span>
                 </div>

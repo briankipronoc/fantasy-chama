@@ -21,7 +21,7 @@ export default function Error808() {
           </Link>
           <button
             onClick={() => navigate(-1)}
-            className="text-sm font-bold text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2"
+            className="text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-white transition-colors inline-flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" /> Back
           </button>
@@ -43,7 +43,7 @@ export default function Error808() {
               Page Not Found
             </h1>
 
-            <p className="text-gray-400 text-base md:text-lg max-w-xl mx-auto">
+            <p className="text-gray-600 dark:text-gray-400 text-base md:text-lg max-w-xl mx-auto">
               This route is offside. The page you requested does not exist or may have been moved.
               Let us take you back to your league command center.
             </p>

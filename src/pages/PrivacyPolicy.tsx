@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
                         Fantasy <span className="text-emerald-400">Chama</span>
                     </Link>
                     <div className="flex items-center gap-6">
-                        <Link to="/" className="text-sm font-bold text-gray-400 hover:text-white transition-colors">Return Home</Link>
+                        <Link to="/" className="text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-white transition-colors">Return Home</Link>
                     </div>
                 </div>
             </nav>
@@ -27,7 +27,7 @@ export default function PrivacyPolicy() {
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
                     <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-4 block relative z-10">Data Assurance</span>
                     <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-white mb-6 relative z-10">Privacy Architecture.</h1>
-                    <p className="text-gray-400 text-lg md:text-xl font-medium max-w-2xl mx-auto relative z-10">
+                    <p className="text-gray-600 dark:text-gray-400 text-lg md:text-xl font-medium max-w-2xl mx-auto relative z-10">
                         Zero compromises. How we secure your identification, protect your cryptographic keys, and keep the master ledger entirely private.
                     </p>
                 </div>
@@ -43,10 +43,10 @@ export default function PrivacyPolicy() {
                         </div>
                         <div className="z-10 relative">
                             <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">Minimal Telemetry Collection</h2>
-                            <p className="text-gray-400 leading-relaxed text-base md:text-lg mb-4">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg mb-4">
                                 We strip out invasive analytics. Fantasy Chama explicitly gathers the absolute minimum personal data necessary to power financial pipelines. Your encrypted M-Pesa phone number is retained natively for the strict purpose of securely handling real-time deposits and automated B2C payout sweeps.
                             </p>
-                            <p className="text-gray-400 leading-relaxed text-base md:text-lg">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-base md:text-lg">
                                 Official FPL metadata, such as generic team details and gameweek scores, are ingested synchronously via the public FPL architecture. We do not permanently warehouse FPL roster data beyond what is required to render the live positional standings.
                             </p>
                         </div>
@@ -59,7 +59,7 @@ export default function PrivacyPolicy() {
                             <EyeOff className="w-5 h-5 text-emerald-400" />
                         </div>
                         <h2 className="text-2xl font-extrabold text-white tracking-tight mb-3 z-10 relative">Strict Legal Isolation & PII</h2>
-                        <p className="text-gray-400 leading-relaxed text-sm lg:text-base z-10 relative">
+                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm lg:text-base z-10 relative">
                             We categorically do not sell, rent, or trade your financial or performance Personally Identifiable Information (PII) to outside marketers, aggregators, or brokers. All Daraja pipeline transactions adhere strictly to the Safaricom API Data Privacy rulesets, completely shielding your M-Pesa PINs and sensitive financial vectors from our servers.
                         </p>
                     </div>
@@ -72,7 +72,7 @@ export default function PrivacyPolicy() {
                                 <Key className="w-7 h-7 text-amber-400" />
                             </div>
                             <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">Cryptographic Authentication</h2>
-                            <p className="text-gray-400 leading-relaxed text-lg max-w-4xl">
+                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg max-w-4xl">
                                 Your login payload is securely hashed, salted, and governed by Google Firebase Infrastructure. Fantasy Chama codebase administrators entirely lack the capability to view plaintext passwords. Furthermore, our Maker/Checker disbursement logic relies on segmented multi-signature workflows, ensuring no single entity can execute unauthorized payouts without generating immutable audit trails sequentially validated on the server.
                             </p>
                         </div>

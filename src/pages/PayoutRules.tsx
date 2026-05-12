@@ -59,18 +59,18 @@ export default function PayoutRules() {
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">League Constitution & Policy Stack</h1>
-                    <p className="text-sm text-gray-400">Read the league economics and policy requirements in one place.</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Read the league economics and policy requirements in one place.</p>
                 </div>
                 <div className="inline-flex rounded-xl border border-white/10 bg-black/20 p-1 self-start">
                     <button
                         onClick={() => setActivePage(1)}
-                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${activePage === 1 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${activePage === 1 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-gray-600 dark:text-gray-400 hover:text-white'}`}
                     >
                         1/2 Constitution
                     </button>
                     <button
                         onClick={() => setActivePage(2)}
-                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${activePage === 2 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-gray-400 hover:text-white'}`}
+                        className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-colors ${activePage === 2 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-gray-600 dark:text-gray-400 hover:text-white'}`}
                     >
                         2/2 Terms & Privacy
                     </button>

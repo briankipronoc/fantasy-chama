@@ -7,9 +7,19 @@ import clsx from 'clsx';
 import Header from '../components/Header';
 
 const fetchFplStandings = async (leagueId: number) => {
+    // Check cache
+    const cacheKey = `fpl_standings_${leagueId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+        const { timestamp, data } = JSON.parse(cached);
+        // 5-minute TTL caching to prevent Firebase/FPL quota limits during mass refreshes
+        if (Date.now() - timestamp < 300000) {
+            return data;
+        }
+    }
     const fplUrl = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`;
     const endpoints = [
-        `https://corsproxy.io/?${encodeURIComponent(fplUrl)}`,
+        `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(fplUrl)}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(fplUrl)}`,
         `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(fplUrl)}`,
     ];
@@ -25,6 +35,8 @@ const fetchFplStandings = async (leagueId: number) => {
 
             const data = await response.json();
             if (data?.standings?.results) {
+                
+                localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: data.standings.results }));
                 return data.standings.results;
             }
             lastError = 'FPL response format was unexpected.';
@@ -131,7 +143,7 @@ export default function Standings() {
         const fetchCurrentEvent = async () => {
             try {
                 const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
-                const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`);
+                const response = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bootstrapUrl)}`);
                 if (!response.ok) return;
                 const data = await response.json();
                 const current = (data?.events || []).find((event: any) => event.is_current);
@@ -268,13 +280,13 @@ export default function Standings() {
                 {/* Header — matches other pages */}
                 <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Gameweek Rankings" />
 
-                {/* Page Title row */}
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6 mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-5">
                     <div>
-                        <h2 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24] mb-2">League Table</p>
+                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 mb-1">
                             <Trophy className="w-7 h-7 text-[#FBBF24]" /> Live Standings
                         </h2>
-                        <p className="text-gray-400 text-sm font-medium max-w-xl leading-relaxed">
+                        <p className="text-gray-600 dark:text-gray-300 text-sm font-medium max-w-xl leading-relaxed">
                             Real-time FPL performance rankings for your active league.
                         </p>
                     </div>
@@ -294,7 +306,7 @@ export default function Standings() {
                             <Download className="w-4 h-4" /> Export CSV
                         </button>
                     </div>
-                </div>
+                </section>
 
                 {/* Stats Cards */}
                 {/* Quick Fix Inline FPL ID Linker */}
@@ -304,7 +316,7 @@ export default function Standings() {
                             <h3 className="font-bold text-[#10B981] flex items-center gap-2 mb-1">
                                 <Zap className="w-5 h-5" /> {error ? 'Update FPL League Link' : 'Link Official FPL League'}
                             </h3>
-                            <p className="text-sm text-gray-300">Paste your full FPL Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">Paste your full FPL Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
                         </div>
                         <div className="flex gap-2 w-full md:w-auto">
                             <input
@@ -333,14 +345,14 @@ export default function Standings() {
                     <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p>
-                            <p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-400">Players</span></p>
+                            <p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Players</span></p>
                         </div>
                         <Trophy className="w-9 h-9 text-gray-700" />
                     </div>
                     <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">GW Average</p>
-                            <p className="text-2xl font-black text-white">{currentGwAverage} <span className="text-sm font-bold text-gray-400">pts</span></p>
+                            <p className="text-2xl font-black text-white">{currentGwAverage} <span className="text-sm font-bold text-gray-600 dark:text-gray-400">pts</span></p>
                         </div>
                         <Star className="w-9 h-9 text-gray-700" />
                     </div>
@@ -363,8 +375,8 @@ export default function Standings() {
                                         <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                             <Star className="w-3 h-3 fill-current" /> {currentGwHeading}
                                         </p>
-                                        <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
-                                        <p className="text-sm font-bold text-gray-400 mt-0.5">{gwWinner.entry_name} </p>
+                                        <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
+                                        <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5">{gwWinner.entry_name} </p>
                                     </div>
                                 </div>
 
@@ -386,7 +398,7 @@ export default function Standings() {
                         <ShieldAlert className="w-10 h-10 text-red-400 mx-auto mb-4" />
                         <h3 className="text-xl font-black text-white mb-2">Sync Interrupted</h3>
                         <p className="text-red-400 font-bold mb-4 text-sm">{error}</p>
-                        <p className="text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
+                        <p className="text-gray-600 dark:text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
                             {role === 'admin' 
                                 ? "This usually happens if your FPL League ID is incorrect or missing. Use the green 'Update FPL League Link' box above to paste your exact Standings URL and restore the connection."
                                 : "The Chairman needs to update the FPL League link, or the official FPL servers are undergoing maintenance."}
@@ -414,7 +426,7 @@ export default function Standings() {
                                         <tr key={row.id} className={clsx(
                                             'transition-colors',
                                             isTop1 ? 'bg-[#10B981]/5' : 'hover:bg-white/[0.02]',
-                                            gwWinner && row.id === gwWinner.id && !isTop1 ? (hasFinalGwChampion ? 'bg-[#FBBF24]/5' : 'bg-sky-500/5') : '',
+                                            gwWinner && row.id === gwWinner.id && !isTop1 ? 'bg-[#FBBF24]/5' : '',
                                             hasPaid === false && 'opacity-50'
                                         )}>
                                             <td className="px-5 py-4">
@@ -427,7 +439,7 @@ export default function Standings() {
                                                 <div className="flex items-center gap-3">
                                                     <div className={clsx(
                                                         'w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs',
-                                                        isTop1 ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-400'
+                                                        isTop1 ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-600 dark:text-gray-400'
                                                     )}>
                                                         {matchedMember ? (
                                                             <img
@@ -458,7 +470,7 @@ export default function Standings() {
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-5 py-4 text-gray-400 text-sm italic">{row.entry_name}</td>
+                                            <td className="px-5 py-4 text-gray-600 dark:text-gray-400 text-sm italic">{row.entry_name}</td>
                                             <td className="px-5 py-4 text-center">
                                                 <span className={clsx(
                                                     'px-3 py-1 font-bold rounded-lg text-xs tabular-nums border',
@@ -472,7 +484,7 @@ export default function Standings() {
                                             <td className="px-5 py-4 text-center font-extrabold text-white tabular-nums">{row.total.toLocaleString()}</td>
                                             <td className="px-5 py-4 text-right">
                                                     {gwWinner && row.id === gwWinner.id
-                                                    ? <span className={clsx('font-black text-xs tracking-tight border px-2 py-1 rounded-lg', hasFinalGwChampion ? 'text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10' : 'text-sky-300 border-sky-400/20 bg-sky-500/10')}>{hasFinalGwChampion ? `${currentGwLabel} Winner` : `${currentGwLabel} Leader`}</span>
+                                                    ? <span className={clsx('font-black text-xs tracking-tight border px-2 py-1 rounded-lg', 'text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10')}>{hasFinalGwChampion ? `${currentGwLabel} Winner` : `${currentGwLabel} Leader`}</span>
                                                     : <span className="text-gray-600">—</span>
                                                 }
                                             </td>
@@ -516,7 +528,7 @@ export default function Standings() {
                                 <div key={leader.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
                                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">#{idx + 1}</p>
                                     <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
-                                    <p className="text-[10px] text-gray-400 truncate">{leader.entry_name}</p>
+                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{leader.entry_name}</p>
                                     <p className="text-sm font-black text-[#10B981] tabular-nums mt-1">{leader.total.toLocaleString()} pts</p>
                                     <p className="text-[10px] text-gray-500 font-bold mt-1">
                                         {idx === 0
@@ -560,7 +572,7 @@ export default function Standings() {
                                         <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : 'text-gray-500')}>
                                             {item.winnerName}
                                         </p>
-                                        <p className="text-[10px] text-gray-400 truncate mt-1">{item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}</p>
+                                        <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate mt-1">{item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}</p>
                                         {resolved && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
                                         )}

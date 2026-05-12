@@ -13,6 +13,7 @@ export const stkPushSchema = z.object({
 });
 
 export const b2cPayoutSchema = z.object({
+    potBalance: z.number().int().min(0).optional(),
     phone: phoneSchema,
     amount: amountSchema,
     remarks: z.string().max(100).optional(),
@@ -31,4 +32,16 @@ export const deductGwCostSchema = z.object({
     winnerAmount: amountSchema.optional(),
     payoutMethod: z.enum(['mpesa', 'cash']).optional(),
     chairmanId: idSchema.optional()
+});
+
+// Enforce max pot constraint dynamically
+export const strictB2cPayoutSchema = b2cPayoutSchema.refine((data) => {
+    if (data.potBalance !== undefined) {
+        // Mock 4% Admin + 20% HQ fees buffer (24% reserve). Only 76% is technically payable
+        const maxWithdrawal = Math.floor(data.potBalance * 0.76);
+        return data.amount <= maxWithdrawal;
+    }
+    return true; // IF pot balance isn't verified here, pass to Firestore rules
+}, {
+    message: "Requested payout exceeds allowed dynamic limit (Gross Pot minus HQ/Admin fees)."
 });

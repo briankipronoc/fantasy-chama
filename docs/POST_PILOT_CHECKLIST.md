@@ -20,3 +20,25 @@ When the pilot is successful and you are ready to transition to the live system,
 4. **Verify Domain Configuration**
    - Vercel deployments should be pointed to your custom domain, not the `vercel.app` staging domain. Ensure DNS Cnames and A records are propagated.
 
+
+## Post-Pilot System & Monetization Upgrades (Phase 3)
+
+After the pilot, the following features should be implemented into the codebase to maximize the business revenue and optimize administration:
+
+1. **H2H Side Bets (5% Fee)**
+   - Create a `h2hWagers` collection where managers can challenge each other to 1v1 Gameweek battles. 
+   - Winners take the pot minus a 5% system deduction (2.5% to Chairman, 2.5% to HQ).
+
+2. **Relegation Fines**
+   - Introduce an automated 50 KES penalty for the bottom 3 managers each Gameweek.
+   - Requires updating the `backend/` cron job that checks standings to append a negative transaction against those members' wallets.
+
+3. **Comeback Insurance**
+   - Offer a pre-deadline 20 KES "Captain Blank" insurance top-up. If the manager's captain blanks (no goal, assist, or clean sheet), their GW entry stake is refunded.
+
+4. **League Creation Fee**
+   - Place a standard 500 KES fee to initialize a new league via the Admin Setup portal, adding friction-based revenue outside of weekly GW stakes.
+
+5. **WhatsApp B2C Nudges & Automations**
+   - Integrate WhatsApp API for automated "Settle the pot" reminders 4 hours post-GW.
+   - Bypass the human Maker-Checker queue in the Admin Command Center for payouts under 5,000 KES if they perfectly match the FPL API standings.

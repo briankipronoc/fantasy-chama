@@ -59,7 +59,7 @@ export default function InviteHub() {
                     <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4">
                         Group Created Successfully!
                     </h1>
-                    <p className="text-gray-400 text-lg max-w-lg leading-relaxed">
+                    <p className="text-gray-600 dark:text-gray-400 text-lg max-w-lg leading-relaxed">
                         Your "Elite Investors" chama is live. Now, bring in your members to start the rotation.
                     </p>
                 </div>
@@ -124,7 +124,7 @@ export default function InviteHub() {
                         <FileText className="w-4 h-4 text-gray-500" />
                         <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Invitation Preview</span>
                     </div>
-                    <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 italic text-gray-400 text-sm leading-relaxed shadow-lg">
+                    <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 italic text-gray-600 dark:text-gray-400 text-sm leading-relaxed shadow-lg">
                         "Hey! I've just started a new Chama on <strong className="text-[#10B981] not-italic">Fantasy Chama</strong>. Join 'Elite Investors' using my exclusive link: <strong className="text-[#FBBF24] not-italic">fantasy-chama.vercel.app/login?code={inviteCode}</strong> (Code: {inviteCode}). Let's grow our wealth together! 🚀"
                     </div>
                 </div>
