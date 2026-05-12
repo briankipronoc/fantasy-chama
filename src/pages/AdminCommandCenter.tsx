@@ -1472,33 +1472,35 @@ export default function AdminCommandCenter() {
       }
 
       // 2. Chama Rule: Filter the top scorer against Firebase memberships list.
-      let winner: any = null;
+      let winners: any[] = [];
       let winningPoints = 0;
 
       for (const fplManager of sortedStandings) {
-        // Match via team IDs, displayName, or fplTeamName
         const dbMember = members.find(
           (m) =>
             (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
-            (m.secondFplTeamId &&
-              Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
+            (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
             m.displayName === fplManager.player_name ||
             (m as any).fplTeamName === fplManager.entry_name,
         );
 
-        if (dbMember) {
-          if (
-            memberHasFunding(dbMember) &&
-            Number(fplManager.event_total || 0) > 0
-          ) {
-            winner = dbMember;
-            winningPoints = Number(fplManager.event_total || 0);
-            break;
-          }
+        if (dbMember && memberHasFunding(dbMember) && Number(fplManager.event_total || 0) > 0) {
+            const pts = Number(fplManager.event_total || 0);
+            if (winners.length === 0) {
+                winners.push(dbMember);
+                winningPoints = pts;
+            } else if (pts === winningPoints) {
+                winners.push(dbMember); // Tied!
+            } else {
+                break; // Because it's sorted, remaining scores are lower
+            }
         }
       }
+      
+      // Map for template logic compatibility below
+      const winner = winners[0];
 
-      if (!winner) {
+      if (winners.length === 0) {
         showToast(`No eligible paid winner found for GW${gwNumber}.`);
         setIsResolving(false);
         setShowResolveModal(false);
@@ -1517,25 +1519,24 @@ export default function AdminCommandCenter() {
 
       if (hasValidCoChair) {
         // Feature: Maker / Checker (Requires Approval)
-        const pendingPayoutsRef = collection(
-          db,
-          "leagues",
-          activeLeagueId,
-          "pending_payouts",
-        );
-        await addDoc(pendingPayoutsRef, {
-          winnerId: winner.id,
-          winnerName: winner.displayName,
-          winnerPhone: winner.phone,
-          amount: weeklyPot,
-          points: winningPoints,
-          gw: gwNumber,
-          status: "awaiting_approval",
-          method: payoutMethod,
-          requestedBy,
-          approvalTarget: "co-chair",
-          timestamp: serverTimestamp(),
-        });
+        const pendingPayoutsRef = collection(db, "leagues", activeLeagueId, "pending_payouts");
+        const splitAmount = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
+        
+        for (const w of winners) {
+          await addDoc(pendingPayoutsRef, {
+            winnerId: w.id,
+            winnerName: w.displayName + (winners.length > 1 ? " (Tie)" : ""),
+            winnerPhone: w.phone,
+            amount: splitAmount,
+            points: winningPoints,
+            gw: gwNumber,
+            status: "awaiting_approval",
+            method: payoutMethod,
+            requestedBy,
+            approvalTarget: "co-chair",
+            timestamp: serverTimestamp(),
+          });
+        }
 
         // Notify Co-Chair
         const notifsRef = collection(
@@ -1599,25 +1600,23 @@ export default function AdminCommandCenter() {
         }));
       } else {
         // No Co-Chair? Chairman becomes maker-checker and signs the pending payout from the same queue.
-        const pendingPayoutsRef = collection(
-          db,
-          "leagues",
-          activeLeagueId,
-          "pending_payouts",
-        );
-        await addDoc(pendingPayoutsRef, {
-          winnerId: winner.id,
-          winnerName: winner.displayName,
-          winnerPhone: winner.phone,
-          amount: weeklyPot,
-          points: winningPoints,
-          gw: gwNumber,
-          status: "awaiting_approval",
-          method: payoutMethod,
-          requestedBy,
-          approvalTarget: "chairman",
-          timestamp: serverTimestamp(),
-        });
+        const pendingPayoutsRef = collection(db, "leagues", activeLeagueId, "pending_payouts");
+        const splitAmount = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
+        for (const w of winners) {
+          await addDoc(pendingPayoutsRef, {
+            winnerId: w.id,
+            winnerName: w.displayName + (winners.length > 1 ? " (Tie)" : ""),
+            winnerPhone: w.phone,
+            amount: splitAmount,
+            points: winningPoints,
+            gw: gwNumber,
+            status: "awaiting_approval",
+            method: payoutMethod,
+            requestedBy,
+            approvalTarget: "chairman",
+            timestamp: serverTimestamp(),
+          });
+        }
 
         await addDoc(
           collection(db, "leagues", activeLeagueId, "notifications"),
