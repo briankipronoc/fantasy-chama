@@ -2482,7 +2482,7 @@ export default function AdminCommandCenter() {
                     disabled={!hasFinalGwChampion}
                     className="min-w-[200px] px-4 py-2.5 rounded-xl border border-[#FBBF24]/40 bg-[#FBBF24]/85 text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F59E0B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-center"
                   >
-                    {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber ?? "??"} ongoing...`}
+                    {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber || 1} ongoing...`}
                   </button>
                   
                 </div>
