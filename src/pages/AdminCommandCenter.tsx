@@ -2405,6 +2405,7 @@ export default function AdminCommandCenter() {
                       "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
                       redZoneMembers.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
+                    onClick={() => { setActiveTab("ledger"); setPaymentFilter("Red Zone"); setTimeout(() => window.document.getElementById("master-ledger")?.scrollIntoView({ behavior: "smooth" }), 100); }}
                   >
                     <p className="fc-metric-label text-xs tracking-wide font-semibold">
                       red zone follow-ups
@@ -2483,15 +2484,7 @@ export default function AdminCommandCenter() {
                   >
                     {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber ?? "??"} ongoing...`}
                   </button>
-                  <button
-                    onClick={() => {
-                      setActiveTab("ledger");
-                      setPaymentFilter("Red Zone");
-                    }}
-                    className="min-w-[200px] px-4 py-2.5 rounded-xl border border-red-500/40 bg-red-500/85 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors text-center"
-                  >
-                    Open Red Zone
-                  </button>
+                  
                 </div>
               </div>
 
