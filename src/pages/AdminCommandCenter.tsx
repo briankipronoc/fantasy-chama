@@ -172,6 +172,17 @@ export default function AdminCommandCenter() {
   }, [activeLeagueId, actionTimeline]);
 
   useEffect(() => {
+    // If FPL moved on to a new active gameweek and no pending payouts remain, reset the timeline for the new week.
+    if (!isCurrentEventFinished && pendingPayouts.length === 0) {
+      setActionTimeline({
+        resolved: false,
+        approvalPending: false,
+        payoutSent: false,
+        confirmed: false,
+      });
+      return;
+    }
+
     if (pendingPayouts.length > 0) {
       setActionTimeline((prev) => ({
         ...prev,
@@ -181,6 +192,7 @@ export default function AdminCommandCenter() {
       return;
     }
     setActionTimeline((prev) => ({ ...prev, approvalPending: false }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPayouts.length]);
 
   useEffect(() => {
@@ -476,18 +488,8 @@ export default function AdminCommandCenter() {
             );
           }
 
-          // Fetch Live GW Winner with 'Banner Off' Heuristic
+          // Fetch Live GW Winner always for Admin Center
           if (data.fplLeagueId) {
-            const lastDate = data.lastResolvedDate?.toDate();
-            const daysSince = lastDate
-              ? (new Date().getTime() - lastDate.getTime()) / (1000 * 3600 * 24)
-              : 0;
-
-            // Show banner if never resolved, OR if we are within 2 days of resolution (celebrating), OR if it's been > 5 days (new GW starting)
-            const shouldShowBanner =
-              !lastDate || daysSince <= 2 || daysSince > 5;
-
-            if (shouldShowBanner) {
               fetch(
                 `https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`,
               )
@@ -506,7 +508,6 @@ export default function AdminCommandCenter() {
                 );
             }
           }
-        }
 
         // Initialize Live Ledger
         listenToLeagueMembers(activeLeagueId);
@@ -926,7 +927,7 @@ export default function AdminCommandCenter() {
       key: "hq-settled",
       label: "HQ Settled",
       hint: "Monthly step: submit HQ receipt in the month-end window.",
-      active: isHqSettled,
+      active: actionTimeline.confirmed && isHqSettled,
     },
   ].filter((step) => step.key !== "hq-settled" || shouldShowHqStep);
 
@@ -2418,8 +2419,9 @@ export default function AdminCommandCenter() {
                       "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
                       pendingDisputes.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
+                    onClick={() => { setActiveTab("finance"); setTimeout(() => window.document.getElementById("dispute-claims")?.scrollIntoView({ behavior: "smooth" }), 100); }}
                   >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
+                    <p className="fc-metric-label text-xs tracking-wide font-semibold text-white">
                       unresolved disputes
                     </p>
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
@@ -2431,8 +2433,9 @@ export default function AdminCommandCenter() {
                       "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
                       highRiskTwoWeekMisses > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
+                    onClick={() => { setActiveTab("ledger"); setPaymentFilter("Red Zone"); setTimeout(() => window.document.getElementById("master-ledger")?.scrollIntoView({ behavior: "smooth" }), 100); }}
                   >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
+                    <p className="fc-metric-label text-xs tracking-wide font-semibold text-white">
                       2-week risk members
                     </p>
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
