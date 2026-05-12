@@ -57,7 +57,10 @@ Promote a trusted friend to **Co-Chairman** to increase transparency.
 ### 2. Linking Your Exact FPL Team
 If you joined using the Chairman's 6-digit code, you must link your identity.
 - Go to Profile > Select your exact team name from the FPL Roster.
-- (*Users with multiple FPL entries? Register both IDs! Each will act as an independent ticket for the pot!*)
+- (*Users with multiple FPL entries? Register both IDs via `secondFplTeamId`! Each will act as an independent ticket for the pot!*)
+
+### 2.1 Multi-League Support
+- In multiple Chamas? The **League Switcher Dropdown** in the main header allows you to instantly hot-swap between multiple mini-leagues. All wallet features, approvals, and FPL leaderboards will instantly reset to the new context without requiring re-login.
 
 ### 3. Winning & Withdrawing
 - The second the Premier League week finalizes, the system auto-selects the league's highest scorer.

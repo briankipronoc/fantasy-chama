@@ -35,7 +35,7 @@ referralCode, suspensionNudges[]
 ```
 
 #### `userLeagues/{phone}`
-Multi-league index — enables a single phone to belong to multiple leagues.
+Multi-league index — enables a single phone to belong to multiple leagues. Managed by the `LeagueSwitcher` header component. — enables a single phone to belong to multiple leagues.
 ```
 leagues: [ { leagueId, leagueName, role } ]
 ```
@@ -59,7 +59,7 @@ referrerLeagueId, referrerChairmanId, redeemedByLeagueId, timestamp
 #### `memberships/{memberId}`
 ```
 displayName, phone, role ('admin' | 'member'), walletBalance,
-hasPaid, missedGameweeks, isActive, fplTeamId, secondFplTeamId,
+hasPaid, missedGameweeks, isActive, fplTeamId, secondFplTeamId (Dual-Entry FPL team support),
 avatarSeed, lastLoginAt, hasAcceptedRules, totalEarned,
 paymentStreak, fcmToken, authUid
 ```
