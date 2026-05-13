@@ -254,7 +254,6 @@ export default function Standings() {
                 : 'Early Season'
         : 'In Progress';
     const currentGwLabel = currentEvent ? `GW${currentEvent}` : 'GW';
-    const currentGwHeading = hasFinalGwChampion ? `${currentGwLabel} Champion` : `${currentGwLabel} Live Leader`;
 
     if (isLoading) {
         return (
@@ -358,39 +357,7 @@ export default function Standings() {
                     </div>
                 </div>
 
-                {/* GW Winner */}
-                {!error && standingsData.length > 0 && (
-                    <div className="grid grid-cols-1 gap-6 mt-6">
-                        {/* Live Gameweek Winner Gold UI */}
-                        {gwWinner && (
-                            <div className="fc-card fc-highlight-card bg-gradient-to-br from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 relative overflow-hidden flex flex-col justify-between hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 min-h-[180px]">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
-                                <div className="relative z-10 flex items-start gap-4 mb-4">
-                                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
-                                        <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
-                                            <Trophy className="w-6 h-6 text-[#FBBF24]" />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                            <Star className="w-3 h-3 fill-current" /> {currentGwHeading}
-                                        </p>
-                                        <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
-                                        <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5">{gwWinner.entry_name} </p>
-                                    </div>
-                                </div>
-
-                                <div className="relative z-10 flex items-center justify-between fc-highlight-surface p-4 rounded-2xl border backdrop-blur-sm">
-                                    <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">{hasFinalGwChampion ? 'GW Score' : 'Live Score'}</p>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-[#10B981] font-black text-lg bg-[#10B981]/10 px-3 py-1 rounded-xl border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
+                
                 {/* Table */}
                 {error ? (
                     <div className="fc-card w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center relative overflow-hidden mt-6">

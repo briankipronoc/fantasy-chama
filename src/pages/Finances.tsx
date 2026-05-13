@@ -825,11 +825,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     <div className="flex gap-3 flex-wrap">
-                        {isAdmin && (
-                            <button onClick={shareRedZone} className="flex items-center gap-2 px-4 py-2.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs font-black uppercase tracking-widest rounded-xl transition">
-                                <ShieldAlert className="w-3.5 h-3.5" /> Share Red Zone
-                            </button>
-                        )}
                         <button onClick={exportLedgerCSV} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition">
                             <Download className="w-3.5 h-3.5" /> Export CSV
                         </button>

@@ -66,7 +66,8 @@ export default function AdminCommandCenter() {
   });
   const [payoutMethod, setPayoutMethod] = useState<"mpesa" | "cash">("mpesa");
   const [coAdminId, setCoAdminId] = useState<string | null>(null);
-  const [chairmanId, setChairmanId] = useState<string | null>(null);
+  // @ts-ignore
+    const [chairmanId, setChairmanId] = useState<string | null>(null);
   const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
   const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(
     null,
@@ -377,18 +378,12 @@ export default function AdminCommandCenter() {
       ? `hasSeenAdminTour_${activeLeagueId}_${activeUserId}`
       : null;
   const coChairMember = members.find((m) => m.id === coAdminId);
-  const authUid = auth.currentUser?.uid || null;
-  const coAdminMemberAuthUid = coAdminId
-    ? members.find((m) => m.id === coAdminId)?.authUid || null
-    : null;
-  const coAdminResolvedUid = coAdminMemberAuthUid || coAdminId || null;
-  const diagnosticsIsChairman = !!authUid && !!chairmanId && authUid === chairmanId;
-  const diagnosticsIsCoAdmin = !!authUid && !!coAdminResolvedUid && authUid === coAdminResolvedUid;
-  const diagnosticsIsAdmin = diagnosticsIsChairman || diagnosticsIsCoAdmin;
-  const diagnosticsStatusTone = diagnosticsIsAdmin
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-    : "border-red-500/30 bg-red-500/10 text-red-300";
-  const diagnosticsStatusLabel = diagnosticsIsAdmin ? "Admin Access: Granted" : "Admin Access: Denied";
+  
+  
+  
+  
+  
+  
   const hasValidCoChair =
     !!coAdminId &&
     coAdminId !== activeUserId &&
@@ -2584,40 +2579,7 @@ export default function AdminCommandCenter() {
             </section>
           )}
 
-          {activeTab === "dashboard" && diagnosticsIsAdmin && (
-            <section className="mt-8 pt-6 border-t border-white/5">
-              <div className="flex items-center gap-3 mb-4">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-[#22c55e]">
-                      System Diagnostics
-                  </h3>
-                  <span className={clsx("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border", diagnosticsStatusTone)}>
-                      {diagnosticsStatusLabel}
-                  </span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Auth Node</p>
-                      <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1 rounded border border-white/5 w-fit">{authUid ? `•••${authUid.slice(-6)}` : "None"}</p>
-                  </div>
-                  <div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Chairman Key</p>
-                      <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1 rounded border border-white/5 w-fit">{chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}</p>
-                  </div>
-                  <div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Co-Admin Key</p>
-                      <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1 rounded border border-white/5 w-fit">{coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}</p>
-                  </div>
-                  <div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Perms Flag</p>
-                      <div className="flex gap-2 text-[10px] items-center h-full">
-                          <span className={diagnosticsIsChairman ? "text-[#22c55e]" : "text-gray-600"}>Chair</span>
-                          <span className="text-gray-700">•</span>
-                          <span className={diagnosticsIsCoAdmin ? "text-[#22c55e]" : "text-gray-600"}>Co-Admin</span>
-                      </div>
-                  </div>
-              </div>
-            </section>
-          )}
+          
 
           {/* Champion Card: show during GW, hide once approved payout exists for this GW */}
           {(() => {
