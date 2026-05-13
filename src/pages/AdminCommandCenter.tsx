@@ -92,6 +92,7 @@ export default function AdminCommandCenter() {
   const [gwWinner, setGwWinner] = useState<any>(null);
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
+  const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
 
   const handleNudge = async () => {
     if (!activeLeagueId) return;
@@ -465,6 +466,7 @@ export default function AdminCommandCenter() {
           setMonthlyContribution(data.gameweekStake || 0);
           setCoAdminId(data.coAdminId || null);
           setChairmanId(data.chairmanId || null);
+          setFirestoreGw(data.currentGwNumber || data.currentGw || null);
           if (data.rules) setRules(data.rules);
 
           try {
@@ -2483,7 +2485,7 @@ export default function AdminCommandCenter() {
                     disabled={!hasFinalGwChampion}
                     className="min-w-[200px] px-4 py-2.5 rounded-xl border border-[#FBBF24]/40 bg-[#FBBF24]/85 text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F59E0B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-center"
                   >
-                    {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber || "??"} ongoing...`}
+                    {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber || firestoreGw || '--'} ongoing...`}
                   </button>
                   
                 </div>
@@ -2583,43 +2585,36 @@ export default function AdminCommandCenter() {
           )}
 
           {activeTab === "dashboard" && diagnosticsIsAdmin && (
-            <section className="fc-card rounded-xl border border-white/5 bg-[#161d24] p-3 md:p-4 opacity-70 hover:opacity-100 transition-opacity">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Admin Diagnostics
+            <section className="mt-8 pt-6 border-t border-white/5">
+              <div className="flex items-center gap-3 mb-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-[#22c55e]">
+                      System Diagnostics
                   </h3>
-                  <span
-                    className={clsx(
-                      "text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border block w-max",
-                      diagnosticsStatusTone,
-                    )}
-                  >
-                    {diagnosticsStatusLabel}
+                  <span className={clsx("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border", diagnosticsStatusTone)}>
+                      {diagnosticsStatusLabel}
                   </span>
-                </div>
               </div>
-              <p className="text-[9px] text-gray-500 mb-2">
-                Validate UID mapping before executing financial operations.
-              </p>
-              <div className="flex flex-wrap gap-2 text-[10px]">
-                <div className="border border-white/5 bg-black/20 px-2 py-1 rounded">
-                  <span className="text-gray-500 font-bold uppercase tracking-widest mr-1">Auth:</span>
-                  <span className="text-gray-300 font-mono">{authUid ? `•••${authUid.slice(-6)}` : "None"}</span>
-                </div>
-                <div className="border border-white/5 bg-black/20 px-2 py-1 rounded">
-                  <span className="text-gray-500 font-bold uppercase tracking-widest mr-1">Chair:</span>
-                  <span className="text-gray-300 font-mono">{chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}</span>
-                </div>
-                <div className="border border-white/5 bg-black/20 px-2 py-1 rounded">
-                  <span className="text-gray-500 font-bold uppercase tracking-widest mr-1">Co-Admin:</span>
-                  <span className="text-gray-300 font-mono">{coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}</span>
-                </div>
-                <div className="border border-white/5 bg-black/20 px-2 py-1 rounded flex gap-2">
-                  <span className={diagnosticsIsChairman ? "text-green-500" : "text-gray-600"}>C: {diagnosticsIsChairman ? "Yes" : "No"}</span>
-                  <span className={diagnosticsIsCoAdmin ? "text-green-500" : "text-gray-600"}>Co: {diagnosticsIsCoAdmin ? "Yes" : "No"}</span>
-                  <span className={diagnosticsIsAdmin ? "text-green-500" : "text-gray-600"}>Admin: {diagnosticsIsAdmin ? "Yes" : "No"}</span>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Auth Node</p>
+                      <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1 rounded border border-white/5 w-fit">{authUid ? `•••${authUid.slice(-6)}` : "None"}</p>
+                  </div>
+                  <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Chairman Key</p>
+                      <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1 rounded border border-white/5 w-fit">{chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}</p>
+                  </div>
+                  <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Co-Admin Key</p>
+                      <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1 rounded border border-white/5 w-fit">{coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}</p>
+                  </div>
+                  <div>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Perms Flag</p>
+                      <div className="flex gap-2 text-[10px] items-center h-full">
+                          <span className={diagnosticsIsChairman ? "text-[#22c55e]" : "text-gray-600"}>Chair</span>
+                          <span className="text-gray-700">•</span>
+                          <span className={diagnosticsIsCoAdmin ? "text-[#22c55e]" : "text-gray-600"}>Co-Admin</span>
+                      </div>
+                  </div>
               </div>
             </section>
           )}
@@ -3004,7 +2999,7 @@ export default function AdminCommandCenter() {
                         League Open for Gameweek
                       </h5>
                       <p className="text-xs text-gray-400 mt-1">
-                        Accepting deposits for Gameweek 26. Deadline approaches.
+                        Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || "--"}. Deadline approaches.
                       </p>
                       <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">
                         System
