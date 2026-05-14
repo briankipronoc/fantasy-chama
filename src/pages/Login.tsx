@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle } from 'lucide-react';
+import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -21,6 +21,7 @@ export default function Login() {
     // Admin State
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
 
     const navigate = useNavigate();
@@ -217,8 +218,17 @@ export default function Login() {
             navigate('/dashboard', { replace: true });
         } catch (err: any) {
             console.error(err);
-            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-                setError('Invalid Chairman credentials.');
+            if (
+                err.code === 'auth/invalid-credential' ||
+                err.code === 'auth/user-not-found' ||
+                err.code === 'auth/wrong-password' ||
+                err.code === 'auth/invalid-email'
+            ) {
+                setError('Invalid email or password. Check your credentials and try again.');
+            } else if (err.code === 'auth/too-many-requests') {
+                setError('Too many failed attempts. Please wait a few minutes or reset your password.');
+            } else if (err.message?.includes('timeout')) {
+                setError('Connection timeout — check your internet or disable any ad-blockers.');
             } else {
                 setError('Authentication failed. Please try again.');
             }
@@ -366,14 +376,22 @@ export default function Login() {
                             <div className="relative">
                                 <KeyRound className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     required
                                     autoComplete="current-password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium"
+                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-12 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                             <div className="flex justify-end mt-2">
                                 <button

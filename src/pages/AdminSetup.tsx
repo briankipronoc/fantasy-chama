@@ -4,7 +4,7 @@ import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding,
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
 import clsx from 'clsx';
 
 const STEPS = 5;
@@ -35,6 +35,8 @@ export default function AdminSetup() {
     const [chairmanPayoutPhone, setChairmanPayoutPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+    const [step1Error, setStep1Error] = useState('');
 
     // Step 2: League
     const [leagueName, setLeagueName] = useState('');
@@ -173,8 +175,49 @@ export default function AdminSetup() {
         return { label: 'Strong', w1: 'w-1/3 bg-[#22c55e]', w2: 'w-1/3 bg-[#22c55e]', w3: 'w-1/3 bg-[#22c55e]', textColor: 'text-[#22c55e]' };
     }, [password]);
 
-    const nextStep = () => {
+    const nextStep = async () => {
         if (step === 1) {
+            // Probe if email is already registered BEFORE moving to step 2.
+            // fetchSignInMethodsForEmail is deprecated in Firebase v9+, so we probe
+            // by attempting sign-in with a garbage password and reading the error code:
+            //   auth/wrong-password  → email exists (correct path)
+            //   auth/user-not-found  → email is free (correct path in older SDK)
+            //   auth/invalid-credential → Firebase v10+ combines not-found + wrong-pass
+            //   auth/email-already-in-use → extremely unlikely here but handled later
+            setIsCheckingEmail(true);
+            setStep1Error('');
+            try {
+                await signInWithEmailAndPassword(auth, email, '__FC_PROBE_PASSWORD_XYZ__');
+                // If this somehow succeeds (impossible with garbage pw), email exists
+                setStep1Error('This email is already registered. Please log in instead.');
+                setIsCheckingEmail(false);
+                return;
+            } catch (err: any) {
+                if (err.code === 'auth/wrong-password' || err.code === 'auth/too-many-requests') {
+                    // Wrong password means the account EXISTS
+                    setStep1Error('This email is already registered. Please log in instead.');
+                    setIsCheckingEmail(false);
+                    return;
+                } else if (
+                    err.code === 'auth/user-not-found' ||
+                    err.code === 'auth/invalid-credential' ||
+                    err.code === 'auth/invalid-email'
+                ) {
+                    // user-not-found / invalid-credential with garbage pw = email is FREE
+                    // invalid-email means the email format is wrong
+                    if (err.code === 'auth/invalid-email') {
+                        setStep1Error('Please enter a valid email address.');
+                        setIsCheckingEmail(false);
+                        return;
+                    }
+                    // Email is available — proceed normally
+                } else {
+                    // Network error or unknown — let it proceed; real error surfaces at step 4
+                    console.warn('[Step1] Email probe skipped due to network/unknown error:', err.code, err.message);
+                }
+            } finally {
+                setIsCheckingEmail(false);
+            }
             setRole('admin');
         }
         if (step === 2) {
@@ -363,16 +406,33 @@ export default function AdminSetup() {
                 }),
             ]);
 
-            // Store active league and move to success screen
+            // Bind the chairman's membership doc ID so the app can load their profile
             localStorage.setItem('activeLeagueId', leagueId);
+            localStorage.setItem('activeUserId', chairmanRef.id);
+
+            // Ensure role is set (it was set at step 1 but re-confirm after writes)
+            setRole('admin');
+
+            // Clean up setup form data from localStorage
+            [
+                'fc-setup-fullName', 'fc-setup-email', 'fc-setup-phone',
+                'fc-setup-chairmanPayoutPhone', 'fc-setup-leagueName', 'fc-setup-fplLeagueId',
+                'fc-setup-monthlyFee', 'fc-setup-weeklyPrizePercent', 'fc-setup-seasonWinnersCount',
+                'fc-setup-seasonWinnersMode', 'fc-setup-customWinnerCount', 'fc-setup-customWinnerRatios',
+                'fc-setup-estimatedMembers', 'fc-setup-allowMultipleTeams',
+            ].forEach(key => localStorage.removeItem(key));
+
             setStep(5);
         } catch (error: any) {
-            console.error("Error creating league or enrolling members:", error);
-            console.error("FIREBASE ERROR details:", error);
+            console.error('Error creating league or enrolling members:', error);
             if (error.code === 'auth/email-already-in-use') {
-                setSubmitError("Email is already registered. Please log in instead.");
+                setSubmitError('EMAIL_ALREADY_IN_USE');
+            } else if (error.code === 'auth/weak-password') {
+                setSubmitError('Password is too weak. Please use at least 6 characters.');
+            } else if (error.code === 'auth/network-request-failed') {
+                setSubmitError('Network error — check your internet connection and try again.');
             } else {
-                setSubmitError(`Creation Failed: ${error.message || "Unknown error occurred"}`);
+                setSubmitError(`Setup failed: ${error.message || 'Unknown error'}`);
             }
         } finally {
             setIsSubmitting(false);
@@ -431,7 +491,7 @@ export default function AdminSetup() {
                 </p>
             </div>
 
-            <form className="space-y-4 relative z-10" onSubmit={(e) => { e.preventDefault(); nextStep(); }}>
+            <form className="space-y-4 relative z-10" onSubmit={async (e) => { e.preventDefault(); await nextStep(); }}>
                 <div>
                     <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                         Full Name <Tooltip text="Identifies you as the official gatekeeper to joining members." />
@@ -443,8 +503,8 @@ export default function AdminSetup() {
                             type="text"
                             autoComplete="name"
                             value={fullName}
-                            onChange={e => setFullName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
-                            pattern="^[a-zA-Z]{2,} [a-zA-Z]{2,}.*$"
+                            onChange={e => setFullName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
+                            pattern="^[a-zA-Z][a-zA-Z'\-\s]{1,}[a-zA-Z]$"
                             title="Please enter at least two names (e.g., John Doe)"
                             className={inputClasses}
                             placeholder="Enter your legal name"
@@ -468,11 +528,26 @@ export default function AdminSetup() {
                             onChange={e => {
                                 (e.target as HTMLInputElement).setCustomValidity('');
                                 setEmail(e.target.value);
+                                if (step1Error) setStep1Error('');
                             }}
                             className={inputClasses}
                             placeholder="admin@fantasychama.com"
                         />
                     </div>
+                    {step1Error && (
+                        <div className="mt-2 flex items-start gap-2 bg-red-500/10 border border-red-500/20 p-3 rounded-xl">
+                            <span className="text-red-400 text-[11px] font-bold flex-1">{step1Error}</span>
+                            {step1Error.includes('already registered') && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/login', { state: { isAdminView: true } })}
+                                    className="text-[#FBBF24] text-[11px] font-black hover:underline whitespace-nowrap flex-shrink-0"
+                                >
+                                    Log in →
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div>
@@ -538,15 +613,19 @@ export default function AdminSetup() {
                 </div>
 
                 <div className="pt-2">
-                    <button
-                        type="submit"
-                        disabled={!fullName || !email || !phone || !password}
-                        className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_24px_rgba(251,191,36,0.28)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span>Create Chairman Account</span>
-                        <Trophy className="w-5 h-5" />
-                    </button>
-                </div>
+                        <button
+                            type="submit"
+                            disabled={!fullName || !email || !phone || !password || isCheckingEmail}
+                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_24px_rgba(251,191,36,0.28)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isCheckingEmail ? (
+                                <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Checking...
+                                </>
+                            ) : (
+                                <><span>Create Chairman Account</span><Trophy className="w-5 h-5" /></>
+                            )}
+                        </button>
+                    </div>
             </form>
 
             <div className="mt-6 pt-5 border-t border-white/5 text-center relative z-10">
@@ -1006,7 +1085,7 @@ export default function AdminSetup() {
                             <input
                                 type="text"
                                 value={newMemberName}
-                                onChange={e => setNewMemberName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                                onChange={e => setNewMemberName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
                                 placeholder="e.g. John Doe"
                                 className={inputClasses}
                             />
@@ -1269,8 +1348,31 @@ export default function AdminSetup() {
                 </div>
 
                 {submitError && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold p-3 rounded-lg text-center mt-4 tracking-widest uppercase">
-                        {submitError}
+                    <div className="bg-red-500/10 border border-red-500/20 text-xs p-4 rounded-xl mt-4">
+                        {submitError === 'EMAIL_ALREADY_IN_USE' ? (
+                            <div className="space-y-2">
+                                <p className="text-red-400 font-bold">This email address is already registered to an existing chairman account.</p>
+                                <p className="text-gray-400">You cannot create two leagues with the same email. Please either:</p>
+                                <div className="flex gap-2 mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate('/login', { state: { isAdminView: true } })}
+                                        className="flex-1 bg-[#FBBF24] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#eab308] transition-all"
+                                    >
+                                        Log In as Chairman
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setStep(1); setStep1Error(''); setSubmitError(''); }}
+                                        className="flex-1 border border-white/10 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-white/5 transition-all"
+                                    >
+                                        Use Different Email
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-red-400 font-bold uppercase tracking-widest text-center">{submitError}</p>
+                        )}
                     </div>
                 )}
 
@@ -1315,7 +1417,7 @@ export default function AdminSetup() {
                     <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Next Phase</span>
                     <div className="h-px bg-white/10 flex-1"></div>
                 </div>
-                <button onClick={() => navigate('/')} className="w-full bg-[#161d24] border border-white/5 hover:border-white/20 text-white font-bold py-4 rounded-xl transition-all shadow-md">
+                <button onClick={() => navigate('/dashboard', { replace: true })} className="w-full bg-[#161d24] border border-white/5 hover:border-white/20 text-white font-bold py-4 rounded-xl transition-all shadow-md">
                     Enter Chairman Command Center
                 </button>
                 <p className="text-[10px] text-[#22c55e] border border-[#22c55e]/20 bg-[#22c55e]/5 p-2 rounded text-center mt-4">

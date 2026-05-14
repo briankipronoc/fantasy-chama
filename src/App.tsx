@@ -87,7 +87,7 @@ function App() {
             {/* Public routes — no AppLayout shell */}
             <Route path="/" element={<RootRoute />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/setup" element={(role || hasActiveLeague) ? <Navigate to="/dashboard" replace /> : <AdminSetup />} />
+            <Route path="/setup" element={(role && !!localStorage.getItem('activeLeagueId') && !!localStorage.getItem('activeUserId')) ? <Navigate to="/dashboard" replace /> : <AdminSetup />} />
             <Route path="/invite" element={<InviteHub />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />

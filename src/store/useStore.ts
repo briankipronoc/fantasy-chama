@@ -95,9 +95,10 @@ export const useStore = create<AppState>((set) => ({
             ]
         })),
     logout: () => {
-        // Clear local storage
+        // Clear local storage — all session keys
         localStorage.removeItem('activeLeagueId');
         localStorage.removeItem('memberPhone');
+        localStorage.removeItem('activeUserId');
         localStorage.removeItem('fc-role');
         localStorage.removeItem('role');
         // Sign out from Firebase Auth
