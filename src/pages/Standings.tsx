@@ -211,6 +211,20 @@ export default function Standings() {
         URL.revokeObjectURL(url);
     };
 
+    const [swapFace, setSwapFace] = useState(0);
+    useEffect(() => {
+        const t = setInterval(() => setSwapFace(p => (p + 1) % 2), 4000);
+        return () => clearInterval(t);
+    }, []);
+
+    const activeUserId = localStorage.getItem('activeUserId') || '';
+    const myMember = members.find(m => m.id === activeUserId);
+    const myFplTeamId = myMember ? Number((myMember as any).fplTeamId || 0) : 0;
+    const myStandingIdx = standingsData.findIndex((r: any) =>
+        myFplTeamId && Number(r.entry) === myFplTeamId
+    );
+    const myStanding = myStandingIdx >= 0 ? standingsData[myStandingIdx] : null;
+
     const currentGwAverage = standingsData.length > 0
         ? (standingsData.reduce((sum, row) => sum + row.event_total, 0) / standingsData.length).toFixed(1)
         : '0.0';
@@ -340,25 +354,32 @@ export default function Standings() {
                         </div>
                     </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p>
-                            <p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Players</span></p>
-                        </div>
-                        <Trophy className="w-9 h-9 text-gray-700" />
+                {/* Stats swapper + user hero */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Swapper card: Total Members ↔ GW Average */}
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px] cursor-pointer" onClick={() => setSwapFace(p => (p + 1) % 2)}>
+                        {swapFace === 0 ? (
+                            <div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p><p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-400">Players</span></p></div>
+                        ) : (
+                            <div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">GW Average</p><p className="text-2xl font-black text-white">{currentGwAverage} <span className="text-sm font-bold text-gray-400">pts</span></p></div>
+                        )}
+                        <div className="flex gap-1">{[0,1].map(i => <div key={i} className={clsx('w-1.5 h-1.5 rounded-full transition-colors', swapFace === i ? 'bg-emerald-400' : 'bg-gray-700')} />)}</div>
                     </div>
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">GW Average</p>
-                            <p className="text-2xl font-black text-white">{currentGwAverage} <span className="text-sm font-bold text-gray-600 dark:text-gray-400">pts</span></p>
+
+                    {/* User hero card */}
+                    {myStanding && (
+                        <div className="fc-card bg-gradient-to-r from-[#FBBF24]/10 via-[#161d24] to-[#161d24] border border-[#FBBF24]/20 rounded-2xl p-5 flex items-center justify-between">
+                            <div>
+                                <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your GW Rank</p>
+                                <p className="text-2xl font-black text-white">#{myStandingIdx + 1} <span className="text-sm font-bold text-[#FBBF24]">{myStanding.event_total} pts</span></p>
+                                <p className="text-[10px] text-gray-500 mt-0.5">Season total: {myStanding.total?.toLocaleString()} pts{standingsData[0] && myStandingIdx > 0 ? ` · ${(standingsData[0].total - myStanding.total).toLocaleString()} behind #1` : ''}</p>
+                            </div>
+                            <Trophy className="w-8 h-8 text-[#FBBF24]/40" />
                         </div>
-                        <Star className="w-9 h-9 text-gray-700" />
-                    </div>
+                    )}
                 </div>
 
-                
-                {/* Table */}
+                {/* Standings — responsive card list */}
                 {error ? (
                     <div className="fc-card w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center relative overflow-hidden mt-6">
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-red-500 blur-[80px] opacity-10 pointer-events-none"></div>
@@ -372,101 +393,89 @@ export default function Standings() {
                         </p>
                     </div>
                 ) : (
-                    <div className="fc-card w-full overflow-x-auto bg-[#161d24] border border-white/5 rounded-2xl">
-                        <table className="w-full min-w-[700px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 bg-black/20">
-                                    <th className="px-5 py-4 font-bold text-[10px] text-[#10B981] tracking-widest uppercase">Rank</th>
-                                    <th className="px-5 py-4 font-bold text-[10px] text-[#10B981] tracking-widest uppercase">Member</th>
-                                    <th className="px-5 py-4 font-bold text-[10px] text-[#10B981] tracking-widest uppercase">FPL Team</th>
-                                    <th className="px-5 py-4 font-bold text-[10px] text-[#10B981] tracking-widest uppercase text-center">GW Pts</th>
-                                    <th className="px-5 py-4 font-bold text-[10px] text-[#10B981] tracking-widest uppercase text-center">Total</th>
-                                    <th className="px-5 py-4 font-bold text-[10px] text-[#10B981] tracking-widest uppercase text-right">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/[0.04]">
-                                {standingsData.map((row: any, index: number) => {
-                                    const isTop1 = index === 0;
-                                    const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
-                                    const hasPaid = matchedMember ? matchedMember.hasPaid : null;
-                                    return (
-                                        <tr key={row.id} className={clsx(
-                                            'transition-colors',
-                                            isTop1 ? 'bg-[#10B981]/5' : 'hover:bg-white/[0.02]',
-                                            gwWinner && row.id === gwWinner.id && !isTop1 ? 'bg-[#FBBF24]/5' : '',
-                                            hasPaid === false && 'opacity-50'
-                                        )}>
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={clsx('font-extrabold text-lg', isTop1 ? 'text-[#10B981]' : 'text-gray-500')}>{row.rank}</span>
-                                                    {isTop1 && <Star className="w-4 h-4 fill-[#FBBF24] text-[#FBBF24]" />}
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={clsx(
-                                                        'w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs',
-                                                        isTop1 ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-600 dark:text-gray-400'
-                                                    )}>
-                                                        {matchedMember ? (
-                                                            <img
-                                                                src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(matchedMember as any).avatarSeed || matchedMember.displayName}&backgroundColor=transparent`}
-                                                                alt={matchedMember.displayName}
-                                                                className="w-full h-full rounded-full object-cover"
-                                                            />
-                                                        ) : row.player_name.charAt(0)}
-                                                    </div>
-                                                    <span className="font-bold text-white flex items-center gap-1.5 flex-wrap">
-                                                        {row.player_name}
-                                                        {matchedMember?.id === chairmanId && (
-                                                            <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[9px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30 flex items-center gap-1">
-                                                                <ShieldAlert className="w-2.5 h-2.5" /> Chairman
-                                                            </span>
-                                                        )}
-                                                        {matchedMember?.id === coAdminId
-                                                            && matchedMember.id !== chairmanId
-                                                            && matchedMember.isActive !== false
-                                                            && (matchedMember.role === 'co-chair' || matchedMember.role === 'admin') && (
-                                                            <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[9px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
-                                                                <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
-                                                            </span>
-                                                        )}
-                                                        {hasPaid !== null && (
-                                                            <Circle className={clsx('w-2 h-2 fill-current ml-1', hasPaid ? 'text-[#10B981]' : 'text-red-500')} />
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4 text-gray-600 dark:text-gray-400 text-sm italic">{row.entry_name}</td>
-                                            <td className="px-5 py-4 text-center">
-                                                <span className={clsx(
-                                                    'px-3 py-1 font-bold rounded-lg text-xs tabular-nums border',
-                                                    isTop1
-                                                        ? 'bg-[#10B981] text-black border-transparent'
-                                                        : 'bg-white/5 text-[#10B981] border-white/5'
-                                                )}>
-                                                    {row.event_total}
+                    <div className="fc-card w-full bg-[#161d24] border border-white/5 rounded-2xl overflow-hidden">
+                        {/* Desktop table header — hidden on mobile */}
+                        <div className="hidden md:grid grid-cols-12 gap-2 px-5 py-3 border-b border-white/5 bg-black/20 text-[10px] font-bold text-[#10B981] uppercase tracking-widest">
+                            <div className="col-span-1">Rank</div>
+                            <div className="col-span-4">Member</div>
+                            <div className="col-span-3">FPL Team</div>
+                            <div className="col-span-1 text-center">GW</div>
+                            <div className="col-span-1 text-center">Total</div>
+                            <div className="col-span-2 text-right">Status</div>
+                        </div>
+                        {/* Rows */}
+                        <div className="divide-y divide-white/[0.04]">
+                            {standingsData.map((row: any, index: number) => {
+                                const isTop1 = index === 0;
+                                const isInPodium = index < visibleSeasonWinnerCount;
+                                const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
+                                const hasPaid = matchedMember ? matchedMember.hasPaid : null;
+                                const isGwLeader = gwWinner && row.id === gwWinner.id;
+                                const isMe = myStanding && row.id === myStanding.id;
+                                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : null;
+                                return (
+                                    <div key={row.id} className={clsx(
+                                        'px-4 py-3 md:grid md:grid-cols-12 md:gap-2 md:items-center md:px-5 md:py-4 flex flex-col gap-2 transition-colors',
+                                        isTop1 ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
+                                        isGwLeader && !isTop1 ? 'bg-[#FBBF24]/5' : '',
+                                        isMe ? 'ring-1 ring-[#FBBF24]/30' : '',
+                                        hasPaid === false && 'opacity-50'
+                                    )}>
+                                        {/* Mobile: rank + name row */}
+                                        <div className="flex items-center gap-3 md:col-span-1">
+                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-8 text-center', isTop1 ? 'text-[#10B981]' : 'text-gray-500')}>
+                                                {medal || row.rank}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 md:col-span-4">
+                                            <div className={clsx(
+                                                'w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs flex-shrink-0',
+                                                isTop1 ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-400'
+                                            )}>
+                                                {matchedMember ? (
+                                                    <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(matchedMember as any).avatarSeed || matchedMember.displayName}&backgroundColor=transparent`} alt="" className="w-full h-full rounded-full object-cover" />
+                                                ) : row.player_name.charAt(0)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
+                                                    <span className="truncate max-w-[160px] md:max-w-none">{row.player_name}</span>
+                                                    {matchedMember?.id === chairmanId && (
+                                                        <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30">Chair</span>
+                                                    )}
+                                                    {matchedMember?.id === coAdminId && matchedMember.id !== chairmanId && matchedMember.isActive !== false && (matchedMember.role === 'co-chair' || matchedMember.role === 'admin') && (
+                                                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30">Co</span>
+                                                    )}
+                                                    {hasPaid !== null && <Circle className={clsx('w-2 h-2 fill-current', hasPaid ? 'text-[#10B981]' : 'text-red-500')} />}
                                                 </span>
-                                            </td>
-                                            <td className="px-5 py-4 text-center font-extrabold text-white tabular-nums">{row.total.toLocaleString()}</td>
-                                            <td className="px-5 py-4 text-right">
-                                                    {gwWinner && row.id === gwWinner.id
-                                                    ? <span className={clsx('font-black text-xs tracking-tight border px-2 py-1 rounded-lg', 'text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10')}>{hasFinalGwChampion ? `${currentGwLabel} Winner` : `${currentGwLabel} Leader`}</span>
-                                                    : <span className="text-gray-600">—</span>
+                                                <p className="text-[11px] text-gray-500 truncate md:hidden">{row.entry_name}</p>
+                                            </div>
+                                        </div>
+                                        {/* FPL Team — desktop only */}
+                                        <div className="hidden md:block md:col-span-3 text-gray-400 text-sm italic truncate">{row.entry_name}</div>
+                                        {/* GW pts + Total + Status */}
+                                        <div className="flex items-center justify-between gap-3 md:contents">
+                                            <div className="md:col-span-1 md:text-center">
+                                                <span className={clsx('px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border', isTop1 ? 'bg-[#10B981] text-black border-transparent' : 'bg-white/5 text-[#10B981] border-white/5')}>{row.event_total}</span>
+                                            </div>
+                                            <div className="md:col-span-1 md:text-center font-extrabold text-white text-sm tabular-nums">{row.total.toLocaleString()}</div>
+                                            <div className="md:col-span-2 md:text-right">
+                                                {isGwLeader
+                                                    ? <span className="font-black text-[10px] md:text-xs tracking-tight border px-2 py-1 rounded-lg text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10 flex items-center gap-1 w-fit ml-auto">
+                                                        <Star className="w-3 h-3 fill-[#FBBF24] text-[#FBBF24]" />{hasFinalGwChampion ? 'Champion' : 'Live'}
+                                                      </span>
+                                                    : <span className="text-gray-700 hidden md:inline">—</span>
                                                 }
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {standingsData.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-5 py-10 text-center text-gray-500 font-bold text-sm">
-                                            No standings returned yet. Try updating the FPL league link and syncing again.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {standingsData.length === 0 && (
+                                <div className="px-5 py-10 text-center text-gray-500 font-bold text-sm">
+                                    No standings returned yet. Try updating the FPL league link and syncing again.
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
