@@ -2737,74 +2737,92 @@ export default function AdminCommandCenter() {
             const awaitingForThisGw = pendingPayouts.some(
               (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
             );
-            // Show card if: no approved payout for this GW (live or pending)
             const shouldShowCard = gwWinner && activeTab !== 'finance' && !approvedForThisGw && !awaitingForThisGw;
             return shouldShowCard;
           })() && (
-            <div className={clsx("fc-highlight-card bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-5 md:p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-5 transition-all mt-2", resolutionPulse && "fc-burst-success") }>
-              <div className="absolute top-0 right-0 w-56 h-56 bg-[#FBBF24] blur-[90px] opacity-10 pointer-events-none" />
-              <div className="relative z-10 flex items-center gap-4 w-full md:w-auto">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-lg flex-shrink-0 animate-pulse">
-                  <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center border-2 border-[#0b1014]">
-                    <Trophy className="w-6 h-6 text-[#FBBF24]" />
+            <div className={clsx("fc-highlight-card relative overflow-hidden rounded-[2rem] border border-[#FBBF24]/30 bg-gradient-to-b from-[#1c1a09] via-[#181409] to-[#0d1014] p-6 md:p-8 transition-all mt-2 text-center", resolutionPulse && "fc-burst-success")}>
+              {/* BG glow */}
+              <div className="absolute inset-0 bg-gradient-to-b from-[#FBBF24]/10 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-[#FBBF24] blur-[80px] opacity-15 pointer-events-none" />
+
+              {/* Live / Final badge */}
+              <div className="absolute top-4 right-4">
+                <span className={clsx(
+                  "text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border",
+                  hasFinalGwChampion
+                    ? "border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]"
+                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                )}>
+                  {hasFinalGwChampion ? `GW${currentGwNumber || ''} Final` : `GW${currentGwNumber || ''} Live`}
+                </span>
+              </div>
+
+              {/* Trophy — centered */}
+              <div className="relative z-10 flex justify-center mb-4">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-[#FBBF24]/20 animate-ping" />
+                  <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-[0_0_30px_rgba(251,191,36,0.3)]">
+                    <div className="w-full h-full bg-[#0d1014] rounded-full flex items-center justify-center">
+                      <Trophy className="w-7 h-7 text-[#FBBF24]" />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3 h-3 fill-current" />
-                    {hasFinalGwChampion ? "Gameweek Champion" : "Live Leader"}
-                  </p>
-                  <h3 className="text-xl md:text-2xl font-black text-white leading-tight tracking-tight">
-                    {gwWinner.player_name}
-                  </h3>
-                  <p className="text-sm font-bold text-gray-400 mt-0.5">
-                    {gwWinner.entry_name}{" "}
-                    <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">
-                      {gwWinner.event_total} pts
-                    </span>
-                  </p>
-                </div>
               </div>
-              <div className="relative z-10 flex flex-col items-center justify-center w-full md:w-auto fc-highlight-surface p-5 rounded-2xl border backdrop-blur-sm gap-3">
-                <div className="flex flex-col items-center justify-center w-full gap-1.5 text-center">
-                  <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">
-                    Projected Payout
-                  </p>
-                  <p className="text-2xl md:text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
-                    KES {(
-                      members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)
-                    ).toLocaleString()}
-                  </p>
-                </div>
+
+              {/* Label */}
+              <p className="relative z-10 text-[10px] font-black text-[#FBBF24]/70 uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
+                <ShieldCheck className="w-3 h-3 fill-current" />
+                {hasFinalGwChampion ? "Gameweek Champion" : "Live Leader"}
+              </p>
+
+              {/* Player name — hero */}
+              <h3 className="relative z-10 text-2xl md:text-3xl font-black text-white tracking-tight mb-1">
+                {gwWinner.player_name}
+              </h3>
+
+              {/* FPL team + points */}
+              <p className="relative z-10 text-sm text-gray-400 font-medium mb-5 flex items-center justify-center gap-2 flex-wrap">
+                <span className="truncate max-w-[200px]">{gwWinner.entry_name}</span>
+                <span className="inline-flex items-center gap-1 text-[#10B981] font-black px-2.5 py-1 bg-[#10B981]/10 rounded-full border border-[#10B981]/20 tabular-nums text-sm">
+                  {gwWinner.event_total} pts
+                </span>
+              </p>
+
+              {/* Payout amount */}
+              <div className="relative z-10 mb-5 inline-flex flex-col items-center bg-black/30 border border-white/10 rounded-2xl px-8 py-4">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Projected Payout</p>
+                <p className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
+                  KES {(members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)).toLocaleString()}
+                </p>
+              </div>
+
+              {/* Action */}
+              <div className="relative z-10 max-w-xs mx-auto">
                 {hasFinalGwChampion && !pendingPayouts.some((p) => Number(p.gw) === currentGwNumber) && (
                   <button
                     id="tour-resolve-gw"
                     onClick={() => setShowResolveModal(true)}
-                    className="fc-highlight-action w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-[#FBBF24] hover:bg-white text-black text-[11px] font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-[#FBBF24] hover:bg-white text-black text-sm font-black tracking-widest rounded-2xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
                   >
-                    <Trophy className="w-4 h-4" /> Resolve & Payout
+                    <Trophy className="w-4 h-4" /> Resolve &amp; Payout
                   </button>
                 )}
                 {pendingPayouts.some((p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval') && (
-                  <div className="w-full rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/8 px-4 py-3 text-center">
+                  <div className="w-full rounded-2xl border border-[#FBBF24]/30 bg-[#FBBF24]/8 px-4 py-3 text-center">
                     <p className="text-[10px] font-black uppercase tracking-widest text-[#FBBF24]">Payout Queued</p>
                     <p className="text-xs text-gray-300 mt-1">Awaiting Co-Chair approval below ↓</p>
                   </div>
                 )}
                 {pendingPayouts.some((p) => Number(p.gw) === currentGwNumber && p.status === 'approved') && (
-                  <div className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-center">
+                  <div className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-center">
                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">✓ Payout Dispatched</p>
-                    <p className="text-xs text-gray-400 mt-1">GW{currentGwNumber} resolved & paid out</p>
+                    <p className="text-xs text-gray-400 mt-1">GW{currentGwNumber} resolved &amp; paid out</p>
                   </div>
                 )}
                 {!hasFinalGwChampion && (
-                  <div className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                      Resolve is locked
-                    </p>
-                    <p className="text-sm font-bold text-white mt-1">
-                      GW {currentGwNumber ?? "??"} ongoing...
-                    </p>
+                  <div className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Resolve is locked</p>
+                    <p className="text-sm font-bold text-white mt-1">GW {currentGwNumber ?? "??"} ongoing…</p>
                   </div>
                 )}
               </div>
@@ -2812,6 +2830,7 @@ export default function AdminCommandCenter() {
           )}
 
           {/* Co-Chair: Pending Payout Approval Panel */}
+
           {sortedPendingPayouts.length > 0 && (
             <section id="pending-payout-queue" className="space-y-4">
               <div className="flex items-center justify-between">

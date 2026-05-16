@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Scroll, Sun, Moon } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Scroll, Sun, Moon, HelpCircle } from 'lucide-react';
+
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
 import LeagueSwitcher from './LeagueSwitcher';
@@ -212,6 +213,15 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     title="League Constitution"
                 >
                     <Scroll className="w-5 h-5 md:w-6 md:h-6" />
+                </button>
+
+                {/* Help & Docs */}
+                <button
+                    onClick={() => navigate('/docs')}
+                    className="p-2.5 md:p-3 border border-white/5 rounded-xl text-gray-600 dark:text-gray-400 hover:text-blue-400 hover:border-blue-500/20 transition-all duration-300 ease-out active:scale-95"
+                    title="Help & Documentation"
+                >
+                    <HelpCircle className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
 
                 {/* Notifications Bell */}

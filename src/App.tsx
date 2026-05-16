@@ -25,6 +25,8 @@ const ChairmanManual = lazy(() => import('./pages/ChairmanManual'));
 const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const WinSharePage = lazy(() => import('./pages/WinSharePage'));
 const Error808 = lazy(() => import('./pages/Error808'));
+const Docs = lazy(() => import('./pages/Docs'));
+
 
 const RouteLoader = () => (
   <div className="min-h-screen w-full flex items-center justify-center bg-[#0b1014] text-[#10B981] text-sm font-bold tracking-widest uppercase">
@@ -93,6 +95,7 @@ function App() {
             <Route path="/faq" element={<FAQ />} />
             <Route path="/manual/member" element={<MemberManual />} />
             <Route path="/manual/chairman" element={<ChairmanManual />} />
+            <Route path="/docs" element={<Docs />} />
             <Route path="/hq" element={<SuperAdminDashboard />} />
             <Route path="/win" element={<WinSharePage />} />
             <Route path="*" element={<Error808 />} />
@@ -107,6 +110,7 @@ function App() {
               <Route path="/standings" element={<Standings />} />
               <Route path="/deposit" element={<Deposit />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/docs" element={<Docs />} />
             </Route>
           </Routes>
         </Suspense>
