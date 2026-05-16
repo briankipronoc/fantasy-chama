@@ -1,0 +1,36 @@
+# render.yaml — Fantasy Chama deployment configuration
+# Defines both services: frontend static site + Express API backend
+
+services:
+  # ─── Frontend (Static Site) ───────────────────────────────────────────────
+  # Serves the pre-built Vite dist/ folder via 'serve'.
+  # This is what was crashing before (was running 'vite' dev server = 512MB OOM).
+  - type: web
+    name: fantasy-chama-frontend
+    runtime: node
+    buildCommand: npm install; npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  # ─── Backend (Express API) ────────────────────────────────────────────────
+  # Runs the Express server (server.js) with Firebase Admin + Daraja M-Pesa.
+  - type: web
+    name: fantasy-chama-api
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm run server:start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # The following must be set manually in Render Dashboard → Environment:
+      # DARAJA_CONSUMER_KEY, DARAJA_CONSUMER_SECRET, DARAJA_SHORTCODE,
+      # DARAJA_PASSKEY, DARAJA_CALLBACK_URL, DARAJA_B2C_RESULT_URL,
+      # DARAJA_B2C_TIMEOUT_URL, MPESA_ENVIRONMENT,
+      # FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY,
+      # FRONTEND_URL, BACKEND_URL, AT_USERNAME, AT_API_KEY
