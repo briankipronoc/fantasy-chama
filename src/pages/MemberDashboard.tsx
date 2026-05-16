@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
+import LeagueRulesModal from '../components/LeagueRulesModal';
 import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone, Wallet } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
@@ -72,6 +73,7 @@ export default function MemberDashboard() {
     const [userLeagueCount, setUserLeagueCount] = useState(1);
     const [activeLeagueRole, setActiveLeagueRole] = useState<string>('member');
     const [showLeagueGuide, setShowLeagueGuide] = useState(false);
+    const [showRulesModal, setShowRulesModal] = useState(false);
 
     const members = useStore(state => state.members);
     const transactions = useStore(state => state.transactions);
@@ -242,7 +244,12 @@ export default function MemberDashboard() {
         if (!currentUser) return;
         if (!leagueName) return;
         setIsLoading(false);
+        // Show constitution modal on first login (only for non-admin members who haven't accepted)
+        if (currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules) {
+            setTimeout(() => setShowRulesModal(true), 800);
+        }
     }, [members.length, currentUser, leagueName]);
+
 
     useEffect(() => {
         const fetchCurrentEvent = async () => {
@@ -574,33 +581,31 @@ export default function MemberDashboard() {
 
     const generateWhatsAppReceipt = (payout: any) => {
         const unpaidCount = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false).length;
-        const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app';
-
-        const grossPot = payout.amount / 0.9;
-        const totalFee = grossPot * 0.1;
-        const chairmanCut = coAdminId ? grossPot * 0.025 : grossPot * 0.035;
-        const coAdminCut = coAdminId ? grossPot * 0.01 : 0;
+        const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasychama.vercel.app';
+        const method = payout.method === 'cash' ? 'Cash Handoff 💵' : 'M-Pesa ✅';
 
         const message = [
-            `🏆 *${leagueName} — ${payout.gwName || `GW${payout.gw}`} Results*`,
+            `🏆 *${leagueName} — GW${payout.gw} is DONE!*`,
             ``,
-            `🥇 *Winner:* ${payout.winnerName} (${payout.points} pts)`,
-            `💰 *Payout:* KES ${Number(payout.amount).toLocaleString()} _(Dispatched via M-Pesa ✅)_`,
-            `🚨 *Red Zone:* ${unpaidCount} member${unpaidCount !== 1 ? 's' : ''} yet to deposit for next GW.`,
+            `Congratulations to this week's winner 🎉`,
             ``,
-            `🛡️ *Admin/Escrow Fee (10%):* KES ${Math.round(totalFee).toLocaleString()}`,
-            `👑 *Chairman Cut:* KES ${Math.round(chairmanCut).toLocaleString()}`,
-            `👁️ *Co-Chair Cut:* KES ${Math.round(coAdminCut).toLocaleString()}`,
+            `🥇 *${payout.winnerName}* — ${payout.points} pts`,
+            `💰 *Payout: KES ${Number(payout.amount).toLocaleString()}* sent via ${method}`,
             ``,
-            `📊 Check live standings & vault:`,
-            `🔗 ${appUrl}`,
+            unpaidCount > 0
+                ? `⚠️ *${unpaidCount} member${unpaidCount !== 1 ? 's' : ''} still need to deposit* for next GW — don't get locked out!`
+                : `✅ All members are funded for the next gameweek. Let's go!`,
             ``,
-            `_Powered by FantasyChama — Your Chama runs itself._ ⚡`,
+            `📊 Check the live standings & your wallet:`,
+            `👉 ${appUrl}`,
+            ``,
+            `_${leagueName} — powered by FantasyChama_ ⚡`,
         ].join('\n');
 
         const encoded = encodeURIComponent(message);
-        window.open(`whatsapp://send?text=${encoded}`, '_blank');
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
     };
+
 
     // Module 4A: Confirm receipt
     const handleConfirmWinnings = async () => {
@@ -789,6 +794,15 @@ export default function MemberDashboard() {
                 : hasPaid ? "bg-[#0b1014]" : "bg-gradient-to-br from-[#0b1014] to-[#2a0808]",
             isSuspended ? "overflow-hidden h-screen" : ""
         )}>
+            {/* Constitution first-login modal */}
+            <LeagueRulesModal
+                isOpen={showRulesModal}
+                onClose={() => setShowRulesModal(false)}
+                currentMember={currentUser}
+                leagueName={leagueName}
+                chairmanName={members.find(m => (m as any).role === 'admin')?.displayName}
+            />
+
             {/* Phase 40: HQ Suspension Lockout Overlay */}
             {isSuspended && (
                 <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 overflow-hidden">

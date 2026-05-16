@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Lock, Wallet, AlertTriangle, Scale, Shield, Loader2 } from 'lucide-react';
+import { X, Lock, Wallet, AlertTriangle, Scale, Shield, Loader2, ChevronDown } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -9,14 +9,17 @@ interface LeagueRulesModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentMember: any;
+    leagueName?: string;
+    chairmanName?: string;
 }
 
-export default function LeagueRulesModal({ isOpen, onClose, currentMember }: LeagueRulesModalProps) {
+export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagueName, chairmanName }: LeagueRulesModalProps) {
     const overlayRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const [gameweekStake, setMonthlyContribution] = useState<number | null>(null);
     const [isAccepting, setIsAccepting] = useState(false);
+    const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
 
     const hasAccepted = currentMember?.hasAcceptedRules === true || currentMember?.role === 'admin';
 
@@ -45,12 +48,22 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
 
     useEffect(() => {
         if (!isOpen) return;
+        setHasScrolledToBottom(hasAccepted); // if already accepted, unlock immediately
         const timer = window.requestAnimationFrame(() => {
             if (contentRef.current) contentRef.current.scrollTop = 0;
             if (overlayRef.current) overlayRef.current.scrollTop = 0;
         });
         return () => window.cancelAnimationFrame(timer);
-    }, [isOpen]);
+    }, [isOpen, hasAccepted]);
+
+    // Track scroll position to unlock the sign button
+    const handleContentScroll = () => {
+        if (hasScrolledToBottom || hasAccepted) return;
+        const el = contentRef.current;
+        if (!el) return;
+        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        if (nearBottom) setHasScrolledToBottom(true);
+    };
 
     if (!isOpen) return null;
 
@@ -61,21 +74,25 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
             onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
         >
             {/* Backdrop */}
-            <div className="fc-rules-backdrop absolute inset-0 bg-black/55 animate-in fade-in duration-200" />
+            <div className="fc-rules-backdrop absolute inset-0 bg-black/70 animate-in fade-in duration-200" />
 
             {/* Modal Body */}
-            <div className="fc-rules-modal relative w-full md:w-[min(96vw,72rem)] h-[calc(100dvh-1rem)] md:h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-2rem)] flex flex-col bg-[#161d24] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.08),transparent_34%)]" />
+            <div className="fc-rules-modal relative w-full md:w-[min(96vw,72rem)] h-[calc(100dvh-1rem)] md:h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-2rem)] flex flex-col bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.06),transparent_34%)]" />
 
                 {/* Header */}
-                <div className="fc-rules-header sticky top-0 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/80 backdrop-blur-md z-10">
+                <div className="fc-rules-header sticky top-0 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/90 backdrop-blur-md z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                             <Shield className="w-4.5 h-4.5 text-emerald-400" />
                         </div>
                         <div>
-                            <p className="fc-rules-kicker text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">Official</p>
-                            <h2 className="fc-rules-heading text-base font-black tracking-tight text-white">League Constitution</h2>
+                            <p className="fc-rules-kicker text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">
+                                {hasAccepted ? 'Already Signed' : 'Signature Required'}
+                            </p>
+                            <h2 className="fc-rules-heading text-base font-black tracking-tight text-white">
+                                {leagueName ? `${leagueName} — League Constitution` : 'League Constitution'}
+                            </h2>
                         </div>
                     </div>
                     {hasAccepted && (
@@ -89,9 +106,34 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                     )}
                 </div>
 
+                {/* First-login intro banner */}
+                {!hasAccepted && (
+                    <div className="px-6 pt-5 pb-0 flex-shrink-0">
+                        <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-2xl px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                            <div className="flex-1">
+                                <p className="text-sm font-black text-white mb-1">
+                                    Welcome to {leagueName || 'the league'}!
+                                </p>
+                                <p className="text-xs text-gray-400 leading-relaxed">
+                                    Before you enter, read and accept the rules below.
+                                    {chairmanName && <> <span className="text-emerald-400 font-bold">{chairmanName}</span> has set these terms for all members.</>}
+                                    {gameweekStake && <> Your weekly stake is <span className="text-[#FBBF24] font-bold">KES {gameweekStake.toLocaleString()}</span>.</>}
+                                </p>
+                            </div>
+                            {!hasScrolledToBottom && (
+                                <div className="flex items-center gap-1.5 text-gray-500 text-xs animate-bounce flex-shrink-0">
+                                    <ChevronDown className="w-4 h-4" />
+                                    <span>Scroll to unlock</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Scrollable Content */}
                 <div
                     ref={contentRef}
+                    onScroll={handleContentScroll}
                     className="fc-rules-content overflow-y-auto flex-1 px-6 py-5 space-y-4"
                     style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
                 >
@@ -128,7 +170,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                             label: '🚨 THE GOLDEN RULE',
                             labelColor: 'text-red-400',
                             title: 'Green Zone vs. Red Zone',
-                            body: null, // Custom JSX below
+                            body: null,
                             custom: (
                                 <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
                                     <p>
@@ -194,9 +236,16 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
 
                 {/* Footer CTA - Only show if they haven't accepted yet */}
                 {!hasAccepted && (
-                    <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 bg-[#0d1117]/40">
+                    <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 bg-[#0d1117]/80 space-y-2">
+                        {!hasScrolledToBottom && (
+                            <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1.5">
+                                <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
+                                Read the full constitution to unlock your signature
+                            </p>
+                        )}
                         <button
                             onClick={async () => {
+                                if (!hasScrolledToBottom) return;
                                 setIsAccepting(true);
                                 try {
                                     if (activeLeagueId && currentMember) {
@@ -212,10 +261,15 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember }: Lea
                                     setIsAccepting(false);
                                 }
                             }}
-                            disabled={isAccepting}
-                            className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] active:scale-[0.98] text-sm flex items-center justify-center"
+                            disabled={isAccepting || !hasScrolledToBottom}
+                            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-black rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] active:scale-[0.98] text-sm flex items-center justify-center gap-2"
                         >
-                            {isAccepting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "Got it lets go!!!"}
+                            {isAccepting
+                                ? <Loader2 className="w-5 h-5 animate-spin" />
+                                : hasScrolledToBottom
+                                    ? <>🛡️ I Accept — Enter the War Room</>
+                                    : <>Scroll to unlock signature</>
+                            }
                         </button>
                     </div>
                 )}

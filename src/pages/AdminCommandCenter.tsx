@@ -293,6 +293,14 @@ export default function AdminCommandCenter() {
   const [isSendingWalletPrompt, setIsSendingWalletPrompt] = useState(false);
   const [fundPromptSent, setFundPromptSent] = useState(false);
 
+  // Edit Member modal state
+  const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+  const [editTargetMemberId, setEditTargetMemberId] = useState('');
+  const [editMemberPhone, setEditMemberPhone] = useState('');
+  const [editMemberFplId, setEditMemberFplId] = useState('');
+  const [editMemberName, setEditMemberName] = useState('');
+  const [isSavingMemberEdit, setIsSavingMemberEdit] = useState(false);
+
   const recordOperationEvent = async (payload: {
     title: string;
     message: string;
@@ -1249,6 +1257,41 @@ export default function AdminCommandCenter() {
     setFundNote("");
     setFundPromptSent(false);
     setShowWalletFundModal(true);
+  };
+
+  const openEditMemberModal = (member: any) => {
+    setEditTargetMemberId(member.id);
+    setEditMemberName(member.displayName || '');
+    setEditMemberPhone(member.phone || '');
+    setEditMemberFplId(String(member.fplTeamId || ''));
+    setIsSavingMemberEdit(false);
+    setShowEditMemberModal(true);
+  };
+
+  const handleSaveMemberEdit = async () => {
+    if (!activeLeagueId || !editTargetMemberId) return;
+    setIsSavingMemberEdit(true);
+    try {
+      const updates: Record<string, any> = {};
+      if (editMemberPhone) updates.phone = editMemberPhone;
+      if (editMemberFplId) updates.fplTeamId = Number(editMemberFplId);
+      if (editMemberName) updates.displayName = editMemberName;
+      await import('firebase/firestore').then(({ updateDoc, doc }) =>
+        updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', editTargetMemberId), updates)
+      );
+      await recordOperationEvent({
+        title: 'Member Profile Updated',
+        message: `Chairman updated profile for ${editMemberName}: phone=${editMemberPhone || '—'}, FPL=${editMemberFplId || '—'}`,
+        targetMemberId: editTargetMemberId,
+        type: 'info',
+      });
+      showToast('Member profile updated ✅');
+      setShowEditMemberModal(false);
+    } catch (e: any) {
+      showToast('Failed to update: ' + (e.message || 'Unknown error'));
+    } finally {
+      setIsSavingMemberEdit(false);
+    }
   };
 
   useEffect(() => {
@@ -3290,6 +3333,13 @@ export default function AdminCommandCenter() {
                                   >
                                     {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
                                   </button>
+                                  <span className="text-white/20">•</span>
+                                  <button
+                                    onClick={() => openEditMemberModal(row)}
+                                    className="hover:text-[#FBBF24] transition-colors"
+                                  >
+                                    ✏️ Edit
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -3836,6 +3886,85 @@ export default function AdminCommandCenter() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* ── Edit Member Modal ─────────────────────────── */}
+          {showEditMemberModal && (
+            <div className="fixed inset-0 z-[99998] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+              <div className="w-full max-w-md bg-[#161d24] border border-white/10 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300 overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#FBBF24]">Chairman Edit</p>
+                    <h3 className="text-base font-black text-white">Update Member Profile</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowEditMemberModal(false)}
+                    className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="px-6 py-4 space-y-4">
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 text-xs text-amber-300/80">
+                    Changes are logged to the Operations Feed for full audit trail.
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Display Name</label>
+                    <input
+                      type="text"
+                      value={editMemberName}
+                      onChange={e => setEditMemberName(e.target.value)}
+                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:ring-1 focus:ring-[#FBBF24]/50 outline-none"
+                      placeholder="e.g. John Doe"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">M-Pesa Phone</label>
+                    <input
+                      type="tel"
+                      value={editMemberPhone}
+                      onChange={e => setEditMemberPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-[#FBBF24]/50 outline-none"
+                      placeholder="0712345678"
+                    />
+                    <p className="text-[10px] text-gray-600 mt-1.5">This number controls login & M-Pesa payouts. Double-check before saving.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">FPL Team ID</label>
+                    <input
+                      type="text"
+                      value={editMemberFplId}
+                      onChange={e => setEditMemberFplId(e.target.value.replace(/[^0-9]/g, ''))}
+                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-[#FBBF24]/50 outline-none"
+                      placeholder="e.g. 1234567"
+                    />
+                  </div>
+                </div>
+
+                <div className="px-6 pb-5 flex gap-3">
+                  <button
+                    onClick={() => setShowEditMemberModal(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-sm font-bold hover:bg-white/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveMemberEdit}
+                    disabled={isSavingMemberEdit}
+                    className="flex-1 py-2.5 rounded-xl bg-[#FBBF24] hover:bg-[#eab308] text-black text-sm font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSavingMemberEdit
+                      ? <RefreshCw className="w-4 h-4 animate-spin" />
+                      : '✓ Save Changes'
+                    }
+                  </button>
+                </div>
               </div>
             </div>
           )}

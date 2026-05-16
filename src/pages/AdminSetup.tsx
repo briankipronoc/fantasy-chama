@@ -11,6 +11,8 @@ const STEPS = 5;
 
 export default function AdminSetup() {
     const [step, setStep] = useState(1);
+    const [stepDirection, setStepDirection] = useState<'forward' | 'back'>('forward');
+
 
     // Interactive Tooltip Component for clean UX guidance
     const Tooltip = ({ text }: { text: React.ReactNode }) => (
@@ -232,7 +234,8 @@ export default function AdminSetup() {
             // Step 4 handles firebase writes separately inside handleConfirmLeague
             return;
         }
-        if (step < STEPS) setStep(step + 1);
+        if (step < STEPS) { setStepDirection('forward'); setStep(step + 1); }
+
     };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -424,6 +427,8 @@ export default function AdminSetup() {
             ].forEach(key => localStorage.removeItem(key));
 
             setStep(5);
+            setStepDirection('forward');
+
         } catch (error: any) {
             console.error('Error creating league or enrolling members:', error);
             if (error.code === 'auth/email-already-in-use') {
@@ -441,8 +446,9 @@ export default function AdminSetup() {
     };
 
     const prevStep = () => {
-        if (step > 1 && !isSubmitting) setStep(step - 1);
+        if (step > 1 && !isSubmitting) { setStepDirection('back'); setStep(step - 1); }
     };
+
 
     // Import all FPL managers from standings as blank-phone members
     const handleImportFromFPL = () => {
@@ -480,8 +486,12 @@ export default function AdminSetup() {
 
     const inputClasses = "w-full pl-12 pr-4 py-3 md:py-3.5 rounded-xl border border-white/5 bg-[#161d24] text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium [&:-webkit-autofill]:bg-[#161d24] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0px_1000px_#161d24_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
+    const stepAnimClass = stepDirection === 'forward'
+        ? 'animate-in fade-in slide-in-from-right-4 duration-400'
+        : 'animate-in fade-in slide-in-from-left-4 duration-400';
+
     const renderStep1 = () => (
-        <div className="fc-auth-card w-[95%] sm:w-[500px] max-w-lg mx-auto bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-8 z-10 shadow-2xl relative animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className={`fc-auth-card w-[95%] sm:w-[500px] max-w-lg mx-auto bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-8 z-10 shadow-2xl relative ${stepAnimClass}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
             <div className="text-center mb-6 relative z-10">
                 <h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight text-white">
@@ -638,7 +648,7 @@ export default function AdminSetup() {
     );
 
     const renderStep2 = () => (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 w-full col-span-1 md:col-span-2">
+        <div className={`space-y-6 ${stepAnimClass} w-full col-span-1 md:col-span-2`}>
             <div className="text-center mb-8 relative z-10">
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">Build Your League's Economy</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Configure your chama rules, contributions, and prize distributions.</p>
@@ -1031,7 +1041,7 @@ export default function AdminSetup() {
     );
 
     const renderStep3 = () => (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 w-full">
+        <div className={`space-y-6 ${stepAnimClass} w-full`}>
             <div className="text-center mb-4">
                 <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">The Gatekeeper</p>
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Member Enrollment</h2>
@@ -1289,7 +1299,7 @@ export default function AdminSetup() {
     );
 
     const renderStep4 = () => (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 w-full">
+        <div className={`space-y-6 ${stepAnimClass} w-full`}>
             <div className="text-center mb-8">
                 <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Final Verification</p>
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Confirm League Details</h2>
