@@ -646,16 +646,20 @@ export default function AdminCommandCenter() {
         const driverObj = driver({
           showProgress: true,
           smoothScroll: true,
+          animate: true,
+          overlayOpacity: 0.7,
+          stagePadding: 8,
+          popoverClass: "fc-driver-popover",
           onNextClick: (_element: any, _step: any, options: any) => {
             const activeIndex = options?.state?.activeIndex ?? 0;
             if (activeIndex === 0) {
               setActiveTab("ledger");
-              window.setTimeout(() => options.driver.moveNext(), 250);
+              window.setTimeout(() => options.driver.moveNext(), 350);
               return;
             }
             if (activeIndex === 1) {
               setActiveTab("finance");
-              window.setTimeout(() => options.driver.moveNext(), 250);
+              window.setTimeout(() => options.driver.moveNext(), 350);
               return;
             }
             options.driver.moveNext();
@@ -664,12 +668,12 @@ export default function AdminCommandCenter() {
             const activeIndex = options?.state?.activeIndex ?? 0;
             if (activeIndex === 1) {
               setActiveTab("dashboard");
-              window.setTimeout(() => options.driver.movePrevious(), 250);
+              window.setTimeout(() => options.driver.movePrevious(), 350);
               return;
             }
             if (activeIndex === 2) {
               setActiveTab("ledger");
-              window.setTimeout(() => options.driver.movePrevious(), 250);
+              window.setTimeout(() => options.driver.movePrevious(), 350);
               return;
             }
             options.driver.movePrevious();
@@ -678,9 +682,9 @@ export default function AdminCommandCenter() {
             {
               element: "#tour-add-member",
               popover: {
-                title: "Overview",
+                title: "🏠 Overview — Your War Room",
                 description:
-                  "Start in Overview, then use Next to move through Ledger & Access and Finance & Ops.",
+                  "This is your command center. See the live GW leader, pending payouts, and the full snapshot of league health at a glance. Start here every gameweek.",
                 side: "bottom",
                 align: "start",
               },
@@ -688,9 +692,9 @@ export default function AdminCommandCenter() {
             {
               element: "#master-ledger",
               popover: {
-                title: "Ledger & Access",
+                title: "📋 Ledger — Who's Paid?",
                 description:
-                  "Review the master ledger, then continue to Finance & Ops for vault, payouts, and support workflows.",
+                  "See every member's wallet balance and payment status in real time. Fund wallets manually, mark deposits, and spot red-zone members before it's too late.",
                 side: "bottom",
                 align: "start",
               },
@@ -698,9 +702,9 @@ export default function AdminCommandCenter() {
             {
               element: "#tour-finance-ops",
               popover: {
-                title: "Finance & Ops",
+                title: "💸 Finance & Ops — Treasury",
                 description:
-                  "Use this section for vault tracking, finance approvals, and prefund operations.",
+                  "Track your weekly pot, season vault, and M-Pesa payout history. Use Pilot Prefund to seed wallets during testing. This is where the money lives.",
                 side: "top",
                 align: "start",
               },
@@ -937,9 +941,26 @@ export default function AdminCommandCenter() {
 
   const shareInviteCode = () => {
     navigator.clipboard.writeText(inviteCode);
-    const message = `🎯 Join my Fantasy Chama League: *${leagueName}*\n\n🔑 Access Code: *${inviteCode}*\n💰 Weekly Stake: KES ${gameweekStake || 0}\n\nJoin here: https://fantasy-chama.vercel.app`;
+    const appUrl = import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app";
+    const message = [
+      `🏆 *${leagueName} — You're Invited!*`,
+      ``,
+      `Ey! I've set up a Fantasy Premier League Chama and you need to be in it. 💰`,
+      ``,
+      `Here's how it works:`,
+      `• Each gameweek, every member contributes *KES ${gameweekStake || 0}*`,
+      `• The member with the highest FPL points wins the weekly pot`,
+      `• End-of-season vault pays out the top performers`,
+      ``,
+      `To join, use this code when you sign up:`,
+      `🔑 *${inviteCode}*`,
+      ``,
+      `👉 Sign up here: ${appUrl}`,
+      ``,
+      `Don't sleep on this 🔥`,
+    ].join("\n");
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-    showToast("Invite code copied. WhatsApp share opened.");
+    showToast("Invite link copied & WhatsApp opened!");
   };
 
   const shareWalletFundingReceipt = (payload: {
@@ -977,8 +998,11 @@ export default function AdminCommandCenter() {
     setShowWalletFundModal(false);
     setShowResolveModal(false);
     setPrefundData({});
-    setShowPrefundOptions(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Defer by one tick to escape the scroll-lock useEffect race that caused the freeze
+    setTimeout(() => {
+      setShowPrefundOptions(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
   };
 
   // @ts-ignore
@@ -1955,24 +1979,29 @@ export default function AdminCommandCenter() {
       (m) => !m.hasPaid && m.role !== "admin" && m.isActive !== false,
     ).length;
     const appUrl =
-      import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app";
+      import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app";
+    const method = payout.method === "cash" ? "Cash Handoff 💵" : "M-Pesa ✅";
 
     const message = [
-      `🏆 *${leagueName} — ${payout.gwName || `GW${payout.gw}`} Results*`,
+      `🏆 *${leagueName} — GW${payout.gw} is DONE!*`,
       ``,
-      `🥇 *Winner:* ${payout.winnerName} (${payout.points} pts)`,
-      `💰 *Payout (91%):* KES ${Number(payout.amount).toLocaleString()} _(Dispatched via M-Pesa ✅)_`,
-      `🏦 *Operational Cut (9%):* HQ System & Chairman`,
-      `🚨 *Red Zone:* ${unpaidCount} member${unpaidCount !== 1 ? "s" : ""} yet to deposit for next GW.`,
+      `Congratulations to this week's winner 🎉`,
       ``,
-      `📊 Check live standings & vault:`,
-      `🔗 ${appUrl}`,
+      `🥇 *${payout.winnerName}* — ${payout.points} pts`,
+      `💰 *Payout: KES ${Number(payout.amount).toLocaleString()}* sent via ${method}`,
       ``,
-      `_Powered by FantasyChama — Your Chama runs itself._ ⚡`,
+      unpaidCount > 0
+        ? `⚠️ *${unpaidCount} member${unpaidCount !== 1 ? "s" : ""} still need to deposit* for next GW — don't get locked out!`
+        : `✅ All members are funded for the next gameweek. Let's go!`,
+      ``,
+      `📊 Check the live standings & your wallet:`,
+      `👉 ${appUrl}`,
+      ``,
+      `_${leagueName} — powered by FantasyChama_ ⚡`,
     ].join("\n");
 
     const encoded = encodeURIComponent(message);
-    window.open(`whatsapp://send?text=${encoded}`, "_blank");
+    window.open(`https://wa.me/?text=${encoded}`, "_blank");
   };
 
   if (isLoading) {
@@ -2576,6 +2605,67 @@ export default function AdminCommandCenter() {
 
           
 
+          {/* GW Winners Ledger — compact scroll card, placed before stats */}
+          {activeTab === 'dashboard' && (
+            <div className="w-full bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
+                </h4>
+                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                  NOW: GW {currentGwNumber || firestoreGw || '--'}
+                </span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => {
+                  const approvedPayout = pendingPayouts.find(
+                    (p) => Number(p.gw) === gw && p.status === 'approved'
+                  );
+                  const pendingPayout = pendingPayouts.find(
+                    (p) => Number(p.gw) === gw && p.status === 'awaiting_approval'
+                  );
+                  const isCurrent = gw === (currentGwNumber || firestoreGw);
+                  return (
+                    <div
+                      key={gw}
+                      className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-colors min-w-[60px] ${
+                        approvedPayout
+                          ? 'border-emerald-500/40 bg-emerald-500/10'
+                          : pendingPayout
+                          ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10'
+                          : isCurrent
+                          ? 'border-white/20 bg-white/5'
+                          : 'border-white/5 bg-transparent'
+                      }`}
+                    >
+                      <span className={`text-[9px] font-black uppercase tracking-widest ${
+                        isCurrent ? 'text-white' : 'text-gray-500'
+                      }`}>GW{gw}</span>
+                      <span className={`text-[8px] font-bold ${
+                        approvedPayout ? 'text-emerald-400' : pendingPayout ? 'text-[#FBBF24]' : 'text-gray-600'
+                      }`}>
+                        {approvedPayout
+                          ? '✓ Paid'
+                          : pendingPayout
+                          ? '⏳ Pending'
+                          : isCurrent
+                          ? 'Live'
+                          : gw < (currentGwNumber || firestoreGw || 99)
+                          ? 'Skipped'
+                          : '—'}
+                      </span>
+                      {approvedPayout && (
+                        <span className="text-[8px] text-emerald-300 font-bold truncate max-w-[56px] text-center">
+                          {approvedPayout.winnerName?.split(' ')[0]}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Champion Card: show during GW, hide once approved payout exists for this GW */}
           {(() => {
             const approvedForThisGw = pendingPayouts.some(
@@ -2584,8 +2674,7 @@ export default function AdminCommandCenter() {
             const awaitingForThisGw = pendingPayouts.some(
               (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
             );
-            // Show card if: winner exists + not in finance tab + no approved payout for this GW
-            // After approval, hide it (payout done = no card)
+            // Show card if: no approved payout for this GW (live or pending)
             const shouldShowCard = gwWinner && activeTab !== 'finance' && !approvedForThisGw && !awaitingForThisGw;
             return shouldShowCard;
           })() && (
@@ -2956,7 +3045,7 @@ export default function AdminCommandCenter() {
                         League Open for Gameweek
                       </h5>
                       <p className="text-xs text-gray-400 mt-1">
-                        Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || "--"}. Deadline approaches.
+                        Accepting deposits for Gameweek {currentGwNumber || firestoreGw || "--"}. Deadline approaches.
                       </p>
                       <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">
                         System
