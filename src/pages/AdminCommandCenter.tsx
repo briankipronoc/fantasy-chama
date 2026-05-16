@@ -34,7 +34,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { useStore } from "../store/useStore";
-import { getApiBaseUrl } from "../utils/api";
+import { getApiBaseUrl, secureApiPost } from "../utils/api";
 import clsx from "clsx";
 import confetti from "canvas-confetti";
 import { driver } from "driver.js";
@@ -1757,21 +1757,16 @@ export default function AdminCommandCenter() {
           throw new Error(
             "Payment server is not configured. Set VITE_API_URL for production.",
           );
-        const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: payoutPhone,
-            amount: payout.amount,
-            winnerName: payout.winnerName,
-            remarks: `FantasyChama GW${payout.gw} Approved Payout`,
-            userId: payout.winnerId || winnerMember?.id || activeUserId,
-            leagueId: activeLeagueId,
-            gw: Number(payout.gw || 0),
-            points: payoutPoints,
-          }),
+        data = await secureApiPost(`${payoutApiUrl}/api/mpesa/b2c`, {
+          phone: payoutPhone,
+          amount: payout.amount,
+          winnerName: payout.winnerName,
+          remarks: `FantasyChama GW${payout.gw} Approved Payout`,
+          userId: payout.winnerId || winnerMember?.id || activeUserId,
+          leagueId: activeLeagueId,
+          gw: Number(payout.gw || 0),
+          points: payoutPoints,
         });
-        data = await res.json();
         if (!data.success) throw new Error(data.message);
       }
 

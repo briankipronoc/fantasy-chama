@@ -1,6 +1,7 @@
 import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import moment from 'moment';
@@ -41,25 +42,73 @@ const ALLOWED_ORIGINS = [
 ].filter(Boolean);
 
 const app = express();
+
+// ── Security Headers (helmet) ────────────────────────────────
+app.use(helmet({
+    contentSecurityPolicy: false, // Handled by Vercel/CDN on the frontend
+    crossOriginEmbedderPolicy: false,
+}));
+
+// ── CORS — strict origin enforcement ─────────────────────────
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, Safaricom webhooks)
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        // Allow requests with no origin (Safaricom webhooks, server-to-server)
+        if (!origin) return callback(null, true);
+        if (ALLOWED_ORIGINS.includes(origin)) {
             callback(null, true);
         } else {
-            console.warn(`CORS blocked: ${origin}`);
-            callback(null, true); // Permissive for now; tighten on full production launch
+            console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
+            callback(new Error(`Origin ${origin} not allowed by CORS`));
         }
     },
     credentials: true
 }));
-app.use(express.json());
+
+// ── Body size limit — prevent DoS via large payloads ─────────
+app.use(express.json({ limit: '100kb' }));
+
+// ── General API rate limiter (all routes) ─────────────────────
+const globalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 120,            // 120 requests per minute per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests. Please slow down.' }
+});
+app.use('/api/', globalLimiter);
 
 const mpesaLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
     message: { success: false, message: 'Too many M-Pesa requests. Try again after a minute.' }
 });
+
+/**
+ * Firebase ID Token Verification Middleware
+ * Attach to any route that should only be callable by an authenticated chairman/admin.
+ * Extracts the Bearer token from Authorization header, verifies it with Firebase Admin SDK,
+ * and attaches req.firebaseUser (uid, email) for downstream use.
+ */
+const verifyFirebaseToken = async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, message: 'Unauthorized: Missing Firebase ID token.' });
+    }
+    const idToken = authHeader.split('Bearer ')[1];
+    try {
+        if (!admin.apps.length) {
+            return res.status(503).json({ success: false, message: 'Auth service unavailable.' });
+        }
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        req.firebaseUser = { uid: decoded.uid, email: decoded.email };
+        next();
+    } catch (err) {
+        console.warn('[AUTH] Invalid or expired Firebase ID token:', err.code || err.message);
+        return res.status(403).json({ success: false, message: 'Forbidden: Invalid or expired session token.' });
+    }
+};
 
 // Derive __dirname for ESM modules
 const __filename = fileURLToPath(import.meta.url);
@@ -342,7 +391,7 @@ app.post('/api/mpesa/callback', async (req, res) => {
  * B2C Disbursement Route
  * POST /api/mpesa/b2c
  */
-app.post('/api/mpesa/b2c', mpesaLimiter, generateDarajaToken, async (req, res) => {
+app.post('/api/mpesa/b2c', mpesaLimiter, verifyFirebaseToken, generateDarajaToken, async (req, res) => {
     try {
         const parseResult = b2cPayoutSchema.safeParse(req.body);
         if (!parseResult.success) {
@@ -556,7 +605,7 @@ app.post('/api/mpesa/b2c/timeout', async (req, res) => {
 // Flags hasPaid: false if balance drops to 0 or below.
 // Writes summary to Live Escrow Feed.
 // ============================================================
-app.post('/api/league/deduct-gw-cost', async (req, res) => {
+app.post('/api/league/deduct-gw-cost', verifyFirebaseToken, async (req, res) => {
     try {
         const parseResult = deductGwCostSchema.safeParse(req.body);
         if (!parseResult.success) {
@@ -878,7 +927,7 @@ app.post('/api/simulate/stk-callback', async (req, res) => {
  * POST /api/mpesa/query
  * Used when a member's callback dropped. Accepts a receipt number and queries Daraja to verify it.
  */
-app.post('/api/mpesa/query', generateDarajaToken, async (req, res) => {
+app.post('/api/mpesa/query', verifyFirebaseToken, generateDarajaToken, async (req, res) => {
     try {
         const { receiptNumber, userId, leagueId } = req.body;
 

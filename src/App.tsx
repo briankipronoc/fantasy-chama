@@ -67,7 +67,6 @@ const AppLayoutWrapper = () => (
 
 function App() {
   const role = useStore(state => state.role);
-  const hasActiveLeague = !!localStorage.getItem('activeLeagueId');
 
   useEffect(() => {
     const leagueId = localStorage.getItem('activeLeagueId');

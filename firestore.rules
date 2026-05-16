@@ -1,12 +1,19 @@
 rules_version = '2';
 
 // ============================================================
-// FantasyChama — Phase 11: Absolute Financial Security Rules
+// FantasyChama — Phase 12: Hardened Security Rules
+// Changes from Phase 11:
+//   - Leagues: read now requires authentication (no anonymous sniffing)
+//   - Memberships: read requires authentication (protects phone numbers)
+//   - League create: requires email verification to prevent fake accounts
+//   - mpesa_requests / b2c_requests: tightened update (admin-only)
+//   - Deny all catch-all remains the default
 // ============================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Default deny — anything not explicitly matched is blocked
     match /{document=**} {
       allow read, write: if false;
     }
@@ -21,10 +28,9 @@ service cloud.firestore {
              leagueData(leagueId).chairmanId == request.auth.uid;
     }
 
-    // UPDATED: isCoAdmin now supports both auth UID and legacy mapping
     function isCoAdmin(leagueId) {
       return request.auth != null &&
-             (leagueData(leagueId).get('coAdminId', null) == request.auth.uid || 
+             (leagueData(leagueId).get('coAdminId', null) == request.auth.uid ||
               leagueData(leagueId).get('coAdminMapping', null) == request.auth.uid);
     }
 
@@ -36,40 +42,57 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid != null;
     }
 
+    // Protects financial fields from being written by non-admins
     function touchesFinancialFields() {
       let sensitive = ['walletBalance', 'role', 'trustScore', 'hasPaid'];
       return request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitive);
     }
 
+    // ──────────────────────────────────────────────────────────────
+    // LEAGUES
+    // ──────────────────────────────────────────────────────────────
     match /leagues/{leagueId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
+      // Authenticated read only — prevents public scraping of league names,
+      // chairman emails, invite codes, and financial rules
+      allow read: if isAuthenticated();
+
+      // Only email-verified accounts can create leagues (prevents throwaway signups)
+      allow create: if isAuthenticated() && request.auth.token.email_verified == true;
+
       allow update: if isChairman(leagueId);
       allow delete: if isChairman(leagueId);
 
+      // ── Memberships ───────────────────────────────────────────
       match /memberships/{memberId} {
-        allow read: if true;
+        // Authenticated read only — phone numbers are PII; no public exposure
+        allow read: if isAuthenticated();
+
         allow create: if isAdmin(leagueId);
-        allow update: if 
+
+        allow update: if
           isAdmin(leagueId)
           ||
           (
+            // Member updating their own non-financial profile fields
             isAuthenticated() &&
             (
-              resource.data.get('authUid', '') == request.auth.uid || 
+              resource.data.get('authUid', '') == request.auth.uid ||
               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasAcceptedRules'])
             ) &&
             !touchesFinancialFields()
           )
           ||
           (
+            // Member setting their own authUid on first login
             isAuthenticated() &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authUid']) &&
             request.resource.data.authUid == request.auth.uid
           );
+
         allow delete: if isChairman(leagueId);
       }
 
+      // ── Notifications ─────────────────────────────────────────
       match /notifications/{notifId} {
         allow read: if isAuthenticated();
         allow create: if isAdmin(leagueId);
@@ -77,6 +100,7 @@ service cloud.firestore {
           isAdmin(leagueId)
           ||
           (
+            // Members can only mark notifications as read (append to readBy array)
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
             request.resource.data.readBy.hasAll(resource.data.readBy)
           )
@@ -84,11 +108,13 @@ service cloud.firestore {
         allow delete: if isAdmin(leagueId);
       }
 
+      // ── League Events (Ledger feed) ───────────────────────────
       match /league_events/{eventId} {
         allow read: if isAuthenticated();
         allow create, update, delete: if isAdmin(leagueId);
       }
 
+      // ── Disputes ──────────────────────────────────────────────
       match /disputes/{disputeId} {
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
@@ -102,6 +128,7 @@ service cloud.firestore {
         allow delete: if isChairman(leagueId);
       }
 
+      // ── Pending Payouts ───────────────────────────────────────
       match /pending_payouts/{payoutId} {
         allow read: if isAdmin(leagueId);
         allow create: if isChairman(leagueId);
@@ -109,6 +136,7 @@ service cloud.firestore {
         allow delete: if isChairman(leagueId);
       }
 
+      // ── Winner Confirmations ──────────────────────────────────
       match /winner_confirmations/{confId} {
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
@@ -127,24 +155,26 @@ service cloud.firestore {
         allow delete: if isAdmin(leagueId);
       }
 
-      // UPDATED: Critical Financial Ledger Rules
+      // ── Transactions (Immutable Ledger) ───────────────────────
       match /transactions/{txId} {
         allow read: if isAuthenticated() && (
           isAdmin(leagueId) ||
           resource.data.userId == request.auth.uid
         );
-        allow create: if isAdmin(leagueId); // Only Admins can log transactions
-        allow update, delete: if false;     // Transactions are immutable
+        allow create: if isAdmin(leagueId);
+        allow update, delete: if false; // Transactions are immutable — never modifiable
       }
 
+      // ── M-Pesa STK Requests ───────────────────────────────────
       match /mpesa_requests/{requestId} {
         allow read: if isAdmin(leagueId);
         allow create: if isAuthenticated();
-        allow update: if isAuthenticated();
+        // Only admin can update (e.g. backend marks as completed via Admin SDK)
+        allow update: if isAdmin(leagueId);
         allow delete: if false;
       }
-      
-      // NEW: Financial Operations Collections
+
+      // ── Wallet Top-up Requests ────────────────────────────────
       match /wallet_topup_requests/{requestId} {
         allow read: if isAuthenticated() && (isAdmin(leagueId) || resource.data.userId == request.auth.uid);
         allow create: if isAuthenticated();
@@ -152,19 +182,22 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // ── HQ Settlements ────────────────────────────────────────
       match /hq_settlements/{settlementId} {
         allow read: if isAdmin(leagueId);
         allow create: if isChairman(leagueId);
         allow update, delete: if false;
       }
-      
+
+      // ── B2C Payout Requests ───────────────────────────────────
       match /b2c_requests/{requestId} {
         allow read: if isAdmin(leagueId);
-        allow create: if isAuthenticated();
-        allow update: if isAuthenticated();
+        allow create: if isAdmin(leagueId); // Only admin triggers payouts
+        allow update: if isAdmin(leagueId); // Status updates by admin/backend only
         allow delete: if false;
       }
 
-    } 
-  } 
+    } // end /leagues/{leagueId}
+
+  } // end /databases/{database}/documents
 }

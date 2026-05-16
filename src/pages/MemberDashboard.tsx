@@ -6,7 +6,7 @@ import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Acti
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
-import { getApiBaseUrl } from '../utils/api';
+import { getApiBaseUrl, secureApiPost } from '../utils/api';
 import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import clsx from 'clsx';
@@ -397,16 +397,11 @@ export default function MemberDashboard() {
         try {
             const apiUrl = getApiBaseUrl();
             if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
-            const res = await fetch(`${apiUrl}/api/mpesa/query`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    receiptNumber: receiptCode.trim().toUpperCase(),
-                    userId: activeUserId,
-                    leagueId: activeLeagueId
-                })
+            const data = await secureApiPost(`${apiUrl}/api/mpesa/query`, {
+                receiptNumber: receiptCode.trim().toUpperCase(),
+                userId: activeUserId,
+                leagueId: activeLeagueId
             });
-            const data = await res.json();
             setReceiptResult({ success: data.success && data.verified !== false, message: data.message });
             if (data.success && data.verified === true) {
                 showToast('✅ Payment verified! Your status has been updated.', 'success');
@@ -539,19 +534,14 @@ export default function MemberDashboard() {
         try {
             const payoutApiUrl = getApiBaseUrl();
             if (!payoutApiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
-            const res = await fetch(`${payoutApiUrl}/api/mpesa/b2c`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: payout.winnerPhone,
-                    amount: payout.amount,
-                    winnerName: payout.winnerName,
-                    remarks: `FantasyChama GW${payout.gw} Approved Payout`,
-                    userId: payout.winnerId,
-                    leagueId: activeLeagueId
-                })
+            const data = await secureApiPost(`${payoutApiUrl}/api/mpesa/b2c`, {
+                phone: payout.winnerPhone,
+                amount: payout.amount,
+                winnerName: payout.winnerName,
+                remarks: `FantasyChama GW${payout.gw} Approved Payout`,
+                userId: payout.winnerId,
+                leagueId: activeLeagueId
             });
-            const data = await res.json();
             if (!data.success) throw new Error(data.message);
 
             await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payout.id), {
