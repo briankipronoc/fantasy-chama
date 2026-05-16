@@ -15,7 +15,7 @@ export const getApiBaseUrl = () => {
         return url;
     }
     // Hardcoded production fallback
-    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama-api.onrender.com';
+    const DEFAULT_RENDER_API_URL = 'https://fantasy-chama.onrender.com';
     return DEFAULT_RENDER_API_URL;
 };
 
