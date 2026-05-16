@@ -46,7 +46,7 @@ export default function AdminSetup() {
     const [fplFetchStatus, setFplFetchStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [fplStandings, setFplStandings] = useState<any[]>([]); // stores raw FPL standings for Step 3 import
     const [monthlyFee, setMonthlyFee] = useState(200);
-    const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(50);
+    const [weeklyPrizePercent, setWeeklyPrizePercent] = useState(60);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
     const [seasonWinnersMode, setSeasonWinnersMode] = useState<'top1' | 'top3' | 'top5' | 'custom'>('top3');
     const [customWinnerCount, setCustomWinnerCount] = useState<number>(3);
@@ -328,6 +328,7 @@ export default function AdminSetup() {
                 chairmanPhone: chairmanPayoutPhone || phone,
                 chairmanEmail: email,
                 allowMultipleTeams,
+                startGw: null, // Will be set once we know current GW from FPL (auto-populated on first load)
                 rules: {
                     weekly: weeklyPrizePercent,
                     vault: 100 - weeklyPrizePercent,

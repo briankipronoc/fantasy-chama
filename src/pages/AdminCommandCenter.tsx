@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import {
@@ -94,6 +95,23 @@ export default function AdminCommandCenter() {
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
   const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
+
+  // Ref for GW ledger auto-scroll
+  const gwLedgerScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!gwLedgerScrollRef.current || !(currentGwNumber || firestoreGw)) return;
+    const gwNum = currentGwNumber || firestoreGw || 1;
+    const target = gwLedgerScrollRef.current.querySelector(`[data-gw="${gwNum}"]`) as HTMLElement | null;
+    if (target) {
+      // Center the current GW chip in the scroll container
+      const container = gwLedgerScrollRef.current;
+      const targetLeft = target.offsetLeft;
+      const containerWidth = container.clientWidth;
+      const scrollTo = targetLeft - containerWidth / 2 + target.clientWidth / 2;
+      container.scrollTo({ left: Math.max(0, scrollTo), behavior: 'smooth' });
+    }
+  }, [currentGwNumber, firestoreGw]);
 
   const handleNudge = async () => {
     if (!activeLeagueId) return;
@@ -2659,7 +2677,7 @@ export default function AdminCommandCenter() {
                   NOW: GW {currentGwNumber || firestoreGw || '--'}
                 </span>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div ref={gwLedgerScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                 {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => {
                   const approvedPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'approved'
@@ -2671,7 +2689,9 @@ export default function AdminCommandCenter() {
                   return (
                     <div
                       key={gw}
+                      data-gw={gw}
                       className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-colors min-w-[60px] ${
+
                         approvedPayout
                           ? 'border-emerald-500/40 bg-emerald-500/10'
                           : pendingPayout
@@ -3244,148 +3264,109 @@ export default function AdminCommandCenter() {
                 )}
               </div>
             </div>
-            <div className="overflow-x-auto min-h-[300px]">
-              <table className="fc-muted-table w-full text-left border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="bg-[#11171a] border-b border-white/5 text-[10px] uppercase tracking-widest text-gray-500 font-bold">
-                    <th className="p-4 pl-6 font-medium">Member</th>
-                    <th className="p-4 font-medium hidden sm:table-cell">
-                      M-Pesa Transaction Code
-                    </th>
-                    <th className="p-4 font-medium">Wallet Balance</th>
-                    <th className="p-4 font-medium">Status</th>
-                    <th className="p-4 pr-6 text-right font-medium">Verify</th>
-                  </tr>
-                </thead>
-                <tbody className="text-sm divide-y divide-white/5">
-                  {filteredMembers.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="p-12 text-center text-gray-500 font-medium"
-                      >
-                        No members found matching this filter.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredMembers.map((row) => {
-                      const wallet = (row as any).walletBalance ?? 0;
-                      const gwCost = gameweekStake;
-                      const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
-                      const walletColor =
-                        wallet <= 0
-                          ? "text-red-400"
-                          : gwsLeft >= 2
-                            ? "text-[#10B981]"
-                            : "text-[#FBBF24]";
-                      return (
-                        <tr
-                          key={row.id}
-                          className={clsx(
-                            "transition-colors group",
-                            memberHasFunding(row)
-                              ? "bg-[#10B981]/5 border-l-2 border-[#10B981]"
-                              : "hover:bg-white/[0.02] border-l-2 border-transparent",
+            <div className="divide-y divide-white/[0.04] min-h-[300px]">
+              {filteredMembers.length === 0 ? (
+                <div className="p-12 text-center text-gray-500 font-medium text-sm">
+                  No members found matching this filter.
+                </div>
+              ) : (
+                filteredMembers.map((row) => {
+                  const wallet = (row as any).walletBalance ?? 0;
+                  const gwCost = gameweekStake;
+                  const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
+                  const walletColor =
+                    wallet <= 0
+                      ? "text-red-400"
+                      : gwsLeft >= 2
+                        ? "text-[#10B981]"
+                        : "text-[#FBBF24]";
+                  return (
+                    <div
+                      key={row.id}
+                      className={clsx(
+                        "px-4 py-3.5 flex items-center gap-3 transition-colors group",
+                        memberHasFunding(row)
+                          ? "bg-[#10B981]/5 border-l-2 border-[#10B981]"
+                          : "hover:bg-white/[0.02] border-l-2 border-transparent",
+                      )}
+                    >
+                      {/* Avatar */}
+                      <div className={clsx(
+                        "w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border overflow-hidden",
+                        memberHasFunding(row)
+                          ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10"
+                          : "border-white/10 bg-[#161d24]",
+                      )}>
+                        <img
+                          src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(row as any).avatarSeed || row.displayName}&backgroundColor=transparent`}
+                          alt={row.displayName}
+                          className={clsx("w-full h-full object-cover", !memberHasFunding(row) && "grayscale opacity-80")}
+                        />
+                      </div>
+
+                      {/* Name + actions */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
+                          <span className="font-bold text-white text-sm leading-tight truncate max-w-[130px] sm:max-w-none">{row.displayName}</span>
+                          {(row as any).role === "admin" && (
+                            <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Admin</span>
                           )}
-                        >
-                          <td className="p-4 pl-6">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={clsx(
-                                  "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg border relative overflow-hidden",
-                                  memberHasFunding(row)
-                                    ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10"
-                                    : "border-white/10 bg-[#161d24]",
-                                )}
-                              >
-                                <img
-                                  src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(row as any).avatarSeed || row.displayName}&backgroundColor=transparent`}
-                                  alt={row.displayName}
-                                  className={clsx(
-                                    "w-full h-full object-cover",
-                                    !memberHasFunding(row) && "grayscale opacity-80",
-                                  )}
-                                />
-                              </div>
-                              <div>
-                                <div className="font-bold text-white leading-tight mb-1 flex items-center gap-2">
-                                  {row.displayName}
-                                  {(row as any).role === "admin" && (
-                                    <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
-                                      Admin
-                                    </span>
-                                  )}
-                                  {(row as any).paymentStreak >= 2 && (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black"
-                                      title={`${(row as any).paymentStreak}-GW payment streak!`}
-                                    >
-                                      🔥{(row as any).paymentStreak}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-gray-400 leading-none flex items-center gap-2 mt-1">
-                                  <span>{row.phone}</span>
-                                  <span className="text-white/20">•</span>
-                                  <button
-                                    onClick={() => handleToggleAdmin(row.id, (row as any).role)}
-                                    className="hover:text-white transition-colors"
-                                  >
-                                    {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
-                                  </button>
-                                  <span className="text-white/20">•</span>
-                                  <button
-                                    onClick={() => openEditMemberModal(row)}
-                                    className="hover:text-[#FBBF24] transition-colors"
-                                  >
-                                    ✏️ Edit
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4 hidden sm:table-cell">
-                            <span className="bg-[#11171a] border border-white/5 px-3 py-1.5 rounded-md text-gray-400 font-mono text-xs">
-                              M-PESA / BANK
+                          {(row as any).paymentStreak >= 2 && (
+                            <span className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black" title={`${(row as any).paymentStreak}-GW streak!`}>
+                              🔥{(row as any).paymentStreak}
                             </span>
-                          </td>
-                          <td className="p-4">
-                            <div className={clsx("font-bold tabular-nums text-sm", walletColor)}>
-                              {isStealthMode ? "****" : `KES ${wallet.toLocaleString()}`}
-                            </div>
-                            <div className="text-[10px] text-gray-600 font-medium mt-0.5">
-                              {gwsLeft > 0 ? `${gwsLeft} GW${gwsLeft !== 1 ? "s" : ""} covered` : "Top up needed"}
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            {!memberHasFunding(row) && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1a232b] text-[#FBBF24] border border-white/5 text-xs font-bold shadow-sm">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></div> Red Zone (Unpaid)
-                              </span>
-                            )}
-                            {memberHasFunding(row) && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-xs font-bold shadow-sm">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></div> Green Zone (Verified)
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-4 pr-6 text-right">
-                            <label className="relative inline-flex items-center cursor-pointer ml-auto">
-                              <input
-                                type="checkbox"
-                                className="sr-only peer fc-ledger-verify-input"
-                                checked={row.hasPaid}
-                                onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
-                              />
-                              <div className="fc-ledger-switch-track w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10"></div>
-                            </label>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
+                          <span className="font-mono">{row.phone || '—'}</span>
+                          <span className="text-white/20">•</span>
+                          <button onClick={() => handleToggleAdmin(row.id, (row as any).role)} className="hover:text-white transition-colors">
+                            {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
+                          </button>
+                          <span className="text-white/20">•</span>
+                          <button onClick={() => openEditMemberModal(row)} className="hover:text-[#FBBF24] transition-colors">✏️ Edit</button>
+                        </div>
+                      </div>
+
+                      {/* Wallet + Status — hidden on xs, shown sm+ */}
+                      <div className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0">
+                        <div className={clsx("font-bold tabular-nums text-sm", walletColor)}>
+                          {isStealthMode ? "****" : `KES ${wallet.toLocaleString()}`}
+                        </div>
+                        <div className="text-[10px] text-gray-600 font-medium">
+                          {gwsLeft > 0 ? `${gwsLeft} GW${gwsLeft !== 1 ? "s" : ""} covered` : "Top up needed"}
+                        </div>
+                      </div>
+
+                      {/* Status badge */}
+                      <div className="flex-shrink-0">
+                        {memberHasFunding(row) ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                            <span className="hidden sm:inline">Green</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] font-bold">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]" />
+                            <span className="hidden sm:inline">Red Zone</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Toggle */}
+                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer fc-ledger-verify-input"
+                          checked={row.hasPaid}
+                          onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
+                        />
+                        <div className="fc-ledger-switch-track w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10" />
+                      </label>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Table Footer */}

@@ -54,14 +54,14 @@ export default function MemberDashboard() {
     // Phase 10.5: Live Escrow Feed
     const [liveEvents, setLiveEvents] = useState<any[]>([]);
 
-    // Phase 29: Winner's Circle logic
+    // Phase 29: FPL GW Winner + full standings
     const [gwWinner, setGwWinner] = useState<any>(null);
+    const [fplStandings, setFplStandings] = useState<any[]>([]);
     const [currentFplEvent, setCurrentFplEvent] = useState<{ id: number; finished: boolean } | null>(null);
 
-    // Phase 30: Expanded Winner's Circle
-    const [showAllWinners, setShowAllWinners] = useState(false);
-    const [showWinnersPanelMobile, setShowWinnersPanelMobile] = useState(false);
+    // Phase 30: panel toggles
     const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
+    const [showAllWinners, setShowAllWinners] = useState(false);
 
     // Phase 31: Real FPL Performance Trajectory
     const [performanceData, setPerformanceData] = useState<any[]>([]);
@@ -154,6 +154,9 @@ export default function MemberDashboard() {
                             if (results && results.length > 0) {
                                 const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
                                 setGwWinner(winner);
+                                // Store full sorted standings for rank card
+                                const sorted = [...results].sort((a: any, b: any) => (b.event_total || 0) - (a.event_total || 0));
+                                setFplStandings(sorted);
 
                                 // Build league-wide GW average from all entries' history
                                 const fetchPerformances = async () => {
@@ -264,6 +267,13 @@ export default function MemberDashboard() {
                         id: current.id,
                         finished: current.finished === true,
                     });
+                    // Auto-persist startGw if the league doesn't have it yet
+                    const leagueRef2 = activeLeagueId ? (await import('firebase/firestore').then(({ doc, getDoc }) => getDoc(doc(db, 'leagues', activeLeagueId)))) : null;
+                    if (leagueRef2 && activeLeagueId && leagueRef2.data()?.startGw == null) {
+                        import('firebase/firestore').then(({ doc, updateDoc }) => {
+                            updateDoc(doc(db, 'leagues', activeLeagueId), { startGw: current.id }).catch(() => {});
+                        });
+                    }
                 }
             } catch (err) {
                 console.warn('Could not fetch current FPL event', err);
@@ -646,8 +656,10 @@ export default function MemberDashboard() {
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
-    // Formula: Active members * Gameweek Stake * 38 GWs * Vault Percentage
-    const seasonVaultProjected = members.length * gameweekStake * 38 * (rules.vault / 100);
+    // Season vault: use actual GWs remaining since league start
+    const leagueStartGw = (leagueSettings as any)?.startGw || (currentFplEvent?.id ? Math.max(1, currentFplEvent.id - 2) : 1);
+    const totalLeagueGws = Math.max(1, 38 - leagueStartGw + 1);
+    const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * (rules.vault / 100);
 
     // Dynamic Winner calculation from recent notification feed using the structured isWinnerEvent objects.
     // Fallback to payout transactions so Winner's Circle works even when winner events aren't emitted.
@@ -773,7 +785,7 @@ export default function MemberDashboard() {
                 onClick={() => {
                     setTopUpAmount(Math.max(1, gameweekStake));
                     setTopUpNote('');
-                    setShowTopUpModal(true);
+                    setTimeout(() => setShowTopUpModal(true), 0);
                 }}
                 className="fc-member-bottom-secondary flex-1 bg-[#FBBF24]/10 hover:bg-[#FBBF24]/15 border border-[#FBBF24]/20 text-[#FBBF24] font-extrabold text-sm md:text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
             >
@@ -1095,7 +1107,7 @@ export default function MemberDashboard() {
             {/* Main Content — Dense Grid Layout */}
             <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-40 lg:pb-28 z-10 relative mt-2">
 
-                {/* === ROW 1: Vault (8) + Weekly Pot Status (4) === */}
+                {/* === ROW 1: Vault (8) + GW Rank Card (4) === */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
                     {/* Vault / Pot Swapper */}
                     <div className="lg:col-span-8">
@@ -1107,95 +1119,67 @@ export default function MemberDashboard() {
                         />
                     </div>
 
-                    {/* Winner's Circle — expandable */}
-                    <div className="fc-member-winners lg:col-span-4 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col gap-3 overflow-hidden">
+                    {/* GW Rank Card — live standings from FPL */}
+                    <div className="lg:col-span-4 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col gap-3 overflow-hidden">
                         <div className="flex items-center justify-between">
                             <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
-                                <Trophy className="w-3.5 h-3.5 text-[#eab308]" /> Winner's Circle (Last 3 GWs)
+                                <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> GW Standings
                             </h4>
-                            <button
-                                onClick={() => setShowWinnersPanelMobile(prev => !prev)}
-                                className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-600 dark:text-gray-300"
-                            >
-                                {showWinnersPanelMobile ? 'Hide' : 'Show'}
-                            </button>
-                            {winnerEvents.length > 3 && (
-                                <button
-                                    onClick={() => setShowAllWinners(!showAllWinners)}
-                                    className="text-[10px] font-bold text-[#FBBF24] hover:text-[#eab308] uppercase tracking-widest transition-colors"
-                                >
-                                    {showAllWinners ? 'Collapse' : `View All (${winnerEvents.length})`}
-                                </button>
+                            {gwWinner && (
+                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#10B981]/20 bg-[#10B981]/10 text-[#10B981]">
+                                    {currentFplEvent?.finished ? 'Final' : 'Live'}
+                                </span>
                             )}
                         </div>
-                        <div className={clsx(
-                            "flex gap-3 pb-1 transition-all duration-300",
-                            showAllWinners ? "flex-wrap" : "overflow-x-auto",
-                            !showWinnersPanelMobile && 'hidden sm:flex'
-                        )} style={showAllWinners ? {} : { scrollbarWidth: 'none' }}>
-                            {winnerEvents.length === 0 ? (
-                                <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 w-full text-center">No winners yet</div>
-                            ) : (showAllWinners ? winnerEvents : winnerEvents.slice(0, 3)).map((winner: any, idx: number) => {
-                                const winnerMember = members.find(m => m.id === winner.winnerId) || { avatarSeed: winner.winnerName };
-                                return (
-                                    <div key={idx} className={clsx(
-                                        "flex flex-col items-center justify-center min-w-[80px] rounded-xl p-3 shrink-0 border transition-all",
-                                        winner.winnerId === activeUserId ? "border-[#FBBF24]/40 bg-[#FBBF24]/5 shadow-[0_0_10px_rgba(251,191,36,0.1)]" : "border-white/5 bg-white/[0.02]"
-                                    )}>
-                                        <div className="w-9 h-9 rounded-full border-2 border-[#FBBF24]/60 p-0.5 mb-1.5 bg-[#0b1014]">
-                                            <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(winnerMember as any).avatarSeed}&backgroundColor=transparent`} alt={winner.winnerName} className="w-full h-full rounded-full object-cover" />
+
+                        {/* User's own rank highlight */}
+                        {(() => {
+                            const myRankEntry = fplStandings.findIndex((e: any) =>
+                                (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
+                                (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
+                                currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
+                            );
+                            const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
+                            return myEntry ? (
+                                <div className="rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/8 px-3 py-2.5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-[#FBBF24]/20 border border-[#FBBF24]/40 text-[#FBBF24] text-[10px] font-black flex items-center justify-center flex-shrink-0">
+                                            {myRankEntry + 1}
+                                        </span>
+                                        <div>
+                                            <p className="text-xs font-black text-white leading-tight truncate max-w-[100px]">{firstName}</p>
+                                            <p className="text-[10px] text-gray-500">You</p>
                                         </div>
-                                        <span className="font-bold text-[11px] text-white leading-tight text-center">{winner.winnerName?.split(' ')[0]}</span>
-                                        <span className="text-[10px] text-[#eab308] font-bold">{winner.gw ? `GW${winner.gw}` : 'Winner'}</span>
-                                        {winner.points && <span className="text-[9px] text-gray-500 font-bold tabular-nums">{winner.points} pts</span>}
+                                    </div>
+                                    <span className="text-sm font-black text-[#FBBF24] tabular-nums">{myEntry.event_total ?? 0} pts</span>
+                                </div>
+                            ) : null;
+                        })()}
+
+                        {/* Top 3 ranks */}
+                        <div className="space-y-1.5">
+                            {fplStandings.length === 0 ? (
+                                <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 text-center">Waiting for FPL data…</div>
+                            ) : fplStandings.slice(0, 5).map((entry: any, idx: number) => {
+                                const medals = ['🥇', '🥈', '🥉'];
+                                const isMe = (currentUser?.fplTeamId && Number(entry.entry) === Number(currentUser.fplTeamId)) ||
+                                    (currentUser?.secondFplTeamId && Number(entry.entry) === Number(currentUser.secondFplTeamId));
+                                return (
+                                    <div key={entry.entry} className={clsx(
+                                        'flex items-center justify-between rounded-xl px-3 py-2 transition-colors',
+                                        isMe ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white/[0.02] border border-white/5'
+                                    )}>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span className="text-sm flex-shrink-0">{medals[idx] || <span className="text-[10px] font-bold text-gray-500 w-5 text-center">{idx + 1}</span>}</span>
+                                            <span className="text-[11px] font-bold text-white truncate">{entry.player_name?.split(' ')[0]}</span>
+                                            {isMe && <span className="text-[9px] text-emerald-400 font-black">(you)</span>}
+                                        </div>
+                                        <span className="text-[11px] font-black text-[#FBBF24] tabular-nums flex-shrink-0">{entry.event_total ?? 0}</span>
                                     </div>
                                 );
                             })}
                         </div>
-                        {/* Stats Summary */}
-                        {showAllWinners && winnerEvents.length > 0 && (
-                            <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-white/5">
-                                <div className="bg-black/30 rounded-xl p-2.5 text-center">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Total GWs Won</p>
-                                    <p className="text-lg font-black text-white tabular-nums">{winnerEvents.length}</p>
-                                </div>
-                                <div className="bg-black/30 rounded-xl p-2.5 text-center">
-                                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Unique Winners</p>
-                                    <p className="text-lg font-black text-[#FBBF24] tabular-nums">{new Set(winnerEvents.map((w: any) => w.winnerId)).size}</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {winnerLeaderboard.length > 0 && (
-                            <div className="mt-2 pt-3 border-t border-white/5 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Season Podium</p>
-                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#10B981]/20 bg-[#10B981]/10 text-[#10B981]">
-                                        {seasonRacePhase}
-                                    </span>
-                                </div>
-                                {winnerLeaderboard.slice(0, 3).map((entry, index) => {
-                                    const podiumStyles = [
-                                        'border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]',
-                                        'border-slate-300/40 bg-slate-300/10 text-slate-300',
-                                        'border-amber-700/40 bg-amber-700/10 text-amber-500'
-                                    ];
-                                    return (
-                                        <div key={entry.winnerId} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className={clsx('w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-black shrink-0', podiumStyles[index] || 'border-white/20 bg-white/5 text-white')}>
-                                                    {index + 1}
-                                                </span>
-                                                <span className="text-xs font-bold text-white truncate">{entry.winnerName}</span>
-                                            </div>
-                                            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{entry.wins} win{entry.wins !== 1 ? 's' : ''}</span>
-                                        </div>
-                                    );
-                                })}
-
-                                {winnerLeaderboard.length > 3 && (
-                                    <div className="rounded-xl border border-white/10 bg-black/20 p-2.5 space-y-1">
-                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Title Race</p>
+                    </div>
                                         {winnerLeaderboard.slice(3, 6).map((entry) => (
                                             <div key={entry.winnerId} className="flex items-center justify-between text-[11px]">
                                                 <span className="text-gray-600 dark:text-gray-300 truncate">{entry.winnerName}</span>
@@ -1406,55 +1390,6 @@ export default function MemberDashboard() {
                                 <p className="text-[10px] text-gray-700 mt-1">to see your real performance trajectory.</p>
                             </div>
                             )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* === ROW 3: Verification Ledger (Directory Rail) === */}
-                <div className="fc-member-ledger w-full bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] overflow-hidden">
-                    <div className="px-5 py-4 flex items-center justify-between">
-                        <div>
-                            <h4 className="flex items-center gap-2 text-sm font-black text-white tracking-tight">
-                                <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Active Managers
-                            </h4>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Live League Directory</p>
-                        </div>
-                        <span className="bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 text-[10px] font-bold px-3 py-1 rounded-lg uppercase tracking-widest">
-                            {paidMembersCount}/{members.length} Paid
-                        </span>
-                    </div>
-                    <div className="px-5 pb-4 overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}>
-                        <div className="flex gap-3 min-w-max">
-                        {ledgerMembers.length === 0 ? (
-                            <div className="p-8 text-center text-gray-600 text-xs font-bold uppercase tracking-widest">No members enrolled</div>
-                        ) : ledgerMembers.map((member) => (
-                            <div key={member.id} className={clsx(
-                                "fc-verification-rail-card w-52 shrink-0 rounded-2xl border px-4 py-3 transition-colors",
-                                member.id === currentUser?.id ? "bg-white/[0.03] border-emerald-500/30" : "border-white/10 hover:bg-white/[0.02]"
-                            )}>
-                                <div className="flex flex-col items-center text-center gap-2">
-                                    <div className={clsx(
-                                        "w-12 h-12 rounded-full border p-0.5",
-                                        member.hasPaid ? "border-[#10B981]/50 bg-[#10B981]/10" : "border-white/10 opacity-40 grayscale"
-                                    )}>
-                                        <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(member as any).avatarSeed || member.displayName}&backgroundColor=transparent`} alt="Avatar" className="w-full h-full rounded-full" />
-                                    </div>
-                                    <div className="min-w-0 w-full">
-                                        <div className="font-bold text-white text-sm leading-tight truncate">{member.displayName}</div>
-                                        {member.id === currentUser?.id && <div className="text-[10px] text-gray-500 font-medium">(you)</div>}
-                                    </div>
-                                <span className={clsx(
-                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border",
-                                    member.hasPaid
-                                        ? "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20"
-                                        : "bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20"
-                                )}>
-                                    <span className={clsx("w-1.5 h-1.5 rounded-full", member.hasPaid ? "bg-[#10B981]" : "bg-[#FBBF24]")} />
-                                    {member.hasPaid ? "Funded" : "Red Zone"}
-                                </span>
-                                </div>
-                            </div>
-                        ))}
                         </div>
                     </div>
                 </div>
@@ -1673,7 +1608,7 @@ export default function MemberDashboard() {
                             onClick={() => {
                                 setTopUpAmount(Math.max(1, Number(winnerConfirmation.amount || gameweekStake || 0)));
                                 setTopUpNote(`Credit this payout to my wallet.`);
-                                setShowTopUpModal(true);
+                                setTimeout(() => setShowTopUpModal(true), 0);
                             }}
                             className="flex-shrink-0 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-black px-4 py-2.5 rounded-xl transition-colors border border-white/10"
                         >
