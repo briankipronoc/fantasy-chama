@@ -735,7 +735,6 @@
 
   .fc-route-stage {
     transition: opacity 340ms cubic-bezier(0.16, 1, 0.3, 1), transform 340ms cubic-bezier(0.16, 1, 0.3, 1), filter 340ms cubic-bezier(0.16, 1, 0.3, 1);
-    will-change: opacity, transform;
   }
   .fc-route-stage.fc-route-enter {
     opacity: 0;
@@ -745,7 +744,6 @@
 
   .fc-header-stage {
     transition: opacity 200ms ease, transform 200ms ease;
-    will-change: opacity, transform;
   }
   .fc-header-stage.fc-header-enter {
     opacity: 0;

@@ -227,7 +227,7 @@ const generateDarajaToken = async (req, res, next) => {
  * STK Push Route
  * POST /api/mpesa/stkpush
  */
-app.post('/api/mpesa/stkpush', mpesaLimiter, generateDarajaToken, async (req, res) => {
+app.post('/api/mpesa/stkpush', mpesaLimiter, verifyFirebaseToken, generateDarajaToken, async (req, res) => {
     try {
         const parseResult = stkPushSchema.safeParse(req.body);
         if (!parseResult.success) {
@@ -1504,7 +1504,7 @@ app.get('/health', (req, res) => {
 // and atomically seeds each member's wallet balance.
 // Gate: only callable in non-production or with chairmanId check.
 // ============================================================
-app.post('/api/league/prefund', async (req, res) => {
+app.post('/api/league/prefund', verifyFirebaseToken, async (req, res) => {
     try {
         const { leagueId, chairmanId, entries } = req.body; // entries: [{ memberId, amount }]
         if (!leagueId || !chairmanId || !Array.isArray(entries) || entries.length === 0) {
@@ -1557,7 +1557,7 @@ app.post('/api/league/prefund', async (req, res) => {
 
 // ─── Phase 8: FCM Push Notification Endpoint ─────────────────────────────────
 // Called internally after GW resolution or by SuperAdmin for arbitrary alerts.
-app.post('/api/notify', async (req, res) => {
+app.post('/api/notify', verifyFirebaseToken, async (req, res) => {
     const { tokens, title, body, data = {} } = req.body;
     if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
         return res.status(400).json({ success: false, message: 'tokens[] array required' });

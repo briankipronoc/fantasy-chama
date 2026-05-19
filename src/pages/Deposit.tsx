@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, ArrowRight, Wallet } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { getApiBaseUrl } from '../utils/api';
+import { getApiBaseUrl, secureApiPost } from '../utils/api';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -57,20 +57,12 @@ export default function Deposit() {
             if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             const activeUserId = localStorage.getItem('activeUserId') || members.find(m => m.phone === phoneNumber)?.id || 'guest';
 
-            const response = await fetch(`${apiUrl}/api/mpesa/stkpush`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    phoneNumber,
-                    amount: amount,
-                    leagueId: activeLeagueId,
-                    userId: activeUserId
-                })
+            const data = await secureApiPost(`${apiUrl}/api/mpesa/stkpush`, {
+                phoneNumber,
+                amount: amount,
+                leagueId: activeLeagueId,
+                userId: activeUserId
             });
-
-            const data = await response.json();
 
             if (data.success) {
                 toast.success(data.message || 'Awaiting M-Pesa PIN...');

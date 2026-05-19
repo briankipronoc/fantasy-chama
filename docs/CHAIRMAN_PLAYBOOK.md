@@ -1,5 +1,5 @@
 # 👑 The Chairman's Playbook
-*FantasyChama — League Governance Guide v3.0*
+*FantasyChama — League Governance Guide v4.0 (May 2026)*
 
 ---
 
@@ -14,15 +14,15 @@ This guide walks you through every system, every button, and every rule.
 ## Part 1: Setting Up Your League
 
 ### Step 1 — Create Your Account
-Navigate to [fantasychama.co.ke](https://fantasy-chama.vercel.app) → **Start a League**.
+Navigate to [fantasychama.vercel.app](https://fantasychama.vercel.app) → **Start a League**.
 
 Choose a **League Template** to pre-fill your settings:
 | Template | Players | Stake | Split |
 |---|---|---|---|
-| Classic 10-Man | 10 | KES 200/GW | 70/30 |
-| Elite 5-Man | 5 | KES 500/GW | 80/20 |
-| Big Money 15 | 15 | KES 150/GW | 65/35 |
-| Custom | Your choice | — | — |
+| Classic 10-Man | 10 | KES 200/GW | 60/40 |
+| Elite 5-Man | 5 | KES 500/GW | 60/40 |
+| Big Money 15 | 15 | KES 150/GW | 60/40 |
+| Custom | Your choice | — | Default 60/40 |
 
 ### Step 2 — Import Your FPL League
 Paste your FPL league link. We'll automatically pull your entire member roster — names and entry IDs — so you don't manually type anything.
@@ -194,9 +194,13 @@ Post both every GW to prove the math and build trust.
 
 ---
 
-## Part 10: April 2026 Governance Update
+## Part 10: May 2026 Governance Update
 
-- Season vault mode now supports **Top 1 / Top 3 / Top 5 / Custom**.
-- Custom winner tiers are capped to half of active members and max 10 tiers.
-- GW resolution now blocks if the week is still live or winner points are `0`.
-- Approval routing now targets the correct signer (Co-Chair or Chairman).
+- Default pot split changed to **60/40** (weekly/vault).
+- Season vault projection now uses the league's actual `startGw` (auto-persisted on first load). Mid-season leagues get accurate projections.
+- **Edit Member Modal**: Tap ✏️ in the Command Center ledger to update any member's name, phone, or FPL Team ID. Changes are audited to the Operations Feed.
+- **Phone → FPL Team linking**: See `/manual/chairman` Section 3 for step-by-step.
+- **Docs Hub** (`/docs`): Accessible via the `?` icon in the header. Contains Member Guide, Chairman Playbook, FAQ, Rules, Privacy, Terms.
+- Standings page now uses responsive card rows (no horizontal scroll on mobile), shows user's personal rank hero card, and highlights top N vault leaders with medals.
+- GW leader shown with ⭐ badge on standings (replaces far-right status column).
+- WinSharePage supports `?code=` and `?pts=` params for better WhatsApp previews.

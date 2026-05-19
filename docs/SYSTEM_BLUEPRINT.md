@@ -1,5 +1,5 @@
-# FantasyChama — Master System Blueprint v3.1
-*Last updated: April 2026 — Chairman command flow refresh*
+# FantasyChama — Master System Blueprint v4.0
+*Last updated: May 2026 — Standings mobile sprint + docs hub*
 
 ---
 
@@ -29,7 +29,7 @@
 #### `leagues/{leagueId}`
 ```
 inviteCode, leagueName, gameweekStake, chairmanId, coAdminId,
-fplLeagueId, rules { weekly, vault, seasonWinnersCount },
+fplLeagueId, startGw, rules { weekly, vault, seasonWinnersCount },
 pendingHQDebt, isSuspended, lastResolvedDate (Timestamp),
 referralCode, suspensionNudges[]
 ```
@@ -252,6 +252,7 @@ Every payout requires:
 | `/profile` | `Profile` | Auth |
 | `/deposit` | `Deposit` | Auth |
 | `/rules` | `PayoutRules` | Auth |
+| `/docs` | `Docs` | Auth/Public |
 | `/win` | `WinSharePage` | Public |
 | `/hq` | `SuperAdminDashboard` | Super Admin |
 | `/terms` | `Terms` | Public |
@@ -270,7 +271,7 @@ Every payout requires:
 | **Co-Chair** | **1%** | Maker/Checker audit fee (from Chairman's share) |
 | **M-Pesa Network** | **1.5%** | Safaricom telecom API processing buffer |
 
-Season Vault: 30% of all weekly pots accumulate into a season-end prize pool.
+Season Vault: Default 40% of all weekly pots accumulate into a season-end prize pool (configurable via setup). Vault projection dynamically adjusts based on the league's `startGw` field.
 
 
 ## Wallet-First Architecture

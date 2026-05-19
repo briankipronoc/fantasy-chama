@@ -363,7 +363,7 @@ export default function Profile() {
                 </span>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+            <div className="grid grid-rows-2 grid-flow-col gap-3 overflow-x-auto pb-2 custom-scrollbar auto-cols-max">
                 {[...members]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;

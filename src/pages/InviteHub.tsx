@@ -1,8 +1,10 @@
 import { Check, Share2, FileText, Shield, Users, Zap, Wallet, Trophy } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 export default function InviteHub() {
-    const inviteCode = "882109";
+    const [searchParams] = useSearchParams();
+    const inviteCode = searchParams.get('code') || "882109";
     const [copied, setCopied] = useState(false);
 
     const [targetPhone, setTargetPhone] = useState('');
@@ -73,7 +75,7 @@ export default function InviteHub() {
                         <h2 className="text-[#FBBF24] text-[11px] font-black tracking-widest uppercase mb-6 text-center shadow-sm">Exclusive Invite Code</h2>
 
                         <div className="flex items-center justify-center gap-2 md:gap-3 mb-8">
-                            {inviteCode.split('').map((digit, index) => (
+                            {inviteCode.padEnd(6, '-').substring(0, 6).split('').map((digit, index) => (
                                 <div key={index} className="flex items-center justify-center">
                                     <div className={`w-10 h-14 md:w-12 md:h-16 flex items-center justify-center bg-[#0d1316] border border-white/10 rounded-xl text-2xl md:text-3xl font-black text-[#FBBF24] shadow-inner ${index === 3 ? 'ml-4' : ''}`}>
                                         {digit}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, ShieldCheck, BarChart3 } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
 import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
@@ -63,6 +64,7 @@ export default function Standings() {
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
     const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>>([]);
+    const [performanceData, setPerformanceData] = useState<any[]>([]);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     const fallbackFplLeagueId = 314;
@@ -99,6 +101,51 @@ export default function Standings() {
                 const results = await fetchFplStandings(targetFplId);
                 setStandingsData(results);
                 setError(null);
+
+                // Fetch trajectory for Top 5 members + current user
+                const fetchPerformances = async () => {
+                    let aggData: any[] = [];
+                    const top5 = results.slice(0, 5);
+                    const teamIds = top5.map((r: any) => r.entry);
+                    
+                    const activeUserId = localStorage.getItem('activeUserId') || '';
+                    const myMember = members.find(m => m.id === activeUserId);
+                    const myFplTeamId = myMember ? Number((myMember as any).fplTeamId || 0) : null;
+                    if (myFplTeamId && !teamIds.includes(myFplTeamId)) {
+                        teamIds.push(myFplTeamId);
+                    }
+
+                    if (teamIds.length === 0) return;
+
+                    const leagueAvg = results.length > 0
+                        ? Math.round(results.reduce((s: number, curRes: any) => s + curRes.event_total, 0) / results.length)
+                        : 50;
+
+                    for (const tId of teamIds) {
+                        try {
+                            const r = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${tId}/history/`)}`);
+                            const histData = await r.json();
+                            const current = histData?.current;
+                            if (current && current.length > 0) {
+                                const recent = current.slice(-5);
+                                const playerEntry = results.find((r:any) => r.entry === tId);
+                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+
+                                aggData = recent.map((gw: any, index: number) => {
+                                    const existing = aggData[index] || { name: `GW${gw.event}`, Average: leagueAvg };
+                                    return {
+                                        ...existing,
+                                        [playerName]: gw.points
+                                    };
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('Error fetching performance:', e);
+                        }
+                    }
+                    if (aggData.length > 0) setPerformanceData(aggData);
+                };
+                fetchPerformances();
 
                 try {
                     const txSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'transactions'));
@@ -475,6 +522,43 @@ export default function Standings() {
                                     No standings returned yet. Try updating the FPL league link and syncing again.
                                 </div>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {!error && performanceData.length > 0 && (
+                    <div className="fc-card bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5">
+                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
+                            <BarChart3 className="w-3.5 h-3.5" /> Performance Trajectory (Top 5 + You)
+                            <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
+                        </h4>
+                        <div className="h-64 w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={performanceData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} width={28} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#0e1419', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '12px' }}
+                                        itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                    />
+                                    {Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average').map((playerKey, idx) => {
+                                        const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
+                                        return (
+                                            <Line
+                                                key={playerKey}
+                                                type="monotone"
+                                                dataKey={playerKey}
+                                                stroke={colors[idx % colors.length]}
+                                                strokeWidth={2.5}
+                                                dot={{ r: 3.5, fill: colors[idx % colors.length], strokeWidth: 0 }}
+                                                activeDot={{ r: 5 }}
+                                            />
+                                        );
+                                    })}
+                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                </LineChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 )}

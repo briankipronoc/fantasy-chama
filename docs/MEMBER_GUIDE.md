@@ -1,5 +1,5 @@
 # 🧍 The Member's Field Guide
-*FantasyChama — Player Reference v3.0*
+*FantasyChama — Player Reference v4.0 (May 2026)*
 
 ---
 
@@ -15,7 +15,7 @@ Your Chairman has set up a FantasyChama league. This guide tells you everything 
 Your Chairman will share a **6-digit Access Code** in your WhatsApp group.
 
 ### Step 2 — Navigate to the Invite Page
-Go to [fantasychama.co.ke](https://fantasy-chama.vercel.app) → **Join a League** → enter your code.
+Go to [fantasychama.vercel.app](https://fantasychama.vercel.app) → **Join a League** → enter your code.
 
 ### Step 3 — Accept the League Constitution
 Before gaining full access, you must read and confirm you accept the league rules. This is a one-time step.
@@ -158,7 +158,7 @@ A: The FPL API provides the exact `event_total` points. In case of a genuine tie
 A: Members can only see their own wallet. The Chairman has full visibility via Stealth Mode controls.
 
 **Q: What happens at the end of the season?**
-A: The Season Vault (30% of all weekly pots) is distributed among the top N managers based on your league's constitution (e.g. top 3 by total points).
+A: The Season Vault (default 40% of all weekly pots) is distributed among the top N managers based on your league's constitution (e.g. top 3 by total points). Projection is calculated from when your league started (not GW1).
 
 ---
 
@@ -179,8 +179,11 @@ A: The Season Vault (30% of all weekly pots) is distributed among the top N mana
 
 ---
 
-## Part 12: April 2026 Member Experience Update
+## Part 12: May 2026 Member Experience Update
 
-- Winner cards now respect FPL finalization: while live, cards show **Live Leader**.
-- Champion labels only appear after the GW is complete and winner points are positive.
-- Finance screens now reflect the Chairman's real season payout ladder, including custom ratios.
+- **Standings mobile cards**: No more horizontal scrolling on phone. Rankings show 🥇🥈🥉 medals for top 3.
+- **Your GW Rank card**: A personal hero card at the top of Standings showing your rank, points, and gap to #1.
+- **Docs hub**: Tap the `?` icon in the header to access Member Guide, FAQ, Rules, and more.
+- **Correct share links**: App URL is `fantasychama.vercel.app` (no dash). OG images now render correctly when shared on WhatsApp.
+- **GW leader badge**: Standings show ⭐ Live / ⭐ Champion next to the GW leader instead of a text column on the far right.
+- **Season vault accuracy**: If your league started mid-season (e.g. GW10), the projected vault is calculated from that GW, not GW1.

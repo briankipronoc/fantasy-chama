@@ -1359,18 +1359,12 @@ export default function AdminCommandCenter() {
           "Payment server is not configured. Set VITE_API_URL for production.",
         );
 
-      const res = await fetch(`${payoutApiUrl}/api/mpesa/stkpush`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber: member.phone,
-          amount,
-          userId: fundTargetMemberId,
-          leagueId: activeLeagueId,
-        }),
+      const data = await secureApiPost(`${payoutApiUrl}/api/mpesa/stkpush`, {
+        phoneNumber: member.phone,
+        amount,
+        userId: fundTargetMemberId,
+        leagueId: activeLeagueId,
       });
-
-      const data = await res.json();
       if (!data.success) {
         throw new Error(data.message || "Failed to send M-Pesa prompt.");
       }

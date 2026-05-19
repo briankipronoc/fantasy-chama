@@ -376,18 +376,12 @@ export default function MemberDashboard() {
             const apiUrl = getApiBaseUrl();
             if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
             const requestAmount = Math.max(1, Math.floor(Number(amount || 0)));
-            const response = await fetch(`${apiUrl}/api/mpesa/stkpush`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phoneNumber: memberPhone,
-                    amount: requestAmount,
-                    userId: activeUserId,
-                    leagueId: activeLeagueId
-                })
+            const data = await secureApiPost(`${apiUrl}/api/mpesa/stkpush`, {
+                phoneNumber: memberPhone,
+                amount: requestAmount,
+                userId: activeUserId,
+                leagueId: activeLeagueId
             });
-
-            const data = await response.json();
             if (data.success) {
                 showToast("STK Push sent! Awaiting M-Pesa PIN...", "success");
             } else {
@@ -1030,11 +1024,38 @@ export default function MemberDashboard() {
                             <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Current standings are still moving, so the dashboard waits for the final whistle before naming a winner.</p>
                         </div>
-                        <div className="fc-gw-live-leader rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center flex-shrink-0">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Live leader</p>
-                            <p className="text-lg font-black text-white tabular-nums">{gwWinner.player_name}</p>
-                            <p className="text-[11px] text-[#FBBF24] font-bold tabular-nums">{Number(gwWinner.event_total || 0).toLocaleString()} pts</p>
-                        </div>
+                        {(() => {
+                            const myRankEntry = fplStandings.findIndex((e: any) =>
+                                (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
+                                (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
+                                currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
+                            );
+                            const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
+                            const isMeLeader = myEntry && myEntry.entry === gwWinner.entry;
+
+                            return (
+                                <div className="flex items-center gap-3 overflow-x-auto pb-1 custom-scrollbar">
+                                    <div className={clsx(
+                                        "fc-gw-live-leader rounded-2xl border px-4 py-3 text-center flex-shrink-0",
+                                        isMeLeader ? "border-[#FBBF24]/50 bg-[#FBBF24]/10 shadow-[0_0_20px_rgba(251,191,36,0.15)]" : "border-white/10 bg-black/20"
+                                    )}>
+                                        <p className={clsx("text-[10px] font-black uppercase tracking-widest", isMeLeader ? "text-[#FBBF24]" : "text-gray-500")}>
+                                            {isMeLeader ? "You're the Live Leader! 🚀" : "Live leader"}
+                                        </p>
+                                        <p className="text-lg font-black text-white tabular-nums">{isMeLeader ? firstName : gwWinner.player_name}</p>
+                                        <p className="text-[11px] text-[#FBBF24] font-bold tabular-nums">{Number(gwWinner.event_total || 0).toLocaleString()} pts</p>
+                                    </div>
+                                    
+                                    {!isMeLeader && myEntry && (
+                                        <div className="fc-gw-live-leader rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-center flex-shrink-0">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Your Points</p>
+                                            <p className="text-lg font-black text-white tabular-nums">{firstName}</p>
+                                            <p className="text-[11px] text-emerald-400 font-bold tabular-nums">{Number(myEntry.event_total || 0).toLocaleString()} pts</p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 ) : (
                     <>
