@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, TrendingUp, Wallet, CheckCircle2, ChevronRight, Lock, FileText } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import DocLayout from '../layouts/DocLayout';
 
 export default function PayoutRules() {
     const [activePage, setActivePage] = useState<1 | 2>(1);
@@ -55,12 +56,17 @@ export default function PayoutRules() {
     const isCapped = activeMembersCount < configuredWinnersCount;
 
     return (
-        <div className="min-h-screen bg-[#0d1316] text-white p-6 md:p-10 font-sans max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500 pb-24">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">League Constitution & Policy Stack</h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Read the league economics and policy requirements in one place.</p>
-                </div>
+        <DocLayout
+            title="League Constitution & Policy Stack"
+            icon={FileText}
+            iconColor="text-gray-400"
+            iconBg="bg-white/[0.02]"
+            iconBorder="border-white/10"
+            kicker="Read the league economics and policy requirements in one place."
+            prose={false}
+        >
+            <div className="space-y-8 animate-in fade-in duration-500 pb-24">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-end gap-4">
                 <div className="inline-flex rounded-xl border border-white/10 bg-black/20 p-1 self-start">
                     <button
                         onClick={() => setActivePage(1)}
@@ -245,7 +251,6 @@ export default function PayoutRules() {
                     </div>
                 </div>
             </div>
-            )}
-        </div>
+        </DocLayout>
     );
 }

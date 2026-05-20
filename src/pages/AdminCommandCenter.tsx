@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
@@ -95,6 +96,7 @@ export default function AdminCommandCenter() {
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
   const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
+  const [startGw, setStartGw] = useState<number | null>(null);
 
   // Ref for GW ledger auto-scroll
   const gwLedgerScrollRef = useRef<HTMLDivElement>(null);
@@ -488,13 +490,12 @@ export default function AdminCommandCenter() {
           setCoAdminId(data.coAdminId || null);
           setChairmanId(data.chairmanId || null);
           setFirestoreGw(data.currentGwNumber || data.currentGw || null);
+          setStartGw(data.startGw || null);
           if (data.rules) setRules(data.rules);
 
           try {
-            const bootstrapUrl =
-              "https://fantasy.premierleague.com/api/bootstrap-static/";
             const bootstrapRes = await fetch(
-              `https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`,
+              `/fpl-api/bootstrap-static/`
             );
             if (bootstrapRes.ok) {
               const bootstrapData = await bootstrapRes.json();
@@ -512,10 +513,11 @@ export default function AdminCommandCenter() {
 
           // Fetch Live GW Winner always for Admin Center
           if (data.fplLeagueId) {
-              fetch(
-                `https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`,
-              )
-                .then((res) => res.json())
+              fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
+                .then(async (res) => {
+                  if (!res.ok) throw new Error(`FPL Standings failed with status: ${res.status}`);
+                  return res.json();
+                })
                 .then((fplData) => {
                   const results = fplData?.standings?.results;
                   if (results && results.length > 0) {
@@ -525,9 +527,9 @@ export default function AdminCommandCenter() {
                     setGwWinner(winner);
                   }
                 })
-                .catch((err) =>
-                  console.error("Could not fetch FPL winner:", err),
-                );
+                .catch((err) => {
+                  console.warn("Could not fetch FPL winner:", err?.message || err);
+                });
             }
           }
 
@@ -879,6 +881,21 @@ export default function AdminCommandCenter() {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showAddMemberModal) setShowAddMemberModal(false);
+        if (showPrefundOptions) setShowPrefundOptions(false);
+        if (showResolveModal) setShowResolveModal(false);
+        if (showWalletFundModal) setShowWalletFundModal(false);
+        if (showHqSettlementForm) setShowHqSettlementForm(false);
+        if (showTutorial) setShowTutorial(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal, showHqSettlementForm, showTutorial]);
   const redZoneMembers = members.filter(
     (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false,
   );
@@ -886,9 +903,11 @@ export default function AdminCommandCenter() {
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  const projectionGwNumber = Math.min(38, Math.max(1, Number(currentGwNumber || 1)));
-  const remainingGameweeks = Math.max(1, 39 - projectionGwNumber);
-  const seasonVault = totalCollected * remainingGameweeks * (rules.vault / 100);
+  const projectionGwNumber = Math.min(38, Math.max(1, Number(currentGwNumber || 1))) + (isCurrentEventFinished ? 1 : 0);
+  const remainingGameweeks = Math.max(0, 39 - projectionGwNumber);
+  const gwPlayed = currentGwNumber && startGw ? Math.max(0, currentGwNumber - startGw + (isCurrentEventFinished ? 1 : 0)) : 0;
+  const vaultPerGw = totalCollected * (rules.vault / 100);
+  const seasonVault = (vaultPerGw * gwPlayed) + (vaultPerGw * remainingGameweeks);
   const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
   const highRiskTwoWeekMisses = members.filter(
     (member: any) =>
@@ -1015,8 +1034,10 @@ export default function AdminCommandCenter() {
   };
 
   const openAddMemberModal = () => {
-    setShowAddMemberModal(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => {
+      setShowAddMemberModal(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
   };
 
   const openPrefundModal = () => {
@@ -1040,7 +1061,7 @@ export default function AdminCommandCenter() {
         );
         return;
       }
-      setShowResolveModal(true);
+      setTimeout(() => setShowResolveModal(true), 0);
       showToast("Resolve modal opened. Confirm payout method and proceed.");
       return;
     }
@@ -1129,6 +1150,18 @@ export default function AdminCommandCenter() {
     }
   };
 
+  const handleMemberNudge = (member: any) => {
+    const appUrl = window.location.origin;
+    const message = `*${leagueName} Notice*\n\nHi ${member.displayName}, this is a gentle reminder that your GW${currentGwNumber || firestoreGw || '--'} contribution is pending. Please fund your wallet to avoid the red zone.\n\n🔗 ${appUrl}`;
+    if (member.phone) {
+      const phone = member.phone.replace(/[^0-9]/g, '');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+    }
+    showToast(`Nudged ${member.displayName} via WhatsApp.`);
+  };
+
   const handleBulkNudge = async () => {
     if (!activeLeagueId) return;
 
@@ -1141,35 +1174,32 @@ export default function AdminCommandCenter() {
       return;
     }
 
-    setNudgeSent(true);
+    const redZoneNames = redZoneMembers.map((m) => `• ${m.displayName}`).join("\n");
+    const message = `🚨 *${leagueName} Red Zone Alert*\n\nThe following members have not yet deposited for the upcoming Gameweek:\n\n${redZoneNames}\n\nPlease complete your contributions to avoid lockout. 💰⚽`;
+    
+    // Open synchronously to avoid browser popup blockers
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+    showToast("Bulk Nudge saved to system. Opening WhatsApp for group share.");
 
-    for (const member of redZoneMembers) {
-      try {
+    setNudgeSent(true);
+    setTimeout(() => setNudgeSent(false), 2000);
+
+    // Process notifications in the background
+    Promise.allSettled(redZoneMembers.map(member => {
         const notifsRef = collection(
           db,
           "leagues",
           activeLeagueId,
           "notifications",
         );
-        await addDoc(notifsRef, {
+        return addDoc(notifsRef, {
           type: "warning",
           message: `URGENT Chairman Nudge: Gameweek Deadline approaching. Please complete your active Gameweek contribution to avoid being locked out.`,
           timestamp: serverTimestamp(),
           readBy: [],
           targetMemberId: member.id,
         });
-      } catch (err) {
-        console.error("Failed to nudge member", member.id, err);
-      }
-    }
-
-    const redZoneNames = redZoneMembers.map((m) => `• ${m.displayName}`).join("\n");
-    const message = `🚨 *${leagueName} Red Zone Alert*\n\nThe following members have not yet deposited for the upcoming Gameweek:\n\n${redZoneNames}\n\nPlease complete your contributions to avoid lockout. 💰⚽`;
-    
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-    showToast("Bulk Nudge saved to system. Opening WhatsApp for group share.");
-
-    setTimeout(() => setNudgeSent(false), 2000);
+    })).catch(err => console.error("Failed to bulk nudge", err));
   };
 
   const handlePrefundSubmit = async () => {
@@ -1482,10 +1512,8 @@ export default function AdminCommandCenter() {
       let isGwFinished = isCurrentEventFinished;
 
       try {
-        const bootstrapUrl =
-          "https://fantasy.premierleague.com/api/bootstrap-static/";
         const bootstrapRes = await fetch(
-          `https://corsproxy.io/?${encodeURIComponent(bootstrapUrl)}`,
+          `/fpl-api/bootstrap-static/`,
           { signal: AbortSignal.timeout(8000) },
         );
         if (bootstrapRes.ok) {
@@ -1503,18 +1531,62 @@ export default function AdminCommandCenter() {
         // Use cached page-load state — still workable for the pilot
       }
 
-      if (!gwNumber) {
-        throw new Error(
-          "Current gameweek is unavailable. Check FPL is live and try again.",
-        );
-      }
+      let finalWinnerName = gwWinner?.player_name || "Unknown";
+      let finalWinnerId = gwWinner?.id || "unknown";
+      
+      let pastGw = -1;
       if (!isGwFinished) {
-        showToast(
-          `GW${gwNumber} is still live. Resolution is only available after final FPL lock.`,
-        );
-        setShowResolveModal(false);
-        return;
+        const pastGwStr = window.prompt(`FPL GW${gwNumber || '?'} is still ongoing. Did you miss resolving a past Gameweek? Enter the Gameweek number you want to resolve manually (e.g., 37), or click Cancel:`);
+        if (!pastGwStr) { 
+          setIsResolving(false); 
+          setShowResolveModal(false);
+          return; 
+        }
+        pastGw = parseInt(pastGwStr, 10);
+        if (isNaN(pastGw)) {
+          showToast("Invalid Gameweek number.");
+          setIsResolving(false);
+          return;
+        }
+        
+        gwNumber = pastGw;
+        
+        const manualWinner = window.prompt(`Enter the exact name of the member who won GW${pastGw}:`);
+        if (!manualWinner) {
+          setIsResolving(false);
+          setShowResolveModal(false);
+          return;
+        }
+
+        finalWinnerName = manualWinner;
+        finalWinnerId = "manual-entry";
       }
+
+      if (!gwNumber || isNaN(gwNumber)) {
+        throw new Error(
+          "Gameweek number is unavailable. Check FPL is live and try again.",
+        );
+      }
+
+      const payoutsRef = collection(db, "leagues", activeLeagueId, "payouts");
+      const q = query(payoutsRef, where("gw", "==", gwNumber));
+      const existing = await getDocs(q);
+
+      if (!existing.empty) {
+        throw new Error(`GW${gwNumber} has already been resolved.`);
+      }
+
+      await addDoc(payoutsRef, {
+        gw: gwNumber,
+        amount: weeklyPot,
+        winnerId: finalWinnerId,
+        winnerName: finalWinnerName,
+        status: "awaiting_approval",
+        timestamp: serverTimestamp(),
+        method: payoutMethod,
+        requestedBy: isCoChairSession ? "Co-Chair" : "Chairman",
+        approvalTarget: "co-chair",
+      });
 
       // 1. Fetch live FPL Standings via generic proxy
       const leagueRef = doc(db, "leagues", activeLeagueId);
@@ -1522,7 +1594,7 @@ export default function AdminCommandCenter() {
       const fplLeagueId = leagueSnap.data()?.fplLeagueId || 314;
 
       const res = await fetch(
-        `https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${fplLeagueId}/standings/`)}`,
+        `/fpl-api/leagues-classic/${fplLeagueId}/standings/`
       );
       if (!res.ok) throw new Error("Failed to fetch standings");
       const data = await res.json();
@@ -2369,8 +2441,8 @@ export default function AdminCommandCenter() {
           className={clsx(
             "fixed top-4 right-4 px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
             toastMessage
-              ? "opacity-100 translate-y-0 scale-100"
-              : "opacity-0 -translate-y-2 scale-95",
+              ? "opacity-100 translate-y-0 scale-100 visible"
+              : "opacity-0 -translate-y-2 scale-95 invisible",
           )}
         >
           <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
@@ -2466,20 +2538,21 @@ export default function AdminCommandCenter() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 w-full">
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/35 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      pendingPayouts.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
+                      "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/35 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      sortedPendingPayouts.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
+                    onClick={() => { setActiveTab("dashboard"); setTimeout(() => window.document.getElementById("pending-payout-queue")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }}
                   >
                     <p className="fc-metric-label text-xs tracking-wide font-semibold">
                       approve payouts
                     </p>
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {pendingPayouts.length}
+                      {sortedPendingPayouts.length}
                     </p>
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
+                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       redZoneMembers.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
                     onClick={() => { setActiveTab("ledger"); setPaymentFilter("Red Zone"); setTimeout(() => window.document.getElementById("master-ledger")?.scrollIntoView({ behavior: "smooth" }), 100); }}
@@ -2493,7 +2566,7 @@ export default function AdminCommandCenter() {
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
+                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       pendingDisputes.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
                     onClick={() => { setActiveTab("finance"); setTimeout(() => window.document.getElementById("dispute-claims")?.scrollIntoView({ behavior: "smooth" }), 100); }}
@@ -2507,16 +2580,16 @@ export default function AdminCommandCenter() {
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
-                      highRiskTwoWeekMisses > 0 ? "fc-metric-alert" : "fc-metric-stable",
+                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/50 transition-all hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      "fc-metric-stable"
                     )}
-                    onClick={() => { setActiveTab("ledger"); setPaymentFilter("Red Zone"); setTimeout(() => window.document.getElementById("master-ledger")?.scrollIntoView({ behavior: "smooth" }), 100); }}
+                    onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
                   >
                     <p className="fc-metric-label text-xs tracking-wide font-semibold text-white">
-                      2-week risk members
+                      Settle GW Winner
                     </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {highRiskTwoWeekMisses}
+                    <p className="text-sm font-semibold mt-2 text-[#FBBF24]">
+                      Pay GW{currentGwNumber || ''} Winner
                     </p>
                   </div>
                   <div
@@ -2538,7 +2611,7 @@ export default function AdminCommandCenter() {
                       members paid
                     </p>
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
-                      {fundedMembersCount}/{Math.max(1, members.length)}
+                      {fundedMembersCount}/{Math.max(1, activeMembersCount)}
                     </p>
                     <p
                       className={clsx(
@@ -2554,14 +2627,7 @@ export default function AdminCommandCenter() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  <button
-                    onClick={() => setShowResolveModal(true)}
-                    disabled={!hasFinalGwChampion}
-                    className="min-w-[200px] px-4 py-2.5 rounded-xl border border-[#FBBF24]/40 bg-[#FBBF24]/85 text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#F59E0B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-center"
-                  >
-                    {hasFinalGwChampion ? "Resolve / Close GW" : `GW ${currentGwNumber || firestoreGw || '--'} ongoing...`}
-                  </button>
-                  
+                  {/* Action buttons removed as requested */}
                 </div>
               </div>
 
@@ -2671,8 +2737,11 @@ export default function AdminCommandCenter() {
                   NOW: GW {currentGwNumber || firestoreGw || '--'}
                 </span>
               </div>
-              <div ref={gwLedgerScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-                {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => {
+              <div ref={gwLedgerScrollRef} className="flex md:justify-center gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                {Array.from({ length: 38 }, (_, i) => i + 1)
+                  .filter(gw => gw <= (currentGwNumber || firestoreGw || 38))
+                  .slice(-10) // Show at most the last 10 GWs to avoid overflow clutter
+                  .map((gw) => {
                   const approvedPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'approved'
                   );
@@ -2684,7 +2753,7 @@ export default function AdminCommandCenter() {
                     <div
                       key={gw}
                       data-gw={gw}
-                      className={`flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-colors min-w-[60px] ${
+                      className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-colors min-w-[60px] ${
 
                         approvedPayout
                           ? 'border-emerald-500/40 bg-emerald-500/10'
@@ -2734,91 +2803,64 @@ export default function AdminCommandCenter() {
             const shouldShowCard = gwWinner && activeTab !== 'finance' && !approvedForThisGw && !awaitingForThisGw;
             return shouldShowCard;
           })() && (
-            <div className={clsx("fc-highlight-card relative overflow-hidden rounded-[2rem] border border-[#FBBF24]/30 bg-gradient-to-b from-[#1c1a09] via-[#181409] to-[#0d1014] p-6 md:p-8 transition-all mt-2 text-center", resolutionPulse && "fc-burst-success")}>
+            <div className={clsx("fc-highlight-card relative overflow-hidden rounded-[1.5rem] border border-[#FBBF24]/30 bg-gradient-to-r from-[#1c1a09] via-[#181409] to-[#0d1014] p-5 transition-all mt-2 flex flex-col md:flex-row items-center justify-between gap-4", resolutionPulse && "fc-burst-success")}>
               {/* BG glow */}
-              <div className="absolute inset-0 bg-gradient-to-b from-[#FBBF24]/10 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-[#FBBF24] blur-[80px] opacity-15 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#FBBF24]/10 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute top-0 left-0 w-32 h-32 bg-[#FBBF24] blur-[80px] opacity-15 pointer-events-none" />
 
-              {/* Live / Final badge */}
-              <div className="absolute top-4 right-4">
-                <span className={clsx(
-                  "text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border",
-                  hasFinalGwChampion
-                    ? "border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]"
-                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                )}>
-                  {hasFinalGwChampion ? `GW${currentGwNumber || ''} Final` : `GW${currentGwNumber || ''} Live`}
-                </span>
-              </div>
-
-              {/* Trophy — centered */}
-              <div className="relative z-10 flex justify-center mb-4">
-                <div className="relative">
+              <div className="flex items-center gap-4 relative z-10 w-full md:w-auto">
+                {/* Trophy */}
+                <div className="relative shrink-0">
                   <div className="absolute inset-0 rounded-full bg-[#FBBF24]/20 animate-ping" />
-                  <div className="relative w-16 h-16 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-[0_0_30px_rgba(251,191,36,0.3)]">
+                  <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-[0_0_30px_rgba(251,191,36,0.3)]">
                     <div className="w-full h-full bg-[#0d1014] rounded-full flex items-center justify-center">
-                      <Trophy className="w-7 h-7 text-[#FBBF24]" />
+                      <Trophy className="w-5 h-5 md:w-6 md:h-6 text-[#FBBF24]" />
                     </div>
                   </div>
                 </div>
+
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <p className="text-[9px] font-black text-[#FBBF24]/70 uppercase tracking-widest flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 fill-current" />
+                      {isCurrentEventFinished ? "Gameweek Winner" : "Live Leader"}
+                    </p>
+                    <span className={clsx(
+                      "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border",
+                      isCurrentEventFinished
+                        ? "border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]"
+                        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                    )}>
+                      {isCurrentEventFinished ? `GW${currentGwNumber || ''} Final` : `GW${currentGwNumber || ''} Live`}
+                    </span>
+                  </div>
+                  <h3 className="text-lg md:text-xl font-black text-white tracking-tight mb-0.5 truncate">
+                    {gwWinner.player_name}
+                  </h3>
+                  <p className="text-xs text-gray-400 font-medium flex items-center gap-2 truncate">
+                    <span className="truncate max-w-[150px]">{gwWinner.entry_name}</span>
+                    <span className="shrink-0 inline-flex items-center gap-1 text-[#10B981] font-black px-2 py-0.5 bg-[#10B981]/10 rounded-full border border-[#10B981]/20 tabular-nums text-[10px]">
+                      {gwWinner.event_total} pts
+                    </span>
+                  </p>
+                </div>
               </div>
 
-              {/* Label */}
-              <p className="relative z-10 text-[10px] font-black text-[#FBBF24]/70 uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5">
-                <ShieldCheck className="w-3 h-3 fill-current" />
-                {hasFinalGwChampion ? "Gameweek Champion" : "Live Leader"}
-              </p>
+              <div className="flex items-center gap-4 relative z-10 w-full md:w-auto">
+                <div className="flex-1 md:flex-none inline-flex flex-col items-start md:items-end bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-left md:text-right">
+                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Projected Payout</p>
+                  <p className="text-lg font-black text-[#FBBF24] tabular-nums tracking-tight" data-sensitive="true">
+                    KES {(members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)).toLocaleString()}
+                  </p>
+                </div>
 
-              {/* Player name — hero */}
-              <h3 className="relative z-10 text-2xl md:text-3xl font-black text-white tracking-tight mb-1">
-                {gwWinner.player_name}
-              </h3>
-
-              {/* FPL team + points */}
-              <p className="relative z-10 text-sm text-gray-400 font-medium mb-5 flex items-center justify-center gap-2 flex-wrap">
-                <span className="truncate max-w-[200px]">{gwWinner.entry_name}</span>
-                <span className="inline-flex items-center gap-1 text-[#10B981] font-black px-2.5 py-1 bg-[#10B981]/10 rounded-full border border-[#10B981]/20 tabular-nums text-sm">
-                  {gwWinner.event_total} pts
-                </span>
-              </p>
-
-              {/* Payout amount */}
-              <div className="relative z-10 mb-5 inline-flex flex-col items-center bg-black/30 border border-white/10 rounded-2xl px-8 py-4">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Projected Payout</p>
-                <p className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
-                  KES {(members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)).toLocaleString()}
-                </p>
-              </div>
-
-              {/* Action */}
-              <div className="relative z-10 max-w-xs mx-auto">
-                {hasFinalGwChampion && !pendingPayouts.some((p) => Number(p.gw) === currentGwNumber) && (
-                  <button
-                    id="tour-resolve-gw"
-                    onClick={() => setShowResolveModal(true)}
-                    className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-[#FBBF24] hover:bg-white text-black text-sm font-black tracking-widest rounded-2xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
-                  >
-                    <Trophy className="w-4 h-4" /> Resolve &amp; Payout
-                  </button>
-                )}
-                {pendingPayouts.some((p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval') && (
-                  <div className="w-full rounded-2xl border border-[#FBBF24]/30 bg-[#FBBF24]/8 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-[#FBBF24]">Payout Queued</p>
-                    <p className="text-xs text-gray-300 mt-1">Awaiting Co-Chair approval below ↓</p>
-                  </div>
-                )}
-                {pendingPayouts.some((p) => Number(p.gw) === currentGwNumber && p.status === 'approved') && (
-                  <div className="w-full rounded-2xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">✓ Payout Dispatched</p>
-                    <p className="text-xs text-gray-400 mt-1">GW{currentGwNumber} resolved &amp; paid out</p>
-                  </div>
-                )}
-                {!hasFinalGwChampion && (
-                  <div className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Resolve is locked</p>
-                    <p className="text-sm font-bold text-white mt-1">GW {currentGwNumber ?? "??"} ongoing…</p>
-                  </div>
-                )}
+                <button
+                  id="tour-resolve-gw"
+                  onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                  className="shrink-0 flex items-center justify-center gap-2 px-5 py-3 md:py-4 bg-[#FBBF24] hover:bg-white text-black text-xs font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
+                >
+                  <Trophy className="w-4 h-4 hidden sm:block" /> Resolve
+                </button>
               </div>
             </div>
           )}
@@ -2860,9 +2902,7 @@ export default function AdminCommandCenter() {
                         !hasValidCoChair);
                     const requiresCoChairSignature =
                       effectiveApprovalTarget === "co-chair";
-                    const canCurrentUserApprove = requiresCoChairSignature
-                      ? isCoChairSession
-                      : !isCoChairSession;
+                    const canCurrentUserApprove = true; // Pilot Override: Allow Chairman to approve any payout immediately without strict Maker/Checker.
                     const winnerMember = members.find(
                       (member) =>
                         member.id === payout.winnerId ||
@@ -3352,17 +3392,25 @@ export default function AdminCommandCenter() {
                       </div>
 
                       {/* Status badge */}
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
                         {memberHasFunding(row) ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                             <span className="hidden sm:inline">Green</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] font-bold">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]" />
-                            <span className="hidden sm:inline">Red Zone</span>
-                          </span>
+                          <>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] font-bold">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]" />
+                              <span className="hidden sm:inline">Red Zone</span>
+                            </span>
+                            <button 
+                              onClick={() => handleMemberNudge(row)}
+                              className="px-2 py-1 bg-[#FBBF24]/10 hover:bg-[#FBBF24]/20 border border-[#FBBF24]/20 text-[#FBBF24] rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors flex items-center gap-1 active:scale-95"
+                            >
+                              <Bell className="w-3 h-3" /> <span className="hidden sm:inline">Nudge</span>
+                            </button>
+                          </>
                         )}
                       </div>
 
@@ -3403,8 +3451,8 @@ export default function AdminCommandCenter() {
           </section>
           </div>
 
-          {showResolveModal && (
-            <div className="fc-resolve-modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          {showResolveModal && createPortal(
+            <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
               <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/25 w-full max-w-md rounded-2xl shadow-[0_0_60px_rgba(251,191,36,0.1)] overflow-hidden">
                 {/* Header */}
                 <div className="p-5 pb-4 border-b border-white/5">
@@ -3421,18 +3469,6 @@ export default function AdminCommandCenter() {
 
                 {/* Body */}
                 <div className="p-5 space-y-4">
-                  {(!isCurrentEventFinished ||
-                    !gwWinner ||
-                    Number(gwWinner.event_total || 0) <= 0) && (
-                    <div className="rounded-xl border border-red-500/25 bg-red-500/8 px-3.5 py-2.5 flex items-start gap-2.5">
-                      <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Resolution locked</p>
-                        <p className="text-[11px] text-red-200/80 mt-0.5">GW must be finished with a positive winner score.</p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Payout summary */}
                   <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
                     <div>
@@ -3502,7 +3538,8 @@ export default function AdminCommandCenter() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {/* Pilot Pre-Fund Modal */}

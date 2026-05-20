@@ -10,11 +10,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Header from '../components/Header';
 
 const fetchFplStandings = async (leagueId: number) => {
-    const fplUrl = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`;
     const endpoints = [
-        `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(fplUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(fplUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(fplUrl)}`,
+        `/fpl-api/leagues-classic/${leagueId}/standings/`
     ];
 
     let lastError = 'Could not connect to FPL servers.';
@@ -58,6 +55,7 @@ const [isApprovingPayoutId, setIsApprovingPayoutId] = useState<string | null>(nu
 const [isRejectingPayoutId, setIsRejectingPayoutId] = useState<string | null>(null);
     // @ts-ignore
 const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [projectedCardIndex, setProjectedCardIndex] = useState(0);
     const [pendingWalletTopUpRequests, setPendingWalletTopUpRequests] = useState<any[]>([]);
     const [cashTopUpAmount, setCashTopUpAmount] = useState('');
     const [cashTopUpNote, setCashTopUpNote] = useState('');
@@ -95,8 +93,7 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
                 }
 
                 try {
-                    const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
-                    const bootstrapRes = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bootstrapUrl)}`);
+                    const bootstrapRes = await fetch(`/fpl-api/bootstrap-static/`);
                     if (bootstrapRes.ok) {
                         const bootstrapData = await bootstrapRes.json();
                         const currentEvent = (bootstrapData?.events || []).find((event: any) => event.is_current);
@@ -205,6 +202,13 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
     }, []);
 
     useEffect(() => {
+        const interval = setInterval(() => {
+            setProjectedCardIndex(prev => (prev + 1) % 2);
+        }, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
         if (!activeLeagueId || role !== 'admin') {
             setPendingApprovals([]);
             return;
@@ -266,6 +270,11 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
 
     const paidMembers = members.filter(m => m.hasPaid && m.isActive !== false);
     const totalSecured = paidMembers.length * (gameweekStake || 1400);
+    const firstTransactionGw = transactions.reduce((minGw, tx) => {
+        const value = Number(tx.gameweek || tx.gw || 999);
+        return Number.isFinite(value) && value > 0 ? Math.min(minGw, value) : minGw;
+    }, 999);
+    
     const inferredGw = transactions.reduce((maxGw, tx) => {
         const value = Number(tx.gameweek || tx.gw || 0);
         return Number.isFinite(value) ? Math.max(maxGw, value) : maxGw;
@@ -275,11 +284,15 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
         : 1;
     const projectionSourceGw = currentGwNumber || inferredGw || estimatedGwFromLeagueAge || 1;
     const projectionGwNumber = Math.min(38, Math.max(1, projectionSourceGw));
+    const leagueStartGw = firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1);
+    
     const remainingGameweeks = Math.max(1, 39 - projectionGwNumber);
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    
     const toJoinedGw = (joinedMs?: number | null) => {
-        if (!leagueCreatedAtMs || !joinedMs) return 1;
-        return Math.min(38, Math.max(1, Math.floor((joinedMs - leagueCreatedAtMs) / WEEK_MS) + 1));
+        if (!leagueCreatedAtMs || !joinedMs) return leagueStartGw;
+        const weeksSinceStart = Math.max(0, Math.floor((joinedMs - leagueCreatedAtMs) / WEEK_MS));
+        return Math.min(38, leagueStartGw + weeksSinceStart);
     };
     const contributionTypes = new Set(['deposit', 'wallet_funding', 'wallet_prefund', 'ledger_adjustment']);
     const seasonCollectedSoFarGross = transactions
@@ -373,7 +386,7 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
     ));
     const totalPreviewPayout = seasonVaultPreview.reduce((acc, tier) => acc + tier.amount, 0);
     const isPreviewCapped = activeMembersCount < configuredWinnersCount;
-    const topSeasonLeader = standingsData[0] || null;
+    // const topSeasonLeader = standingsData[0] || null;
     const modeLabel = seasonWinnersMode === 'custom'
         ? `Custom Top ${configuredWinnersCount}`
         : seasonWinnersMode === 'top1'
@@ -969,11 +982,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     </span>
                                 </div>
                                 <p className="mt-3 text-xl font-black text-[#FBBF24] tabular-nums">KES {tier.amount.toLocaleString()}</p>
-                                {tier.place === 1 && topSeasonLeader && (
-                                    <p className="mt-2 text-[11px] font-bold text-emerald-300 truncate">
-                                        Current #1: {topSeasonLeader.player_name} · {topSeasonLeader.entry_name}
-                                    </p>
-                                )}
+                                {(() => {
+                                    const matchingLeader = standingsData[tier.place - 1];
+                                    if (!matchingLeader) return null;
+                                    return (
+                                        <p className="mt-2 text-[11px] font-bold text-emerald-300 truncate">
+                                            Current #{tier.place}: {matchingLeader.player_name} · {matchingLeader.entry_name}
+                                        </p>
+                                    );
+                                })()}
                                 <p className="mt-1 text-[11px] text-gray-600 dark:text-gray-400">{tier.percentage}% ratio of current season vault</p>
                             </div>
                         ))}
@@ -1025,35 +1042,35 @@ const handleRejectPendingPayout = async (payout: any) => {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <div className="fc-card bg-[#151c18] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <ShieldCheck className="w-24 h-24 text-[#22c55e]" />
+                    <div className="fc-card bg-[#151c18] border border-white/5 p-6 rounded-2xl relative overflow-hidden group min-h-[140px] flex items-center">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 transition-opacity">
+                            <ShieldCheck className={clsx("w-32 h-32 transition-colors duration-1000", projectedCardIndex === 0 ? "text-[#22c55e]" : "text-[#10B981]")} />
                         </div>
-                        <div className="relative z-10 flex flex-col h-full justify-between">
+                        
+                        <div className={clsx("absolute inset-0 p-6 flex flex-col justify-between transition-all duration-700 ease-in-out", projectedCardIndex === 0 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}>
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center border border-[#22c55e]/20">
                                     <ShieldCheck className="w-5 h-5 text-[#22c55e]" />
                                 </div>
                                 <h3 className="text-[10px] font-bold text-[#22c55e] uppercase tracking-widest bg-[#22c55e]/10 px-2.5 py-1 rounded-md border border-[#22c55e]/20">Projected weekly payout</h3>
                             </div>
-                            <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}</p>
-                            <p className="text-[11px] text-gray-500 mt-2">{projectedWeeklyPayoutFormula}</p>
+                            <div>
+                                <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}</p>
+                                <p className="text-[11px] text-gray-500 mt-2 line-clamp-1">{projectedWeeklyPayoutFormula}</p>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="fc-card bg-[#151c18] border border-white/5 p-6 rounded-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <ShieldCheck className="w-24 h-24 text-[#10B981]" />
-                        </div>
-                        <div className="relative z-10 flex flex-col h-full justify-between">
+                        <div className={clsx("absolute inset-0 p-6 flex flex-col justify-between transition-all duration-700 ease-in-out", projectedCardIndex === 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}>
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-full bg-[#10B981]/10 flex items-center justify-center border border-[#10B981]/20">
                                     <ShieldCheck className="w-5 h-5 text-[#10B981]" />
                                 </div>
                                 <h3 className="text-[10px] font-bold text-[#10B981] uppercase tracking-widest bg-[#10B981]/10 px-2.5 py-1 rounded-md border border-[#10B981]/20">Projected season collection</h3>
                             </div>
-                            <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}</p>
-                            <p className="text-[11px] text-gray-500 mt-2">{projectedSeasonCollectionsFormula}</p>
+                            <div>
+                                <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}</p>
+                                <p className="text-[11px] text-gray-500 mt-2 line-clamp-1">{projectedSeasonCollectionsFormula}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -1155,7 +1172,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 || resolvedMember?.displayName
                                 || 'Member';
                             const isInflow = tx.type === 'deposit' && !isWalletFunding;
-                            const ledgerDirection = isAdmin ? (isWalletFunding ? '+' : (isInflow ? '+' : '-')) : (tx.type === 'payout' ? '+' : '-');
+                            const ledgerDirection = tx.type === 'payout' ? (isAdmin ? '-' : '+') : '+';
                             const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                             const statusLabel = isWalletFunding
                                 ? 'Wallet Credit'
@@ -1237,7 +1254,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             || resolvedMember?.displayName
                                             || 'Member';
                                         const isInflow = tx.type === 'deposit' && !isWalletFunding;
-                                        const ledgerDirection = isAdmin ? (isWalletFunding ? '+' : (isInflow ? '+' : '-')) : (tx.type === 'payout' ? '+' : '-');
+                                        const ledgerDirection = tx.type === 'payout' ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                         const statusLabel = isWalletFunding
                                             ? 'Wallet Credit'

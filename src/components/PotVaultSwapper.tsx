@@ -49,7 +49,7 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
                     </span>
                     <span className="text-[#10B981] text-sm md:text-base font-bold">KES</span>
                 </div>
-                <p className="text-[10px] uppercase font-bold text-gray-600 dark:text-gray-400 tracking-widest mt-2">Projected over {remainingGameweeks} GW{remainingGameweeks === 1 ? '' : 's'}</p>
+                <p className="text-[10px] uppercase font-bold text-gray-600 dark:text-gray-400 tracking-widest mt-2">Total Season Projection</p>
             </div>
         </div>
     );

@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, BookOpenCheck, HelpCircle, ShieldCheck, FileText, ChevronRight, ArrowLeft } from 'lucide-react';
+import { BookOpen, BookOpenCheck, HelpCircle, ShieldCheck, FileText, ChevronRight, X, LayoutDashboard } from 'lucide-react';
+import clsx from 'clsx';
 
 const docCards = [
   {
@@ -70,15 +73,38 @@ const docCards = [
   },
 ];
 
-export default function Docs() {
+interface DocsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function DocsModal({ isOpen, onClose }: DocsModalProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  return (
-    <div className="fc-docs-overlay fixed inset-0 z-[50] flex items-center justify-center p-2 md:p-4 overflow-y-auto">
-      {/* Blurred background like notifications */}
-      <div className="fc-docs-backdrop fixed inset-0 bg-black/70 backdrop-blur-md" />
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      ref={overlayRef}
+      className="fc-docs-overlay fixed inset-0 z-[99999] flex items-center justify-center p-2 md:p-4 overflow-y-auto"
+      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+    >
+      <div className="fc-docs-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
       
-      <div className="fc-docs-modal relative w-full max-w-3xl bg-[#0d1117] border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="fc-docs-modal relative w-full max-w-3xl bg-[#0d1117] border border-white/10 rounded-2xl shadow-[0_0_60px_rgba(0,0,0,0.8)] animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-[#0d1117]/90 backdrop-blur-md sticky top-0 z-10 flex-shrink-0">
@@ -92,10 +118,10 @@ export default function Docs() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={onClose}
             className="p-2 rounded-xl text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -105,12 +131,21 @@ export default function Docs() {
             {docCards.map((card) => (
               <button
                 key={card.to}
-                onClick={() => navigate(card.to)}
-                className={`group flex flex-col gap-3 rounded-[1.25rem] border text-left ${card.border} ${card.bg} p-4 md:p-5 transition-all duration-200 ${card.glow} hover:border-white/20 active:scale-95`}
+                onClick={() => {
+                  onClose();
+                  navigate(card.to);
+                }}
+                className={clsx(
+                  "group flex flex-col gap-3 rounded-[1.25rem] border text-left",
+                  card.border, card.bg,
+                  "p-4 md:p-5 transition-all duration-200",
+                  card.glow,
+                  "hover:border-white/20 active:scale-95"
+                )}
               >
                 <div className="flex items-start justify-between w-full">
-                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${card.bg} ${card.border}`}>
-                    <card.icon className={`w-5 h-5 ${card.color}`} />
+                  <div className={clsx(`w-10 h-10 rounded-xl border flex items-center justify-center`, card.bg, card.border)}>
+                    <card.icon className={clsx(`w-5 h-5`, card.color)} />
                   </div>
                   <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 border border-white/10 px-2 py-1 rounded-full bg-black/20">
                     {card.badge}
@@ -130,7 +165,7 @@ export default function Docs() {
           {/* Quick Links */}
           <div className="mt-5 md:mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 md:p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-1.5">
-              <BookOpenCheck className="w-3.5 h-3.5" /> Quick Navigation
+              <LayoutDashboard className="w-3.5 h-3.5" /> Quick Navigation
             </p>
             <div className="flex flex-wrap gap-2">
               {[
@@ -142,7 +177,10 @@ export default function Docs() {
               ].map((l) => (
                 <button
                   key={l.to}
-                  onClick={() => navigate(l.to)}
+                  onClick={() => {
+                    onClose();
+                    navigate(l.to);
+                  }}
                   className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-white border border-white/10 bg-white/[0.02] hover:bg-white/5 px-3 py-2 rounded-xl transition-colors hover:border-white/20 active:scale-95"
                 >
                   {l.label}
@@ -152,6 +190,7 @@ export default function Docs() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

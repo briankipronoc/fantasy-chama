@@ -690,7 +690,7 @@ export default function AdminSetup() {
                                     // Auto-fetch league name when ID looks valid
                                     if (numericId.length >= 4) {
                                         setFplFetchStatus('loading');
-                                        fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${numericId}/standings/`)}`)
+                                        fetch(`/fpl-api/leagues-classic/${numericId}/standings/`)
                                             .then(res => res.json())
                                             .then(data => {
                                                 if (data?.league?.name) {

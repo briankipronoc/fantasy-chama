@@ -61,7 +61,7 @@ export default function MemberDashboard() {
 
     // Phase 30: panel toggles
     const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
-    const [showAllWinners, setShowAllWinners] = useState(false);
+    // const [showAllWinners, setShowAllWinners] = useState(false);
 
     // Phase 31: Real FPL Performance Trajectory
     const [performanceData, setPerformanceData] = useState<any[]>([]);
@@ -147,7 +147,7 @@ export default function MemberDashboard() {
 
                 // Phase 29: Fetch FPL GW Winner continuously
                 if (data.fplLeagueId) {
-                    fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${data.fplLeagueId}/standings/`)}`)
+                    fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
                         .then(res => res.json())
                         .then(fplData => {
                             const results = fplData?.standings?.results;
@@ -170,7 +170,7 @@ export default function MemberDashboard() {
 
                                     for (const tId of teamIds) {
                                         try {
-                                            const r = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${tId}/history/`)}`);
+                                            const r = await fetch(`/fpl-api/entry/${tId}/history/`);
                                             const histData = await r.json();
                                             const current = histData?.current;
                                             if (current && current.length > 0) {
@@ -257,8 +257,7 @@ export default function MemberDashboard() {
     useEffect(() => {
         const fetchCurrentEvent = async () => {
             try {
-                const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
-                const response = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bootstrapUrl)}`);
+                const response = await fetch(`/fpl-api/bootstrap-static/`);
                 if (!response.ok) return;
                 const data = await response.json();
                 const current = (data?.events || []).find((event: any) => event.is_current);
@@ -674,7 +673,7 @@ export default function MemberDashboard() {
     const winnerEvents = winnerEventsFromTx.length > 0 ? winnerEventsFromTx : winnerEventsFromNotifs;
     const mostRecentWinner = winnerEvents.length > 0 ? winnerEvents[0] : null;
     const isRecentWinner = mostRecentWinner?.winnerId === currentUser?.id;
-    const winnerLeaderboard = Object.values(
+    /* const winnerLeaderboard = Object.values(
         winnerEvents.reduce((acc: Record<string, { winnerId: string; winnerName: string; wins: number }>, item: any) => {
             const key = item.winnerId || item.winnerName || 'unknown';
             if (!acc[key]) {
@@ -687,8 +686,8 @@ export default function MemberDashboard() {
             acc[key].wins += 1;
             return acc;
         }, {})
-    ).sort((a, b) => b.wins - a.wins);
-    const seasonRacePhase = winnerEvents.length >= 30 ? 'Final Stretch' : winnerEvents.length >= 18 ? 'Mid Season' : 'Early Season';
+    ).sort((a, b) => b.wins - a.wins); */
+    // const seasonRacePhase = winnerEvents.length >= 30 ? 'Final Stretch' : winnerEvents.length >= 18 ? 'Mid Season' : 'Early Season';
     const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';
     const coveredGameweeks = gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0;
     const nextDueDate = new Date(Date.now() + (3 * 24 * 60 * 60 * 1000));
@@ -759,12 +758,12 @@ export default function MemberDashboard() {
         : gwWinner?.event
             ? `GW ${gwWinner.event} Active`
             : 'GW Active';
-    const ledgerMembers = [...members].sort((a, b) => {
+    /* const ledgerMembers = [...members].sort((a, b) => {
         if (!!a.hasPaid !== !!b.hasPaid) return a.hasPaid ? 1 : -1; // Red Zone first
         if (a.id === currentUser?.id) return -1;
         if (b.id === currentUser?.id) return 1;
         return (a.displayName || '').localeCompare(b.displayName || '');
-    });
+    }); */
 
     const actionButtons = (
         <>
@@ -867,7 +866,7 @@ export default function MemberDashboard() {
             {/* Toast Notification */}
             <div className={clsx(
                 "fixed top-4 right-4 px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
-                toastMessage ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-2 scale-95",
+                toastMessage ? "opacity-100 translate-y-0 scale-100 visible" : "opacity-0 -translate-y-2 scale-95 invisible",
                 toastType === 'error'
                     ? "fc-inline-toast-error"
                     : toastType === 'info'

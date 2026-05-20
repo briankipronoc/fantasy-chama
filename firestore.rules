@@ -20,18 +20,19 @@ service cloud.firestore {
 
     // Returns the parent league document data
     function leagueData(leagueId) {
-      return get(/databases/$(database)/documents/leagues/$(leagueId)).data;
+      let docRef = /databases/$(database)/documents/leagues/$(leagueId);
+      return exists(docRef) ? get(docRef).data : {};
     }
 
     function isChairman(leagueId) {
       return request.auth != null &&
-             leagueData(leagueId).chairmanId == request.auth.uid;
+             leagueData(leagueId).get('chairmanId', '') == request.auth.uid;
     }
 
     function isCoAdmin(leagueId) {
       return request.auth != null &&
-             (leagueData(leagueId).get('coAdminId', null) == request.auth.uid ||
-              leagueData(leagueId).get('coAdminMapping', null) == request.auth.uid);
+             (leagueData(leagueId).get('coAdminId', '') == request.auth.uid ||
+              leagueData(leagueId).get('coAdminMapping', '') == request.auth.uid);
     }
 
     function isAdmin(leagueId) {

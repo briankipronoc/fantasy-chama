@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, ShieldCheck, BarChart3 } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -18,11 +18,8 @@ const fetchFplStandings = async (leagueId: number) => {
             return data;
         }
     }
-    const fplUrl = `https://fantasy.premierleague.com/api/leagues-classic/${leagueId}/standings/`;
     const endpoints = [
-        `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(fplUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(fplUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(fplUrl)}`,
+        `/fpl-api/leagues-classic/${leagueId}/standings/`
     ];
 
     let lastError = 'Could not connect to FPL servers.';
@@ -123,7 +120,8 @@ export default function Standings() {
 
                     for (const tId of teamIds) {
                         try {
-                            const r = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(`https://fantasy.premierleague.com/api/entry/${tId}/history/`)}`);
+                            const r = await fetch(`/fpl-api/entry/${tId}/history/`);
+                            if (!r.ok) throw new Error(`Fetch failed with status ${r.status}`);
                             const histData = await r.json();
                             const current = histData?.current;
                             if (current && current.length > 0) {
@@ -189,8 +187,7 @@ export default function Standings() {
     useEffect(() => {
         const fetchCurrentEvent = async () => {
             try {
-                const bootstrapUrl = 'https://fantasy.premierleague.com/api/bootstrap-static/';
-                const response = await fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bootstrapUrl)}`);
+                const response = await fetch(`/fpl-api/bootstrap-static/`);
                 if (!response.ok) return;
                 const data = await response.json();
                 const current = (data?.events || []).find((event: any) => event.is_current);
@@ -462,19 +459,17 @@ export default function Standings() {
                                 const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : null;
                                 return (
                                     <div key={row.id} className={clsx(
-                                        'px-4 py-3 md:grid md:grid-cols-12 md:gap-2 md:items-center md:px-5 md:py-4 flex flex-col gap-2 transition-colors',
+                                        'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-colors',
                                         isTop1 ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
                                         isGwLeader && !isTop1 ? 'bg-[#FBBF24]/5' : '',
                                         isMe ? 'ring-1 ring-[#FBBF24]/30' : '',
                                         hasPaid === false && 'opacity-50'
                                     )}>
-                                        {/* Mobile: rank + name row */}
-                                        <div className="flex items-center gap-3 md:col-span-1">
-                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-8 text-center', isTop1 ? 'text-[#10B981]' : 'text-gray-500')}>
+                                        {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
+                                        <div className="flex items-center gap-3 md:col-span-5 w-full">
+                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-6 text-center shrink-0', isTop1 ? 'text-[#10B981]' : 'text-gray-500')}>
                                                 {medal || row.rank}
                                             </span>
-                                        </div>
-                                        <div className="flex items-center gap-3 md:col-span-4">
                                             <div className={clsx(
                                                 'w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs flex-shrink-0',
                                                 isTop1 ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-400'
@@ -497,20 +492,26 @@ export default function Standings() {
                                                 <p className="text-[11px] text-gray-500 truncate md:hidden">{row.entry_name}</p>
                                             </div>
                                         </div>
+
                                         {/* FPL Team — desktop only */}
-                                        <div className="hidden md:block md:col-span-3 text-gray-400 text-sm italic truncate">{row.entry_name}</div>
-                                        {/* GW pts + Total + Status */}
-                                        <div className="flex items-center justify-between gap-3 md:contents">
-                                            <div className="md:col-span-1 md:text-center">
-                                                <span className={clsx('px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border', isTop1 ? 'bg-[#10B981] text-black border-transparent' : 'bg-white/5 text-[#10B981] border-white/5')}>{row.event_total}</span>
+                                        <div className="hidden md:block md:col-span-3 text-gray-400 text-sm italic truncate pr-2">{row.entry_name}</div>
+
+                                        {/* Stats Row (Row 2 on Mobile, Col 9-12 on Desktop) */}
+                                        <div className="flex items-center justify-between md:contents mt-3 md:mt-0 pt-3 md:pt-0 border-t border-white/5 md:border-0 w-full">
+                                            <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 md:hidden mb-1.5">GW Pts</span>
+                                                <span className={clsx('px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block', isTop1 ? 'bg-[#10B981] text-black border-transparent' : 'bg-white/5 text-[#10B981] border-white/5')}>{row.event_total}</span>
                                             </div>
-                                            <div className="md:col-span-1 md:text-center font-extrabold text-white text-sm tabular-nums">{row.total.toLocaleString()}</div>
-                                            <div className="md:col-span-2 md:text-right">
+                                            <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 md:hidden mb-1.5">Total</span>
+                                                <div className="font-extrabold text-white text-sm tabular-nums">{row.total.toLocaleString()}</div>
+                                            </div>
+                                            <div className="md:col-span-2 flex justify-end md:justify-end items-center w-24 md:w-auto">
                                                 {isGwLeader
-                                                    ? <span className="font-black text-[10px] md:text-xs tracking-tight border px-2 py-1 rounded-lg text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10 flex items-center gap-1 w-fit ml-auto">
+                                                    ? <span className="font-black text-[10px] md:text-xs tracking-tight border px-2 py-1 rounded-lg text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10 flex items-center gap-1">
                                                         <Star className="w-3 h-3 fill-[#FBBF24] text-[#FBBF24]" />{hasFinalGwChampion ? 'Champion' : 'Live'}
                                                       </span>
-                                                    : <span className="text-gray-700 hidden md:inline">—</span>
+                                                    : <span className="text-gray-700 hidden md:inline pr-4">—</span>
                                                 }
                                             </div>
                                         </div>
@@ -532,8 +533,8 @@ export default function Standings() {
                             <BarChart3 className="w-3.5 h-3.5" /> Performance Trajectory (Top 5 + You)
                             <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
                         </h4>
-                        <div className="h-64 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-64 w-full" style={{ position: 'relative' }}>
+                            <ResponsiveContainer width="100%" height="100%" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
                                 <LineChart data={performanceData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
                                     <XAxis dataKey="name" stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} />
@@ -583,9 +584,9 @@ export default function Standings() {
                                 </span>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                        <div className="flex flex-wrap justify-center gap-2">
                             {topSeasonLeaders.map((leader: any, idx: number) => (
-                                <div key={leader.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                                <div key={leader.id} className="w-full md:w-[calc(20%-0.4rem)] min-w-[140px] rounded-xl border border-white/10 bg-black/20 p-3">
                                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">#{idx + 1}</p>
                                     <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
                                     <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{leader.entry_name}</p>

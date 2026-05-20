@@ -16,6 +16,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://fantasy-chama-api.onrender.com/api/$1" },
+    { "source": "/fpl-api/(.*)", "destination": "https://fantasy.premierleague.com/api/$1" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }

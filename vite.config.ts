@@ -5,6 +5,15 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      '/fpl-api': {
+        target: 'https://fantasy.premierleague.com/api',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fpl-api/, ''),
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {

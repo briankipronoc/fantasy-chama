@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { BookOpenCheck, ChevronLeft, Trophy, Users, Settings, DollarSign, Link2, HelpCircle, ShieldCheck, AlertTriangle, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import { BookOpenCheck, Trophy, Users, Settings, DollarSign, Link2, HelpCircle, CheckCircle2, AlertCircle, Zap } from 'lucide-react';
+import DocLayout from '../layouts/DocLayout';
 
 const Section = ({ icon: Icon, color, title, children }: any) => (
   <section className="rounded-3xl border border-white/10 bg-[#161d24] p-6 md:p-8 space-y-4">
@@ -37,18 +37,14 @@ const Warn = ({ children }: any) => (
 
 export default function ChairmanManual() {
   return (
-    <div className="min-h-screen bg-[#0d1316] text-white p-4 md:p-10 font-sans max-w-3xl mx-auto space-y-6 pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between pt-2">
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-          <BookOpenCheck className="w-7 h-7 text-amber-300" /> Chairman Playbook
-        </h1>
-        <Link to="/rules" className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-amber-300 hover:text-amber-200">
-          <ChevronLeft className="w-3 h-3" /> Back
-        </Link>
-      </div>
-
-      <p className="text-sm text-gray-400">Your end-to-end operations guide. Run a tight, transparent, zero-drama FPL chama.</p>
+    <DocLayout
+      title="Chairman Playbook"
+      icon={BookOpenCheck}
+      iconColor="text-amber-400"
+      iconBg="bg-amber-500/10"
+      iconBorder="border-amber-500/20"
+      kicker="Your end-to-end operations guide. Run a tight, transparent, zero-drama FPL chama."
+    >
 
       {/* 1 — League Setup */}
       <Section icon={Settings} color="text-amber-400" title="1. League Setup">
@@ -146,9 +142,6 @@ export default function ChairmanManual() {
         </div>
       </Section>
 
-      <div className="text-center pt-4">
-        <Link to="/faq" className="text-xs font-bold text-amber-400 underline underline-offset-2 hover:text-amber-300">More in FAQ →</Link>
-      </div>
-    </div>
+    </DocLayout>
   );
 }

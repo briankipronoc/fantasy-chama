@@ -23,6 +23,7 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
+    const [isResettingPassword, setIsResettingPassword] = useState(false);
 
     const navigate = useNavigate();
     const setRole = useStore((state) => state.setRole);
@@ -396,23 +397,27 @@ export default function Login() {
                             <div className="flex justify-end mt-2">
                                 <button
                                     type="button"
+                                    disabled={isResettingPassword}
                                     onClick={async () => {
                                         setInfoMessage('');
                                         if (!email) {
                                             setError('Please enter your email first to receive a password reset link.');
                                             return;
                                         }
+                                        setIsResettingPassword(true);
                                         try {
                                             await sendPasswordResetEmail(auth, email);
                                             setError('');
                                             setInfoMessage(`A secure password reset link has been sent to ${email}. Check your inbox and spam folder.`);
                                         } catch (err: any) {
                                             setError(err.message || 'Failed to dispatch reset link.');
+                                        } finally {
+                                            setIsResettingPassword(false);
                                         }
                                     }}
-                                    className="text-[10px] md:text-xs text-[#FBBF24] font-bold hover:underline opacity-80 transition-opacity"
+                                    className="text-[10px] md:text-xs text-[#FBBF24] font-bold hover:underline opacity-80 transition-opacity disabled:opacity-50"
                                 >
-                                    Forgot password?
+                                    {isResettingPassword ? 'Sending link...' : 'Forgot password?'}
                                 </button>
                             </div>
                         </div>

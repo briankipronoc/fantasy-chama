@@ -74,7 +74,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
             onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
         >
             {/* Backdrop */}
-            <div className="fc-rules-backdrop absolute inset-0 bg-black/70 animate-in fade-in duration-200" />
+            <div className="fc-rules-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
 
             {/* Modal Body */}
             <div className="fc-rules-modal relative w-full md:w-[min(96vw,72rem)] h-[calc(100dvh-1rem)] md:h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-2rem)] flex flex-col bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">

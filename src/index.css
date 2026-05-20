@@ -728,7 +728,6 @@
     }
   }
 
-  .fc-stealth-anim .tabular-nums,
   .fc-stealth-anim [data-sensitive='true'] {
     animation: fcStealthSwap 720ms cubic-bezier(0.16, 1, 0.3, 1);
   }

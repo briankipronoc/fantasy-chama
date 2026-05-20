@@ -146,10 +146,9 @@ export default function Profile() {
                     if (fplId) {
                         try {
                             setIsFetchingFpl(true);
-                            const STANDINGS_API_URL = `https://fantasy.premierleague.com/api/leagues-classic/${fplId}/standings/`;
-                            const response = await fetch(`https://api.codetabs.com/v1/proxy/?quest=url=${encodeURIComponent(STANDINGS_API_URL)}`);
-                            if (response.ok) {
-                                const payload = await response.json();
+                            const res = await fetch(`/fpl-api/leagues-classic/${fplId}/standings/`);
+                            if (res.ok) {
+                                const payload = await res.json();
                                 if (payload.standings && payload.standings.results) {
                                     setFplStandings(payload.standings.results);
                                 }
@@ -310,9 +309,14 @@ export default function Profile() {
             scrollPageTop();
             const t1 = window.setTimeout(scrollPageTop, 0);
             const t2 = window.setTimeout(scrollPageTop, 120);
+            const handleKeyDown = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') setShowWarningModal(false);
+            };
+            window.addEventListener('keydown', handleKeyDown);
             return () => {
                 window.clearTimeout(t1);
                 window.clearTimeout(t2);
+                window.removeEventListener('keydown', handleKeyDown);
             };
         }
     }, [showWarningModal]);
@@ -359,7 +363,7 @@ export default function Profile() {
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Live League Directory</p>
                 </div>
                 <span className="bg-[#0b1014] text-white border border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
-                    {members.length}
+                    {activeMembersCount}
                 </span>
             </div>
 

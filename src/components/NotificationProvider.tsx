@@ -200,10 +200,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     duration: 3600,
                     style: {
                         fontFamily: 'inherit',
+                        background: 'rgba(11,16,20,0.92)',
+                        color: '#d1fae5',
+                        border: '1px solid rgba(16,185,129,0.22)',
+                        borderRadius: '14px',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        padding: '14px 18px',
+                        boxShadow: '0 22px 60px rgba(0,0,0,0.36)',
+                        backdropFilter: 'blur(18px) saturate(125%)',
+                        WebkitBackdropFilter: 'blur(18px) saturate(125%)',
+                        maxWidth: '24rem',
                     },
                     success: {
                         iconTheme: { primary: '#10B981', secondary: '#0e1419' },
                     },
+                    error: {
+                        style: {
+                            color: '#fca5a5',
+                            border: '1px solid rgba(239,68,68,0.22)',
+                        },
+                        iconTheme: { primary: '#ef4444', secondary: '#0e1419' },
+                    }
                 }}
                 containerStyle={{ top: 92, right: 20, width: 'min(24rem, calc(100vw - 1.5rem))' }}
             />

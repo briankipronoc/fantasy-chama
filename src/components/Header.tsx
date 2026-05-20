@@ -8,6 +8,7 @@ import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, C
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
 import LeagueSwitcher from './LeagueSwitcher';
+import DocsModal from './DocsModal';
 import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -24,6 +25,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const setActiveTab = activeTabState[1];
     const [notifView, setNotifView] = useState<'all' | 'payout' | 'security' | 'updates'>('all');
     const [showConstitution, setShowConstitution] = useState(false);
+    const [showDocsModal, setShowDocsModal] = useState(false);
     const [notifListMotion, setNotifListMotion] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -134,29 +136,29 @@ export default function Header({ role, title, subtitle }: { role: string, title?
     const unreadSystemCount = systemNotifs.filter(n => !n.readBy?.includes(realActiveUser)).length;
 
     return (
-        <div className="flex justify-between items-center mb-8 md:mb-10 w-full relative z-50">
-            <div className={clsx('fc-header-stage', headerMotion)}>
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 md:h-12 md:w-12 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-2 border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 md:gap-0 mb-8 md:mb-10 w-full relative z-50">
+            <div className={clsx('fc-header-stage w-full md:w-auto', headerMotion)}>
+                <div className="flex items-center gap-3 md:gap-4 w-full">
+                    <div className="h-12 w-12 md:h-14 md:w-14 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-2 border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=transparent`} alt="User avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-300" />
                     </div>
-                    <div>
-                        <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate">
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 truncate">
                             {role === 'admin' ? (
-                                <Shield className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#22c55e]" />
+                                <Shield className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#22c55e] flex-shrink-0" />
                             ) : (
-                                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FBBF24]" />
+                                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FBBF24] flex-shrink-0" />
                             )}
-                            <span className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-sm">{subtitle || (role === 'admin' ? 'Level 4 Vault Access' : 'League Member')}</span>
+                            <span className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-sm truncate block">{subtitle || (role === 'admin' ? 'Level 4 Vault Access' : 'League Member')}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3" ref={dropdownRef}>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto mt-2 md:mt-0" ref={dropdownRef}>
                 {/* Join HQ Trigger */}
                 {isSuperAdmin && (
                     <button
@@ -206,18 +208,9 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                     {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
                 </button>
 
-                {/* Constitution Icon Button */}
-                <button
-                    onClick={() => setShowConstitution(true)}
-                    className="fc-constitution-trigger p-2.5 md:p-3 border rounded-xl text-gray-600 dark:text-gray-400 hover:text-emerald-400 transition-all duration-300 ease-out hover:border-emerald-500/20 active:scale-95"
-                    title="League Constitution"
-                >
-                    <Scroll className="w-5 h-5 md:w-6 md:h-6" />
-                </button>
-
                 {/* Help & Docs */}
                 <button
-                    onClick={() => navigate('/docs')}
+                    onClick={() => setShowDocsModal(true)}
                     className="p-2.5 md:p-3 border border-white/5 rounded-xl text-gray-600 dark:text-gray-400 hover:text-blue-400 hover:border-blue-500/20 transition-all duration-300 ease-out active:scale-95"
                     title="Help & Documentation"
                 >
@@ -429,7 +422,13 @@ export default function Header({ role, title, subtitle }: { role: string, title?
             <LeagueRulesModal
                 isOpen={showConstitution}
                 onClose={() => setShowConstitution(false)}
-                currentMember={currentMember}
+                currentMember={members.find(m => m.id === activeUserId)}
+            />
+
+            {/* Docs Modal */}
+            <DocsModal
+                isOpen={showDocsModal}
+                onClose={() => setShowDocsModal(false)}
             />
         </div>
     );

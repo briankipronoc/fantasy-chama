@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { BookOpen, ChevronLeft, Banknote, Trophy, BarChart3, AlertCircle, Smartphone, Wallet, CheckCircle2, Star, HelpCircle } from 'lucide-react';
+import { BookOpen, Banknote, Trophy, BarChart3, AlertCircle, CheckCircle2, Star, HelpCircle } from 'lucide-react';
+import DocLayout from '../layouts/DocLayout';
 
 const Section = ({ icon: Icon, color, title, children }: any) => (
   <section className="rounded-3xl border border-white/10 bg-[#161d24] p-6 md:p-8 space-y-4">
@@ -37,18 +37,14 @@ const Warn = ({ children }: any) => (
 
 export default function MemberManual() {
   return (
-    <div className="min-h-screen bg-[#0d1316] text-white p-4 md:p-10 font-sans max-w-3xl mx-auto space-y-6 pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between pt-2">
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-          <BookOpen className="w-7 h-7 text-emerald-400" /> Member Guide
-        </h1>
-        <Link to="/rules" className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-emerald-300 hover:text-emerald-200">
-          <ChevronLeft className="w-3 h-3" /> Back
-        </Link>
-      </div>
-
-      <p className="text-sm text-gray-400">Everything you need to stay in the Green Zone, win payouts, and understand how your league works.</p>
+    <DocLayout
+      title="Member Guide"
+      icon={BookOpen}
+      iconColor="text-emerald-400"
+      iconBg="bg-emerald-500/10"
+      iconBorder="border-emerald-500/20"
+      kicker="Everything you need to stay in the Green Zone, win payouts, and understand how your league works."
+    >
 
       {/* 1 — Getting Started */}
       <Section icon={Star} color="text-emerald-400" title="1. Getting Started">
@@ -120,9 +116,6 @@ export default function MemberManual() {
         </div>
       </Section>
 
-      <div className="text-center pt-4">
-        <Link to="/faq" className="text-xs font-bold text-emerald-400 underline underline-offset-2 hover:text-emerald-300">More in FAQ →</Link>
-      </div>
-    </div>
+    </DocLayout>
   );
 }
