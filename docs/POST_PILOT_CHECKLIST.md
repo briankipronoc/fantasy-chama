@@ -42,3 +42,12 @@ After the pilot, the following features should be implemented into the codebase 
 5. **WhatsApp B2C Nudges & Automations**
    - Integrate WhatsApp API for automated "Settle the pot" reminders 4 hours post-GW.
    - Bypass the human Maker-Checker queue in the Admin Command Center for payouts under 5,000 KES if they perfectly match the FPL API standings.
+
+6. **Daraja B2C Go-Live (Automated Winner Payouts)**
+   - **Pilot behaviour:** Winner payouts are done via "Cash Handoff" — the Chairman manually sends the money from their personal M-Pesa and records it in the app using the **Cash Handoff** button on the payout approval card. This creates a full audit trail without needing a Daraja shortcode.
+   - **Post-pilot upgrade:** Apply for Daraja B2C production access on the [Safaricom Developer Portal](https://developer.safaricom.co.ke/). Requires:
+     - Safaricom business shortcode (Paybill or Buy Goods)
+     - `B2C` API go-live application with approved Organization Information
+     - `DARAJA_B2C_SHORTCODE`, `DARAJA_B2C_INITIATOR`, and `DARAJA_SECURITY_CREDENTIAL` env vars set in Render
+   - Once approved, the existing `/api/mpesa/b2c` endpoint will automatically dispatch winner payouts without chairman's manual transfer.
+   - Update the `handleApprovePayout` function in `AdminCommandCenter.tsx` to remove the sandbox mock fallback block.

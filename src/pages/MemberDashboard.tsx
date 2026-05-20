@@ -1201,17 +1201,6 @@ export default function MemberDashboard() {
                             })}
                         </div>
                     </div>
-                                        {winnerLeaderboard.slice(3, 6).map((entry) => (
-                                            <div key={entry.winnerId} className="flex items-center justify-between text-[11px]">
-                                                <span className="text-gray-600 dark:text-gray-300 truncate">{entry.winnerName}</span>
-                                                <span className="font-bold text-[#10B981]">{entry.wins} wins</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
                 </div>
 
                 {/* === ROW 1.5: Co-Chair Maker/Checker (Conditional) === */}
