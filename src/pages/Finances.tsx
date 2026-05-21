@@ -1171,7 +1171,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                             const memberName = tx.memberName || tx.winnerName
                                 || resolvedMember?.displayName
                                 || 'Member';
-                            const isInflow = tx.type === 'deposit' && !isWalletFunding;
                             const ledgerDirection = tx.type === 'payout' ? (isAdmin ? '-' : '+') : '+';
                             const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                             const statusLabel = isWalletFunding
@@ -1253,7 +1252,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const memberName = tx.memberName || tx.winnerName
                                             || resolvedMember?.displayName
                                             || 'Member';
-                                        const isInflow = tx.type === 'deposit' && !isWalletFunding;
                                         const ledgerDirection = tx.type === 'payout' ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                         const statusLabel = isWalletFunding

@@ -56,7 +56,7 @@ export default function DocLayout({
         {/* Content Body */}
         <div className={`p-5 md:p-8 relative z-0 ${prose ? 'prose prose-invert prose-sm md:prose-base max-w-none' : ''}`}>
           {prose && (
-            <style>{`
+            <style dangerouslySetInnerHTML={{ __html: `
               .prose h1 { font-weight: 900; letter-spacing: -0.02em; color: white; margin-bottom: 1rem; font-size: 1.5rem; }
               .prose h2 { font-weight: 800; letter-spacing: -0.01em; color: white; margin-top: 2rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem; }
               .prose h3 { font-weight: 700; color: #e2e8f0; margin-top: 1.5rem; }
@@ -67,7 +67,7 @@ export default function DocLayout({
               .prose a:hover { text-decoration: underline; color: #60a5fa; }
               .prose strong { color: white; font-weight: 700; }
               .prose hr { border-color: rgba(255,255,255,0.05); margin: 2rem 0; }
-            `}</style>
+            `}} />
           )}
           {children}
         </div>

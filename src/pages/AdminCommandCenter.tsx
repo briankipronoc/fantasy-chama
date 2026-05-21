@@ -909,12 +909,7 @@ export default function AdminCommandCenter() {
   const vaultPerGw = totalCollected * (rules.vault / 100);
   const seasonVault = (vaultPerGw * gwPlayed) + (vaultPerGw * remainingGameweeks);
   const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
-  const highRiskTwoWeekMisses = members.filter(
-    (member: any) =>
-      member.isActive !== false &&
-      member.role !== "admin" &&
-      Number(member.missedGameweeks || 0) >= 2,
-  ).length;
+  // highRiskTwoWeekMisses available via members.filter(...) if needed in future
   const sortedPendingPayouts = [...pendingPayouts]
     .filter((p: any) => p.status === "awaiting_approval")
     .sort((a: any, b: any) => {
@@ -3075,7 +3070,6 @@ export default function AdminCommandCenter() {
                     weeklyPot={weeklyPot}
                     seasonVault={seasonVault}
                     weeklyRulesPercent={rules.weekly}
-                    remainingGameweeks={remainingGameweeks}
                     isStealthMode={isStealthMode}
                   />
 

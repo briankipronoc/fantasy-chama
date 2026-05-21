@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, BookOpenCheck, HelpCircle, ShieldCheck, FileText, ChevronRight, ArrowLeft } from 'lucide-react';
 
 const docCards = [

@@ -251,6 +251,9 @@ export default function PayoutRules() {
                     </div>
                 </div>
             </div>
+            )}
+
+            </div>
         </DocLayout>
     );
 }

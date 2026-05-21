@@ -534,7 +534,7 @@ export default function Standings() {
                             <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
                         </h4>
                         <div className="h-64 w-full" style={{ position: 'relative' }}>
-                            <ResponsiveContainer width="100%" height="100%" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+                            <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={performanceData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
                                     <XAxis dataKey="name" stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} />

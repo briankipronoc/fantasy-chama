@@ -4,11 +4,10 @@ interface SwapperProps {
     weeklyPot: number;
     seasonVault: number;
     weeklyRulesPercent: number;
-    remainingGameweeks?: number;
     isStealthMode: boolean;
 }
 
-export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPercent, remainingGameweeks = 38, isStealthMode }: SwapperProps) {
+export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPercent, isStealthMode }: SwapperProps) {
     const [showWeeklyPot, setShowWeeklyPot] = useState(true);
 
     useEffect(() => {
