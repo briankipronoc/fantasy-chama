@@ -108,6 +108,15 @@ export default function Login() {
 
         try {
             console.log("1. Member Login Initiated with code:", fullCode);
+
+            // Ensure anonymous Firebase Auth session exists BEFORE querying leagues/memberships
+            let currentAuthUser = auth.currentUser;
+            if (!currentAuthUser) {
+                const userCredential = await signInAnonymously(auth);
+                currentAuthUser = userCredential.user;
+            }
+            const userUid = currentAuthUser.uid;
+
             // 1. Find the League by the 6-Digit Code
             const leaguesRef = collection(db, 'leagues');
             const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode));
@@ -130,8 +139,17 @@ export default function Login() {
             const leagueId = leagueData.id;
 
             // 2. Check if the user's phone number is on the Chairman's pre-approved list
+            const cleanInputPhone = phone.trim();
+            const phoneVariants = Array.from(new Set([
+                cleanInputPhone,
+                cleanInputPhone.startsWith('0') ? '254' + cleanInputPhone.slice(1) : cleanInputPhone,
+                cleanInputPhone.startsWith('254') ? '0' + cleanInputPhone.slice(3) : cleanInputPhone,
+                cleanInputPhone.startsWith('+254') ? '0' + cleanInputPhone.slice(4) : cleanInputPhone,
+                cleanInputPhone.startsWith('0') ? '+254' + cleanInputPhone.slice(1) : cleanInputPhone,
+            ])).filter(Boolean);
+
             const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
-            const qMember = query(membershipsRef, where("phone", "==", phone));
+            const qMember = query(membershipsRef, where("phone", "in", phoneVariants));
             const memberSnapshot = await getDocs(qMember);
 
             if (memberSnapshot.empty) {
@@ -139,11 +157,7 @@ export default function Login() {
                 return;
             }
 
-            // 3. Create secure anonymous session session
-            const userCredential = await signInAnonymously(auth);
-            const userUid = userCredential.user.uid;
-
-            // 4. Update the member document with the active session UID to bypass Firestore Rules securely
+            // 3. Update the member document with the active session UID to bypass Firestore Rules securely
             const memberDocRef = memberSnapshot.docs[0].ref;
             await updateDoc(memberDocRef, { authUid: userUid });
 
@@ -200,17 +214,36 @@ export default function Login() {
             console.log("4. Connection established. Returned snapshot size:", leagueSnapshot.size);
 
             if (!leagueSnapshot.empty) {
-                const leagueData = leagueSnapshot.docs[0];
-                const leagueId = leagueData.id;
+                // Prefer currently active league if it belongs to this chairman
+                const existingActiveId = localStorage.getItem('activeLeagueId');
+                const matchedDoc = existingActiveId ? leagueSnapshot.docs.find((d: any) => d.id === existingActiveId) : null;
+
+                // Otherwise sort by newest created league
+                const sortedDocs = [...leagueSnapshot.docs].sort((a: any, b: any) => {
+                    const aTs = a.data()?.createdAt?.toDate ? a.data().createdAt.toDate().getTime() : 0;
+                    const bTs = b.data()?.createdAt?.toDate ? b.data().createdAt.toDate().getTime() : 0;
+                    return bTs - aTs;
+                });
+
+                const selectedDoc = matchedDoc || sortedDocs[0];
+                const leagueId = selectedDoc.id;
+                const leagueData = selectedDoc.data();
                 localStorage.setItem('activeLeagueId', leagueId);
+                if (leagueData?.chairmanPhone) {
+                    localStorage.setItem('memberPhone', leagueData.chairmanPhone);
+                }
                 console.log("5. Active League ID bound to session:", leagueId);
 
-                // Find the Chairman's membership doc to set activeUserId
+                // Find the Chairman's membership doc to set activeUserId and phone
                 const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
                 const qAdminMember = query(membershipsRef, where("role", "==", "admin"));
                 const adminMemberSnap = await getDocs(qAdminMember);
                 if (!adminMemberSnap.empty) {
-                    localStorage.setItem('activeUserId', adminMemberSnap.docs[0].id);
+                    const adminDoc = adminMemberSnap.docs[0];
+                    localStorage.setItem('activeUserId', adminDoc.id);
+                    if (adminDoc.data()?.phone) {
+                        localStorage.setItem('memberPhone', adminDoc.data().phone);
+                    }
                 }
 
             } else {

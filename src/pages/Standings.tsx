@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
 import clsx from 'clsx';
 import Header from '../components/Header';
+import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 
 const fetchFplStandings = async (leagueId: number) => {
     // Check cache
@@ -60,8 +61,19 @@ export default function Standings() {
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
-    const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>>([]);
+    const [leagueRules, setLeagueRules] = useState<any>({});
+    const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
+    const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
+    const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean }>>([]);
     const [performanceData, setPerformanceData] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [flexCardData, setFlexCardData] = useState<{
+        winnerName: string;
+        teamName?: string;
+        points: number;
+        amountWon: number;
+        gameweek: number | string;
+    } | null>(null);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     const fallbackFplLeagueId = 314;
@@ -83,9 +95,12 @@ export default function Standings() {
                     const leagueSnap = await getDoc(leagueRef);
                     if (leagueSnap.exists()) {
                         const lData = leagueSnap.data();
-                        setLeagueName(lData.leagueName || lData.name || 'League');
+                        setLeagueName(lData.name || lData.leagueName || 'League');
                         if (lData.chairmanId) setChairmanId(lData.chairmanId);
                         if (lData.coAdminId) setCoAdminId(lData.coAdminId);
+                        if (lData.rules) setLeagueRules(lData.rules);
+                        if (lData.forfeitedGws) setForfeitedGws(lData.forfeitedGws);
+                        if (lData.startGw) setLeagueStartGw(Number(lData.startGw));
                         if (lData.fplLeagueId) {
                             setDbFplLeagueId(lData.fplLeagueId);
                             targetFplId = lData.fplLeagueId;
@@ -151,7 +166,20 @@ export default function Standings() {
                         .map((txDoc) => txDoc.data() as any)
                         .filter((tx) => tx.type === 'payout' && Number.isFinite(Number(tx.gameweek || tx.gw)));
 
-                    const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null }>();
+                    let pendingForfeited = new Set<number>();
+                    try {
+                        const pendingSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'pending_payouts'));
+                        pendingSnap.docs.forEach((docSnap) => {
+                            const p = docSnap.data() as any;
+                            if (p.status === 'forfeited' && Number.isFinite(Number(p.gw))) {
+                                pendingForfeited.add(Number(p.gw));
+                            }
+                        });
+                    } catch (_pErr) {
+                        // ignore if collection empty
+                    }
+
+                    const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean }>();
                     payoutRows.forEach((tx) => {
                         const gw = Number(tx.gameweek || tx.gw);
                         if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
@@ -163,9 +191,27 @@ export default function Standings() {
                         });
                     });
 
+                    const effectiveForfeited = new Set<number>([
+                        ...(forfeitedGws || []),
+                        ...(leagueRules?.forfeitedGws || []),
+                        ...Array.from(pendingForfeited),
+                    ]);
+
                     const ledger = Array.from({ length: 38 }, (_, index) => {
                         const gw = index + 1;
-                        return winnerByGw.get(gw) || { gw, winnerName: 'Pending' };
+                        if (winnerByGw.has(gw)) {
+                            return winnerByGw.get(gw)!;
+                        }
+                        const isForfeited = effectiveForfeited.has(gw) || (leagueStartGw > 1 && gw < leagueStartGw);
+                        if (isForfeited) {
+                            return {
+                                gw,
+                                winnerName: 'Voided / Skipped',
+                                winnerTeam: 'Round Unplayed',
+                                isVoided: true,
+                            };
+                        }
+                        return { gw, winnerName: 'Pending' };
                     });
                     setGwWinnersLedger(ledger);
                 } catch (txErr: any) {
@@ -273,37 +319,61 @@ export default function Standings() {
         ? (standingsData.reduce((sum, row) => sum + row.event_total, 0) / standingsData.length).toFixed(1)
         : '0.0';
 
-    const gwWinner = standingsData.length > 0
-        ? standingsData.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current)
+    const isMemberEligibleWinner = (row: any) => {
+        const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
+        if (!matched) return false;
+        if (matched.isActive === false) return false;
+        const stake = Number((league as any)?.gameweekStake || (league as any)?.monthlyFee || 0);
+        return matched.hasPaid === true || (stake > 0 && (matched.walletBalance || 0) >= stake);
+    };
+
+    // Filter strictly to funded active members who paid for this round (resolves 54 vs 60 issue)
+    const eligibleGwStandings = standingsData.filter(isMemberEligibleWinner);
+    const maxEligibleGwScore = eligibleGwStandings.reduce((max, r) => Math.max(max, Number(r.event_total || 0)), 0);
+    const gwWinner = eligibleGwStandings.length > 0
+        ? [...eligibleGwStandings].sort((a, b) => Number(b.event_total || 0) - Number(a.event_total || 0))[0]
         : null;
+
     const hasFinalGwChampion = Boolean(
         gwWinner
         && isCurrentEventFinished
         && Number(gwWinner.event_total) > 0
         && (!currentEvent || Number(gwWinner.event) === Number(currentEvent))
     );
-    const leagueRules = (league as any)?.rules || {};
-    const configuredSeasonWinnersCount = Math.max(1, Number(leagueRules.seasonWinnersCount || 3));
+
+    const mergedRules = { ...((league as any)?.rules || {}), ...(leagueRules || {}) };
+    const configuredSeasonWinnersCount = Math.max(1, Number(mergedRules.seasonWinnersCount || 3));
     const seasonWinnersMode = String(
-        leagueRules.seasonWinnersMode || (
+        mergedRules.seasonWinnersMode || (
             configuredSeasonWinnersCount === 1
                 ? 'top1'
                 : configuredSeasonWinnersCount === 5
                     ? 'top5'
-                    : 'top3'
+                    : configuredSeasonWinnersCount === 3
+                        ? 'top3'
+                        : 'custom'
         ),
     );
-    const visibleSeasonWinnerCount = seasonWinnersMode === 'custom'
-        ? configuredSeasonWinnersCount
-        : seasonWinnersMode === 'top1'
-            ? 1
+    const visibleSeasonWinnerCount = seasonWinnersMode === 'top1'
+        ? 1
+        : seasonWinnersMode === 'top3'
+            ? 3
             : seasonWinnersMode === 'top5'
                 ? 5
-                : 3;
-    const topSeasonLeaders = standingsData.slice(0, Math.min(visibleSeasonWinnerCount, standingsData.length));
-    const seasonSnapshotLabel = seasonWinnersMode === 'custom'
-        ? `Custom top ${visibleSeasonWinnerCount}`
-        : `Top ${visibleSeasonWinnerCount}`;
+                : configuredSeasonWinnersCount; // 'custom' or fallback
+
+    const seasonSnapshotLabel = `Top ${visibleSeasonWinnerCount}`;
+
+
+    // End-season snapshot: ONLY funded active members can be on the winners list
+    const eligibleSeasonStandings = standingsData.filter(isMemberEligibleWinner);
+    const seasonPool = eligibleSeasonStandings.length > 0
+        ? eligibleSeasonStandings
+        : standingsData.filter((r: any) => {
+            const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
+            return !m || m.isActive !== false;
+        });
+    const topSeasonLeaders = seasonPool.slice(0, Math.min(visibleSeasonWinnerCount, seasonPool.length));
     const seasonPhase = currentEvent
         ? currentEvent >= 33
             ? 'Final Stretch'
@@ -337,33 +407,35 @@ export default function Standings() {
                 {/* Header — matches other pages */}
                 <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Gameweek Rankings" />
 
-                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6 mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pt-1 pb-2 mb-6">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24] mb-2">League Table</p>
-                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 mb-1">
-                            <Trophy className="w-7 h-7 text-[#FBBF24]" /> Live Standings
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400 mb-1">League Table</p>
+                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
+                            <Trophy className="w-7 h-7 text-amber-400" /> Live Standings
                         </h2>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm font-medium max-w-xl leading-relaxed">
+                        <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
                             Real-time FPL performance rankings for your active league.
                         </p>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap items-center">
                         <div className="relative group">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 group-focus-within:text-[#10B981] transition-colors">
                                 <Search className="w-4 h-4" />
                             </span>
                             <input
                                 type="text"
-                                className="w-full sm:w-72 bg-[#161d24] border border-white/5 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-gray-600 text-white outline-none shadow-lg"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full sm:w-64 bg-[#161d24] border border-white/10 rounded-xl py-2 pl-11 pr-4 text-sm focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-gray-500 text-white outline-none shadow-lg"
                                 placeholder="Search members or teams..."
                             />
                         </div>
-                        <button onClick={exportStandingsCSV} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap">
+                        <button onClick={exportStandingsCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap active:scale-95">
                             <Download className="w-4 h-4" /> Export CSV
                         </button>
                     </div>
-                </section>
+                </div>
 
                 {/* Stats Cards */}
                 {/* Quick Fix Inline FPL ID Linker */}
@@ -449,30 +521,54 @@ export default function Standings() {
                         </div>
                         {/* Rows */}
                         <div className="divide-y divide-white/[0.04]">
-                            {standingsData.map((row: any, index: number) => {
-                                const isTop1 = index === 0;
+                            {standingsData
+                                .filter((row: any) => {
+                                    const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
+                                    if (matched && matched.isActive === false) return false;
+                                    if (searchQuery.trim()) {
+                                        const q = searchQuery.toLowerCase();
+                                        return (
+                                            row.player_name?.toLowerCase().includes(q) ||
+                                            row.entry_name?.toLowerCase().includes(q) ||
+                                            matched?.displayName?.toLowerCase().includes(q)
+                                        );
+                                    }
+                                    return true;
+                                })
+                                .map((row: any, index: number) => {
+                                const isTop1Overall = index === 0;
                                 const isInPodium = index < visibleSeasonWinnerCount;
                                 const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
-                                const hasPaid = matchedMember ? matchedMember.hasPaid : null;
-                                const isGwLeader = gwWinner && row.id === gwWinner.id;
+                                const stake = Number((league as any)?.gameweekStake || (league as any)?.monthlyFee || 0);
+                                const isFunded = Boolean(
+                                    matchedMember &&
+                                    matchedMember.isActive !== false &&
+                                    (matchedMember.hasPaid === true || (stake > 0 && (matchedMember.walletBalance || 0) >= stake))
+                                );
+                                const isGwWinnerRow = Boolean(
+                                    isFunded &&
+                                    maxEligibleGwScore > 0 &&
+                                    Number(row.event_total) === maxEligibleGwScore
+                                );
                                 const isMe = myStanding && row.id === myStanding.id;
-                                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : null;
+                                const rankNum = Number(row.rank || index + 1);
+                                const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
                                 return (
                                     <div key={row.id} className={clsx(
-                                        'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-colors',
-                                        isTop1 ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
-                                        isGwLeader && !isTop1 ? 'bg-[#FBBF24]/5' : '',
-                                        isMe ? 'ring-1 ring-[#FBBF24]/30' : '',
-                                        hasPaid === false && 'opacity-50'
+                                        'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all',
+                                        isTop1Overall ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
+                                        isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
+                                        isMe ? 'ring-1 ring-[#FBBF24]/40' : '',
+                                        !isFunded && 'opacity-40 blur-[0.4px] hover:blur-none hover:opacity-85 transition-all saturate-50'
                                     )}>
                                         {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
                                         <div className="flex items-center gap-3 md:col-span-5 w-full">
-                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-6 text-center shrink-0', isTop1 ? 'text-[#10B981]' : 'text-gray-500')}>
-                                                {medal || row.rank}
+                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-6 text-center shrink-0', isTop1Overall ? 'text-[#10B981]' : 'text-gray-500')}>
+                                                {medal || rankNum}
                                             </span>
                                             <div className={clsx(
                                                 'w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs flex-shrink-0',
-                                                isTop1 ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-400'
+                                                isTop1Overall ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-400'
                                             )}>
                                                 {matchedMember ? (
                                                     <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(matchedMember as any).avatarSeed || matchedMember.displayName}&backgroundColor=transparent`} alt="" className="w-full h-full rounded-full object-cover" />
@@ -487,7 +583,11 @@ export default function Standings() {
                                                     {matchedMember?.id === coAdminId && matchedMember.id !== chairmanId && matchedMember.isActive !== false && (matchedMember.role === 'co-chair' || matchedMember.role === 'admin') && (
                                                         <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30">Co</span>
                                                     )}
-                                                    {hasPaid !== null && <Circle className={clsx('w-2 h-2 fill-current', hasPaid ? 'text-[#10B981]' : 'text-red-500')} />}
+                                                    {!isFunded ? (
+                                                        <span className="bg-red-500/15 text-red-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-red-500/25">Unfunded</span>
+                                                    ) : (
+                                                        <Circle className="w-2 h-2 fill-current text-[#10B981]" />
+                                                    )}
                                                 </span>
                                                 <p className="text-[11px] text-gray-500 truncate md:hidden">{row.entry_name}</p>
                                             </div>
@@ -500,19 +600,43 @@ export default function Standings() {
                                         <div className="flex items-center justify-between md:contents mt-3 md:mt-0 pt-3 md:pt-0 border-t border-white/5 md:border-0 w-full">
                                             <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 md:hidden mb-1.5">GW Pts</span>
-                                                <span className={clsx('px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block', isTop1 ? 'bg-[#10B981] text-black border-transparent' : 'bg-white/5 text-[#10B981] border-white/5')}>{row.event_total}</span>
+                                                <span className={clsx(
+                                                    'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
+                                                    isGwWinnerRow
+                                                        ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                                                        : isFunded
+                                                            ? 'bg-white/5 text-slate-200 border-white/5'
+                                                            : 'bg-white/5 text-gray-500 border-white/5 line-through'
+                                                )}>
+                                                    {row.event_total}
+                                                </span>
                                             </div>
                                             <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
                                                 <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 md:hidden mb-1.5">Total</span>
                                                 <div className="font-extrabold text-white text-sm tabular-nums">{row.total.toLocaleString()}</div>
                                             </div>
-                                            <div className="md:col-span-2 flex justify-end md:justify-end items-center w-24 md:w-auto">
-                                                {isGwLeader
-                                                    ? <span className="font-black text-[10px] md:text-xs tracking-tight border px-2 py-1 rounded-lg text-[#FBBF24] border-[#FBBF24]/20 bg-[#FBBF24]/10 flex items-center gap-1">
-                                                        <Star className="w-3 h-3 fill-[#FBBF24] text-[#FBBF24]" />{hasFinalGwChampion ? 'Champion' : 'Live'}
-                                                      </span>
-                                                    : <span className="text-gray-700 hidden md:inline pr-4">—</span>
-                                                }
+                                            <div className="md:col-span-2 flex justify-end md:justify-end items-center w-28 md:w-auto">
+                                                {!isFunded ? (
+                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
+                                                    </span>
+                                                ) : isGwWinnerRow ? (
+                                                    <button
+                                                        onClick={() => setFlexCardData({
+                                                            winnerName: row.player_name,
+                                                            teamName: row.entry_name,
+                                                            points: Number(row.event_total || 0),
+                                                            amountWon: Math.round((eligibleSeasonStandings.length * (stake || 100)) * (Number((league as any)?.rules?.weekly || 70) / 100)),
+                                                            gameweek: currentEvent || '',
+                                                        })}
+                                                        className="font-black text-[10px] md:text-xs tracking-tight border px-2.5 py-1 rounded-lg text-[#10B981] border-[#10B981]/40 bg-[#10B981]/15 hover:bg-[#10B981]/25 flex items-center gap-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all active:scale-95 cursor-pointer"
+                                                        title={hasFinalGwChampion ? "Flex GW Champion on WhatsApp" : "Flex Live Leader on WhatsApp"}
+                                                    >
+                                                        <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Flex Win
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-gray-700 hidden md:inline pr-4">—</span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -584,20 +708,35 @@ export default function Standings() {
                                 </span>
                             </div>
                         </div>
-                        <div className="flex flex-wrap justify-center gap-2">
-                            {topSeasonLeaders.map((leader: any, idx: number) => (
-                                <div key={leader.id} className="w-full md:w-[calc(20%-0.4rem)] min-w-[140px] rounded-xl border border-white/10 bg-black/20 p-3">
-                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">#{idx + 1}</p>
-                                    <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{leader.entry_name}</p>
-                                    <p className="text-sm font-black text-[#10B981] tabular-nums mt-1">{leader.total.toLocaleString()} pts</p>
-                                    <p className="text-[10px] text-gray-500 font-bold mt-1">
-                                        {idx === 0
-                                            ? 'Vault leader'
-                                            : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`}
-                                    </p>
-                                </div>
-                            ))}
+                        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar justify-start sm:justify-center">
+                            {topSeasonLeaders.map((leader: any, idx: number) => {
+                                const leaderRank = Number(leader.rank || idx + 1);
+                                const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
+                                return (
+                                    <div key={leader.id} className="min-w-[170px] flex-1 max-w-[240px] rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all">
+                                        <div>
+                                            <div className="flex items-center justify-between gap-1 mb-2">
+                                                <span className="text-[10px] uppercase tracking-widest font-black text-amber-400">
+                                                    {leaderMedal ? `${leaderMedal} #${leaderRank}` : `#${leaderRank}`}
+                                                </span>
+                                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    Funded
+                                                </span>
+                                            </div>
+                                            <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
+                                            <p className="text-[10px] text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
+                                        </div>
+                                        <div className="mt-3 pt-2.5 border-t border-white/5">
+                                            <p className="text-base font-black text-emerald-400 tabular-nums">{Number(leader.total || 0).toLocaleString()} pts</p>
+                                            <p className="text-[10px] text-gray-500 font-bold mt-0.5">
+                                                {idx === 0
+                                                    ? 'Vault leader'
+                                                    : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -616,24 +755,38 @@ export default function Standings() {
                             </div>
                         </div>
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
-                            {gwWinnersLedger.map((item) => {
-                                const resolved = item.winnerName !== 'Pending';
+                            {gwWinnersLedger.map((item: any) => {
+                                const isVoided = Boolean(item.isVoided);
+                                const resolved = item.winnerName !== 'Pending' && !isVoided;
                                 const isCurrentGw = currentEvent === item.gw;
                                 return (
                                     <div
                                         key={item.gw}
                                         data-gw-card={item.gw}
                                         className={clsx(
-                                            'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3',
-                                            resolved ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10' : 'border-white/10 bg-black/25',
+                                            'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm',
+                                            resolved
+                                                ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
+                                                : isVoided
+                                                ? 'border-amber-500/25 bg-amber-500/8'
+                                                : 'border-white/10 bg-black/25',
                                             isCurrentGw && 'ring-2 ring-[#FBBF24]/55'
                                         )}
                                     >
-                                        <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">GW {item.gw}</p>
-                                        <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : 'text-gray-500')}>
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                            <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">GW {item.gw}</p>
+                                            {isVoided && (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                                    Skipped
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : isVoided ? 'text-amber-300' : 'text-gray-500')}>
                                             {item.winnerName}
                                         </p>
-                                        <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate mt-1">{item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}</p>
+                                        <p className="text-[10px] text-gray-400 truncate mt-1">
+                                            {isVoided ? 'No fees deducted' : item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}
+                                        </p>
                                         {resolved && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
                                         )}
@@ -642,6 +795,20 @@ export default function Standings() {
                             })}
                         </div>
                     </div>
+                )}
+
+                {/* Champion Flex Card Modal */}
+                {flexCardData && (
+                    <ChampionFlexCardModal
+                        isOpen={!!flexCardData}
+                        onClose={() => setFlexCardData(null)}
+                        winnerName={flexCardData.winnerName}
+                        teamName={flexCardData.teamName}
+                        points={flexCardData.points}
+                        gameweek={flexCardData.gameweek}
+                        amountWon={flexCardData.amountWon}
+                        leagueName={leagueName || 'League'}
+                    />
                 )}
             </div>
         </div>

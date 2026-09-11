@@ -1,11 +1,13 @@
 import { Outlet, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
-import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Trophy } from 'lucide-react';
+import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Trophy, Flame } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { useNotifications } from '../components/NotificationProvider';
+import PwaInstallPrompt from '../components/PwaInstallPrompt';
+import { haptics } from '../utils/haptics';
 
 export default function AppLayout() {
     const role = useStore((state) => state.role);
@@ -115,15 +117,17 @@ export default function AppLayout() {
     const adminFinanceBadge = redZoneCount + pendingApprovalCount;
 
     const adminNavItems = [
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'League Table', path: '/standings', icon: BarChart3 },
+        { name: 'Chairman Hub', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Standings', path: '/standings', icon: BarChart3 },
+        { name: 'Side Bets', path: '/sidebets', icon: Flame },
         { name: 'Red Zone & Finances', path: '/finances', icon: AlertTriangle, badge: adminFinanceBadge > 0 ? adminFinanceBadge : undefined },
         { name: 'Settings & Profile', path: '/profile', icon: Settings },
     ];
 
     const memberNavItems = [
-        { name: 'War Room', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Member Hub', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', path: '/standings', icon: BarChart3 },
+        { name: 'Side Bets', path: '/sidebets', icon: Flame },
         { name: 'Finances & Payouts', path: '/finances', icon: AlertTriangle, badge: redZoneCount > 0 ? redZoneCount : undefined },
         { name: 'My Profile', path: '/profile', icon: Settings },
     ];
@@ -200,7 +204,7 @@ export default function AppLayout() {
                                     </span>
                                     <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Fantasy Chama</span>
                                 </div>
-                                <h2 className="text-2xl font-black tracking-tight text-white mb-1.5">{headerTitle}</h2>
+                                <h2 className="fc-frosty-title text-2xl font-black tracking-tight mb-1.5">{headerTitle}</h2>
                                 <p className="text-[10px] font-bold text-[#22c55e] tracking-widest uppercase">
                                     {role === 'admin' ? 'TRANSPARENCY PORTAL' : 'SECURE WEALTH CIRCLE'}
                                 </p>
@@ -225,6 +229,7 @@ export default function AppLayout() {
                                     key={item.path}
                                     to={item.path}
                                     onClick={() => {
+                                        haptics.selection();
                                         const scrollHost = document.querySelector('.fc-main-scroll');
                                         if (scrollHost && 'scrollTo' in scrollHost) {
                                             (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
@@ -312,6 +317,7 @@ export default function AppLayout() {
                             key={item.path}
                             to={item.path}
                             onClick={() => {
+                                haptics.selection();
                                 const scrollHost = document.querySelector('.fc-main-scroll');
                                 if (scrollHost && 'scrollTo' in scrollHost) {
                                     (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
@@ -336,6 +342,9 @@ export default function AppLayout() {
                     <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight truncate w-full">Sign Out</span>
                 </button>
             </nav>
+
+            {/* PWA Install Banner */}
+            <PwaInstallPrompt />
         </div>
     );
 }

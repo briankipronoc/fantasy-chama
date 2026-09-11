@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone, Wallet, Swords } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, Swords } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -13,6 +13,8 @@ import PotVaultSwapper from '../components/PotVaultSwapper';
 import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DashboardSkeleton } from '../components/Skeleton';
+import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import { haptics } from '../utils/haptics';
 
 export default function MemberDashboard() {
     const navigate = useNavigate();
@@ -61,6 +63,7 @@ export default function MemberDashboard() {
 
     // Phase 30: panel toggles
     const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
+    const [showFlexModal, setShowFlexModal] = useState(false);
     // const [showAllWinners, setShowAllWinners] = useState(false);
 
     // Phase 31: Real FPL Performance Trajectory
@@ -98,9 +101,9 @@ export default function MemberDashboard() {
         try {
             const leagueRef = doc(db, 'leagues', activeLeagueId);
             await updateDoc(leagueRef, {
-                suspensionNudges: arrayUnion(currentUser.displayName.split(' ')[0])
+                suspensionNudges: arrayUnion((currentUser?.displayName || 'Member').split(' ')[0])
             });
-            showToast("Chairman has been aggressively nudged.", "success");
+            showToast("Chairman has been notified.", "success");
         } catch (error) {
             console.error("Nudge Error:", error);
             showToast("Failed to nudge Chairman.", "error");
@@ -109,16 +112,20 @@ export default function MemberDashboard() {
         }
     };
     const isStealthMode = useStore(state => state.isStealthMode);
+    const role = useStore(state => state.role);
     const { notifications } = useNotifications();
 
-    const currentUser = members.find(m => m.id === activeUserIdStored) || members.find(m => m.phone === memberPhone);
     const chairmanMember = members.find((member) => {
-        const role = (member as any).role;
-        return member.id === coAdminId || role === 'admin' || role === 'chairman';
+        const mRole = (member as any).role;
+        return member.id === coAdminId || mRole === 'admin' || mRole === 'chairman';
     });
+    const currentUser = members.find(m => m.id === activeUserIdStored)
+        || members.find(m => m.phone === memberPhone)
+        || (role === 'admin' ? chairmanMember : undefined)
+        || (role === 'admin' ? members.find(m => (m as any).role === 'admin') : undefined);
     const walletBalance = currentUser?.walletBalance || 0;
     const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
-    const activeUserId = currentUser?.id || 'dummy';
+    const activeUserId = currentUser?.id || activeUserIdStored || 'dummy';
     const coChairMember = members.find(m => m.id === coAdminId);
     const payoutApproverId = coAdminId
         && coAdminId !== activeUserId
@@ -129,7 +136,11 @@ export default function MemberDashboard() {
         : null;
 
     useEffect(() => {
-        if (!activeLeagueId || !memberPhone) {
+        if (!activeLeagueId) {
+            navigate('/login');
+            return;
+        }
+        if (!memberPhone && role !== 'admin') {
             navigate('/login');
             return;
         }
@@ -140,7 +151,7 @@ export default function MemberDashboard() {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setMonthlyContribution(data.gameweekStake || 0);
-                setLeagueName(data.leagueName || '');
+                setLeagueName(data.name || data.leagueName || '');
                 if (data.rules) setRules(data.rules);
                 setCoAdminId(data.coAdminId || null);
                 setChairmanPhone(data.chairmanPhone || null);
@@ -152,11 +163,33 @@ export default function MemberDashboard() {
                         .then(fplData => {
                             const results = fplData?.standings?.results;
                             if (results && results.length > 0) {
-                                const winner = results.reduce((prev: any, current: any) => (prev.event_total > current.event_total) ? prev : current);
-                                setGwWinner(winner);
+                                // Chama Rule: Only active funded members can win the pot
+                                const norm = (s: string) => String(s || '').toLowerCase().trim();
+                                const eligibleResults = results.filter((r: any) => {
+                                    const dbMember = members.find((m: any) => {
+                                        if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+                                        if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+                                        const db = norm(m.displayName);
+                                        return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+                                    });
+                                    const isFunded = dbMember && (
+                                        dbMember.hasPaid === true ||
+                                        (gameweekStake > 0 && (dbMember.walletBalance || 0) >= gameweekStake)
+                                    );
+                                    return dbMember && dbMember.isActive !== false && isFunded;
+                                });
+
+                                // Chama Rule: Minimum 2 funded managers required for a contestable pot
+                                if (eligibleResults.length >= 2) {
+                                    const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+                                    setGwWinner(sorted[0]);
+                                } else {
+                                    // 0 or 1 funded managers: Gameweek is unplayable / void; no unfunded winner
+                                    setGwWinner(null);
+                                }
                                 // Store full sorted standings for rank card
-                                const sorted = [...results].sort((a: any, b: any) => (b.event_total || 0) - (a.event_total || 0));
-                                setFplStandings(sorted);
+                                const allSorted = [...results].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+                                setFplStandings(allSorted);
 
                                 // Build league-wide GW average from all entries' history
                                 const fetchPerformances = async () => {
@@ -244,11 +277,10 @@ export default function MemberDashboard() {
 
     useEffect(() => {
         if (members.length === 0) return;
-        if (!currentUser) return;
         if (!leagueName) return;
         setIsLoading(false);
         // Show constitution modal on first login (only for non-admin members who haven't accepted)
-        if (currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules) {
+        if (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules) {
             setTimeout(() => setShowRulesModal(true), 800);
         }
     }, [members.length, currentUser, leagueName]);
@@ -437,22 +469,22 @@ export default function MemberDashboard() {
         try {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `${currentUser.displayName} requested KES ${amount.toLocaleString()} wallet credit${topUpNote.trim() ? ` — ${topUpNote.trim()}` : ''}. Please credit the wallet from winnings or reconcile manually.`,
+                message: `${currentUser?.displayName || 'Member'} requested KES ${amount.toLocaleString()} wallet credit${topUpNote.trim() ? ` — ${topUpNote.trim()}` : ''}. Please credit the wallet from winnings or reconcile manually.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
                 targetMemberId: chairmanMember?.id || coAdminId || undefined
             });
 
             await addDoc(collection(db, 'leagues', activeLeagueId, 'wallet_topup_requests'), {
-                memberId: currentUser.id,
-                memberName: currentUser.displayName,
+                memberId: currentUser?.id || activeUserIdStored || 'unknown',
+                memberName: currentUser?.displayName || 'Member',
                 amount,
                 note: topUpNote.trim() || null,
                 status: 'pending',
                 source: 'winnings_request',
                 requestedAt: serverTimestamp(),
-                requestedById: currentUser.id,
-                requestedByName: currentUser.displayName,
+                requestedById: currentUser?.id || activeUserIdStored || 'unknown',
+                requestedByName: currentUser?.displayName || 'Member',
                 targetMemberId: chairmanMember?.id || coAdminId || null
             });
 
@@ -473,9 +505,9 @@ export default function MemberDashboard() {
         setIsSubmittingClaim(true);
         try {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'disputes'), {
-                memberId: currentUser.id,
-                memberName: currentUser.displayName,
-                phone: currentUser.phone,
+                memberId: currentUser?.id || activeUserIdStored || 'unknown',
+                memberName: currentUser?.displayName || 'Member',
+                phone: currentUser?.phone || memberPhone || '',
                 receiptCode: claimReceiptCode.trim().toUpperCase(),
                 amount: gameweekStake,
                 status: 'pending',
@@ -584,7 +616,7 @@ export default function MemberDashboard() {
 
     const generateWhatsAppReceipt = (payout: any) => {
         const unpaidCount = members.filter(m => !m.hasPaid && m.role !== 'admin' && m.isActive !== false).length;
-        const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasychama.vercel.app';
+        const appUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://fantasychama.vercel.app');
         const method = payout.method === 'cash' ? 'Cash Handoff 💵' : 'M-Pesa ✅';
 
         const message = [
@@ -742,6 +774,22 @@ export default function MemberDashboard() {
     ));
     const hasFinalGwChampion = Boolean(gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0);
 
+    // Trigger celebratory confetti for the GW winner
+    useEffect(() => {
+        if (isCurrentUserGwWinner) {
+            haptics.celebrate();
+            import('canvas-confetti').then((module) => {
+                const confetti = module.default;
+                confetti({
+                    particleCount: 80,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#FBBF24', '#10B981', '#F59E0B', '#FFFFFF'],
+                });
+            }).catch(() => {});
+        }
+    }, [isCurrentUserGwWinner]);
+
 
 
     // Greeting for member header
@@ -808,34 +856,46 @@ export default function MemberDashboard() {
                 chairmanName={members.find(m => (m as any).role === 'admin')?.displayName}
             />
 
+            {/* Champion WhatsApp Flex Card Modal */}
+            <ChampionFlexCardModal
+                isOpen={showFlexModal}
+                onClose={() => setShowFlexModal(false)}
+                winnerName={currentUser?.displayName || firstName || 'Champion'}
+                teamName={gwWinner?.entry_name || (currentUser?.fplTeamId ? `Team ${currentUser.fplTeamId}` : undefined)}
+                points={gwWinner?.event_total || 0}
+                gameweek={gwWinner?.event || currentFplEvent?.id || ''}
+                amountWon={Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
+                leagueName={leagueName}
+            />
+
             {/* Phase 40: HQ Suspension Lockout Overlay */}
             {isSuspended && (
                 <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-xl flex items-center justify-center p-4 overflow-hidden">
                     <div className="fixed inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(239,68,68,0.05) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
                     <div className="w-full max-w-md bg-[#0b1014]/90 border-2 border-red-500/50 rounded-3xl p-8 text-center shadow-[0_0_80px_rgba(239,68,68,0.2)] flex flex-col items-center gap-6 relative z-10 animate-in zoom-in-95 duration-500">
-                        <div className="w-20 h-20 bg-red-500/10 border-2 border-red-500/30 rounded-full flex flex-col items-center justify-center animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.3)]">
-                            <Shield className="w-8 h-8 text-red-500 mb-1" />
+                        <div className="w-20 h-20 bg-red-500/10 border-2 border-red-500/30 rounded-full flex flex-col items-center justify-center">
+                            <AlertOctagon className="w-10 h-10 text-red-500 animate-bounce" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">HQ Lockout</h2>
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                This league has been suspended by <span className="font-bold text-emerald-400">FPL Chama HQ</span>. 
-                                The Chairman has outstanding bills to clear before access can be restored.
+                            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">League Suspended</h2>
+                            <p className="text-sm text-gray-400 max-w-sm">
+                                The Chairman's platform subscription requires settlement. Once resolved, standard gameweek gameplay will instantly resume.
                             </p>
                         </div>
-                        <div className="w-full space-y-3">
-                            <button 
+                        <div className="w-full flex flex-col gap-3 mt-2">
+                            <button
                                 onClick={handleNudgeHQ}
                                 disabled={isNudgingHQ}
-                                className="w-full py-3.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                                className="w-full py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl font-bold uppercase tracking-wider text-xs shadow-lg shadow-red-900/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
                             >
-                                {isNudgingHQ ? "Nudging..." : "Nudge Chairman Directly"}
+                                <Bell className="w-4 h-4" />
+                                {isNudgingHQ ? "Reminding..." : "Remind Chairman"}
                             </button>
                             <button 
                                 onClick={logout}
                                 className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all"
                             >
-                                Sign Out Waitroom
+                                Sign Out
                             </button>
                         </div>
                     </div>
@@ -949,7 +1009,7 @@ export default function MemberDashboard() {
                         <div className="flex items-center justify-between gap-3 mb-2">
                             <div className="flex items-center gap-2">
                                 <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Dual Mode Onboarding</p>
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Two Teams Setup</p>
                             </div>
                             <button
                                 type="button"
@@ -1010,22 +1070,15 @@ export default function MemberDashboard() {
                             <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
                             <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                         </div>
-                        {/* Phase 8: Share My Win */}
+                        {/* Phase 8: Flex on WhatsApp */}
                         <button
                             onClick={() => {
-                                const league = encodeURIComponent(leagueName || 'My Chama');
-                                const amount = Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100));
-                                const url = `${window.location.origin}/win?league=${league}&gw=${gwWinner?.event || ''}&winner=${encodeURIComponent(firstName)}&amount=${amount}`;
-                                if (navigator.share) {
-                                    navigator.share({ title: `I won GW${gwWinner?.event}!`, url });
-                                } else {
-                                    navigator.clipboard.writeText(url);
-                                    showToast('✅ Win link copied! Share it!');
-                                }
+                                haptics.celebrate();
+                                setShowFlexModal(true);
                             }}
-                            className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95"
+                            className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
                         >
-                            🏆 Share My Win
+                            🏆 Flex on WhatsApp
                         </button>
                     </div>
                 ) : gwWinner && !currentFplEvent?.finished ? (
@@ -1089,7 +1142,7 @@ export default function MemberDashboard() {
                                     )}>
                                         {winnerConfirmation
                                             ? `ACTION REQUIRED: Confirm receipt of KES ${winnerConfirmation.amount?.toLocaleString()}`
-                                            : 'ACTION REQUIRED: Red Zone — Pay before the FPL deadline'}
+                                            : 'ACTION REQUIRED: Pay before the FPL deadline'}
                                     </p>
                                     <p className="text-[11px] text-gray-500 mt-0.5">
                                         {winnerConfirmation
@@ -1133,6 +1186,27 @@ export default function MemberDashboard() {
                                     <p className="text-[10px] font-black fc-meta-label uppercase tracking-widest">Projected Payout</p>
                                     <p className="text-2xl font-black text-[#FBBF24] tabular-nums tracking-tight">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
                                 </div>
+                            </div>
+                        )}
+
+                        {!gwWinner && members.length > 0 && (
+                            <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 mb-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0">
+                                        <Trophy className="w-5 h-5 text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-amber-300 uppercase tracking-wider">
+                                            No Eligible Funded Winner
+                                        </p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                            Chama Rule: Minimum 2 funded managers required to contest the pot. Unfunded managers cannot claim prize money.
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                                    {members.filter(m => m.hasPaid && m.isActive !== false).length} Funded
+                                </span>
                             </div>
                         )}
                     </>
@@ -1440,7 +1514,7 @@ export default function MemberDashboard() {
                 <div className="fc-member-feed w-full bg-[#0d1117] border border-white/5 rounded-[1.5rem] overflow-hidden">
                     <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
                         <Activity className="w-3.5 h-3.5 text-[#10B981]" />
-                        <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Live Escrow Feed</h4>
+                        <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">League Activity</h4>
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
                         <span className="ml-auto font-mono text-[10px] text-gray-700">{leagueName}</span>
                         <button
@@ -1508,7 +1582,7 @@ export default function MemberDashboard() {
                                 🔍 Verify Your Payment
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Paid but still showing Red Zone? Enter your M-Pesa confirmation code to self-reconcile.
+                                Paid but still showing as unpaid? Enter your M-Pesa confirmation code to self-reconcile.
                             </p>
                         </div>
                         <div className="space-y-4">
@@ -1651,7 +1725,7 @@ export default function MemberDashboard() {
                                 <div className="w-14 h-14 rounded-full bg-[#FBBF24]/10 border border-[#FBBF24]/30 flex items-center justify-center mx-auto mb-4">
                                     <Check className="w-7 h-7 text-[#FBBF24]" />
                                 </div>
-                                <h3 className="text-xl font-extrabold text-white mb-2">Dispute Lodged! 🚨</h3>
+                                <h3 className="text-xl font-extrabold text-white mb-2">Claim Submitted ✓</h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">Your claim has been flagged to the Chairman for review. You'll be updated within 24 hours.</p>
                             </div>
                         ) : (
@@ -1662,7 +1736,7 @@ export default function MemberDashboard() {
                                         <h3 className="text-xl font-extrabold text-white">Claim Payment</h3>
                                     </div>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Paid via M-Pesa but still Red Zone? Submit your receipt and the Chairman will verify it within 24h.
+                                        Paid via M-Pesa but still showing unpaid? Submit your receipt and the Chairman will verify it within 24h.
                                     </p>
                                 </div>
                                 <div className="space-y-4">

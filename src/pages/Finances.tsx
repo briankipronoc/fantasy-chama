@@ -41,7 +41,7 @@ export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
     const activeUserId = localStorage.getItem('activeUserId');
-    const { members, listenToLeagueMembers, isStealthMode, role } = useStore();
+    const { members, listenToLeagueMembers, isStealthMode, role, league: leagueSettings } = useStore();
 
     const [transactions, setTransactions] = useState<any[]>([]);
     const [gameweekStake, setMonthlyContribution] = useState(0);
@@ -61,8 +61,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [cashTopUpNote, setCashTopUpNote] = useState('');
     const [isSubmittingCashTopUpRequest, setIsSubmittingCashTopUpRequest] = useState(false);
     // @ts-ignore
-const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<string | null>(null);
+    const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<string | null>(null);
     const [standingsData, setStandingsData] = useState<any[]>([]);
+    const [seasonFilter, setSeasonFilter] = useState<'current' | 'all'>('current');
     const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
     const [leagueCreatedAtMs, setLeagueCreatedAtMs] = useState<number | null>(null);
     const [chartHostWidth, setChartHostWidth] = useState(0);
@@ -151,7 +152,7 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
                     const data = docSnap.data();
                     setMonthlyContribution(data.gameweekStake || 0);
                     if (data.rules) setRules(data.rules);
-                    setLeagueName(data.leagueName || data.name || 'League');
+                    setLeagueName(data.name || data.leagueName || 'League');
                     const createdAt = data?.createdAt;
                     if (createdAt?.toDate) {
                         setLeagueCreatedAtMs(createdAt.toDate().getTime());
@@ -429,6 +430,15 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
             tx.phoneNumber === currentUser?.phone
         ))
     );
+
+    // Current season started in August 2026; filter out previous season transactions by default
+    const currentSeasonStartMs = new Date('2026-08-01T00:00:00Z').getTime();
+    const displayedTransactions = myTransactions.filter((tx: any) => {
+        if (seasonFilter === 'all') return true;
+        const ts = toMillis(tx.timestamp);
+        if (!ts) return true;
+        return ts >= currentSeasonStartMs;
+    });
 
         const scopeTx = isAdmin ? transactions : myTransactions;
         const gwScopedTx = scopeTx.filter((tx) => {
@@ -826,23 +836,23 @@ const handleRejectPendingPayout = async (payout: any) => {
             </div>
             <div className="w-full max-w-6xl mx-auto">
                 <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
-                <section className="fc-card rounded-3xl border border-[#10B981]/20 bg-gradient-to-br from-[#10B981]/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6 flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8 mt-8">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pt-2 pb-4 mb-6">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#10B981] mb-2">Red Zone & Finances</p>
-                        <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 mb-1">
-                            <ReceiptText className="w-7 h-7 text-[#10B981]" /> Audit Log
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400 mb-1">Red Zone & Finances</p>
+                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
+                            <ReceiptText className="w-7 h-7 text-emerald-400" /> Audit Log
                         </h2>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm font-medium max-w-xl leading-relaxed">
+                        <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
                             A transparent, 100% immutable history of all funds entering and exiting the Chama Vault.
                         </p>
                     </div>
 
                     <div className="flex gap-3 flex-wrap">
-                        <button onClick={exportLedgerCSV} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition">
+                        <button onClick={exportLedgerCSV} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition active:scale-95">
                             <Download className="w-3.5 h-3.5" /> Export CSV
                         </button>
                     </div>
-                </section>
+                </div>
 
                 <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     {!isAdmin && currentUser && (
@@ -952,46 +962,54 @@ const handleRejectPendingPayout = async (payout: any) => {
                     )}
                 </section>
 
-                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6 mb-8">
+                <section className="fc-card rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-[#161d24] to-[#0c1218] p-5 md:p-7 mb-8 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-80 h-40 bg-amber-500/10 blur-[90px] pointer-events-none" />
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24]">Vault payout preview</p>
-                            <h2 className="text-2xl font-black text-white mt-1">Configured by Chairman</h2>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 max-w-2xl">
+                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">Vault payout preview</p>
+                            <h2 className="fc-frosty-title text-2xl font-black mt-1">Configured by Chairman</h2>
+                            <p className="text-sm text-slate-300 dark:text-gray-400 mt-2 max-w-2xl font-medium">
                                 The preview mirrors your current season ladder and shows the exact amount each winner gets right now.
                             </p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-left lg:text-right">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Season winners</p>
+                        <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-left lg:text-right">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Season winners</p>
                             <p className="text-lg font-black text-white tabular-nums">{modeLabel}</p>
-                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
-                            <p className="text-[11px] text-[#FBBF24] font-bold mt-1">Total distributed now: KES {Math.round(totalPreviewPayout).toLocaleString()}</p>
+                            <p className="text-[11px] text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
+                            <p className="text-[11px] text-amber-400 font-bold mt-1">Total distributed now: KES {Math.round(totalPreviewPayout).toLocaleString()}</p>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap justify-center gap-3">
+                    <div className="flex gap-3 overflow-x-auto pb-3 custom-scrollbar lg:grid lg:grid-cols-5 items-stretch">
                         {seasonVaultPreview.map((tier: { place: number; percentage: number; amount: number }) => (
-                            <div key={tier.place} className="w-full md:w-[220px] rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-center">
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">#{tier.place}</p>
-                                    <span className={clsx(
-                                        'text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border',
-                                        tier.place === 1 ? 'border-[#FBBF24]/30 bg-[#FBBF24]/10 text-[#FBBF24]' : tier.place === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-300' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
-                                    )}>
-                                        {tier.percentage}%
-                                    </span>
+                            <div key={tier.place} className="min-w-[190px] flex-1 rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-lg">
+                                <div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">#{tier.place}</p>
+                                        <span className={clsx(
+                                            'text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border',
+                                            tier.place === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.place === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
+                                        )}>
+                                            {tier.percentage}%
+                                        </span>
+                                    </div>
+                                    <p className="mt-3 text-2xl font-black text-amber-400 tabular-nums">KES {tier.amount.toLocaleString()}</p>
                                 </div>
-                                <p className="mt-3 text-xl font-black text-[#FBBF24] tabular-nums">KES {tier.amount.toLocaleString()}</p>
-                                {(() => {
-                                    const matchingLeader = standingsData[tier.place - 1];
-                                    if (!matchingLeader) return null;
-                                    return (
-                                        <p className="mt-2 text-[11px] font-bold text-emerald-300 truncate">
-                                            Current #{tier.place}: {matchingLeader.player_name} · {matchingLeader.entry_name}
-                                        </p>
-                                    );
-                                })()}
-                                <p className="mt-1 text-[11px] text-gray-600 dark:text-gray-400">{tier.percentage}% ratio of current season vault</p>
+                                <div>
+                                    {(() => {
+                                        const cleanStandings = standingsData.filter((entry, idx, arr) => 
+                                            arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
+                                        );
+                                        const matchingLeader = cleanStandings[tier.place - 1];
+                                        if (!matchingLeader) return null;
+                                        return (
+                                            <p className="mt-2.5 text-[11px] font-bold text-emerald-300 break-words leading-tight">
+                                                Current #{tier.place}: {matchingLeader.player_name} · {matchingLeader.entry_name}
+                                            </p>
+                                        );
+                                    })()}
+                                    <p className="mt-1.5 text-[10px] text-slate-400">{tier.percentage}% ratio of current season vault</p>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -1089,72 +1107,107 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-[11px] text-gray-500 mt-2">Settled payouts already issued from the ledger.</p>
                         </div>
                     </div>
+
+                    {/* League Treasury Split (compact card on the far right) */}
+                    {(() => {
+                        const totalCollectedGross = totalSecured;
+                        const hasCoAdmin = members.filter(m => m.role === 'admin' || m.role === 'co-chair').length > 1;
+                        const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
+                        const coAdminRate = hasCoAdmin ? 0.01 : 0;
+                        const chairmanShare = totalCollectedGross * chairmanRate;
+                        const coChairShare = totalCollectedGross * coAdminRate;
+                        const isPilot = (leagueSettings as any)?.pilotMode !== false;
+                        const hqRate = isPilot ? 0 : 0.035;
+                        const hqShare = totalCollectedGross * hqRate;
+                        const networkShare = totalCollectedGross * 0.015;
+
+                        return (
+                            <div className="fc-highlight-card fc-card bg-gradient-to-br from-[#FBBF24]/14 via-[#161d24] to-[#0c1218] border border-[#FBBF24]/30 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-lg">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[80px] opacity-[0.08] pointer-events-none"></div>
+                                
+                                <div>
+                                    <div className="flex items-center gap-2.5 mb-3">
+                                        <div className="w-8 h-8 rounded-full bg-[#FBBF24]/20 flex items-center justify-center border border-[#FBBF24]/35 flex-shrink-0">
+                                            <Wallet className="w-4 h-4 text-[#FBBF24]" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="text-xs font-black text-white uppercase tracking-widest truncate">League Treasury Split</h3>
+                                            <p className="text-[9px] text-gray-400 font-bold truncate">Current GW secured funds snapshot</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Chairman Share</p>
+                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(chairmanShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-amber-400">{(chairmanRate * 100).toFixed(1)}% governance</p>
+                                        </div>
+                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Co-Chair Share</p>
+                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(coChairShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-gray-400">{(coAdminRate * 100).toFixed(1)}% audit fee</p>
+                                        </div>
+                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">HQ Share</p>
+                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(hqShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-emerald-400">{isPilot ? '0.0% (Pilot Waived)' : '3.5% platform fee'}</p>
+                                        </div>
+                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Network Buffer</p>
+                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(networkShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-gray-400">1.5% telecom fee</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-[8px] text-gray-400 font-medium mt-2 text-center leading-tight bg-black/40 px-2 py-1 rounded-lg border border-white/5">
+                                    Withdrawals are hidden while payouts route through Pochi. Enable after Paybill/Till switch.
+                                </p>
+                            </div>
+                        );
+                    })()}
                 </div>
 
-                {/* League Treasury Summary (group-level, not personal wallet) */}
-                {isAdmin && currentUser && (() => {
-                    const totalCollectedGross = totalSecured;
-                    const hasCoAdmin = members.filter(m => m.role === 'admin').length > 1;
-                    const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
-                    const coAdminRate = hasCoAdmin ? 0.01 : 0;
-                    const chairmanShare = totalCollectedGross * chairmanRate;
-                    const coChairShare = totalCollectedGross * coAdminRate;
-                    const hqShare = totalCollectedGross * 0.035;
-                    const networkShare = totalCollectedGross * 0.015;
-
-                    return (
-                        <section className="fc-highlight-card fc-card bg-gradient-to-br from-[#FBBF24]/16 via-[#F59E0B]/8 to-white dark:to-[#161d24] border border-[#FBBF24]/35 rounded-2xl p-6 md:p-8 relative overflow-hidden mb-8 shadow-[0_18px_60px_rgba(251,191,36,0.14)]">
-                            <div className="absolute top-0 right-0 w-56 h-56 bg-[#FBBF24] blur-[120px] opacity-[0.14] pointer-events-none"></div>
-                            <div className="absolute -bottom-16 -left-12 w-52 h-52 bg-[#B45309] blur-[120px] opacity-[0.12] pointer-events-none"></div>
-                            <div className="flex items-center gap-3 mb-5">
-                                <div className="w-10 h-10 rounded-full bg-[#FBBF24]/18 flex items-center justify-center border border-[#FBBF24]/35">
-                                    <Wallet className="w-5 h-5 text-[#FBBF24]" />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-white uppercase tracking-widest">League Treasury Split</h3>
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold">League-level allocation snapshot for the current GW secured funds.</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                                <div className="fc-card bg-black/20 rounded-xl p-4 text-center border border-[#FBBF24]/30">
-                                    <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Chairman Share</p>
-                                    <p className="text-xl font-black text-white tabular-nums">KES {Math.round(chairmanShare).toLocaleString()}</p>
-                                    <p className="text-[8px] text-gray-500 mt-0.5">{(chairmanRate * 100).toFixed(1)}% governance</p>
-                                </div>
-                                <div className="fc-card bg-black/20 rounded-xl p-4 text-center border border-[#FBBF24]/30">
-                                    <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Co-Chair Share</p>
-                                    <p className="text-xl font-black text-white tabular-nums">KES {Math.round(coChairShare).toLocaleString()}</p>
-                                    <p className="text-[8px] text-gray-500 mt-0.5">{(coAdminRate * 100).toFixed(1)}% audit fee</p>
-                                </div>
-                                <div className="fc-card bg-black/20 rounded-xl p-4 text-center border border-[#FBBF24]/30 shadow-[0_0_15px_rgba(251,191,36,0.1)]">
-                                    <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">HQ Share</p>
-                                    <p className="text-xl font-black text-white tabular-nums">KES {Math.round(hqShare).toLocaleString()}</p>
-                                    <p className="text-[8px] text-gray-500 mt-0.5">3.5% platform fee</p>
-                                </div>
-                                <div className="fc-card bg-black/20 rounded-xl p-4 text-center border border-[#FBBF24]/30">
-                                    <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Network Buffer</p>
-                                    <p className="text-xl font-black text-white tabular-nums">KES {Math.round(networkShare).toLocaleString()}</p>
-                                    <p className="text-[8px] text-gray-500 mt-0.5">1.5% telecom fee</p>
-                                </div>
-                            </div>
-
-                            <p className="fc-empty-withdraw text-[10px] text-gray-600 dark:text-gray-300 font-bold mt-5 text-center uppercase tracking-widest bg-black/25 py-2 rounded-lg border border-[#FBBF24]/30">
-                                Withdrawals are hidden while payouts route through Pochi. Enable after Paybill/Till switch.
-                            </p>
-                        </section>
-                    );
-                })()}
-
                 <div className="fc-card bg-[#151c18] border border-white/5 rounded-2xl overflow-hidden">
-                    <div className="p-6 border-b border-white/5 flex items-center gap-2">
-                        <History className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                        <h3 className="font-bold text-lg">Recent Activity</h3>
+                    <div className="p-5 md:p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <History className="w-5 h-5 text-emerald-400" />
+                            <h3 className="font-bold text-lg text-white">Recent Activity</h3>
+                            <span className="text-[10px] uppercase tracking-widest font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                {seasonFilter === 'current' ? '2026/27 Season' : 'All Time'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 w-fit">
+                            <button
+                                type="button"
+                                onClick={() => setSeasonFilter('current')}
+                                className={clsx(
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all',
+                                    seasonFilter === 'current'
+                                        ? 'bg-emerald-500 text-black shadow-sm'
+                                        : 'text-gray-400 hover:text-white'
+                                )}
+                            >
+                                Current Season
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSeasonFilter('all')}
+                                className={clsx(
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all',
+                                    seasonFilter === 'all'
+                                        ? 'bg-emerald-500 text-black shadow-sm'
+                                        : 'text-gray-400 hover:text-white'
+                                )}
+                            >
+                                All History
+                            </button>
+                        </div>
                     </div>
 
                     {/* Mobile Card View */}
                     <div className="md:hidden divide-y divide-white/5">
-                        {myTransactions.length > 0 ? myTransactions.map((tx: any) => {
+                        {displayedTransactions.length > 0 ? displayedTransactions.map((tx: any) => {
                             const isWalletFunding = tx.type === 'wallet_funding'
                                 || String(tx.receiptId || '').startsWith('SEED_')
                                 || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')
@@ -1234,8 +1287,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5">
-                                {myTransactions.length > 0 ? (
-                                    myTransactions.map((tx: any) => {
+                                {displayedTransactions.length > 0 ? (
+                                    displayedTransactions.map((tx: any) => {
                                         const isWalletFunding = tx.type === 'wallet_funding'
                                             || String(tx.receiptId || '').startsWith('SEED_')
                                             || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')

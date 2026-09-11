@@ -358,9 +358,20 @@ export default function AdminSetup() {
                 joinedAt: serverTimestamp(),
             });
 
+            // Filter out any member matching the chairman's phone or name to prevent duplicate chairman registration
+            const cleanPhone = (phone || '').replace(/\D/g, '');
+            const cleanFullName = (fullName || '').trim().toLowerCase();
+            const uniqueMembers = members.filter(member => {
+                const mPhone = (member.phone || '').replace(/\D/g, '');
+                const mName = (member.displayName || '').trim().toLowerCase();
+                const isSamePhone = cleanPhone && mPhone && (cleanPhone.slice(-9) === mPhone.slice(-9));
+                const isSameName = cleanFullName && mName && cleanFullName === mName;
+                return !isSamePhone && !isSameName;
+            });
+
             // Enroll Other Members
             let coAdminDocId = null;
-            members.forEach((member, index) => {
+            uniqueMembers.forEach((member, index) => {
                 const memberRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
                 const isCoAdmin = index === coAdminIndex;
 
@@ -456,8 +467,12 @@ export default function AdminSetup() {
     // Import all FPL managers from standings as blank-phone members
     const handleImportFromFPL = () => {
         if (fplStandings.length === 0) return;
+        const cleanFullName = (fullName || '').trim().toLowerCase();
         const imported = fplStandings
-            .filter(e => e.player_name !== fullName) // exclude chairman
+            .filter(e => {
+                const pName = (e.player_name || '').trim().toLowerCase();
+                return !cleanFullName || pName !== cleanFullName;
+            })
             .map(e => ({
                 displayName: e.player_name,
                 phone: '',
@@ -471,6 +486,21 @@ export default function AdminSetup() {
         e.preventDefault();
         if (!newMemberName || !newMemberPhone) return;
         if (members.length >= 19) return;
+
+        const cleanFullName = (fullName || '').trim().toLowerCase();
+        const cleanChairmanPhone = (phone || '').replace(/\D/g, '');
+        const mPhone = (newMemberPhone || '').replace(/\D/g, '');
+        const mName = (newMemberName || '').trim().toLowerCase();
+
+        if (cleanFullName && mName === cleanFullName) {
+            alert('Chairman is already enrolled as the league administrator.');
+            return;
+        }
+        if (cleanChairmanPhone && mPhone && cleanChairmanPhone.slice(-9) === mPhone.slice(-9)) {
+            alert('This phone number is already registered to the Chairman.');
+            return;
+        }
+
         const secondTeamId = newMemberSecondTeam ? Number(newMemberSecondTeam) : undefined;
         setMembers([...members, { displayName: newMemberName, phone: newMemberPhone, ...(secondTeamId ? { secondFplTeamId: secondTeamId } : {}) }]);
         setNewMemberName('');

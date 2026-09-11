@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
 import { useStore } from './store/useStore';
 import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationProvider';
+import { auth } from './firebase';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 const Login = lazy(() => import('./pages/Login'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -31,7 +33,7 @@ const SideBets = lazy(() => import('./pages/SideBets'));
 
 const RouteLoader = () => (
   <div className="min-h-screen w-full flex items-center justify-center bg-[#0b1014] text-[#10B981] text-sm font-bold tracking-widest uppercase">
-    Loading War Room...
+    Loading FantasyChama...
   </div>
 );
 
@@ -62,10 +64,50 @@ const RootRoute = () => {
   return <LandingPage />;
 };
 
+const AuthGate = ({ children }: { children: React.ReactNode }) => {
+  const role = useStore(state => state.role);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      const activeLeagueId = localStorage.getItem('activeLeagueId');
+      if (user) {
+        if (isMounted) setIsAuthReady(true);
+      } else if (activeLeagueId) {
+        // If member or unassigned role, ensure anonymous auth session is active before mounting listeners
+        if (role !== 'admin') {
+          try {
+            await signInAnonymously(auth);
+          } catch (e) {
+            console.warn('[auth] Member anonymous session restore failed:', e);
+          }
+        }
+        if (isMounted) setIsAuthReady(true);
+      } else {
+        if (isMounted) setIsAuthReady(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [role]);
+
+  if (!isAuthReady) {
+    return <RouteLoader />;
+  }
+
+  return <>{children}</>;
+};
+
 const AppLayoutWrapper = () => (
-  <NotificationProvider>
-    <AppLayout />
-  </NotificationProvider>
+  <AuthGate>
+    <NotificationProvider>
+      <AppLayout />
+    </NotificationProvider>
+  </AuthGate>
 );
 
 function App() {
@@ -104,14 +146,18 @@ function App() {
             {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
             <Route element={<AppLayoutWrapper />}>
               <Route path="/dashboard" element={<DashboardRenderer />} />
+              <Route path="/admin" element={role === 'admin' ? <AdminCommandCenter /> : <Navigate to="/dashboard" replace />} />
               <Route path="/command-center" element={role === 'admin' ? <AdminCommandCenter /> : <Navigate to="/dashboard" replace />} />
               <Route path="/finances" element={<Finances />} />
               <Route path="/access" element={<MemberEnrollment />} />
               <Route path="/rules" element={<PayoutRules />} />
+              <Route path="/payout-rules" element={<Navigate to="/rules" replace />} />
               <Route path="/standings" element={<Standings />} />
               <Route path="/deposit" element={<Deposit />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/settings" element={<Navigate to="/profile" replace />} />
               <Route path="/sidebets" element={<SideBets />} />
+              <Route path="/bets" element={<SideBets />} />
               <Route path="/docs" element={<Docs />} />
             </Route>
           </Routes>

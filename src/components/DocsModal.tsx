@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, BookOpenCheck, HelpCircle, ShieldCheck, FileText, ChevronRight, X, LayoutDashboard } from 'lucide-react';
+import { BookOpen, BookOpenCheck, HelpCircle, ShieldCheck, FileText, ChevronRight, X, LayoutDashboard, RefreshCw, Users } from 'lucide-react';
 import clsx from 'clsx';
 
 const docCards = [
@@ -28,6 +28,28 @@ const docCards = [
     to: '/manual/chairman',
   },
   {
+    icon: RefreshCw,
+    color: 'text-cyan-400',
+    border: 'border-cyan-500/20',
+    bg: 'bg-cyan-500/5',
+    glow: 'hover:shadow-[0_0_20px_rgba(6,182,212,0.1)]',
+    title: 'GW Forfeiture & Ledger Balance',
+    desc: 'How leagues that started late forfeit unplayed rounds so member wallets and season vaults balance perfectly.',
+    badge: 'Operations',
+    to: '/admin',
+  },
+  {
+    icon: Users,
+    color: 'text-purple-400',
+    border: 'border-purple-500/20',
+    bg: 'bg-purple-500/5',
+    glow: 'hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]',
+    title: 'Multi-League & Invite Codes',
+    desc: 'How to switch between active leagues, clean sweep last season names, and onboard via 6-digit code.',
+    badge: 'Onboarding',
+    to: '/profile',
+  },
+  {
     icon: HelpCircle,
     color: 'text-blue-400',
     border: 'border-blue-500/20',
@@ -44,8 +66,8 @@ const docCards = [
     border: 'border-white/10',
     bg: 'bg-white/[0.02]',
     glow: 'hover:shadow-[0_0_20px_rgba(255,255,255,0.03)]',
-    title: 'Payout Rules',
-    desc: 'Full league constitution, pot splits, vault rules, season winner rules, and platform fees.',
+    title: 'Payout Rules & Season Vault',
+    desc: 'Full league constitution, pot splits, vault rules, straight-line 5-tier distribution, and platform fees.',
     badge: 'Constitution',
     to: '/rules',
   },

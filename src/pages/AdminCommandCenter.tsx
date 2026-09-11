@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
+import ChampionFlexCardModal from "../components/ChampionFlexCardModal";
+import { haptics } from "../utils/haptics";
 import {
   Megaphone,
   Share2,
@@ -104,6 +106,7 @@ export default function AdminCommandCenter() {
 
   // Phase 29: FPL GW Winner logic
   const [gwWinner, setGwWinner] = useState<any>(null);
+  const [showChairmanFlexModal, setShowChairmanFlexModal] = useState(false);
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
   const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
@@ -373,8 +376,9 @@ export default function AdminCommandCenter() {
   // Phase 40: HQ Debt Ledger & Onboarding
   const [showTutorial, setShowTutorial] = useState(false);
   const leagueSettings = useStore((state) => state.league);
-  const isPilotMode = leagueSettings?.pilotMode === true; // Pilot: no HQ cut yet
+  const isPilotMode = leagueSettings?.pilotMode !== false; // Pilot: no HQ cut yet unless commercial explicitly configured
   const pendingHQDebt = isPilotMode ? 0 : (leagueSettings?.pendingHQDebt || 0);
+  const [payoutCustomFee, setPayoutCustomFee] = useState<Record<string, number>>({});
 
   // Auto-Lockout: 48 Hour Grace Period
   const lastResolvedTS = leagueSettings?.lastResolvedDate;
@@ -487,80 +491,130 @@ export default function AdminCommandCenter() {
       setShowTutorial(true);
     }
 
-    const initDashboard = async () => {
-      try {
-        // Fetch the main League document
-        const leagueRef = doc(db, "leagues", activeLeagueId);
-        const leagueSnap = await getDoc(leagueRef);
+    // Real-time league doc listener — ensures league name/stake/rules update immediately on league switch
+    const leagueRef = doc(db, "leagues", activeLeagueId);
+    let bootstrapFetched = false;
+    const unsubscribeLeague = onSnapshot(leagueRef, async (docSnap: any) => {
+      if (!docSnap.exists()) {
+        navigate("/setup");
+        return;
+      }
+      const data = docSnap.data();
+      setLeagueName(data.name || data.leagueName || "Unnamed League");
+      setInviteCode(data.inviteCode || "------");
+      setMonthlyContribution(data.gameweekStake || 0);
+      setCoAdminId(data.coAdminId || null);
+      setChairmanId(data.chairmanId || null);
+      setFirestoreGw(data.currentGwNumber || data.currentGw || null);
+      setStartGw(data.startGw || null);
+      if (data.rules) setRules(data.rules);
 
-        if (leagueSnap.exists()) {
-          const data = leagueSnap.data();
-          setLeagueName(data.leagueName || "Unnamed League");
-          setInviteCode(data.inviteCode || "------");
-          setMonthlyContribution(data.gameweekStake || 0);
-          setCoAdminId(data.coAdminId || null);
-          setChairmanId(data.chairmanId || null);
-          setFirestoreGw(data.currentGwNumber || data.currentGw || null);
-          setStartGw(data.startGw || null);
-          if (data.rules) setRules(data.rules);
+      // Fetch FPL bootstrap only once per mount
+      if (!bootstrapFetched) {
+        bootstrapFetched = true;
+        try {
+          const bootstrapRes = await fetch(`/fpl-api/bootstrap-static/`);
+          if (bootstrapRes.ok) {
+            const bootstrapData = await bootstrapRes.json();
+            const events = bootstrapData?.events || [];
+            const current = events.find((e: any) => e.is_current) || events.find((e: any) => e.is_next);
+            setIsCurrentEventFinished(current?.finished === true);
+            const fetchedGwId = Number(current?.id || 0) || null;
+            setCurrentGwNumber(fetchedGwId);
+            if (fetchedGwId && !data.startGw && activeLeagueId) {
+              updateDoc(leagueRef, { startGw: fetchedGwId }).catch(() => {});
+              setStartGw(fetchedGwId);
+            }
+          }
+        } catch (bootstrapErr: any) {
+          console.warn("[command-center] bootstrap fetch skipped:", bootstrapErr?.message || bootstrapErr);
+        }
+      }
 
-          try {
-            const bootstrapRes = await fetch(
-              `/fpl-api/bootstrap-static/`
-            );
-            if (bootstrapRes.ok) {
-              const bootstrapData = await bootstrapRes.json();
-              const events = bootstrapData?.events || [];
-              const current = events.find((e: any) => e.is_current) || events.find((e: any) => e.is_next);
-              setIsCurrentEventFinished(current?.finished === true);
-              const fetchedGwId = Number(current?.id || 0) || null;
-              setCurrentGwNumber(fetchedGwId);
-              // Auto-persist startGw to Firestore if not yet set
-              if (fetchedGwId && !data.startGw && activeLeagueId) {
-                updateDoc(leagueRef, { startGw: fetchedGwId }).catch(() => {});
-                setStartGw(fetchedGwId);
+      // Fetch Live GW Winner
+      if (data.fplLeagueId) {
+        fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`FPL Standings failed with status: ${res.status}`);
+            return res.json();
+          })
+          .then((fplData) => {
+            const results = fplData?.standings?.results;
+            if (results && results.length > 0) {
+              const norm = (s: string) => String(s || "").toLowerCase().trim();
+              const stake = data.gameweekStake || 0;
+              const eligibleResults = results.filter((r: any) => {
+                const dbMember = members.find((m: any) => {
+                  if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+                  if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+                  const db = norm(m.displayName);
+                  return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+                });
+                const isFunded = dbMember && (dbMember.hasPaid === true || (stake > 0 && (dbMember.walletBalance || 0) >= stake));
+                return dbMember && dbMember.isActive !== false && isFunded;
+              });
+
+              // Chama Rule: Minimum 2 funded managers required for a contestable pot
+              if (eligibleResults.length >= 2) {
+                const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+                setGwWinner(sorted[0]);
+              } else {
+                // 0 or 1 funded managers: Gameweek cannot be won by an unfunded manager
+                setGwWinner(null);
               }
             }
-          } catch (bootstrapErr: any) {
-            console.warn(
-              "[command-center] bootstrap fetch skipped:",
-              bootstrapErr?.message || bootstrapErr,
-            );
-          }
+          })
+          .catch((err) => console.warn("Could not fetch FPL winner:", err?.message || err));
+      }
 
-          // Fetch Live GW Winner always for Admin Center
-          if (data.fplLeagueId) {
-              fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
-                .then(async (res) => {
-                  if (!res.ok) throw new Error(`FPL Standings failed with status: ${res.status}`);
-                  return res.json();
-                })
-                .then((fplData) => {
-                  const results = fplData?.standings?.results;
-                  if (results && results.length > 0) {
-                    const winner = results.reduce((prev: any, current: any) =>
-                      prev.event_total > current.event_total ? prev : current,
-                    );
-                    setGwWinner(winner);
-                  }
-                })
-                .catch((err) => {
-                  console.warn("Could not fetch FPL winner:", err?.message || err);
-                });
+      setIsLoading(false);
+    }, (err: any) => {
+      console.error("Error watching league:", err);
+      navigate("/setup");
+    });
+
+    listenToLeagueMembers(activeLeagueId);
+
+    return () => unsubscribeLeague();
+  }, [activeLeagueId, navigate, listenToLeagueMembers, tutorialSeenKey]);
+
+  // Auto-cleanup duplicate member docs in Firestore (e.g. chairman registered both as admin and member)
+  useEffect(() => {
+    if (!activeLeagueId) return;
+    const cleanupDuplicates = async () => {
+      try {
+        const { getDocs, collection: colRef, deleteDoc, doc: docRef } = await import('firebase/firestore');
+        const snap = await getDocs(colRef(db, 'leagues', activeLeagueId, 'memberships'));
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+        
+        const seen = new Map<string, any>();
+        for (const m of docs) {
+          const rawPhone = (m.phone || m.phoneNumber || '').replace(/\D/g, '');
+          const cleanName = (m.displayName || '').trim().toLowerCase();
+          const phoneKey = rawPhone.length >= 9 ? rawPhone.slice(-9) : '';
+          const key = phoneKey ? `p_${phoneKey}` : (cleanName ? `n_${cleanName}` : '');
+          if (!key) continue;
+
+          if (seen.has(key)) {
+            const existing = seen.get(key);
+            if (existing.role === 'admin' && m.role !== 'admin') {
+              await deleteDoc(docRef(db, 'leagues', activeLeagueId, 'memberships', m.id));
+              console.log('[cleanup] Deleted redundant duplicate member doc:', m.id);
+            } else if (m.role === 'admin' && existing.role !== 'admin') {
+              await deleteDoc(docRef(db, 'leagues', activeLeagueId, 'memberships', existing.id));
+              seen.set(key, m);
+              console.log('[cleanup] Deleted redundant duplicate member doc:', existing.id);
             }
+          } else {
+            seen.set(key, m);
           }
-
-        // Initialize Live Ledger
-        listenToLeagueMembers(activeLeagueId);
-        setIsLoading(false);
+        }
       } catch (err) {
-        console.error("Error fetching league:", err);
-        navigate("/setup");
+        console.warn('[cleanup] Duplicate membership scan error:', err);
       }
     };
-
-    initDashboard();
-  }, [activeLeagueId, navigate, listenToLeagueMembers, tutorialSeenKey]);
+    cleanupDuplicates();
+  }, [activeLeagueId]);
 
   // Listen for all payouts (pending + approved) for real-time UI state
   useEffect(() => {
@@ -602,13 +656,13 @@ export default function AdminCommandCenter() {
     },
     ledger: {
       eyebrow: "Chairman ledger",
-      title: "The Master Ledger",
+      title: "Payment Tracker",
       description:
-        "See who is paid, who is in the red zone, and fund wallets directly from this queue.",
+        "See who is paid, who is unpaid, and fund wallets directly from this queue.",
     },
     finance: {
       eyebrow: "Chairman treasury",
-      title: "Treasury Operations Board",
+      title: "Payments & Vault",
       description:
         "Keep invite actions in Overview while you track vault flow, settlement health, and live operations here.",
     },
@@ -669,7 +723,7 @@ export default function AdminCommandCenter() {
       // Notify the member
       await addDoc(collection(db, "leagues", activeLeagueId, "notifications"), {
         type: "success",
-        message: `✅ Your payment dispute for KES ${dispute.amount?.toLocaleString()} has been approved by the Chairman. You are now in the Green Zone.`,
+        message: `✅ Your payment dispute for KES ${dispute.amount?.toLocaleString()} has been approved by the Chairman. You are now funded.`,
         timestamp: serverTimestamp(),
         readBy: [],
       });
@@ -812,7 +866,7 @@ export default function AdminCommandCenter() {
             {
               element: "#tour-add-member",
               popover: {
-                title: "🏠 Overview — Your War Room",
+                title: "🏠 Overview — Your Command Center",
                 description:
                   "This is your command center. See the live GW leader, pending payouts, and the full snapshot of league health at a glance. Start here every gameweek.",
                 side: "bottom",
@@ -862,6 +916,7 @@ export default function AdminCommandCenter() {
         currentStatus,
         gameweekStake,
       );
+      haptics.success();
       showToast(
         !currentStatus
           ? `Manual Deposit: Added KES ${gameweekStake} to ${memberName}`
@@ -879,7 +934,7 @@ export default function AdminCommandCenter() {
         );
         await addDoc(notifsRef, {
           type: "success",
-          message: `Deposit verified for ${memberName}. Account is now in the Green Zone.`,
+          message: `Deposit verified for ${memberName}. Account is now funded.`,
           timestamp: serverTimestamp(),
           readBy: [adminId], // Admin has already read it basically
           targetMemberId: memberId,
@@ -917,7 +972,7 @@ export default function AdminCommandCenter() {
         );
         await addDoc(notifsRef, {
           type: "warning",
-          message: `Ledger correction recorded for ${memberName}. The mistaken deposit was cancelled and retained in the master ledger for audit.`,
+          message: `Payment reversal recorded for ${memberName}. The deposit was cancelled and recorded for audit.`,
           timestamp: serverTimestamp(),
           readBy: [adminId],
           targetMemberId: memberId,
@@ -958,20 +1013,29 @@ export default function AdminCommandCenter() {
 
   // Dynamic Calculations
   // Math scales properly natively since `members` array is reactive via useStore (which listens to Firestore)
+  const memberHasFunding = (member: any) => {
+    return (
+      member.isActive !== false &&
+      (member.hasPaid === true ||
+        (gameweekStake > 0 && (member.walletBalance || 0) >= gameweekStake))
+    );
+  };
+
+  const isPendingMember = (m: any) =>
+    m.isActive !== false &&
+    !memberHasFunding(m) &&
+    (m.isPending === true || (!m.phone && !m.phoneNumber));
+
   const filteredMembers = members.filter((m) => {
-    if (m.isActive === false) return false;
-    if (paymentFilter === "Verified") return m.hasPaid;
-    if (paymentFilter === "Red Zone") return !m.hasPaid;
+    if (m.isActive === false || isPendingMember(m)) return false;
+    if (paymentFilter === "Verified") return memberHasFunding(m);
+    if (paymentFilter === "Red Zone") return !memberHasFunding(m);
     return true;
   });
 
-  const memberHasFunding = (member: any) => {
-    return member.isActive !== false && member.hasPaid === true;
-  };
-
   const fundedMembersCount = members.filter(memberHasFunding).length;
   const activeMembersCount = members.filter(
-    (m) => m.isActive !== false,
+    (m) => m.isActive !== false && !isPendingMember(m),
   ).length;
   const totalSecured = fundedMembersCount * gameweekStake;
   const exactCurrentGwFormula = `${fundedMembersCount} × KES ${Number(gameweekStake || 0).toLocaleString()} = KES ${Number(totalSecured || 0).toLocaleString()}`;
@@ -1020,8 +1084,13 @@ export default function AdminCommandCenter() {
   const totalGwsThroughNow = (currentGwNumber || firestoreGw) ? Math.max(0, (currentGwNumber || firestoreGw || 1) - effectiveStartGw + (isCurrentEventFinished ? 1 : 0)) : 0;
   const gwPlayed = Math.max(0, totalGwsThroughNow - forfeitedGws.filter(g => g >= effectiveStartGw && g <= (currentGwNumber || firestoreGw || 38)).length);
   const vaultPerGw = totalCollected * (rules.vault / 100);
-  // Season vault = only what has actually been collected so far (gwPlayed × vaultPerGw)
-  const seasonVault = vaultPerGw * gwPlayed;
+  // Season vault: Includes past played GWs vault + current GW secured vault allocation (40% of current GW collections immediately allocated even before release)
+  const currentGwVaultSecured = totalCollected * (rules.vault / 100);
+  const pastGwsVaultSecured = vaultPerGw * gwPlayed;
+  const seasonVault = pastGwsVaultSecured + currentGwVaultSecured;
+  const projectedRemainingGws = Math.max(0, 38 - (currentGwNumber || firestoreGw || 1));
+  const projectedRemainingGross = projectedRemainingGws * Math.max(1, activeMembersCount) * (gameweekStake || 0);
+  const projectedSeasonVault = Math.round((totalCollected + projectedRemainingGross) * (rules.vault / 100));
   const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
   // highRiskTwoWeekMisses available via members.filter(...) if needed in future
   const sortedPendingPayouts = [...pendingPayouts]
@@ -1081,7 +1150,7 @@ export default function AdminCommandCenter() {
     },
     {
       key: "hq-settled",
-      label: "HQ Settled",
+      label: "Monthly Fee Paid",
       hint: "Monthly step: submit HQ receipt in the month-end window.",
       active: actionTimeline.confirmed && isHqSettled,
     },
@@ -1095,23 +1164,18 @@ export default function AdminCommandCenter() {
 
   const shareInviteCode = () => {
     navigator.clipboard.writeText(inviteCode);
-    const appUrl = import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app";
+    const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app");
     const message = [
-      `🏆 *${leagueName} — You're Invited!*`,
+      `🏆 *${leagueName} — Join the crew!*`,
       ``,
-      `Ey! I've set up a Fantasy Premier League Chama and you need to be in it. 💰`,
+      `We play Fantasy Premier League as a group and the top scorer each week wins the pot. 💰`,
       ``,
-      `Here's how it works:`,
-      `• Each gameweek, every member contributes *KES ${gameweekStake || 0}*`,
-      `• The member with the highest FPL points wins the weekly pot`,
-      `• End-of-season vault pays out the top performers`,
+      `• Stake: *KES ${gameweekStake || 0}* per gameweek`,
+      `• Highest FPL points = weekly pot winner`,
+      `• Season vault for top performers at the end`,
       ``,
-      `To join, use this code when you sign up:`,
-      `🔑 *${inviteCode}*`,
-      ``,
-      `👉 Sign up here: ${appUrl}`,
-      ``,
-      `Don't sleep on this 🔥`,
+      `👉 Sign up here and enter code *${inviteCode}*:`,
+      `${appUrl}`,
     ].join("\n");
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
     showToast("Invite link copied & WhatsApp opened!");
@@ -1124,7 +1188,7 @@ export default function AdminCommandCenter() {
     receiptId: string;
     cashDate?: string;
   }) => {
-    const appUrl = import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app";
+    const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
     const message = [
       `🧾 *${leagueName} Wallet Funding Receipt*`,
       "",
@@ -1245,7 +1309,7 @@ export default function AdminCommandCenter() {
       );
       await addDoc(notifsRef, {
         type: "info",
-        message: `${newMemberName} has joined the league! Welcome to the War Room.`,
+        message: `${newMemberName} has joined the league! Welcome to FantasyChama.`,
         timestamp: serverTimestamp(),
         readBy: [],
       });
@@ -1455,6 +1519,18 @@ export default function AdminCommandCenter() {
       showToast('Failed to update: ' + (e.message || 'Unknown error'));
     } finally {
       setIsSavingMemberEdit(false);
+    }
+  };
+
+  const handleDeleteMember = async (memberId: string, memberName: string) => {
+    if (!activeLeagueId) return;
+    if (!window.confirm(`Are you sure you want to remove ${memberName} from this league? This will permanently delete this membership record.`)) return;
+    try {
+      const { deleteDoc, doc: docRef } = await import('firebase/firestore');
+      await deleteDoc(docRef(db, 'leagues', activeLeagueId, 'memberships', memberId));
+      showToast(`Removed ${memberName} from league.`);
+    } catch (e: any) {
+      showToast('Failed to remove: ' + (e.message || 'Unknown error'));
     }
   };
 
@@ -1750,8 +1826,40 @@ export default function AdminCommandCenter() {
         }
       }
       
-      // Map for template logic compatibility below
-      const winner = winners[0];
+      // Count funded members who participated in this GW
+      const fundedParticipants = sortedStandings.filter((fplManager: any) => {
+        const dbMember = members.find((m) =>
+          (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
+          (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
+          m.displayName === fplManager.player_name ||
+          (m as any).fplTeamName === fplManager.entry_name
+        );
+        return dbMember && memberHasFunding(dbMember);
+      });
+
+      if (fundedParticipants.length < 2) {
+        // Gameweek Voided: Contest requires at least 2 funded managers
+        await addDoc(collection(db, "leagues", activeLeagueId, "pending_payouts"), {
+          gw: gwNumber,
+          status: "voided",
+          reason: `GW${gwNumber} Voided: Minimum 2 funded managers required (${fundedParticipants.length} participated).`,
+          amount: 0,
+          timestamp: serverTimestamp(),
+          settledBy: isCoChairSession ? "Co-Chair" : "Chairman",
+        });
+
+        await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
+          eventType: "gw_voided",
+          message: `GW${gwNumber} VOIDED — Insufficient funded managers (${fundedParticipants.length} participated). 0 KES moved to vault; wallet balances preserved.`,
+          actor: auth.currentUser?.displayName || "Chairman",
+          timestamp: serverTimestamp(),
+        });
+
+        showToast(`GW${gwNumber} Voided: Minimum 2 funded managers required. All funds preserved.`);
+        setIsResolving(false);
+        setShowResolveModal(false);
+        return;
+      }
 
       if (winners.length === 0) {
         showToast(`No eligible paid winner found for GW${gwNumber}.`);
@@ -1759,6 +1867,9 @@ export default function AdminCommandCenter() {
         setShowResolveModal(false);
         return;
       }
+
+      // Map for template logic compatibility below
+      const winner = winners[0];
 
       if (winningPoints <= 0) {
         showToast(
@@ -2113,18 +2224,44 @@ burstFrame();
         colors: ["#10B981", "#FBBF24", "#FFFFFF"],
       });
       // Write lastResolvedDate + lastResolvedGw to league doc for champion card 48h logic
+      const grossPot = Number(payout.grossPot || (fundedMembers.length * gameweekStake) || payout.amount || 0);
+      const mpesaSendingCost = Number(payoutCustomFee[payout.id] ?? payout.mpesaFee ?? (isPilotMode ? 15 : Math.round(grossPot * 0.015)));
+
       if (!isPilotMode) {
-        // Production: update HQ debt
+        // Commercial: update HQ debt (3.5%)
+        const currentDebt = Number(leagueSettings?.pendingHQDebt || 0);
+        const hqCut = Math.round(grossPot * 0.035);
         await updateDoc(doc(db, "leagues", activeLeagueId), {
           lastResolvedDate: serverTimestamp(),
           lastResolvedGw: Number(payout.gw || 0),
+          pendingHQDebt: currentDebt + hqCut,
         });
       } else {
-        // Pilot mode: just track the date, no HQ debt
+        // Pilot mode: track resolution date with zero HQ debt
         await updateDoc(doc(db, "leagues", activeLeagueId), {
           lastResolvedDate: serverTimestamp(),
           lastResolvedGw: Number(payout.gw || 0),
+          pendingHQDebt: 0,
         });
+      }
+
+      // Log platform treasury event for HQ Analytics & Ledger
+      try {
+        await addDoc(collection(db, "platform_treasury"), {
+          leagueId: activeLeagueId,
+          leagueName: (leagueSettings as any)?.leagueName || "League",
+          gameweek: `GW${Number(payout.gw || 0)}`,
+          grossPot: grossPot,
+          payoutAmount: Number(payout.amount || 0),
+          platformNetRevenue: isPilotMode ? 0 : Math.round(grossPot * 0.035),
+          chairmanCut: Math.round(grossPot * 0.04),
+          coAdminCut: 0,
+          mpesaFee: mpesaSendingCost,
+          isPilotMode: isPilotMode,
+          timestamp: serverTimestamp(),
+        });
+      } catch (treasuryErr) {
+        console.warn("[treasury] Platform treasury logging error:", treasuryErr);
       }
       setActionTimeline((prev) => ({
         ...prev,
@@ -2286,7 +2423,7 @@ burstFrame();
         m.displayName,
         (m as any).phone || "N/A",
         ((m as any).walletBalance ?? 0).toFixed(2),
-        m.hasPaid ? "Green Zone ✓" : "Red Zone ✗",
+        m.hasPaid ? "Funded ✓" : "Unpaid ✗",
         ((m as any).totalEarned ?? 0).toFixed(2),
         (m as any).role === "admin" ? "Admin" : "Member",
       ]),
@@ -2318,25 +2455,20 @@ burstFrame();
       (m) => !m.hasPaid && m.role !== "admin" && m.isActive !== false,
     ).length;
     const appUrl =
-      import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app";
+      (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app");
     const method = payout.method === "cash" ? "Cash Handoff 💵" : "M-Pesa ✅";
 
     const message = [
-      `🏆 *${leagueName} — GW${payout.gw} is DONE!*`,
-      ``,
-      `Congratulations to this week's winner 🎉`,
+      `🏆 *${leagueName} — GW${payout.gw} Winner!*`,
       ``,
       `🥇 *${payout.winnerName}* — ${payout.points} pts`,
-      `💰 *Payout: KES ${Number(payout.amount).toLocaleString()}* sent via ${method}`,
+      `💰 KES ${Number(payout.amount).toLocaleString()} sent via ${method}`,
       ``,
       unpaidCount > 0
-        ? `⚠️ *${unpaidCount} member${unpaidCount !== 1 ? "s" : ""} still need to deposit* for next GW — don't get locked out!`
-        : `✅ All members are funded for the next gameweek. Let's go!`,
+        ? `${unpaidCount} member${unpaidCount !== 1 ? "s" : ""} still need to pay for next GW.`
+        : `Everyone is funded for next GW. Good luck!`,
       ``,
-      `📊 Check the live standings & your wallet:`,
       `👉 ${appUrl}`,
-      ``,
-      `_${leagueName} — powered by FantasyChama_ ⚡`,
     ].join("\n");
 
     const encoded = encodeURIComponent(message);
@@ -2438,7 +2570,7 @@ burstFrame();
               </h2>
               <p className="text-sm font-medium text-gray-400">
                 This platform has been suspended by{" "}
-                <span className="font-bold text-emerald-400">FPL Chama HQ</span>{" "}
+                <span className="font-bold text-emerald-400">FantasyChama</span>{" "}
                 due to unpaid platform revenue fees.
               </p>
             </div>
@@ -3145,6 +3277,17 @@ burstFrame();
                 </div>
 
                 <button
+                  onClick={() => {
+                    haptics.celebrate();
+                    setShowChairmanFlexModal(true);
+                  }}
+                  className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-3 md:py-4 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-black tracking-wider rounded-xl transition-all shadow-sm uppercase active:scale-95"
+                  title="Generate Champion Flex Card for WhatsApp"
+                >
+                  <Share2 className="w-4 h-4" /> Flex Card
+                </button>
+
+                <button
                   id="tour-resolve-gw"
                   onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
                   className="shrink-0 flex items-center justify-center gap-2 px-5 py-3 md:py-4 bg-[#FBBF24] hover:bg-white text-black text-xs font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
@@ -3261,6 +3404,23 @@ burstFrame();
                               SLA age: {payoutAgeMins}m
                             </span>
                           </div>
+
+                          {/* M-Pesa Actual Cost Input */}
+                          <div className="flex items-center gap-2 mt-2.5 bg-black/40 border border-white/5 rounded-xl px-3 py-1.5 w-fit">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">M-Pesa Fee:</span>
+                            <span className="text-xs text-emerald-400 font-mono">KES</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={payoutCustomFee[payout.id] ?? payout.mpesaFee ?? (isPilotMode ? 15 : Math.round(Number(payout.grossPot || payout.amount || 0) * 0.015))}
+                              onChange={(e) => setPayoutCustomFee(prev => ({ ...prev, [payout.id]: Math.max(0, Number(e.target.value)) }))}
+                              className="w-16 bg-black/60 border border-white/10 rounded px-2 py-0.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                              placeholder="15"
+                              title="Enter actual M-Pesa B2C / sending fee incurred"
+                            />
+                            <span className="text-[9px] text-gray-500">{isPilotMode ? "Pilot Cost" : "1.5% network"}</span>
+                          </div>
                         </div>
                         <div className="flex gap-2 flex-wrap w-full sm:w-auto mt-2 sm:mt-0 items-center">
                           <span className="flex-1 sm:flex-initial px-4 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 shadow-inner">
@@ -3364,6 +3524,7 @@ burstFrame();
                   <PotVaultSwapper
                     weeklyPot={weeklyPot}
                     seasonVault={seasonVault}
+                    projectedSeasonVault={projectedSeasonVault}
                     weeklyRulesPercent={rules.weekly}
                     isStealthMode={isStealthMode}
                   />
@@ -3732,7 +3893,7 @@ burstFrame();
                       }}
                       className="w-full text-left px-4 py-3 text-sm font-bold text-[#10B981] hover:bg-[#10B981]/10 transition-colors"
                     >
-                      Verified (Green Zone)
+                      Funded
                     </button>
                     <button
                       onClick={() => {
@@ -3741,7 +3902,7 @@ burstFrame();
                       }}
                       className="w-full text-left px-4 py-3 text-sm font-bold text-[#FBBF24] hover:bg-[#FBBF24]/10 transition-colors"
                     >
-                      Red Zone (Unpaid)
+                      Unpaid
                     </button>
                   </div>
                 )}
@@ -3808,6 +3969,8 @@ burstFrame();
                           </button>
                           <span className="text-white/20">•</span>
                           <button onClick={() => openEditMemberModal(row)} className="hover:text-[#FBBF24] transition-colors">✏️ Edit</button>
+                          <span className="text-white/20">•</span>
+                          <button onClick={() => handleDeleteMember(row.id, row.displayName)} className="text-red-400/80 hover:text-red-300 transition-colors">🗑️ Remove</button>
                         </div>
                       </div>
 
@@ -3826,13 +3989,13 @@ burstFrame();
                         {memberHasFunding(row) ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                            <span className="hidden sm:inline">Green</span>
+                            <span className="hidden sm:inline">Funded</span>
                           </span>
                         ) : (
                           <>
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] font-bold">
                               <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]" />
-                              <span className="hidden sm:inline">Red Zone</span>
+                              <span className="hidden sm:inline">Unpaid</span>
                             </span>
                             <button 
                               onClick={() => handleMemberNudge(row)}
@@ -4090,6 +4253,24 @@ burstFrame();
               </div>
             </div>,
             document.body
+          )}
+
+          {/* Champion WhatsApp Flex Card Modal for Chairman */}
+          {showChairmanFlexModal && gwWinner && (
+            <ChampionFlexCardModal
+              isOpen={showChairmanFlexModal}
+              onClose={() => setShowChairmanFlexModal(false)}
+              winnerName={gwWinner.player_name || "Gameweek Champion"}
+              teamName={gwWinner.entry_name}
+              points={gwWinner.event_total || 0}
+              gameweek={gwWinner.event || currentGwNumber || firestoreGw || ""}
+              amountWon={Math.round(
+                members.filter((m) => m.hasPaid && m.isActive !== false).length *
+                  gameweekStake *
+                  (rules.weekly / 100)
+              )}
+              leagueName={leagueName || "FantasyChama"}
+            />
           )}
 
           {showResolveModal && createPortal(

@@ -267,7 +267,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                             {isAccepting
                                 ? <Loader2 className="w-5 h-5 animate-spin" />
                                 : hasScrolledToBottom
-                                    ? <>🛡️ I Accept — Enter the War Room</>
+                                    ? <>🛡️ I Accept — Enter League</>
                                     : <>Scroll to unlock signature</>
                             }
                         </button>

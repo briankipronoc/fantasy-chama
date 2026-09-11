@@ -11,7 +11,7 @@ export default function InviteHub() {
     const [expiresDays, setExpiresDays] = useState('7');
 
     const handleCopyShare = () => {
-        const appUrl = import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app';
+        const appUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app');
         const expiresAt = Date.now() + (parseInt(expiresDays || '7') * 24 * 60 * 60 * 1000);
         
         let params = `?code=${inviteCode}&e=${expiresAt}`;

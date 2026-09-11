@@ -142,7 +142,37 @@ export const useStore = create<AppState>((set) => ({
                     id: doc.id,
                     ...doc.data()
                 })) as Member[];
-                set({ members: liveMembers });
+
+                // Deduplicate members to prevent duplicate counts (e.g. chairman registered both as admin and member)
+                const deduplicatedMap = new Map<string, Member>();
+                for (const m of liveMembers) {
+                    const rawPhone = (m.phone || (m as any).phoneNumber || '').replace(/\D/g, '');
+                    const cleanName = (m.displayName || '').trim().toLowerCase();
+                    const phoneKey = rawPhone.length >= 9 ? rawPhone.slice(-9) : '';
+                    const dedupKey = phoneKey ? `p_${phoneKey}` : (cleanName ? `n_${cleanName}` : `id_${m.id}`);
+
+                    if (!deduplicatedMap.has(dedupKey)) {
+                        deduplicatedMap.set(dedupKey, m);
+                    } else {
+                        const existing = deduplicatedMap.get(dedupKey)!;
+                        const preferExisting = existing.role === 'admin' || (existing.hasPaid && !m.hasPaid);
+                        const primary = preferExisting ? existing : m;
+                        const secondary = preferExisting ? m : existing;
+
+                        const merged: Member = {
+                            ...secondary,
+                            ...primary,
+                            id: primary.id,
+                            role: (existing.role === 'admin' || m.role === 'admin') ? 'admin' : (existing.role === 'co-chair' || m.role === 'co-chair') ? 'co-chair' : primary.role,
+                            hasPaid: Boolean(existing.hasPaid || m.hasPaid),
+                            walletBalance: Math.max(Number(existing.walletBalance || 0), Number(m.walletBalance || 0)),
+                            isActive: existing.isActive !== false && m.isActive !== false,
+                        };
+                        deduplicatedMap.set(dedupKey, merged);
+                    }
+                }
+
+                set({ members: Array.from(deduplicatedMap.values()) });
             }, (error) => {
                 console.warn('[store] listenToLeagueMembers failed:', error?.message || error);
             });

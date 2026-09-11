@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import { collection, addDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function MemberEnrollment() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -24,15 +25,21 @@ export default function MemberEnrollment() {
     const [leagueName, setLeagueName] = useState('');
     const [gameweekStake, setGameweekStake] = useState(0);
 
+    const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+    const [isRemoving, setIsRemoving] = useState(false);
+
     useEffect(() => {
         if (!activeLeagueId) return;
         const unsub = listenToLeagueMembers(activeLeagueId);
         getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
             if (snap.exists()) {
                 const data = snap.data();
-                setLeagueName(data.leagueName || 'Your League');
+                setLeagueName(data.name || data.leagueName || 'Your League');
                 setGameweekStake(data.gameweekStake || 0);
-                if (data.fplLeagueId) setFplLeagueId(data.fplLeagueId);
+                if (data.fplLeagueId) {
+                    setFplLeagueId(String(data.fplLeagueId));
+                    fetchFplStandings(String(data.fplLeagueId));
+                }
             }
         });
         return () => unsub();
@@ -43,11 +50,11 @@ export default function MemberEnrollment() {
         fetchFplStandings(fplLeagueId);
     }, [fplLeagueId]);
 
-    const fetchFplStandings = async (leagueId: string) => {
+    const fetchFplStandings = async (id: string) => {
         setIsFetchingFpl(true);
         setFplError('');
         try {
-            const res = await fetch(`/fpl-api/leagues-classic/${leagueId}/standings/`);
+            const res = await fetch(`/fpl-api/leagues-classic/${id}/standings/`);
             if (!res.ok) throw new Error('FPL API unavailable');
             const data = await res.json();
             if (data?.standings?.results) setFplStandings(data.standings.results);
@@ -93,11 +100,21 @@ export default function MemberEnrollment() {
         document.getElementById('member-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const handleRemoveMember = async (memberId: string, memberName: string) => {
-        if (!activeLeagueId) return;
-        if (!window.confirm(`Remove ${memberName} from the league?`)) return;
-        try { await deleteDoc(doc(db, 'leagues', activeLeagueId, 'memberships', memberId)); }
-        catch (err) { console.error('Remove failed:', err); }
+    const handleRemoveMember = (memberId: string, memberName: string) => {
+        setMemberToRemove({ id: memberId, name: memberName });
+    };
+
+    const executeRemoveMember = async () => {
+        if (!activeLeagueId || !memberToRemove) return;
+        setIsRemoving(true);
+        try {
+            await deleteDoc(doc(db, 'leagues', activeLeagueId, 'memberships', memberToRemove.id));
+            setMemberToRemove(null);
+        } catch (err) {
+            console.error('Remove failed:', err);
+        } finally {
+            setIsRemoving(false);
+        }
     };
 
     const activeMembersCount = members.filter(m => m.isActive !== false).length;
@@ -535,6 +552,18 @@ export default function MemberEnrollment() {
                     ))}
                 </div>
             </main>
+
+            <ConfirmModal
+                isOpen={Boolean(memberToRemove)}
+                onClose={() => setMemberToRemove(null)}
+                onConfirm={executeRemoveMember}
+                title="Remove Member from League"
+                message={`Permanently remove ${memberToRemove?.name || 'this member'} from the league roster?`}
+                confirmText="Remove Member"
+                cancelText="Cancel"
+                variant="danger"
+                isLoading={isRemoving}
+            />
         </div>
     );
 }

@@ -13,13 +13,17 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 export async function registerFCMToken() {
     // Only run in browser environments with notification support
     if (typeof window === 'undefined' || !('Notification' in window)) return;
+    // If the user previously dismissed or denied notification permission, do not spam or prompt again
+    if (Notification.permission === 'denied') return;
     if (!VAPID_KEY) {
-        console.warn('[FCM] VITE_FIREBASE_VAPID_KEY not set. Push notifications disabled.');
         return;
     }
 
     try {
-        const permission = await Notification.requestPermission();
+        // If not yet granted, request permission
+        const permission = Notification.permission === 'granted' 
+            ? 'granted' 
+            : await Notification.requestPermission();
         if (permission !== 'granted') return;
 
         const app = getApps()[0];
@@ -53,8 +57,12 @@ export async function registerFCMToken() {
                 detail: { title, body, data: payload.data }
             }));
         });
-    } catch (err) {
-        console.error('[FCM] Token registration error:', err);
+    } catch (err: any) {
+        if (err?.name === 'AbortError' || err?.message?.includes('public key')) {
+            console.warn('[FCM] Push service unavailable or VAPID key inactive. Continuing gracefully.');
+        } else {
+            console.warn('[FCM] Token registration note:', err?.message || err);
+        }
     }
 }
 

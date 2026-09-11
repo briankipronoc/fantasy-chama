@@ -3,8 +3,9 @@
 // that lets the user hot-swap their active league context.
 
 import { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import { ChevronDown, Trophy } from 'lucide-react';
 
@@ -20,24 +21,70 @@ export default function LeagueSwitcher() {
     const [showHint, setShowHint] = useState(false);
     const phone = localStorage.getItem('memberPhone');
     const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid || null);
 
     useEffect(() => {
-        if (!phone) return;
-        const ref = doc(db, 'userLeagues', phone);
-        const unsub = onSnapshot(ref, (snap) => {
-            if (snap.exists()) {
-                const data = snap.data();
-                setLeagues(data.leagues || []);
-            }
-        }, (error) => {
-            console.warn('[league-switcher] snapshot failed:', error?.message || error);
+        const unsubAuth = onAuthStateChanged(auth, (user) => {
+            setCurrentUid(user ? user.uid : null);
         });
-        return () => {
-            try { unsub(); } catch (error: any) {
-                console.warn('[league-switcher] cleanup failed:', error?.message || error);
-            }
+        return () => unsubAuth();
+    }, []);
+
+    useEffect(() => {
+        let unsubs: Array<() => void> = [];
+        let memberLeagues: LeagueEntry[] = [];
+        let chairLeagues: LeagueEntry[] = [];
+
+        const updateMerged = () => {
+            const map = new Map<string, LeagueEntry>();
+            // Add member leagues first
+            memberLeagues.forEach(l => map.set(l.leagueId, l));
+            // Add chairman leagues (overriding with admin role if user is chairman)
+            chairLeagues.forEach(l => map.set(l.leagueId, l));
+            setLeagues(Array.from(map.values()));
         };
-    }, [phone]);
+
+        if (phone) {
+            const ref = doc(db, 'userLeagues', phone);
+            const unsubPhone = onSnapshot(ref, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    memberLeagues = (data.leagues || []) as LeagueEntry[];
+                } else {
+                    memberLeagues = [];
+                }
+                updateMerged();
+            }, (error) => {
+                console.warn('[league-switcher] phone snapshot failed:', error?.message || error);
+            });
+            unsubs.push(unsubPhone);
+        }
+
+        if (currentUid) {
+            const leaguesRef = collection(db, 'leagues');
+            const qChairman = query(leaguesRef, where('chairmanId', '==', currentUid));
+            const unsubChairman = onSnapshot(qChairman, (snap) => {
+                chairLeagues = snap.docs.map(d => {
+                    const data = d.data();
+                    return {
+                        leagueId: d.id,
+                        leagueName: data.name || data.leagueName || 'Unnamed League',
+                        role: 'admin'
+                    };
+                });
+                updateMerged();
+            }, (error) => {
+                console.warn('[league-switcher] chairman snapshot failed:', error?.message || error);
+            });
+            unsubs.push(unsubChairman);
+        }
+
+        return () => {
+            unsubs.forEach(u => {
+                try { u(); } catch {}
+            });
+        };
+    }, [phone, currentUid]);
 
     useEffect(() => {
         const hintDismissed = localStorage.getItem('fc-league-switcher-hint-dismissed') === 'true';

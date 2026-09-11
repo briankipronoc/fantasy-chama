@@ -8,12 +8,13 @@ import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, C
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
 import LeagueSwitcher from './LeagueSwitcher';
+import DeadlineCountdown from './DeadlineCountdown';
 import DocsModal from './DocsModal';
 import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
 import { onAuthStateChanged } from 'firebase/auth';
 
-export default function Header({ role, title, subtitle }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode }) {
+export default function Header({ role, title, subtitle, hideCountdown }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
     const members = useStore(state => state.members);
     const realActiveUser = members.find(m => m.id === activeUserId)?.id || members[0]?.id || activeUserId;
@@ -143,7 +144,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=transparent`} alt="User avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-300" />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate">
+                        <h1 className="fc-frosty-title text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate">
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
                         <div className="flex items-center gap-2 mt-1 truncate">
@@ -152,7 +153,9 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                             ) : (
                                 <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FBBF24] flex-shrink-0" />
                             )}
-                            <span className="text-gray-600 dark:text-gray-400 font-medium text-xs md:text-sm truncate block">{subtitle || (role === 'admin' ? 'Level 4 Vault Access' : 'League Member')}</span>
+                            <span className="fc-metallic-badge text-xs md:text-sm tracking-widest uppercase truncate block">
+                                {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -415,6 +418,7 @@ export default function Header({ role, title, subtitle }: { role: string, title?
                         document.body
                     )}
                 </div>
+                {!hideCountdown && <DeadlineCountdown />}
                 <LeagueSwitcher />
             </div>
 

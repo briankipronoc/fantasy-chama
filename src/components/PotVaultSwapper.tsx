@@ -5,9 +5,10 @@ interface SwapperProps {
     seasonVault: number;
     weeklyRulesPercent: number;
     isStealthMode: boolean;
+    projectedSeasonVault?: number;
 }
 
-export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPercent, isStealthMode }: SwapperProps) {
+export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPercent, isStealthMode, projectedSeasonVault }: SwapperProps) {
     const [showWeeklyPot, setShowWeeklyPot] = useState(true);
 
     useEffect(() => {
@@ -16,6 +17,8 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
         }, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    const vaultPercent = 100 - weeklyRulesPercent;
 
     return (
         <div className="fc-pot-swapper bg-gradient-to-br from-[#1c272c] to-[#11171a] border border-[#FBBF24]/30 rounded-[2rem] p-6 md:p-8 relative overflow-hidden shadow-[0_0_30px_rgba(251,191,36,0.08)] hover:border-[#FBBF24]/50 transition-colors w-full min-h-[220px] flex flex-col justify-center">
@@ -34,21 +37,31 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
                     </span>
                     <span className="text-[#FBBF24] text-sm md:text-base font-bold">KES</span>
                 </div>
-                <p className="text-[10px] uppercase font-bold text-gray-600 dark:text-gray-400 tracking-widest mt-2">{weeklyRulesPercent}% Distribution</p>
+                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest mt-2">{weeklyRulesPercent}% Distribution</p>
             </div>
 
             <div className="fc-pot-season relative z-10 transition-all duration-500" style={{ opacity: !showWeeklyPot ? 1 : 0, position: !showWeeklyPot ? 'relative' : 'absolute', pointerEvents: !showWeeklyPot ? 'auto' : 'none' }}>
-                <p className="text-[#10B981] text-[10px] md:text-xs font-bold tracking-widest uppercase flex items-center gap-2 mb-4">
-                    <span className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,1)] animate-pulse"></span>
-                    Season Vault
-                </p>
+                <div className="flex items-center justify-between mb-4">
+                    <p className="text-[#10B981] text-[10px] md:text-xs font-bold tracking-widest uppercase flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,1)] animate-pulse"></span>
+                        Season Vault
+                    </p>
+                    {projectedSeasonVault && projectedSeasonVault > 0 && (
+                        <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                            Target KES {isStealthMode ? '****' : projectedSeasonVault.toLocaleString()}
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-baseline gap-2 mb-1">
                     <span className="text-4xl md:text-5xl font-black text-white tracking-tight tabular-nums">
                         {isStealthMode ? '****' : seasonVault.toLocaleString()}
                     </span>
                     <span className="text-[#10B981] text-sm md:text-base font-bold">KES</span>
                 </div>
-                <p className="text-[10px] uppercase font-bold text-gray-600 dark:text-gray-400 tracking-widest mt-2">Total Season Projection</p>
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-gray-400 tracking-widest mt-2">
+                    <span>{vaultPercent}% Distribution · Live Season Pot</span>
+                    <span className="text-emerald-400 font-semibold normal-case">Secured from active funds</span>
+                </div>
             </div>
         </div>
     );

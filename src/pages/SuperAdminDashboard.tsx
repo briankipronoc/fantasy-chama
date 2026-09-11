@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc, addDoc, serverTimestamp, runTransaction, limit, writeBatch } from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc, addDoc, serverTimestamp, runTransaction, limit, writeBatch, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function SuperAdminDashboard() {
     const navigate = useNavigate();
@@ -29,6 +30,24 @@ export default function SuperAdminDashboard() {
     const [settlementActionId, setSettlementActionId] = useState<string | null>(null);
     const [reviewNoteById, setReviewNoteById] = useState<Record<string, string>>({});
     const [hqNotice, setHqNotice] = useState('');
+    const [confirmModal, setConfirmModal] = useState<{
+        title: string;
+        message: string;
+        confirmText?: string;
+        onConfirm: () => Promise<void> | void;
+        variant?: 'danger' | 'warning';
+    } | null>(null);
+    const [isConfirmModalLoading, setIsConfirmModalLoading] = useState(false);
+    const [platformSettings, setPlatformSettings] = useState({
+        isPilotMode: true,
+        mpesaCostPerTx: 15,
+        gatewayType: 'pochi' as 'pochi' | 'paybill' | 'till',
+        paybillNumber: '',
+        paybillAccount: '',
+        tillNumber: '',
+        platformFeePercent: 3.5
+    });
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -121,6 +140,60 @@ export default function SuperAdminDashboard() {
             }
         };
     }, [isAuthorized]);
+
+    // Fetch Global Platform Settings (Pilot / Commercial mode & gateway config)
+    useEffect(() => {
+        if (!isAuthorized) return;
+        const unsub = onSnapshot(doc(db, 'platform_settings', 'global'), (snap) => {
+            if (snap.exists()) {
+                const data = snap.data() as any;
+                setPlatformSettings(prev => ({
+                    ...prev,
+                    isPilotMode: data.isPilotMode !== false,
+                    mpesaCostPerTx: Number(data.mpesaCostPerTx ?? 15),
+                    gatewayType: data.gatewayType || 'pochi',
+                    paybillNumber: data.paybillNumber || '',
+                    paybillAccount: data.paybillAccount || '',
+                    tillNumber: data.tillNumber || '',
+                    platformFeePercent: Number(data.platformFeePercent ?? 3.5),
+                }));
+            }
+        }, (err) => {
+            console.warn('[hq] platform_settings listener error:', err?.message || err);
+        });
+        return () => unsub();
+    }, [isAuthorized]);
+
+    const handleSavePlatformSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            await setDoc(doc(db, 'platform_settings', 'global'), {
+                ...platformSettings,
+                updatedAt: serverTimestamp(),
+                updatedBy: auth.currentUser?.email || auth.currentUser?.uid || 'HQ'
+            }, { merge: true });
+
+            // Propagate pilot mode change to all active leagues in Firestore
+            if (leagues.length > 0) {
+                const batch = writeBatch(db);
+                leagues.forEach(l => {
+                    const lRef = doc(db, 'leagues', l.id);
+                    batch.update(lRef, {
+                        pilotMode: platformSettings.isPilotMode,
+                        ...(platformSettings.isPilotMode ? { pendingHQDebt: 0 } : {})
+                    });
+                });
+                await batch.commit();
+            }
+
+            showHqNotice(`Platform updated: ${platformSettings.isPilotMode ? '🚀 PILOT PASS-THROUGH (0% Fee)' : '💼 COMMERCIAL (3.5% Fee) Active'}.`);
+        } catch (err: any) {
+            console.error('Error saving platform settings:', err);
+            showHqNotice(`Failed to save settings: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
 
     const showHqNotice = (message: string) => {
         setHqNotice(message);
@@ -216,9 +289,18 @@ export default function SuperAdminDashboard() {
         }
     };
 
-    const handleClearDebt = async (leagueId: string) => {
-        if (!window.confirm('Mark this league\'s HQ debt as PAID via Pochi La Biashara?')) return;
-        await updateDoc(doc(db, 'leagues', leagueId), { pendingHQDebt: 0 });
+    const handleClearDebt = (leagueId: string) => {
+        setConfirmModal({
+            title: 'Clear HQ Debt',
+            message: "Mark this league's HQ debt as PAID via Pochi La Biashara?",
+            confirmText: 'Mark as Paid',
+            variant: 'warning',
+            onConfirm: async () => {
+                await updateDoc(doc(db, 'leagues', leagueId), { pendingHQDebt: 0 });
+                setConfirmModal(null);
+                showHqNotice('League debt cleared successfully.');
+            }
+        });
     };
 
     const handlePurgeLegacyPayouts = async () => {
@@ -237,25 +319,46 @@ export default function SuperAdminDashboard() {
             return;
         }
 
-        if (!window.confirm(`This will archive ${staleItems.length} stale payout row(s) from the queue. Continue?`)) return;
-
-        const batch = writeBatch(db);
-        for (const item of staleItems) {
-            if (!item.settlementPath) continue;
-            batch.delete(doc(db, item.settlementPath));
-        }
-        await batch.commit();
-        showHqNotice(`Archived ${staleItems.length} stale payout row(s).`);
+        setConfirmModal({
+            title: 'Archive Stale Payouts',
+            message: `This will archive ${staleItems.length} stale payout row(s) from the queue. Continue?`,
+            confirmText: 'Archive Rows',
+            variant: 'danger',
+            onConfirm: async () => {
+                setIsConfirmModalLoading(true);
+                try {
+                    const batch = writeBatch(db);
+                    for (const item of staleItems) {
+                        if (!item.settlementPath) continue;
+                        batch.delete(doc(db, item.settlementPath));
+                    }
+                    await batch.commit();
+                    showHqNotice(`Archived ${staleItems.length} stale payout row(s).`);
+                    setConfirmModal(null);
+                } finally {
+                    setIsConfirmModalLoading(false);
+                }
+            }
+        });
     };
 
     const handleToggleSuspension = async (leagueId: string, currentStatus: boolean, hasDebt: boolean) => {
         const action = currentStatus ? 'UNSUSPEND' : 'SUSPEND';
-        if (hasDebt && action === 'UNSUSPEND') {
-            if (!window.confirm('Wait! This league still has pending HQ debt. Unsuspend anyway?')) return;
-        } else {
-            if (!window.confirm(`Are you sure you want to ${action} this league?`)) return;
-        }
-        await updateDoc(doc(db, 'leagues', leagueId), { isSuspended: !currentStatus });
+        const msg = hasDebt && action === 'UNSUSPEND'
+            ? 'Wait! This league still has pending HQ debt. Unsuspend anyway?'
+            : `Are you sure you want to ${action} this league?`;
+        
+        setConfirmModal({
+            title: `${action} League`,
+            message: msg,
+            confirmText: action,
+            variant: action === 'SUSPEND' ? 'danger' : 'warning',
+            onConfirm: async () => {
+                await updateDoc(doc(db, 'leagues', leagueId), { isSuspended: !currentStatus });
+                setConfirmModal(null);
+                showHqNotice(`League ${action.toLowerCase()}ed successfully.`);
+            }
+        });
     };
 
     const exportTreasuryCSV = () => {
@@ -320,8 +423,13 @@ export default function SuperAdminDashboard() {
     }
 
     return (
-        <div className="fc-hq-shell min-h-screen text-slate-800 dark:text-gray-200 font-sans">
-            <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 md:py-12 space-y-8">
+        <div className="fc-hq-shell min-h-screen text-white font-sans relative overflow-hidden bg-[#070b10]">
+            {/* Ambient Background Glows */}
+            <div className="absolute -top-24 -left-24 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none" />
+            <div className="absolute top-1/3 -right-24 w-[450px] h-[450px] bg-amber-500/8 rounded-full blur-[140px] pointer-events-none" />
+            <div className="absolute bottom-0 left-1/4 w-[500px] h-[350px] bg-sky-500/8 rounded-full blur-[150px] pointer-events-none" />
+
+            <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-10 py-8 md:py-12 space-y-8">
 
                 {hqNotice && (
                     <div className="fc-inline-toast fc-inline-toast-info fixed top-4 right-4 z-300 max-w-[24rem] px-5 py-3 text-xs font-black uppercase tracking-widest rounded-2xl shadow-2xl">
@@ -330,27 +438,28 @@ export default function SuperAdminDashboard() {
                 )}
 
                 {/* Header */}
-                <header className="fc-hq-panel rounded-3xl p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <header className="fc-hq-panel rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 border border-white/10 shadow-2xl bg-[#0c1218]/90 backdrop-blur-xl">
                     <div>
-                        <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                                <Shield className="text-emerald-500 w-5 h-5" />
+                        <h1 className="fc-frosty-title text-3xl md:text-5xl font-black tracking-tight flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+                                <Shield className="text-emerald-400 w-6 h-6" />
                             </div>
-                            HQ <span className="text-emerald-500">Analytics</span>
+                            HQ <span className="text-emerald-400">Analytics</span>
                         </h1>
-                        <p className="text-sm font-bold text-gray-500 mt-1.5 uppercase tracking-widest">
-                            Platform Command • {stats.totalResolutions} GW Resolutions Logged
+                        <p className="text-xs font-black text-slate-400 mt-2 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            Platform Command Core • {stats.totalResolutions} GW Resolutions Logged
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                         <button onClick={exportTreasuryCSV}
-                            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition">
+                            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 text-xs font-black uppercase tracking-widest rounded-xl transition shadow-sm">
                             <Download className="w-3.5 h-3.5" /> Export CSV
                         </button>
                         <button onClick={() => setStealthMode(!stealthMode)}
-                            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition border border-white/10"
+                            className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition border border-white/10 text-slate-300 hover:text-white"
                             title="Toggle figures">
-                            {stealthMode ? <EyeOff className="w-4 h-4 text-gray-600 dark:text-gray-400" /> : <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />}
+                            {stealthMode ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
                         </button>
                         <button onClick={() => navigate('/')}
                             className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-xs font-bold uppercase tracking-widest rounded-xl transition border border-white/15 text-white">
@@ -359,17 +468,200 @@ export default function SuperAdminDashboard() {
                     </div>
                 </header>
 
+                {/* Platform Monetization & Pilot Control Card */}
+                <section className="fc-hq-panel rounded-3xl p-6 md:p-8 border border-white/10 bg-[#0c1218]/90 backdrop-blur-xl space-y-6 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-80 h-32 bg-emerald-500/5 rounded-full blur-[70px] pointer-events-none" />
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                                <Sliders className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-base md:text-lg font-black text-white tracking-tight flex items-center gap-2">
+                                    Platform Monetization & Pilot Mode
+                                    <span className={clsx(
+                                        "text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border",
+                                        platformSettings.isPilotMode 
+                                            ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                            : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                    )}>
+                                        {platformSettings.isPilotMode ? "🚀 Pilot Pass-Through" : "💼 Commercial Live"}
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    {platformSettings.isPilotMode
+                                        ? "Piloting active: We do not take platform cut (0% fee). Only actual M-Pesa sending costs are logged."
+                                        : "Commercial active: Automated 3.5% HQ fee is active and routed via registered Paybill / Till."}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setPlatformSettings(prev => ({ ...prev, isPilotMode: !prev.isPilotMode }))}
+                                className={clsx(
+                                    "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border cursor-pointer",
+                                    platformSettings.isPilotMode
+                                        ? "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25"
+                                        : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25"
+                                )}
+                            >
+                                {platformSettings.isPilotMode ? (
+                                    <>
+                                        <ToggleLeft className="w-4 h-4 text-amber-400" />
+                                        Mode: Pilot (0% Cut)
+                                    </>
+                                ) : (
+                                    <>
+                                        <ToggleRight className="w-4 h-4 text-emerald-400" />
+                                        Mode: Commercial (3.5%)
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleSavePlatformSettings}
+                                disabled={isSavingSettings}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider rounded-xl transition shadow-md disabled:opacity-50 cursor-pointer"
+                            >
+                                <Save className="w-3.5 h-3.5" />
+                                {isSavingSettings ? 'Saving...' : 'Save & Sync'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Inputs Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* M-Pesa Sending Cost Input */}
+                        <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
+                                    <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                                    M-Pesa Sending Cost (Per Payout)
+                                </label>
+                                <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                                    Actual transaction cost incurred per M-Pesa disbursement (e.g. KES 15). Keeps the money trail math 100% true.
+                                </p>
+                            </div>
+                            <div className="mt-3 flex items-center gap-2">
+                                <span className="text-xs font-black text-gray-400 font-mono">KES</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={platformSettings.mpesaCostPerTx}
+                                    onChange={(e) => setPlatformSettings(prev => ({ ...prev, mpesaCostPerTx: Math.max(0, Number(e.target.value)) }))}
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                    placeholder="15"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Collection Gateway Type */}
+                        <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
+                                    <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                                    Collection Routing Gateway
+                                </label>
+                                <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                                    Select how members fund pots. Use Pochi during pilot, or switch to registered Paybill / Till.
+                                </p>
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-1.5 bg-black/50 p-1 rounded-xl border border-white/5">
+                                {(['pochi', 'paybill', 'till'] as const).map(gw => (
+                                    <button
+                                        key={gw}
+                                        type="button"
+                                        onClick={() => setPlatformSettings(prev => ({ ...prev, gatewayType: gw }))}
+                                        className={clsx(
+                                            "py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer",
+                                            platformSettings.gatewayType === gw
+                                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                                : "text-gray-500 hover:text-gray-300"
+                                        )}
+                                    >
+                                        {gw}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Gateway Account Details */}
+                        <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
+                                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                                    {platformSettings.gatewayType === 'paybill' ? 'Paybill & Account' : platformSettings.gatewayType === 'till' ? 'Till Number' : 'Pilot Pochi Routing'}
+                                </label>
+                                <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                                    {platformSettings.gatewayType === 'pochi'
+                                        ? "Pochi la Biashara routes directly to the league chairman's wallet."
+                                        : "Once registered with Safaricom, enter credentials here to activate commercial flow."}
+                                </p>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                                {platformSettings.gatewayType === 'till' ? (
+                                    <input
+                                        type="text"
+                                        value={platformSettings.tillNumber}
+                                        onChange={(e) => setPlatformSettings(prev => ({ ...prev, tillNumber: e.target.value }))}
+                                        placeholder="Till # (e.g. 987654)"
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                    />
+                                ) : platformSettings.gatewayType === 'paybill' ? (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={platformSettings.paybillNumber}
+                                            onChange={(e) => setPlatformSettings(prev => ({ ...prev, paybillNumber: e.target.value }))}
+                                            placeholder="Paybill #"
+                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={platformSettings.paybillAccount}
+                                            onChange={(e) => setPlatformSettings(prev => ({ ...prev, paybillAccount: e.target.value }))}
+                                            placeholder="Account Ref"
+                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                        />
+                                    </>
+                                ) : (
+                                    <div className="w-full py-2 px-3 text-[11px] text-emerald-400/80 bg-emerald-500/5 rounded-xl border border-emerald-500/15 font-mono flex items-center justify-between">
+                                        <span>Direct Pochi P2P Active</span>
+                                        <span className="text-[9px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-300">0% Cut</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 {/* KPI Stats Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                         { label: 'Gross Volume', value: fmt(stats.totalGrossVolume), sub: 'All-time', color: 'text-white', icon: <BarChart3 className="w-4 h-4 text-blue-400" />, glow: 'bg-blue-500/5' },
-                        { label: 'HQ Revenue (3.5%)', value: fmt(stats.totalPlatformRev), sub: 'Platform earnings', color: 'text-emerald-400', icon: <Banknote className="w-4 h-4 text-emerald-400" />, glow: 'bg-emerald-500/10' },
+                        { 
+                            label: platformSettings.isPilotMode ? 'HQ Rev (Pilot: 0%)' : 'HQ Revenue (3.5%)', 
+                            value: platformSettings.isPilotMode ? 'KES 0' : fmt(stats.totalPlatformRev), 
+                            sub: platformSettings.isPilotMode ? 'Waived during pilot' : 'Platform earnings', 
+                            color: 'text-emerald-400', 
+                            icon: <Banknote className="w-4 h-4 text-emerald-400" />, 
+                            glow: 'bg-emerald-500/10' 
+                        },
                         { label: 'Active Leagues', value: stealthMode ? '**' : String(stats.activeLeagues), sub: `${stats.activeMembers} members`, color: 'text-white', icon: <Activity className="w-4 h-4 text-cyan-400" />, glow: 'bg-cyan-500/5' },
                         { label: 'GW Resolutions', value: stealthMode ? '**' : String(stats.totalResolutions), sub: 'Total processed', color: 'text-white', icon: <CheckCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />, glow: 'bg-white/3' },
                         { label: 'Chairman Kickbacks', value: fmt(stats.totalChairmanPayouts), sub: '4% governance', color: 'text-amber-400', icon: <Trophy className="w-4 h-4 text-amber-400" />, glow: 'bg-amber-500/5' },
                         { label: 'Co-Chair Kickbacks', value: fmt(stats.totalCoAdminPayouts), sub: '1% audit fee', color: 'text-purple-400', icon: <Users className="w-4 h-4 text-purple-400" />, glow: 'bg-purple-500/5' },
-                        { label: 'M-Pesa Fees', value: fmt(stats.totalSafaricomFees), sub: '1.5% network', color: 'text-red-400', icon: <TrendingUp className="w-4 h-4 text-red-400" />, glow: 'bg-red-500/5' },
-                        { label: 'Avg Rev / League', value: stats.activeLeagues > 0 ? fmt(stats.totalPlatformRev / stats.activeLeagues) : 'KES 0', sub: 'LTV estimate', color: 'text-emerald-300', icon: <ArrowUpRight className="w-4 h-4 text-emerald-300" />, glow: 'bg-emerald-500/5' },
+                        { 
+                            label: 'M-Pesa Net Costs', 
+                            value: fmt(stats.totalSafaricomFees), 
+                            sub: platformSettings.isPilotMode ? `KES ${platformSettings.mpesaCostPerTx}/tx pass-through` : '1.5% network fee', 
+                            color: 'text-red-400', 
+                            icon: <TrendingUp className="w-4 h-4 text-red-400" />, 
+                            glow: 'bg-red-500/5' 
+                        },
+                        { label: 'Avg Rev / League', value: stats.activeLeagues > 0 ? (platformSettings.isPilotMode ? 'KES 0' : fmt(stats.totalPlatformRev / stats.activeLeagues)) : 'KES 0', sub: 'LTV estimate', color: 'text-emerald-300', icon: <ArrowUpRight className="w-4 h-4 text-emerald-300" />, glow: 'bg-emerald-500/5' },
                         { label: 'Pending Receipts', value: stealthMode ? '**' : String(pendingSettlements.length), sub: `${rejectedSettlements.length} rejected`, color: 'text-amber-300', icon: <ShieldAlert className="w-4 h-4 text-amber-300" />, glow: 'bg-amber-500/5' },
                         { label: 'Cleared By Receipts', value: fmt(totalSettlementClears), sub: `${approvedSettlements.length} approved`, color: 'text-cyan-300', icon: <Check className="w-4 h-4 text-cyan-300" />, glow: 'bg-cyan-500/5' },
                     ].map((stat, i) => (
@@ -647,6 +939,21 @@ export default function SuperAdminDashboard() {
                     FantasyChama HQ • Platform Analytics • Phase 8 • {new Date().getFullYear()}
                 </footer>
             </div>
+
+            {/* Custom Confirm Modal (Eliminates browser localhost alerts) */}
+            <ConfirmModal
+                isOpen={Boolean(confirmModal)}
+                onClose={() => setConfirmModal(null)}
+                onConfirm={() => {
+                    if (confirmModal?.onConfirm) confirmModal.onConfirm();
+                }}
+                title={confirmModal?.title || 'Confirm Action'}
+                message={confirmModal?.message || ''}
+                confirmText={confirmModal?.confirmText || 'Confirm'}
+                cancelText="Cancel"
+                variant={confirmModal?.variant || 'danger'}
+                isLoading={isConfirmModalLoading}
+            />
         </div>
     );
 }

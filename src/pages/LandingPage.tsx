@@ -93,7 +93,7 @@ function TrustSlider() {
     const mpesaCut = potSize * 0.015;
 
     return (
-        <section className="py-24 max-w-5xl mx-auto px-6 relative z-30">
+        <section className="fc-landing-section py-20 md:py-24 max-w-5xl mx-auto px-6 relative z-30">
             <div className="fc-landing-panel bg-[#0b1014] border border-white/10 rounded-[3rem] p-8 md:p-12 shadow-[0_0_80px_rgba(16,185,129,0.05)] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px]" />
                 
@@ -210,7 +210,7 @@ export default function LandingPage() {
             {/* Main Content */}
             <main className="pt-24 md:pt-32 overflow-x-hidden">
                 {/* Hero Section */}
-                <section className="relative min-h-[85vh] flex items-center px-6 md:px-8 max-w-7xl mx-auto py-12 md:py-20">
+                <section className="fc-landing-section relative min-h-[85vh] sm:min-h-screen flex items-center px-6 md:px-8 max-w-7xl mx-auto py-12 md:py-20">
                     <div className="absolute -top-24 -left-24 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-emerald-500/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none"></div>
                     <div className="absolute top-1/2 -right-24 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-amber-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none"></div>
                     
@@ -230,9 +230,10 @@ export default function LandingPage() {
                                 Set a stake per gameweek. Members pay via M-Pesa. The week's top scorer gets the pot — automatically calculated every GW.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 items-center pt-2">
-                                <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-8 py-4 rounded-xl font-extrabold text-lg flex items-center justify-center gap-3 transition-colors shadow-lg shadow-emerald-500/20 active:scale-95">
-                                    Start a League
-                                    <ArrowRight className="w-5 h-5" />
+                                <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-8 py-4 rounded-xl font-extrabold text-lg flex items-center justify-center gap-2.5 transition-colors shadow-lg shadow-emerald-500/20 active:scale-95 group">
+                                    <span>Start a League</span>
+                                    <span className="bg-[#002113] text-emerald-300 text-xs font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.35)]">FREE</span>
+                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                                 <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 bg-[#161d24] hover:bg-[#1f2937] border border-white/5 transition-colors active:scale-95 text-white">
                                     Join With Code
@@ -251,7 +252,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* Stats Bar: Bloomberg Terminal Style */}
-                <section className="fc-landing-band py-16 md:py-24 bg-[#0A0E17] border-y border-white/[0.02] relative z-20">
+                <section className="fc-landing-section fc-landing-band py-16 md:py-24 bg-[#0A0E17] border-y border-white/[0.02] relative z-20">
                     <div className="max-w-7xl mx-auto px-6 md:px-8">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16">
                             <div className="border-l-2 border-emerald-500/30 pl-8 relative group">
@@ -294,7 +295,7 @@ export default function LandingPage() {
                 <TrustSlider />
 
                 {/* ── The Ledger Lifecycle (How it Works) ────────────────────────────────────── */}
-                <section id="how-it-works" className="fc-landing-band py-24 md:py-32 px-6 md:px-8 bg-[#0d1620]/30 border-t border-b border-white/[0.02]">
+                <section id="how-it-works" className="fc-landing-section fc-landing-band py-20 md:py-32 px-6 md:px-8 bg-[#0d1620]/30 border-t border-b border-white/[0.02]">
                     <div className="max-w-7xl mx-auto">
                         <div className="text-center mb-20 md:mb-24">
                             <span className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4 block">Simple 4-Step Process</span>
@@ -329,7 +330,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* ── Platform Capabilities: Bento Grid ─────────────────────────────────── */}
-                <section id="features" className="py-24 md:py-32 max-w-7xl mx-auto px-6 md:px-8 relative z-20">
+                <section id="features" className="fc-landing-section py-20 md:py-32 max-w-7xl mx-auto px-6 md:px-8 relative z-20">
                     <div className="mb-16 md:mb-20">
                         <span className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-4 block">Everything Included</span>
                         <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white mb-6">What You Get</h2>
@@ -404,7 +405,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* Closing CTA */}
-                <section className="min-h-[80vh] flex items-center justify-center px-6 md:px-8 text-center relative overflow-hidden group">
+                <section className="fc-landing-section min-h-[85vh] sm:min-h-screen flex items-center justify-center px-6 md:px-8 text-center relative overflow-hidden group">
                     {/* Deep Immersive Ambient Glow */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[100px] group-hover:bg-emerald-500/30 group-hover:blur-[160px] group-hover:scale-150 transition-all duration-1000 ease-out pointer-events-none"></div>
                     
@@ -418,9 +419,10 @@ export default function LandingPage() {
                             </p>
                         </div>
                         <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 pb-10">
-                            <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-10 py-5 rounded-xl font-extrabold text-lg shadow-[0_0_40px_rgba(16,185,129,0.25)] hover:scale-105 transition-all active:scale-95 flex items-center gap-2">
+                            <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-10 py-5 rounded-xl font-extrabold text-lg shadow-[0_0_40px_rgba(16,185,129,0.25)] hover:scale-105 transition-all active:scale-95 flex items-center gap-2.5 group">
                                 <Trophy className="w-5 h-5" />
-                                Start a League — Free
+                                <span>Start a League</span>
+                                <span className="bg-[#002113] text-emerald-300 text-xs font-black uppercase px-2.5 py-0.5 rounded-md tracking-wider border border-emerald-400/40 shadow-[0_0_15px_rgba(16,185,129,0.35)]">FREE</span>
                             </button>
                             <button onClick={() => navigate('/access')} className="px-10 py-5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
                                 Join With Invite Code

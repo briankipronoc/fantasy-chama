@@ -51,7 +51,7 @@ export default function MemberManual() {
         <div className="space-y-4">
           <Step n={1} title="Accept your invite" desc="Your Chairman sends a 6-digit invite PIN via WhatsApp. Open the link, enter the PIN, and fill in your display name and M-Pesa number." />
           <Step n={2} title="Link your FPL Team" desc="Go to Profile → tap 'Edit Profile' → paste your FPL Team ID (found in the URL of your FPL team page: fantasy.premierleague.com/entry/XXXXXX). This is how the app tracks your weekly points." />
-          <Step n={3} title="Sign the constitution" desc="On first login you'll see the league constitution. Scroll to the bottom and tap 'I Accept — Enter the War Room'. You cannot access the app until you accept." />
+          <Step n={3} title="Sign the constitution" desc="On first login you'll see the league constitution. Scroll to the bottom and tap 'I Accept — Enter League'. You cannot access the app until you accept." />
           <Step n={4} title="Fund your wallet" desc="Tap 'Top Up Wallet' or 'Pay via M-Pesa' at the bottom of your dashboard. A KES prompt is sent to your phone — enter your M-Pesa PIN to complete." />
           <Tip>Your wallet can hold enough for multiple gameweeks. Top up early and don't worry about deadlines — your GW stake is auto-deducted when the Chairman resolves each gameweek.</Tip>
         </div>

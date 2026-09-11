@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity,  ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, ChevronDown, RefreshCw  } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, ChevronDown, RefreshCw, Trash2, Fingerprint, Key } from 'lucide-react';
+import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import Header from '../components/Header';
+import ConfirmModal from '../components/ConfirmModal';
 import toast from 'react-hot-toast';
 
 export default function Profile() {
@@ -26,7 +28,7 @@ export default function Profile() {
     const [fplStandings, setFplStandings] = useState<any[]>([]);
     const [isFetchingFpl, setIsFetchingFpl] = useState(false);
 
-    // State for Admin Settings
+    const [leagueName, setLeagueName] = useState('');
     const [gameweekStake, setMonthlyContribution] = useState<number>(0);
     const [weeklyPrizePercent, setWeeklyPrizePercent] = useState<number>(70);
     const [seasonWinnersCount, setSeasonWinnersCount] = useState<number>(3);
@@ -43,8 +45,14 @@ export default function Profile() {
     const [pendingPhoneMap, setPendingPhoneMap] = useState<Record<string, string>>({});
     const [isSavingPendingPhone, setIsSavingPendingPhone] = useState<string | null>(null);
     const [showPendingOnboarding, setShowPendingOnboarding] = useState(false);
+    const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [isDeletingMember, setIsDeletingMember] = useState(false);
 
-    const activeMembersCount = members.filter((member) => member.isActive !== false).length;
+    const isMemberFunded = (m: any) =>
+        m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
+    const isMemberPending = (m: any) =>
+        m.isActive !== false && !isMemberFunded(m) && (m.isPending === true || (!m.phone && !m.phoneNumber));
+    const activeMembersCount = members.filter((member) => member.isActive !== false && !isMemberPending(member)).length;
     const maxAllowedWinners = Math.max(1, Math.min(10, Math.max(1, activeMembersCount)));
     const normalizedCustomWinnerCount = Math.max(1, Math.min(maxAllowedWinners, customWinnerCount));
 
@@ -118,59 +126,59 @@ export default function Profile() {
 
     useEffect(() => {
         let unsubscribeMembers = () => { };
+        let unsubscribeLeague = () => { };
         if (activeLeagueId) {
             unsubscribeMembers = listenToLeagueMembers(activeLeagueId);
             
-            // Fetch League Details for everyone so we get fplLeagueId
-            const fetchLeagueAndFpl = async () => {
-                try {
-                    const docRef = doc(db, 'leagues', activeLeagueId);
-                    const docSnap = await getDoc(docRef);
-                    if (!docSnap.exists()) return;
+            const docRef = doc(db, 'leagues', activeLeagueId);
+            unsubscribeLeague = onSnapshot(docRef, async (docSnap) => {
+                if (!docSnap.exists()) return;
 
-                    const data = docSnap.data();
-                    setMonthlyContribution(data.gameweekStake || 1400);
-                    setWeeklyPrizePercent(data.rules?.weekly || 70);
-                    setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
-                    setSeasonWinnersMode(data.rules?.seasonWinnersMode || ((data.rules?.seasonWinnersCount || 3) === 1 ? 'top1' : (data.rules?.seasonWinnersCount || 3) === 5 ? 'top5' : 'top3'));
-                    setCustomWinnerCount(data.rules?.seasonWinnersCount || 3);
-                    if (Array.isArray(data.rules?.seasonDistribution)) {
-                        setCustomWinnerRatios(data.rules.seasonDistribution.map((value: number) => String(value)));
-                    }
-                    setInviteCode(data.inviteCode || 'N/A');
-                    setCoAdminId(data.coAdminId || '');
-                    setChairmanPhone(data.chairmanPhone || '');
-                    if (data.chairmanId) setChairmanId(data.chairmanId);
-
-                    const fplId = data.fplLeagueId;
-                    setFplLeagueId(fplId || '');
-
-                    // If league has an FPL ID, fetch the standings list to let user sync their exact team
-                    if (fplId) {
-                        try {
-                            setIsFetchingFpl(true);
-                            const res = await fetch(`/fpl-api/leagues-classic/${fplId}/standings/`);
-                            if (res.ok) {
-                                const payload = await res.json();
-                                if (payload.standings && payload.standings.results) {
-                                    setFplStandings(payload.standings.results);
-                                }
-                            }
-                        } catch (err) {
-                            console.error('Failed to sync FPL Teams:', err);
-                        } finally {
-                            setIsFetchingFpl(false);
-                        }
-                    }
-                } catch (err) {
-                    console.warn('[profile] league settings sync failed:', err);
+                const data = docSnap.data();
+                setLeagueName(data.name || data.leagueName || '');
+                setMonthlyContribution(data.gameweekStake || 1400);
+                setWeeklyPrizePercent(data.rules?.weekly || 70);
+                setSeasonWinnersCount(data.rules?.seasonWinnersCount || 3);
+                setSeasonWinnersMode(data.rules?.seasonWinnersMode || ((data.rules?.seasonWinnersCount || 3) === 1 ? 'top1' : (data.rules?.seasonWinnersCount || 3) === 5 ? 'top5' : 'top3'));
+                setCustomWinnerCount(data.rules?.seasonWinnersCount || 3);
+                if (Array.isArray(data.rules?.seasonDistribution)) {
+                    setCustomWinnerRatios(data.rules.seasonDistribution.map((value: number) => String(value)));
                 }
-            };
-            fetchLeagueAndFpl();
+                setInviteCode(data.inviteCode || 'N/A');
+                setCoAdminId(data.coAdminId || '');
+                setChairmanPhone(data.chairmanPhone || '');
+                if (data.chairmanId) setChairmanId(data.chairmanId);
+
+                const fplId = data.fplLeagueId;
+                setFplLeagueId(fplId || '');
+
+                // If league has an FPL ID, fetch the standings list to let user sync their exact team
+                if (fplId) {
+                    try {
+                        setIsFetchingFpl(true);
+                        const res = await fetch(`/fpl-api/leagues-classic/${fplId}/standings/`);
+                        if (res.ok) {
+                            const payload = await res.json();
+                            if (payload.standings && payload.standings.results) {
+                                setFplStandings(payload.standings.results);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Failed to sync FPL Teams:', err);
+                    } finally {
+                        setIsFetchingFpl(false);
+                    }
+                }
+            }, (err) => {
+                console.warn('[profile] league settings sync failed:', err);
+            });
         }
         return () => {
             try { unsubscribeMembers(); } catch (err) {
                 console.warn('[profile] member listener cleanup failed:', err);
+            }
+            try { unsubscribeLeague(); } catch (err) {
+                console.warn('[profile] league listener cleanup failed:', err);
             }
         };
     }, [activeLeagueId, listenToLeagueMembers, role]);
@@ -327,7 +335,7 @@ export default function Profile() {
 
         try {
             const leagueRef = doc(db, 'leagues', activeLeagueId);
-            await updateDoc(leagueRef, {
+            const updates: any = {
                 gameweekStake: Number(gameweekStake),
                 'rules.weekly': Number(weeklyPrizePercent),
                 'rules.vault': 100 - Number(weeklyPrizePercent),
@@ -337,9 +345,24 @@ export default function Profile() {
                 fplLeagueId: fplLeagueId ? Number(fplLeagueId) : null,
                 coAdminId: coAdminId || null,
                 chairmanPhone: chairmanPhone || null
-            });
+            };
+            if (leagueName.trim()) {
+                updates.name = leagueName.trim();
+                updates.leagueName = leagueName.trim();
+            }
+            await setDoc(leagueRef, updates, { merge: true });
+            
+            // Sync zustand store immediately for responsive header & tabs
+            const currentLeague = useStore.getState().league;
+            if (currentLeague) {
+                useStore.getState().setLeagueSettings({
+                    ...currentLeague,
+                    name: leagueName.trim() || currentLeague.name,
+                });
+            }
+
             localStorage.setItem('chairmanAvatarSeed', avatarSeed);
-            toast.success('League rules updated successfully!');
+            toast.success('League rules & name updated successfully!');
             // Re-lock after save
             setIsFinancialsLocked(true);
         } catch (error) {
@@ -382,22 +405,24 @@ export default function Profile() {
     };
 
     const handleShare = () => {
-        const link = `https://our-app.com/join?code=${inviteCode}`;
-        const text = `Join my Fantasy Chama. Tap the link and enter your M-Pesa number: ${link}`;
+        const origin = window.location.origin;
+        const link = `${origin}/login?code=${inviteCode}`;
+        const text = `🏆 Join our FPL Chama (${leagueName || 'FantasyChama'})! League Code: *${inviteCode}*\nJoin link: ${link}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleCopy = () => {
-        const link = `https://our-app.com/join?code=${inviteCode}`;
-        navigator.clipboard.writeText(link);
-        toast.success('Invite link copied to clipboard!');
-        
+        const origin = window.location.origin;
+        const link = `${origin}/login?code=${inviteCode}`;
+        navigator.clipboard.writeText(inviteCode ? `${inviteCode}` : link);
+        toast.success(`Invite Code ${inviteCode} copied to clipboard!`);
     };
 
     const handleToggleActive = async (memberId: string, currentStatus: boolean) => {
         if (!activeLeagueId) return;
         try {
             await toggleMemberActiveStatus(activeLeagueId, memberId, !currentStatus);
+            haptics.success();
             toast.success(`Member ${currentStatus ? 'deactivated' : 'reactivated'} successfully.`);
         } catch (err) {
             console.error(err);
@@ -405,8 +430,31 @@ export default function Profile() {
         }
     };
 
+    const handleDeleteMember = (memberId: string, memberName: string) => {
+        setMemberToDelete({ id: memberId, name: memberName });
+    };
+
+    const executeDeleteMember = async () => {
+        if (!activeLeagueId || !memberToDelete) return;
+        setIsDeletingMember(true);
+        try {
+            const { doc: docFn, deleteDoc: deleteDocFn } = await import('firebase/firestore');
+            await deleteDocFn(docFn(db, 'leagues', activeLeagueId, 'memberships', memberToDelete.id));
+            toast.success(`Removed ${memberToDelete.name} from league.`);
+            setMemberToDelete(null);
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Failed to delete member: ' + (err?.message || 'Error'));
+        } finally {
+            setIsDeletingMember(false);
+        }
+    };
+
     const renderActiveMembersStrip = (extraClassName = '') => {
-        const pendingMembers = members.filter((m: any) => m.isPending === true);
+        // Funded members are considered active regardless of phone status
+        // Only show as "Pending Onboarding" if they have no phone AND are not funded
+        const pendingMembers = members.filter((m: any) => isMemberPending(m));
+        const directoryMembers = members.filter((m: any) => !isMemberPending(m));
         return (
         <div className={clsx(
             "fc-active-members-card fc-card bg-[#161d24] border border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden",
@@ -444,39 +492,48 @@ export default function Profile() {
             {/* Expandable FPL Sync — Pending Onboarding Drawer */}
             {showPendingOnboarding && pendingMembers.length > 0 && (
                 <div className="mb-5 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 md:p-5 animate-in slide-in-from-top-2 duration-200 shadow-xl">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
                             <p className="text-[11px] font-black text-blue-300 uppercase tracking-widest">
                                 🔗 FPL Sync — Pending Onboarding
                             </p>
                         </div>
-                        <span className="text-[10px] font-bold text-gray-400 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/10">
-                            {pendingMembers.length} to activate
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleShare}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all"
+                            >
+                                <Share2 className="w-3 h-3" /> Share Code ({inviteCode || '------'})
+                            </button>
+                            <span className="text-[10px] font-bold text-gray-400 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/10">
+                                {pendingMembers.length} to activate
+                            </span>
+                        </div>
                     </div>
-                    <p className="text-xs text-gray-300 mb-4">
-                        Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger.
+                    <p className="text-xs text-slate-700 dark:text-slate-200 mb-4 font-medium leading-relaxed">
+                        Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger. Or share the code so members can join directly.
                     </p>
                     <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
                         {pendingMembers.map((m: any) => (
-                            <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#0b1014]/90 border border-white/10 hover:border-blue-500/40 transition-all">
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-9 h-9 rounded-full bg-[#161d24] border border-white/15 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                            <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-[#0b1014]/90 border border-white/10 hover:border-blue-500/40 transition-all">
+                                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                                    <div className="w-10 h-10 rounded-full bg-[#161d24] border border-white/15 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
                                         <img
                                             src={`https://api.dicebear.com/7.x/notionists/svg?seed=${m.avatarSeed || m.displayName}&backgroundColor=transparent`}
                                             alt={m.displayName}
                                             className="w-full h-full object-cover"
                                         />
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="text-xs md:text-sm font-bold text-white truncate">{m.displayName}</p>
-                                        <p className="text-[10px] text-blue-400 font-semibold truncate">
-                                            {m.fplTeamName || 'FPL Team'} <span className="text-gray-500">· Pending Phone</span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-black text-white break-words leading-tight">{m.displayName}</p>
+                                        <p className="text-[11px] text-blue-300 font-semibold break-words mt-0.5">
+                                            {m.fplTeamName || 'FPL Team'} <span className="text-slate-400">· Pending Phone</span>
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                                     <input
                                         type="tel"
                                         value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
@@ -501,6 +558,7 @@ export default function Profile() {
                                                     isPending: false,
                                                     isActive: true,
                                                 });
+                                                haptics.success();
                                                 toast.success(`${m.displayName} activated!`);
                                             } catch (_e) {
                                                 toast.error('Failed to save. Try again.');
@@ -524,8 +582,8 @@ export default function Profile() {
                 </div>
             )}
 
-            <div className="grid grid-rows-2 grid-flow-col gap-3 overflow-x-auto pb-2 custom-scrollbar auto-cols-max">
-                {[...members]
+            <div className="grid grid-rows-3 grid-flow-col gap-3 overflow-x-auto pb-2 custom-scrollbar auto-cols-max">
+                {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
                         const bInactive = b.isActive === false ? 1 : 0;
@@ -575,13 +633,22 @@ export default function Profile() {
                                 </div>
                             </div>
                             {isAdminView && memberId !== activeUserId && (
-                                <button
-                                    onClick={() => handleToggleActive(memberId, isActive)}
-                                    className="absolute -top-1 -right-1 bg-[#161d24] border border-white/10 rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white/10"
-                                    title={isActive ? "Deactivate User" : "Reactivate User"}
-                                >
-                                    {isActive ? <UserMinus className="w-3 h-3 text-red-400" /> : <UserPlus className="w-3 h-3 text-[#10B981]" />}
-                                </button>
+                                <div className="absolute -top-1 -right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <button
+                                        onClick={() => handleToggleActive(memberId, isActive)}
+                                        className="bg-[#161d24] border border-white/10 rounded-full p-1 shadow-md hover:bg-white/10"
+                                        title={isActive ? "Deactivate User" : "Reactivate User"}
+                                    >
+                                        {isActive ? <UserMinus className="w-2.5 h-2.5 text-amber-400" /> : <UserPlus className="w-2.5 h-2.5 text-[#10B981]" />}
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteMember(memberId, member.displayName)}
+                                        className="bg-[#161d24] border border-white/10 rounded-full p-1 shadow-md hover:bg-red-500/20 hover:border-red-500/40"
+                                        title="Permanently remove user from league"
+                                    >
+                                        <Trash2 className="w-2.5 h-2.5 text-red-400" />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     );
@@ -598,22 +665,12 @@ export default function Profile() {
                 <div className="absolute bottom-0 right-[4%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
             </div>
             <div className="max-w-6xl mx-auto space-y-10">
-                <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity, League Controls & Payout Configuration" />
-
-                <section className="fc-card rounded-3xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6">
-                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24]">Profile & Settings</p>
-                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-3 mt-2">
-                        <User className="w-7 h-7 text-[#FBBF24]" /> Member Identity and League Controls
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 max-w-3xl">
-                        A transparent control surface for personal profile details, governance access, and payout configuration history across your league.
-                    </p>
-                </section>
+                <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity, League Controls & Payout Configuration" hideCountdown={true} />
 
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
                     <div className={clsx(
                         "flex flex-col gap-4",
-                        isAdminView ? 'xl:col-span-5' : 'xl:col-span-6'
+                        isAdminView ? 'xl:col-span-7' : 'xl:col-span-12'
                     )}>
                     {/* Member View (Personal Settings) */}
                     <div className={clsx(
@@ -767,31 +824,31 @@ export default function Profile() {
 
                     {/* Admin View (League Command & Invite Hub) */}
                     {isAdminView && (
-                        <div className="fc-card xl:col-span-7 bg-[#161d24] border border-[#FBBF24]/20 p-5 rounded-[2rem] relative overflow-hidden flex flex-col">
+                        <div className="fc-card xl:col-span-5 bg-[#161d24] border border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
 
-                            <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
-                                <Trophy className="w-5 h-5 text-[#FBBF24]" /> League Settings
+                            <h2 className="fc-frosty-title text-xl font-black flex items-center gap-2 mb-2">
+                                <Trophy className="w-5 h-5 text-amber-400" /> League Governance
                             </h2>
-                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mb-6 max-w-2xl">
-                                Configure the financial engine, co-chair permissions, and invite access with changes tracked in your operations history.
+                            <p className="text-xs text-slate-400 dark:text-gray-400 mb-5 max-w-2xl font-medium">
+                                Configure the financial engine, league branding, co-chair permissions, and invite access.
                             </p>
 
                             {/* Invite Hub Section */}
                             <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Share Invite</h3>
-                                    <span className="px-2 py-1 bg-[#10B981]/10 text-[#10B981] text-[9px] uppercase font-bold tracking-widest rounded border border-[#10B981]/20">Active</span>
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Share Invite Code</h3>
+                                    <span className="px-2 py-0.5 bg-[#10B981]/10 text-[#10B981] text-[9px] uppercase font-bold tracking-widest rounded border border-[#10B981]/20">Active</span>
                                 </div>
-                                <div className="text-center mb-4">
-                                    <span className="text-4xl font-black text-[#FBBF24] tracking-widest block mb-1">{inviteCode || '------'}</span>
-                                    <p className="text-xs text-gray-500 font-medium tracking-wide">Unique access code for your league.</p>
+                                <div className="text-center mb-3">
+                                    <span className="text-4xl font-black text-amber-400 tracking-widest block mb-1">{inviteCode || '------'}</span>
+                                    <p className="text-xs text-gray-400 font-medium">Share this code with players to join with their M-Pesa number.</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-[#161d24] hover:bg-white/5 text-white font-bold py-3.5 rounded-xl border border-white/5 transition-colors text-sm shadow-md">
-                                        <Copy className="w-4 h-4 text-gray-600 dark:text-gray-400" /> Copy
+                                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-[#161d24] hover:bg-white/5 text-white font-bold py-3 rounded-xl border border-white/10 transition-colors text-sm shadow-md">
+                                        <Copy className="w-4 h-4 text-gray-400" /> Copy
                                     </button>
-                                    <button onClick={handleShare} className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.3)] transition-colors text-sm">
+                                    <button onClick={handleShare} className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.3)] transition-colors text-sm">
                                         <Share2 className="w-4 h-4" /> Share
                                     </button>
                                 </div>
@@ -800,8 +857,26 @@ export default function Profile() {
                             {/* Rule Modification Form */}
                             <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
                                 <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                            League Name
+                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        disabled={isFinancialsLocked}
+                                        value={leagueName}
+                                        onChange={(e) => setLeagueName(e.target.value)}
+                                        placeholder="e.g. Premier League 24/25"
+                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1">Clean sweep old season names like "Twende sana" to your current active league.</p>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between items-center mb-1.5">
+                                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                                             Gameweek Stake (KES)
                                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                                         </label>
@@ -1032,32 +1107,151 @@ export default function Profile() {
                     )}
                     
                     {isAdminView && (
-                        <div className="fc-card xl:col-span-12 bg-[#161d24] border border-[#22c55e]/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col mt-4">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#22c55e] blur-[100px] opacity-5 transform translate-x-10 -translate-y-10"></div>
+                        <div className="fc-card xl:col-span-12 bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col mt-2 shadow-2xl">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 blur-[90px] pointer-events-none"></div>
                             
-                            <h2 className="text-sm font-black flex items-center gap-2 mb-6 uppercase tracking-widest text-[#22c55e]">
-                                <Activity className="w-5 h-5" /> System Diagnostics
-                            </h2>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Auth Node</p>
-                                    <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1.5 rounded-lg border border-white/5 w-fit">{auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Chairman Key</p>
-                                    <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1.5 rounded-lg border border-white/5 w-fit">{chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Co-Admin Key</p>
-                                    <p className="text-xs font-mono text-gray-300 bg-black/30 px-2 py-1.5 rounded-lg border border-white/5 w-fit">{coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Perms Flag</p>
-                                    <div className="flex gap-2 text-[10px] items-center h-full">
-                                        <span className={chairmanId && auth.currentUser?.uid === chairmanId ? "text-[#22c55e] font-bold" : "text-gray-600"}>Chair</span>
-                                        <span className="text-gray-700">•</span>
-                                        <span className={coAdminId && auth.currentUser?.uid === coAdminId ? "text-[#22c55e] font-bold" : "text-gray-600"}>Co-Admin</span>
+                            <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+                                        <Activity className="w-4 h-4 text-emerald-400" />
                                     </div>
+                                    <div>
+                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
+                                            System Diagnostics & Governance Keys
+                                        </h2>
+                                        <p className="text-[10px] text-gray-500 font-medium">Cryptographic credentials & active role telemetry</p>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Node Online
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                                {/* Auth Node */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-cyan-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" /> Auth Node
+                                        </span>
+                                        <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">Session</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                            {auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}
+                                        </span>
+                                        {auth.currentUser?.uid && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(auth.currentUser?.uid || '');
+                                                    toast.success('Auth Node ID copied!');
+                                                }}
+                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                title="Copy Auth Node ID"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Your active authenticated Firebase UID</p>
+                                </div>
+
+                                {/* Chairman Key */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Chairman Key
+                                        </span>
+                                        <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Primary</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                            {chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}
+                                        </span>
+                                        {chairmanId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(chairmanId || '');
+                                                    toast.success('Chairman Key copied!');
+                                                }}
+                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                title="Copy Chairman Key"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Master signature authority for payouts</p>
+                                </div>
+
+                                {/* Co-Admin Key */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Co-Admin Key
+                                        </span>
+                                        <span className={clsx(
+                                            "text-[9px] font-bold px-1.5 py-0.5 rounded border",
+                                            coAdminId ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-gray-500 bg-white/5 border-white/10"
+                                        )}>
+                                            {coAdminId ? "Dual-Sign" : "Unset"}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                            {coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}
+                                        </span>
+                                        {coAdminId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(coAdminId || '');
+                                                    toast.success('Co-Admin Key copied!');
+                                                }}
+                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                title="Copy Co-Admin Key"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Secondary audit and settlement approval key</p>
+                                </div>
+
+                                {/* Perms Flag */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <Key className="w-3.5 h-3.5 text-emerald-400" /> Perms Flag
+                                        </span>
+                                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Verified</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <div className="flex items-center gap-2 text-xs font-black">
+                                            <span className={clsx(
+                                                "px-2 py-0.5 rounded-lg border text-[11px]",
+                                                chairmanId && auth.currentUser?.uid === chairmanId
+                                                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                                    : "text-gray-500 border-transparent"
+                                            )}>
+                                                Chair
+                                            </span>
+                                            <span className="text-gray-600 font-normal">•</span>
+                                            <span className={clsx(
+                                                "px-2 py-0.5 rounded-lg border text-[11px]",
+                                                coAdminId && auth.currentUser?.uid === coAdminId
+                                                    ? "bg-blue-500/15 border-blue-500/30 text-blue-300"
+                                                    : "text-gray-500 border-transparent"
+                                            )}>
+                                                Co-Admin
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Dual-governance permission status for this session</p>
                                 </div>
                             </div>
                         </div>
@@ -1102,6 +1296,18 @@ export default function Profile() {
                 )
             }
 
+            {/* Custom Confirm Modal for Destructive Actions (No browser localhost alert) */}
+            <ConfirmModal
+                isOpen={Boolean(memberToDelete)}
+                onClose={() => setMemberToDelete(null)}
+                onConfirm={executeDeleteMember}
+                title="Remove Member from League"
+                message={`Permanently remove ${memberToDelete?.name || 'this member'} from this league? This will remove them from the roster.`}
+                confirmText="Remove Member"
+                cancelText="Cancel"
+                variant="danger"
+                isLoading={isDeletingMember}
+            />
 
         </div >
     );
