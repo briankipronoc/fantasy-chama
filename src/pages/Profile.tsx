@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Activity,  ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2  } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
@@ -40,6 +40,8 @@ export default function Profile() {
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
+    const [pendingPhoneMap, setPendingPhoneMap] = useState<Record<string, string>>({});
+    const [isSavingPendingPhone, setIsSavingPendingPhone] = useState<string | null>(null);
 
     const activeMembersCount = members.filter((member) => member.isActive !== false).length;
     const maxAllowedWinners = Math.max(1, Math.min(10, Math.max(1, activeMembersCount)));
@@ -171,6 +173,58 @@ export default function Profile() {
             }
         };
     }, [activeLeagueId, listenToLeagueMembers, role]);
+
+    // Listen to fplLeagueId changes to auto-sync FPL members
+    useEffect(() => {
+        if (!fplLeagueId || !activeLeagueId || role !== 'admin') return;
+        const delayDebounceFn = setTimeout(async () => {
+            try {
+                setIsFetchingFpl(true);
+                const res = await fetch(`/fpl-api/leagues-classic/${fplLeagueId}/standings/`);
+                if (res.ok) {
+                    const payload = await res.json();
+                    if (payload.standings && payload.standings.results) {
+                        const results = payload.standings.results;
+                        setFplStandings(results);
+
+                        let mergedCount = 0;
+                        for (const result of results) {
+                            const fplTeamId = String(result.entry);
+                            const existingMember = members.find((m: any) => 
+                                String(m.fplTeamId) === fplTeamId || 
+                                String(m.secondFplTeamId) === fplTeamId
+                            );
+                            
+                            if (!existingMember) {
+                                const newMemberRef = doc(collection(db, 'leagues', activeLeagueId, 'memberships'));
+                                await setDoc(newMemberRef, {
+                                    displayName: result.player_name,
+                                    fplTeamName: result.entry_name,
+                                    fplTeamId: fplTeamId,
+                                    isPending: true,
+                                    hasPaid: false,
+                                    walletBalance: 0,
+                                    paymentStreak: 0,
+                                    role: 'member',
+                                    joinedAt: new Date().toISOString(),
+                                });
+                                mergedCount++;
+                            }
+                        }
+                        if (mergedCount > 0) {
+                            toast.success(`Imported ${mergedCount} new members from FPL!`);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to auto-sync FPL Teams:', err);
+            } finally {
+                setIsFetchingFpl(false);
+            }
+        }, 1500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [fplLeagueId, activeLeagueId, role, members]);
 
     // Grab email from Firebase Auth
     useEffect(() => {
@@ -464,11 +518,20 @@ export default function Profile() {
                             ? 'bg-red-950/40 border-red-500/40 shadow-[0_0_40px_rgba(239,68,68,0.08)]'
                             : 'bg-[#161d24] border-white/5'
                     )}>
-                        {/* Red Zone banner */}
+                        {/* Phone missing banner - self-registration prompt */}
                         {!hasPaid && !isAdminView && (
                             <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-5 text-red-400 text-xs font-bold uppercase tracking-widest">
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                                 Red Zone — Contribution Outstanding
+                            </div>
+                        )}
+                        {!phoneNumber && !isAdminView && (
+                            <div className="flex items-start gap-3 bg-[#FBBF24]/8 border border-[#FBBF24]/25 rounded-xl p-3.5 mb-4">
+                                <AlertTriangle className="w-4 h-4 text-[#FBBF24] flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-[#FBBF24] font-bold text-xs mb-0.5">Phone number required</p>
+                                    <p className="text-gray-400 text-[10px] leading-relaxed">Add your M-Pesa number below so the chairman can verify your payments and send you payouts.</p>
+                                </div>
                             </div>
                         )}
                         <div className="flex items-start justify-between gap-4 mb-4">
@@ -519,13 +582,19 @@ export default function Profile() {
                                         M-Pesa Phone Number
                                     </label>
                                     <input
-                                        type="text"
+                                        type="tel"
                                         value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium placeholder:text-gray-600"
-                                        placeholder="e.g. 254700..."
+                                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                        className="fc-input"
+                                        placeholder="e.g. 0712345678"
                                     />
-                                    <p className="text-[10px] text-[#10B981] font-medium mt-1.5 leading-relaxed">Essential for automated STK pushes and payouts.</p>
+                                    {!phoneNumber ? (
+                                        <p className="text-[10px] text-[#FBBF24] font-bold mt-1.5 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]"></span> Required for payments and payouts
+                                        </p>
+                                    ) : (
+                                        <p className="text-[10px] text-[#10B981] font-medium mt-1.5">Used for Pochi payments and M-Pesa payouts.</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -679,6 +748,55 @@ export default function Profile() {
                                     />
                                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
                                 </div>
+
+                                {/* Pending Members Onboarding Panel */}
+                                {(() => {
+                                    const pendingMembers = members.filter((m: any) => m.isPending === true);
+                                    if (!pendingMembers.length) return null;
+                                    return (
+                                        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+                                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">🔗 FPL Sync — Pending Onboarding</p>
+                                            <p className="text-xs text-gray-500 mb-4">{pendingMembers.length} player{pendingMembers.length !== 1 ? 's' : ''} imported from FPL. Add their phone numbers to complete their profiles and activate them.</p>
+                                            <div className="space-y-3">
+                                                {pendingMembers.map((m: any) => (
+                                                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-bold text-white truncate">{m.displayName}</p>
+                                                            <p className="text-[10px] text-blue-400 font-bold">{m.fplTeamName || 'FPL team'} · <span className="text-gray-500">No phone yet</span></p>
+                                                        </div>
+                                                        <input
+                                                            type="tel"
+                                                            value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
+                                                            onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
+                                                            placeholder="07XXXXXXXX"
+                                                            className="w-32 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-xs text-white font-mono focus:ring-1 focus:ring-blue-400 outline-none"
+                                                        />
+                                                        <button
+                                                            onClick={async () => {
+                                                                const phone = pendingPhoneMap[m.id];
+                                                                if (!phone || phone.length < 9) return;
+                                                                setIsSavingPendingPhone(m.id);
+                                                                try {
+                                                                    const { doc: docFn, updateDoc: updateDocFn } = await import('firebase/firestore');
+                                                                    await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
+                                                                        phoneNumber: phone,
+                                                                        isPending: false,
+                                                                    });
+                                                                } catch (_e) { /* ignore */ } finally {
+                                                                    setIsSavingPendingPhone(null);
+                                                                }
+                                                            }}
+                                                            disabled={isSavingPendingPhone === m.id || !(pendingPhoneMap[m.id]?.length >= 9)}
+                                                            className="shrink-0 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black hover:bg-blue-500/20 transition-all disabled:opacity-40"
+                                                        >
+                                                            {isSavingPendingPhone === m.id ? '...' : '✓ Save'}
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 {/* Co-Chair Designation */}
                                 <div>

@@ -54,7 +54,7 @@ export default function AdminSetup() {
     const [estimatedMembers, setEstimatedMembers] = useState(5);
     const [allowMultipleTeams, setAllowMultipleTeams] = useState(false); // dual-team league toggle
     // Step 3: Members
-    const [members, setMembers] = useState<{ displayName: string; phone: string; secondFplTeamId?: number; fplEntryId?: number }[]>([]);
+    const [members, setMembers] = useState<{ displayName: string; phone: string; secondFplTeamId?: number; fplEntryId?: number; fplTeamName?: string }[]>([]);
     const [newMemberName, setNewMemberName] = useState('');
     const [newMemberPhone, setNewMemberPhone] = useState('');
     const [newMemberSecondTeam, setNewMemberSecondTeam] = useState(''); // second FPL team ID input
@@ -308,7 +308,7 @@ export default function AdminSetup() {
         if (!chairmanPayoutPhone && phone) {
             setChairmanPayoutPhone(phone);
         }
-    }, [chairmanPayoutPhone, phone]);
+    }, [phone]); // only depend on phone, avoids blocking manual edits
 
     const handleConfirmLeague = async () => {
         setIsSubmitting(true);
@@ -377,8 +377,10 @@ export default function AdminSetup() {
                     trustScore: 100,
                     avatarSeed: Math.random().toString(36).substring(7),
                     joinedAt: serverTimestamp(),
+                    isActive: true,
                 };
                 if (member.fplEntryId) memberData.fplTeamId = member.fplEntryId;
+                if ((member as any).fplTeamName) memberData.fplTeamName = (member as any).fplTeamName;
                 if (member.secondFplTeamId) memberData.secondFplTeamId = member.secondFplTeamId;
 
                 batch.set(memberRef, memberData);
@@ -456,7 +458,12 @@ export default function AdminSetup() {
         if (fplStandings.length === 0) return;
         const imported = fplStandings
             .filter(e => e.player_name !== fullName) // exclude chairman
-            .map(e => ({ displayName: e.player_name, phone: '', fplEntryId: e.entry }));
+            .map(e => ({
+                displayName: e.player_name,
+                phone: '',
+                fplEntryId: e.entry,
+                fplTeamName: e.entry_name, // store FPL team name
+            }));
         setMembers(imported.slice(0, 19));
     };
 
@@ -498,8 +505,8 @@ export default function AdminSetup() {
                 <h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight text-white">
                     Chairman Sign Up
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 text-xs">
-                    Begin your journey as a League Chairman.
+                <p className="text-gray-400 text-sm">
+                    Create your account to set up your FPL league
                 </p>
             </div>
 
@@ -675,7 +682,7 @@ export default function AdminSetup() {
                             </div>
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                    Numeric FPL League ID (Optional) <Tooltip text="Skip for now if you don't have it. We need your NUMERIC League ID, not the join code. Find it in your FPL Standings URL." />
+                                    FPL League ID <span className="text-gray-600 font-medium normal-case tracking-normal">(Optional — speeds up setup)</span>
                                 </label>
                                 <input type="text" value={fplLeagueId} onChange={e => {
                                     let val = e.target.value.trim();
@@ -711,6 +718,9 @@ export default function AdminSetup() {
                                         setFplFetchStatus('idle');
                                     }
                                 }} className={inputClasses} placeholder="e.g. 123456 or paste your FPL Standings URL" />
+                                <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
+                                    <strong className="text-gray-400">Where to find it:</strong> Open Fantasy Premier League → My Leagues → click your mini-league → copy the number in the URL (e.g. fantasy.premierleague.com/leagues/<strong className="text-amber-400">123456</strong>/standings)
+                                </p>
                                 {fplFetchStatus === 'loading' && (
                                     <p className="text-[10px] text-[#FBBF24] mt-1.5 flex items-center gap-1 font-bold">
                                         <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Fetching league from FPL...
@@ -1044,9 +1054,9 @@ export default function AdminSetup() {
     const renderStep3 = () => (
         <div className={`space-y-6 ${stepAnimClass} w-full`}>
             <div className="text-center mb-4">
-                <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">The Gatekeeper</p>
-                <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Member Enrollment</h2>
-                <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Establish your league's inner circle. Members will be securely invited via code later.</p>
+                <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Step 3 of 4</p>
+                <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Add League Members</h2>
+                <p className="text-gray-400 text-xs md:text-sm">Add each person's name and M-Pesa number. They'll use the invite code from Step 4 to join.</p>
             </div>
 
             <div className="max-w-4xl mx-auto bg-[#0f1923] border border-white/10 rounded-2xl px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1211,7 +1221,8 @@ export default function AdminSetup() {
                                         />
                                         <p className="text-[10px] text-gray-500 tabular-nums mt-0.5">
                                             {m.phone || <span className="text-[#FBBF24]/80 italic">⚠ Phone needed</span>}
-                                            {m.fplEntryId && <span className="ml-2 text-[#10B981]/60">FPL#{m.fplEntryId}</span>}
+                                            {m.fplTeamName && <span className="ml-2 text-[#10B981]/70 truncate max-w-[120px] inline-block align-bottom"> · {m.fplTeamName}</span>}
+                                            {m.fplEntryId && !m.fplTeamName && <span className="ml-2 text-[#10B981]/60">FPL#{m.fplEntryId}</span>}
                                             {m.secondFplTeamId && <span className="ml-1 text-[10px] font-black text-[#10B981] border border-[#10B981]/30 bg-[#10B981]/10 px-1.5 py-0.5 rounded tracking-widest uppercase">Dual</span>}
                                         </p>
                                     </div>
@@ -1493,9 +1504,9 @@ export default function AdminSetup() {
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-400 text-xs md:text-sm font-medium">
-                    <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#FBBF24]" />
-                    <span>Secure Wealth Circle</span>
+                <div className="flex items-center gap-1.5 md:gap-2 text-gray-500 text-xs md:text-sm font-medium">
+                    <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#22c55e]" />
+                    <span>Step {step} of {STEPS - 1}</span>
                 </div>
             </div>
 
@@ -1503,15 +1514,31 @@ export default function AdminSetup() {
                 {step > 1 && step < STEPS && (
                     <div className={clsx("w-full mx-auto relative group mt-8 mb-6 md:mb-8",
                         step === 2 ? "max-w-5xl" : step === 3 ? "max-w-4xl" : "max-w-3xl")}>
-                        <button onClick={prevStep} className="absolute -top-8 left-0 text-gray-500 hover:text-white flex items-center gap-1 transition-colors text-[11px] font-bold uppercase tracking-widest">
-                            <ArrowLeft className="w-4 h-4" /> Go Back
-                        </button>
+                    <button onClick={prevStep} className="absolute -top-8 left-0 text-gray-500 hover:text-white flex items-center gap-1 transition-colors text-[11px] font-bold"
+                        style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+                        <ArrowLeft className="w-4 h-4" /> Back
+                    </button>
 
-                        <div className="flex gap-1.5 w-full">
-                            {[1, 2, 3, 4].map((i) => (
-                                <div key={i} className={clsx("h-1 flex-1 rounded-full transition-all duration-500", i < step ? "bg-[#22c55e]" : i === step ? "bg-[#FBBF24]" : "bg-white/10")} />
-                            ))}
-                        </div>
+                    {/* Labeled step progress indicator */}
+                    <div className="flex gap-2 w-full">
+                        {[
+                            { n: 1, label: 'Your Account' },
+                            { n: 2, label: 'League Rules' },
+                            { n: 3, label: 'Add Members' },
+                            { n: 4, label: 'Invite Code' },
+                        ].map(({ n, label }) => (
+                            <div key={n} className="flex-1 flex flex-col items-center gap-1.5">
+                                <div className={clsx(
+                                    'h-1.5 w-full rounded-full transition-all duration-500',
+                                    n < step ? 'bg-[#22c55e]' : n === step ? 'bg-[#FBBF24]' : 'bg-white/10'
+                                )} />
+                                <span className={clsx(
+                                    'text-[9px] font-bold transition-colors hidden sm:block',
+                                    n < step ? 'text-[#22c55e]' : n === step ? 'text-[#FBBF24]' : 'text-white/20'
+                                )}>{label}</span>
+                            </div>
+                        ))}
+                    </div>
                     </div>
                 )}
 

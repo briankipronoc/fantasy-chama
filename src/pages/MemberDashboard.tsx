@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone, Wallet } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, Shield, Smartphone, Wallet, Swords } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -929,6 +929,21 @@ export default function MemberDashboard() {
                     )}
                 </div>
 
+                {/* Side Bets Quick Access Card */}
+                <div
+                    onClick={() => navigate('/sidebets')}
+                    className="rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-transparent px-4 py-3 flex items-center gap-3 cursor-pointer hover:border-amber-500/40 hover:bg-amber-500/10 transition-all group active:scale-[0.98]"
+                >
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-500/20 transition-colors">
+                        <Swords className="w-4.5 h-4.5 text-amber-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-white leading-tight">Side Bets</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">Challenge a league member to a custom wager</p>
+                    </div>
+                    <span className="text-amber-400 text-xs font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">→</span>
+                </div>
+
                 {showLeagueGuide && (
                     <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300">
                         <div className="flex items-center justify-between gap-3 mb-2">
@@ -1033,7 +1048,7 @@ export default function MemberDashboard() {
                             const isMeLeader = myEntry && myEntry.entry === gwWinner.entry;
 
                             return (
-                                <div className="flex items-center gap-3 overflow-x-auto pb-1 custom-scrollbar">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                                     <div className={clsx(
                                         "fc-gw-live-leader rounded-2xl border px-4 py-3 text-center flex-shrink-0",
                                         isMeLeader ? "border-[#FBBF24]/50 bg-[#FBBF24]/10 shadow-[0_0_20px_rgba(251,191,36,0.15)]" : "border-white/10 bg-black/20"

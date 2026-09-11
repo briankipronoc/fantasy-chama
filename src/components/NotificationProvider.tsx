@@ -55,16 +55,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         return isLight
             ? {
-                background: 'rgba(255,255,255,0.96)',
-                color: '#065f46',
-                border: '1px solid rgba(4,120,87,0.18)',
-                boxShadow: '0 18px 44px rgba(15,23,42,0.16)'
+                background: '#ffffff',
+                color: '#1e293b',
+                border: '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
             }
             : {
-                background: 'rgba(11,16,20,0.92)',
-                color: '#d1fae5',
-                border: '1px solid rgba(16,185,129,0.22)',
-                boxShadow: '0 22px 60px rgba(0,0,0,0.36)'
+                background: '#161d24',
+                color: '#f8fafc',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.4)'
             };
     };
 
@@ -123,15 +123,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         background: palette.background,
                         color: palette.color,
                         border: palette.border,
-                        borderRadius: '14px',
-                        fontWeight: 700,
+                        borderRadius: '12px',
+                        fontWeight: 600,
                         fontSize: '13px',
-                        padding: '14px 18px',
+                        padding: '12px 16px',
                         boxShadow: palette.boxShadow,
-                        backdropFilter: 'blur(18px) saturate(125%)',
-                        WebkitBackdropFilter: 'blur(18px) saturate(125%)',
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
                         maxWidth: '24rem',
                     },
+                    iconTheme: {
+                        primary: '#10B981',
+                        secondary: '#ffffff',
+                    }
                 });
 
                 // OS push (best-effort)

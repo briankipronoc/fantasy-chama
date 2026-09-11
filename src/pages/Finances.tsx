@@ -444,7 +444,7 @@ const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<str
         const inflowThisGw = gwScopedTx
             .filter((tx) => {
                 const txType = String(tx.type || '');
-                return txType === 'deposit' || txType === 'wallet_funding' || txType === 'wallet_prefund' || txType === 'ledger_adjustment' && Number(tx.amount || 0) > 0;
+                return txType === 'deposit' || txType === 'wallet_funding' || txType === 'wallet_prefund' || (txType === 'ledger_adjustment' && Number(tx.amount || 0) > 0);
             })
             .reduce((sum, tx) => sum + Number(tx.amount > 0 ? tx.amount : 0), 0);
         const outflowThisGw = gwScopedTx

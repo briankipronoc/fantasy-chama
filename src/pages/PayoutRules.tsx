@@ -1,24 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, TrendingUp, Wallet, CheckCircle2, ChevronRight, Lock, FileText } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import DocLayout from '../layouts/DocLayout';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export default function PayoutRules() {
     const [activePage, setActivePage] = useState<1 | 2>(1);
     const league = useStore((state) => state.league);
     const members = useStore((state) => state.members);
-    const monthlyFee = league?.monthlyFee || 1400; // default 1400 if league not initialized yet
-    const activeMembersCount = members.filter((member) => member.isActive !== false).length;
+    const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const [startGw, setStartGw] = useState<number>(1);
+    const [currentGwNumber, setCurrentGwNumber] = useState<number>(38);
+
+    // Fetch startGw and current GW for accurate projections
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        getDoc(doc(db, 'leagues', activeLeagueId)).then(snap => {
+            if (snap.exists()) {
+                const data = snap.data();
+                setStartGw(Number(data.startGw || 1));
+                setCurrentGwNumber(Number(data.currentGwNumber || data.currentGw || 38));
+            }
+        }).catch(() => {});
+    }, [activeLeagueId]);
+
+    // Use actual gameweekStake, fall back to monthlyFee for legacy leagues
+    const gameweekStake = (league as any)?.gameweekStake || league?.monthlyFee || 1400;
+    const activeMembersCount = members.filter((member) => member.isActive !== false).length || 1;
     const configuredWinnersCount = Number((league as any)?.rules?.seasonWinnersCount || (league as any)?.seasonWinnersCount || 3);
     const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
 
-    // Pot distributions based on PRD: 70/30 split logic
-    const weeklyPrize = Math.round(monthlyFee * 0.7);
-    const grandVaultCont = Math.round(monthlyFee * 0.3);
+    // Pot distributions: actual stake split by configured rules
+    const weeklyPct = Number((league as any)?.rules?.weekly || 70);
+    const vaultPct = Number((league as any)?.rules?.vault || 30);
+    const weeklyPrize = Math.round(gameweekStake * weeklyPct / 100);
+    const grandVaultCont = Math.round(gameweekStake * vaultPct / 100);
 
-    // Assume a 20 member league max limit for the example scaling
-    const seasonVaultProj = grandVaultCont * 20 * 38; // KES contribution * 20 max members * 38 weeks
+    // Season vault projection: actual members × actual GWs in the season
+    const totalSeasonGws = Math.max(1, currentGwNumber - startGw + 1);
+    const seasonVaultProj = grandVaultCont * activeMembersCount * totalSeasonGws;
 
     const getVaultPercentages = (winnerCount: number) => {
         if (winnerCount === 1) return [100];
@@ -95,14 +117,14 @@ export default function PayoutRules() {
                         </div>
 
                         <p className="text-slate-400 mb-8 leading-relaxed">
-                            Every <strong className="text-white">KES {monthlyFee.toLocaleString()}</strong> monthly contribution is automatically routed via Smart Contract into two primary liquidity pools:
+                            Every <strong className="text-white">KES {Number(gameweekStake || 0).toLocaleString()}</strong> gameweek contribution is automatically routed into two primary liquidity pools:
                         </p>
 
                         <div className="space-y-6">
                             <div className="group relative bg-[#11171a] border border-chama-success/20 hover:border-chama-success/50 transition-all rounded-2xl p-5 flex items-center justify-between overflow-hidden">
                                 <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-chama-success to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
                                 <div>
-                                    <p className="text-[10px] text-chama-success font-bold uppercase tracking-widest mb-1">70% Allocation</p>
+                                    <p className="text-[10px] text-chama-success font-bold uppercase tracking-widest mb-1">{weeklyPct}% Allocation</p>
                                     <h3 className="text-lg font-bold">Weekly Performance Prize</h3>
                                 </div>
                                 <div className="text-right">
@@ -114,7 +136,7 @@ export default function PayoutRules() {
                             <div className="group relative bg-[#11171a] border border-chama-gold/20 hover:border-chama-gold/50 transition-all rounded-2xl p-5 flex items-center justify-between overflow-hidden">
                                 <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-chama-gold to-transparent opacity-50 group-hover:opacity-100 transition-opacity"></div>
                                 <div>
-                                    <p className="text-[10px] text-chama-gold font-bold uppercase tracking-widest mb-1">30% Allocation</p>
+                                    <p className="text-[10px] text-chama-gold font-bold uppercase tracking-widest mb-1">{vaultPct}% Allocation</p>
                                     <h3 className="text-lg font-bold">Season End Grand Vault</h3>
                                 </div>
                                 <div className="text-right">
@@ -152,7 +174,7 @@ export default function PayoutRules() {
                         </div>
 
                         <p className="text-slate-400 mb-8 leading-relaxed max-w-sm">
-                            At Gameweek 38, the accumulated Grand Vault is distributed among the league's configured season winners. The ladder automatically stops at the number of active members available.
+                            At Gameweek 38, the accumulated Grand Vault is distributed among the league's top finishers. This projection covers GW{startGw}–GW38 across {activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'}. The ladder automatically stops at the number of active members available.
                         </p>
 
                         <div className="mb-6 rounded-2xl border border-white/5 bg-black/20 px-4 py-3 flex items-start gap-3">

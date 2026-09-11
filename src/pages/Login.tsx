@@ -149,19 +149,22 @@ export default function Login() {
 
             const memberData = memberSnapshot.docs[0].data();
 
-            // Save leagueId to local storage or context so the app knows which dashboard to load
+            // Save session to localStorage
             localStorage.setItem('activeLeagueId', leagueId);
             localStorage.setItem('memberPhone', phone);
             localStorage.setItem('activeUserId', memberDocRef.id);
+
+            // Clear sensitive login inputs from localStorage after success
+            localStorage.removeItem('fc-login-code');
+            localStorage.removeItem('fc-login-phone');
             
-            // strictly set role to member. If it's the Chairman logging in here, 
-            // they do it to experience the clean Member View.
+            // strictly set role to member
             setRole('member');
             navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
 
         } catch (err) {
             console.error(err);
-            setError("Something went wrong connecting to the vault.");
+            setError("Something went wrong connecting to the vault. Check your internet connection.");
         } finally {
             setIsLoading(false);
         }
@@ -268,9 +271,9 @@ export default function Login() {
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 md:gap-2 text-gray-600 dark:text-gray-400 text-xs md:text-sm font-medium">
-                    <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#FBBF24]" />
-                    <span>Secure Wealth Circle</span>
+                <div className="flex items-center gap-1.5 md:gap-2 text-gray-500 text-xs md:text-sm font-medium">
+                    <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#22c55e]" />
+                    <span>{isAdminView ? 'Chairman Login' : 'Member Login'}</span>
                 </div>
             </div>
 
@@ -280,10 +283,10 @@ export default function Login() {
 
                 <div className="text-center mb-8 relative z-10">
                     <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">
-                        {isAdminView ? "Chairman's Portal" : "Enter the League"}
+                        {isAdminView ? "Chairman Sign In" : "Join Your League"}
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">
-                        {isAdminView ? "Manage the league economy & master ledger" : "Exclusive access for high-stakes wealth management"}
+                    <p className="text-gray-400 text-xs md:text-sm">
+                        {isAdminView ? "Sign in to manage your league, members and payouts" : "Enter the invite code your chairman shared with you"}
                     </p>
                 </div>
 
@@ -319,7 +322,8 @@ export default function Login() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-4 uppercase tracking-wider text-center">League Invite Code</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Your 6-Character Invite Code</label>
+                            <p className="text-[10px] text-gray-500 mb-3">Your chairman sent this via WhatsApp. It looks like: <span className="text-amber-400 font-mono font-bold">ABC123</span></p>
                             <div className="flex justify-between gap-1.5 md:gap-2">
                                 {code.map((digit, index) => (
                                     <input
@@ -337,8 +341,7 @@ export default function Login() {
                                     />
                                 ))}
                             </div>
-                            <p className="text-center text-gray-600 text-[9px] mt-2">Tip: paste a copied code to auto-fill all boxes instantly</p>
-                            <p className="text-center text-[#FBBF24] text-[9px] md:text-[10px] font-bold mt-4 uppercase tracking-widest">Required for Entry</p>
+                            <p className="text-center text-gray-600 text-[9px] mt-2">You can paste the code directly — all 6 boxes fill automatically</p>
                         </div>
 
                         <button
@@ -346,7 +349,11 @@ export default function Login() {
                             disabled={isLoading || !phone || code.join('').length !== 6}
                             className="w-full bg-[#22C55E] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isLoading ? "AUTHENTICATING..." : <>{'JOIN LEAGUE'} <ArrowRight className="w-5 h-5 md:w-6 md:h-6" /></>}
+                            {isLoading ? (
+                                <><span className="w-5 h-5 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Opening your dashboard...</>
+                            ) : (
+                                <>Enter League <ArrowRight className="w-5 h-5 md:w-6 md:h-6" /></>
+                            )}
                         </button>
                     </form>
                 ) : (
@@ -406,9 +413,13 @@ export default function Login() {
                                         }
                                         setIsResettingPassword(true);
                                         try {
-                                            await sendPasswordResetEmail(auth, email);
+                                            const actionCodeSettings = {
+                                                url: `${window.location.origin}/login`,
+                                                handleCodeInApp: false,
+                                            };
+                                            await sendPasswordResetEmail(auth, email, actionCodeSettings);
                                             setError('');
-                                            setInfoMessage(`A secure password reset link has been sent to ${email}. Check your inbox and spam folder.`);
+                                            setInfoMessage(`A secure password reset link has been sent to ${email}. Check your inbox and spam folder. The link expires in 1 hour.`);
                                         } catch (err: any) {
                                             setError(err.message || 'Failed to dispatch reset link.');
                                         } finally {

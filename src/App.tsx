@@ -26,6 +26,7 @@ const SuperAdminDashboard = lazy(() => import('./pages/SuperAdminDashboard'));
 const WinSharePage = lazy(() => import('./pages/WinSharePage'));
 const Error808 = lazy(() => import('./pages/Error808'));
 const Docs = lazy(() => import('./pages/Docs'));
+const SideBets = lazy(() => import('./pages/SideBets'));
 
 
 const RouteLoader = () => (
@@ -110,6 +111,7 @@ function App() {
               <Route path="/standings" element={<Standings />} />
               <Route path="/deposit" element={<Deposit />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/sidebets" element={<SideBets />} />
               <Route path="/docs" element={<Docs />} />
             </Route>
           </Routes>

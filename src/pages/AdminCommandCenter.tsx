@@ -17,6 +17,8 @@ import {
   ShieldCheck,
   Download,
   ShieldAlert,
+  AlertCircle,
+  Swords,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import { db, auth } from "../firebase";
@@ -58,6 +60,9 @@ export default function AdminCommandCenter() {
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState("");
   const [showResolveModal, setShowResolveModal] = useState(false);
+  const [manualResolvePromise, setManualResolvePromise] = useState<{resolve: (value: {gw: number, winner: string} | null) => void, currentGw: number | null} | null>(null);
+  const [manualGwInput, setManualGwInput] = useState("");
+  const [manualWinnerInput, setManualWinnerInput] = useState("");
   const [isResolving, setIsResolving] = useState(false);
   const [resolutionPulse, setResolutionPulse] = useState(false);
   const [actionTimeline, setActionTimeline] = useState({
@@ -75,13 +80,16 @@ export default function AdminCommandCenter() {
     null,
   );
   const [whatsappReceipt, setWhatsappReceipt] = useState<string | null>(null);
+  const [liveOpsEvents, setLiveOpsEvents] = useState<any[]>([]);
+  const [showOpsModal, setShowOpsModal] = useState(false);
+  const [resolveTargetGw, setResolveTargetGw] = useState<number | null>(null);
   // const [recentGovernanceEvents, setRecentGovernanceEvents] = useState<any[]>([]);
 
   // Module 3B: Dispute/Claim alerts
   const [pendingDisputes, setPendingDisputes] = useState<any[]>([]);
-  const [processingDispute, setProcessingDispute] = useState<string | null>(
-    null,
-  );
+  const [processingDispute, setProcessingDispute] = useState<string | null>(null);
+  const [pendingPochiRequests, setPendingPochiRequests] = useState<any[]>([]);
+  const [processingPochi, setProcessingPochi] = useState<string | null>(null);
   const [hqReceiptCode, setHqReceiptCode] = useState("");
   const [hqPaymentAmount, setHqPaymentAmount] = useState(0);
   const [isSubmittingHqSettlement, setIsSubmittingHqSettlement] =
@@ -502,7 +510,13 @@ export default function AdminCommandCenter() {
               const events = bootstrapData?.events || [];
               const current = events.find((e: any) => e.is_current) || events.find((e: any) => e.is_next);
               setIsCurrentEventFinished(current?.finished === true);
-              setCurrentGwNumber(Number(current?.id || 0) || null);
+              const fetchedGwId = Number(current?.id || 0) || null;
+              setCurrentGwNumber(fetchedGwId);
+              // Auto-persist startGw to Firestore if not yet set
+              if (fetchedGwId && !data.startGw && activeLeagueId) {
+                updateDoc(leagueRef, { startGw: fetchedGwId }).catch(() => {});
+                setStartGw(fetchedGwId);
+              }
             }
           } catch (bootstrapErr: any) {
             console.warn(
@@ -568,6 +582,14 @@ export default function AdminCommandCenter() {
   const hasFinalGwChampion = Boolean(
     gwWinner && isCurrentEventFinished && Number(gwWinner.event_total) > 0,
   );
+  // GW is already settled if there's a payout doc for the current GW number
+  const gwAlreadySettled = pendingPayouts.some(
+    (p: any) => Number(p.gw) === Number(currentGwNumber || 0) && currentGwNumber
+  ) || (
+    leagueSettings &&
+    (leagueSettings as any).lastResolvedGw === currentGwNumber &&
+    Boolean(currentGwNumber)
+  );
   const tabCopy = {
     dashboard: {
       eyebrow: "Chairman priorities",
@@ -596,6 +618,30 @@ export default function AdminCommandCenter() {
     const q = query(disputesRef, where("status", "==", "pending"));
     const unsub = onSnapshot(q, (snap) => {
       setPendingDisputes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [activeLeagueId]);
+
+  // Listen to Pochi wallet requests
+  useEffect(() => {
+    if (!activeLeagueId) return;
+    const reqRef = collection(db, "leagues", activeLeagueId, "wallet_requests");
+    const q = query(reqRef, where("status", "==", "pending"), where("type", "==", "pochi_deposit"));
+    const unsub = onSnapshot(q, (snap) => {
+      setPendingPochiRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [activeLeagueId]);
+
+  // Listen to league_events for real-time Operations Feed
+  useEffect(() => {
+    if (!activeLeagueId) return;
+    const eventsRef = collection(db, "leagues", activeLeagueId, "league_events");
+    const q = query(eventsRef, orderBy("timestamp", "desc"), limit(8));
+    const unsub = onSnapshot(q, (snap) => {
+      setLiveOpsEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn("[ops-feed] league_events listener failed:", err?.message || err);
     });
     return () => unsub();
   }, [activeLeagueId]);
@@ -662,6 +708,59 @@ export default function AdminCommandCenter() {
       }
     } finally {
       setProcessingDispute(null);
+    }
+  };
+
+  const handleApprovePochi = async (req: any) => {
+    if (!activeLeagueId) return;
+    setProcessingPochi(req.id);
+    try {
+      // 1. Update member wallet
+      await updateDoc(doc(db, "leagues", activeLeagueId, "memberships", req.memberId), {
+        walletBalance: increment(req.amount),
+        hasPaid: true, // simplified logic for now
+      });
+      // 2. Mark request as approved
+      await updateDoc(doc(db, "leagues", activeLeagueId, "wallet_requests", req.id), {
+        status: "approved"
+      });
+      // 3. Notify member
+      await addDoc(collection(db, "leagues", activeLeagueId, "notifications"), {
+        type: "success",
+        message: `✅ Your Pochi deposit of KES ${req.amount?.toLocaleString()} has been approved. Your wallet is funded!`,
+        timestamp: serverTimestamp(),
+        readBy: [],
+        targetMemberId: req.memberId,
+      });
+      showToast(`Pochi payment approved for ${req.memberName}`);
+    } catch (err: any) {
+      console.error("Pochi approve error:", err);
+      showToast("Failed to approve Pochi payment.");
+    } finally {
+      setProcessingPochi(null);
+    }
+  };
+
+  const handleRejectPochi = async (req: any) => {
+    if (!activeLeagueId) return;
+    setProcessingPochi(req.id);
+    try {
+      await updateDoc(doc(db, "leagues", activeLeagueId, "wallet_requests", req.id), {
+        status: "rejected"
+      });
+      await addDoc(collection(db, "leagues", activeLeagueId, "notifications"), {
+        type: "warning",
+        message: `⚠️ Your Pochi deposit of KES ${req.amount?.toLocaleString()} was rejected. Please contact the Chairman.`,
+        timestamp: serverTimestamp(),
+        readBy: [],
+        targetMemberId: req.memberId,
+      });
+      showToast(`Pochi payment rejected for ${req.memberName}`);
+    } catch (err: any) {
+      console.error("Pochi reject error:", err);
+      showToast("Failed to reject Pochi payment.");
+    } finally {
+      setProcessingPochi(null);
     }
   };
 
@@ -789,8 +888,11 @@ export default function AdminCommandCenter() {
         await addDoc(txRef, {
           type: "deposit",
           winnerName: memberName,
+          memberName: memberName,
           phoneNumber: targetMember?.phone || "",
           amount: gameweekStake,
+          gameweek: currentGwNumber || firestoreGw || null,
+          gw: currentGwNumber || firestoreGw || null,
           timestamp: serverTimestamp(),
           receiptId:
             "DEP" + Math.random().toString(36).substring(2, 10).toUpperCase(),
@@ -891,11 +993,13 @@ export default function AdminCommandCenter() {
         if (showWalletFundModal) setShowWalletFundModal(false);
         if (showHqSettlementForm) setShowHqSettlementForm(false);
         if (showTutorial) setShowTutorial(false);
+        if (showOpsModal) setShowOpsModal(false);
+        if (resolveTargetGw !== null) setResolveTargetGw(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal, showHqSettlementForm, showTutorial]);
+  }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal, showHqSettlementForm, showTutorial, showOpsModal, resolveTargetGw]);
   const redZoneMembers = members.filter(
     (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false,
   );
@@ -903,11 +1007,13 @@ export default function AdminCommandCenter() {
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  const projectionGwNumber = Math.min(38, Math.max(1, Number(currentGwNumber || 1))) + (isCurrentEventFinished ? 1 : 0);
-  const remainingGameweeks = Math.max(0, 39 - projectionGwNumber);
-  const gwPlayed = currentGwNumber && startGw ? Math.max(0, currentGwNumber - startGw + (isCurrentEventFinished ? 1 : 0)) : 0;
+
+  // Effective startGw: use Firestore value, or fall back to currentGw-4 (handles leagues that started at GW33)
+  const effectiveStartGw = startGw || (currentGwNumber ? Math.max(1, currentGwNumber - 4) : firestoreGw ? Math.max(1, firestoreGw - 4) : 1);
+  const gwPlayed = (currentGwNumber || firestoreGw) ? Math.max(0, (currentGwNumber || firestoreGw || 1) - effectiveStartGw + (isCurrentEventFinished ? 1 : 0)) : 0;
   const vaultPerGw = totalCollected * (rules.vault / 100);
-  const seasonVault = (vaultPerGw * gwPlayed) + (vaultPerGw * remainingGameweeks);
+  // Season vault = only what has actually been collected so far (gwPlayed × vaultPerGw)
+  const seasonVault = vaultPerGw * gwPlayed;
   const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
   // highRiskTwoWeekMisses available via members.filter(...) if needed in future
   const sortedPendingPayouts = [...pendingPayouts]
@@ -1276,7 +1382,14 @@ export default function AdminCommandCenter() {
       setShowPrefundOptions(false);
       setPrefundData({});
       setPrefundUpdateRecentActivity(true);
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+      // Full-screen Robinhood-style confetti
+      const end = Date.now() + 2000;
+      const frame = () => {
+        confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0, y: 0.7 }, colors: ['#10B981','#FBBF24','#FFFFFF','#60a5fa'] });
+        confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1, y: 0.7 }, colors: ['#10B981','#FBBF24','#FFFFFF','#f472b6'] });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
     } catch (err: any) {
       console.error("[prefund] Error:", err);
       showToast(`❌ Prefund Failed: ${err?.message || 'Unknown error'}`);
@@ -1529,31 +1642,19 @@ export default function AdminCommandCenter() {
       let finalWinnerName = gwWinner?.player_name || "Unknown";
       let finalWinnerId = gwWinner?.id || "unknown";
       
-      let pastGw = -1;
       if (!isGwFinished) {
-        const pastGwStr = window.prompt(`FPL GW${gwNumber || '?'} is still ongoing. Did you miss resolving a past Gameweek? Enter the Gameweek number you want to resolve manually (e.g., 37), or click Cancel:`);
-        if (!pastGwStr) { 
-          setIsResolving(false); 
-          setShowResolveModal(false);
-          return; 
-        }
-        pastGw = parseInt(pastGwStr, 10);
-        if (isNaN(pastGw)) {
-          showToast("Invalid Gameweek number.");
-          setIsResolving(false);
-          return;
+        setShowResolveModal(false);
+        const result = await new Promise<{gw: number, winner: string} | null>((resolve) => {
+           setManualResolvePromise({ resolve, currentGw: gwNumber });
+        });
+        
+        if (!result) {
+           setIsResolving(false);
+           return;
         }
         
-        gwNumber = pastGw;
-        
-        const manualWinner = window.prompt(`Enter the exact name of the member who won GW${pastGw}:`);
-        if (!manualWinner) {
-          setIsResolving(false);
-          setShowResolveModal(false);
-          return;
-        }
-
-        finalWinnerName = manualWinner;
+        gwNumber = result.gw;
+        finalWinnerName = result.winner;
         finalWinnerId = "manual-entry";
       }
 
@@ -1731,12 +1832,13 @@ export default function AdminCommandCenter() {
           `GW${gwNumber} resolved. Payout sent to Co-Chair for approval.`,
         );
         triggerResolutionPulse();
-        confetti({
-          particleCount: 90,
-          spread: 70,
-          origin: { y: 0.55 },
-          colors: ["#10B981", "#FBBF24", "#FFFFFF"],
-        });
+        const endTime = Date.now() + 3000;
+const burstFrame = () => {
+  confetti({ particleCount: 8, angle: 60, spread: 65, origin: { x: 0, y: 0.75 }, colors: ['#10B981','#FBBF24','#FFFFFF'] });
+  confetti({ particleCount: 8, angle: 120, spread: 65, origin: { x: 1, y: 0.75 }, colors: ['#10B981','#FBBF24','#FFFFFF'] });
+  if (Date.now() < endTime) requestAnimationFrame(burstFrame);
+};
+burstFrame();
         setActionTimeline((prev) => ({
           ...prev,
           resolved: true,
@@ -2575,23 +2677,44 @@ export default function AdminCommandCenter() {
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/50 transition-all hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
-                      "fc-metric-stable"
+                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
+                      gwAlreadySettled
+                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/12 via-[#161d24] to-[#161d24] cursor-default shadow-[0_0_18px_rgba(16,185,129,0.15)]"
+                        : "border-white/10 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] hover:border-[#FBBF24]/50 hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] cursor-pointer active:scale-95"
                     )}
-                    onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                    onClick={() => !gwAlreadySettled && setTimeout(() => setShowResolveModal(true), 0)}
                   >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold text-white">
-                      Settle GW Winner
+                    <p className={clsx(
+                      "fc-metric-label text-xs tracking-wide font-semibold",
+                      gwAlreadySettled ? "text-emerald-300" : "text-white"
+                    )}>
+                      {gwAlreadySettled ? "GW Settled ✓" : "Settle GW Winner"}
                     </p>
-                    <p className="text-sm font-semibold mt-2 text-[#FBBF24]">
-                      Pay GW{currentGwNumber || ''} Winner
-                    </p>
+                    <div className={clsx(
+                      "mt-2 flex flex-col",
+                      gwAlreadySettled ? "items-center" : "items-start"
+                    )}>
+                      <p className={clsx(
+                        "text-sm font-semibold",
+                        gwAlreadySettled ? "text-emerald-400 text-center" : "text-[#FBBF24]"
+                      )}>
+                        {gwAlreadySettled
+                          ? `GW${currentGwNumber || ''} Done`
+                          : `Pay GW${currentGwNumber || ''} Winner`
+                        }
+                      </p>
+                      {gwAlreadySettled && (
+                        <p className="text-[11px] text-emerald-600 text-center mt-0.5">
+                          Awaiting GW{currentGwNumber ? currentGwNumber + 1 : ''}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border p-4 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
+                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
                       allPayableMembersFunded
-                        ? "border-emerald-500/35 bg-gradient-to-br from-emerald-500/14 via-[#161d24] to-[#0f1419] fc-metric-stable"
+                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/14 via-[#161d24] to-[#0f1419] shadow-[0_0_18px_rgba(16,185,129,0.15)] fc-metric-stable"
                         : "border-red-500/35 bg-gradient-to-br from-red-500/14 via-[#161d24] to-[#0f1419] fc-metric-alert",
                     )}
                   >
@@ -2744,26 +2867,35 @@ export default function AdminCommandCenter() {
                     (p) => Number(p.gw) === gw && p.status === 'awaiting_approval'
                   );
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
+                  const isSkipped = !approvedPayout && !pendingPayout && !isCurrent && gw < (currentGwNumber || firestoreGw || 99);
                   return (
                     <div
                       key={gw}
                       data-gw={gw}
-                      className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-colors min-w-[60px] ${
-
+                      title={isSkipped ? `GW${gw} was skipped — click to resolve` : undefined}
+                      onClick={() => {
+                        if (isSkipped && !gwAlreadySettled) {
+                          setResolveTargetGw(gw);
+                          setTimeout(() => setShowResolveModal(true), 0);
+                        }
+                      }}
+                      className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all min-w-[60px] ${
                         approvedPayout
                           ? 'border-emerald-500/40 bg-emerald-500/10'
                           : pendingPayout
                           ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10'
                           : isCurrent
                           ? 'border-white/20 bg-white/5'
+                          : isSkipped
+                          ? 'border-red-500/30 bg-red-500/8 cursor-pointer hover:border-red-500/60 hover:bg-red-500/15'
                           : 'border-white/5 bg-transparent'
                       }`}
                     >
                       <span className={`text-[9px] font-black uppercase tracking-widest ${
-                        isCurrent ? 'text-white' : 'text-gray-500'
+                        isCurrent ? 'text-white' : isSkipped ? 'text-red-400' : 'text-gray-500'
                       }`}>GW{gw}</span>
                       <span className={`text-[8px] font-bold ${
-                        approvedPayout ? 'text-emerald-400' : pendingPayout ? 'text-[#FBBF24]' : 'text-gray-600'
+                        approvedPayout ? 'text-emerald-400' : pendingPayout ? 'text-[#FBBF24]' : isSkipped ? 'text-red-400' : 'text-gray-600'
                       }`}>
                         {approvedPayout
                           ? '✓ Paid'
@@ -2771,14 +2903,17 @@ export default function AdminCommandCenter() {
                           ? '⏳ Pending'
                           : isCurrent
                           ? 'Live'
-                          : gw < (currentGwNumber || firestoreGw || 99)
-                          ? 'Skipped'
+                          : isSkipped
+                          ? '⚠ Skip'
                           : '—'}
                       </span>
                       {approvedPayout && (
                         <span className="text-[8px] text-emerald-300 font-bold truncate max-w-[56px] text-center">
                           {approvedPayout.winnerName?.split(' ')[0]}
                         </span>
+                      )}
+                      {isSkipped && (
+                        <span className="text-[7px] text-red-500 font-bold uppercase tracking-widest">Tap</span>
                       )}
                     </div>
                   );
@@ -3109,11 +3244,21 @@ export default function AdminCommandCenter() {
                   </div>
                 </div>
 
-                {/* Operations Feed — WhatsApp Share Banner appears post-resolution */}
+                {/* Operations Feed — dynamic based on GW state */}
                 <div className="fc-ops-feed w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
-                  <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest mb-5">
-                    <Bell className="w-4 h-4" /> Operations Feed
-                  </h4>
+                  <div className="flex items-center justify-between mb-5">
+                    <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest">
+                      <Bell className="w-4 h-4" /> Operations Feed
+                    </h4>
+                    {liveOpsEvents.length > 3 && (
+                      <button
+                        onClick={() => setShowOpsModal(true)}
+                        className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 px-2.5 py-1 rounded-lg transition-colors"
+                      >
+                        View All ({liveOpsEvents.length})
+                      </button>
+                    )}
+                  </div>
 
                   {/* WhatsApp Receipt Share Card — appears after GW resolution */}
                   {whatsappReceipt && (
@@ -3146,16 +3291,75 @@ export default function AdminCommandCenter() {
                     </div>
                   )}
 
-                  <div className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center shrink-0">
-                      <UserPlus className="w-5 h-5 text-[#10B981]" />
+                  {/* Live operation events — show latest 3 only */}
+                  {liveOpsEvents.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {liveOpsEvents.slice(0, 3).map((evt: any) => {
+                        const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : null;
+                        const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
+                        const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
+                        return (
+                          <div key={evt.id} className="flex gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                            <div className={clsx(
+                              "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs",
+                              isSuccess ? "bg-emerald-500/10 border border-emerald-500/20" : isWarning ? "bg-amber-500/10 border border-amber-500/20" : "bg-blue-500/10 border border-blue-500/20"
+                            )}>
+                              {isSuccess ? '✅' : isWarning ? '⚠️' : 'ℹ️'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {evt.title && <p className="text-xs font-bold text-white truncate">{evt.title}</p>}
+                              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed line-clamp-2">{evt.message}</p>
+                              {ts && <span className="text-[9px] font-bold text-gray-600 tracking-widest uppercase mt-1 block">{ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {ts.toLocaleDateString()}</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Dynamic GW status card */}
+                  <div className={clsx(
+                    "flex gap-4 p-4 rounded-xl border transition-colors",
+                    gwAlreadySettled
+                      ? "bg-emerald-500/5 border-emerald-500/20"
+                      : isCurrentEventFinished
+                        ? "bg-amber-500/5 border-amber-500/20"
+                        : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+                  )}>
+                    <div className={clsx(
+                      "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+                      gwAlreadySettled
+                        ? "bg-emerald-500/10 border border-emerald-500/20"
+                        : isCurrentEventFinished
+                          ? "bg-amber-500/10 border border-amber-500/20"
+                          : "bg-[#10B981]/10 border border-[#10B981]/20"
+                    )}>
+                      {gwAlreadySettled
+                        ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        : isCurrentEventFinished
+                          ? <Trophy className="w-5 h-5 text-amber-400" />
+                          : <UserPlus className="w-5 h-5 text-[#10B981]" />
+                      }
                     </div>
                     <div>
-                      <h5 className="text-sm font-bold text-white tracking-wide">
-                        League Open for Gameweek
+                      <h5 className={clsx(
+                        "text-sm font-bold tracking-wide",
+                        gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-amber-300" : "text-white"
+                      )}>
+                        {gwAlreadySettled
+                          ? `GW${currentGwNumber || ''} Settled ✓`
+                          : isCurrentEventFinished
+                            ? `GW${currentGwNumber || ''} Ended — Settle Winner Now`
+                            : `League Open for Gameweek ${currentGwNumber || firestoreGw || '--'}`
+                        }
                       </h5>
                       <p className="text-xs text-gray-400 mt-1">
-                        Accepting deposits for Gameweek {currentGwNumber || firestoreGw || "--"}. Deadline approaches.
+                        {gwAlreadySettled
+                          ? `Winner paid. System is preparing for GW${currentGwNumber ? currentGwNumber + 1 : ''}.`
+                          : isCurrentEventFinished
+                            ? `GW${currentGwNumber || ''} is finished on FPL. Go to Priority Actions → Settle GW Winner.`
+                            : `Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || '--'}. Deadline approaches.`
+                        }
                       </p>
                       <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">
                         System
@@ -3232,6 +3436,72 @@ export default function AdminCommandCenter() {
               </div>
             </section>
           )}
+
+          {/* Pochi Payment Alerts */}
+          {pendingPochiRequests.length > 0 && (
+            <section className="bg-[#1a1500] border border-emerald-500/25 rounded-2xl overflow-hidden shadow-2xl mt-6">
+              <div className="p-4 px-6 border-b border-emerald-500/20 flex items-center gap-3">
+                <Banknote className="w-4 h-4 text-emerald-400" />
+                <h3 className="font-bold text-emerald-400 text-sm tracking-wide">
+                  Pending Pochi Payments
+                </h3>
+                <span className="ml-auto bg-emerald-500/20 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  {pendingPochiRequests.length} pending
+                </span>
+              </div>
+              <div className="divide-y divide-emerald-500/10">
+                {pendingPochiRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="p-4 px-6 flex flex-col sm:flex-row sm:items-center gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-white text-sm">
+                          {req.memberName}
+                        </span>
+                        <span className="text-[10px] text-gray-500">
+                          {req.phone}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-xs text-gray-400">
+                          Sent:
+                        </span>
+                        <span className="font-mono text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                          KES {req.amount?.toLocaleString()}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          covers {Math.floor(req.amount / gameweekStake)} GWs
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleRejectPochi(req)}
+                        disabled={processingPochi === req.id}
+                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl border border-red-500/20 transition-colors disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleApprovePochi(req)}
+                        disabled={processingPochi === req.id}
+                        className="px-4 py-2 bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] text-xs font-bold rounded-xl border border-[#10B981]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {processingPochi === req.id ? (
+                          <span className="animate-pulse">...</span>
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        )}
+                        Approve & Fund
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         <div
@@ -3268,6 +3538,12 @@ export default function AdminCommandCenter() {
                   className="flex items-center gap-2 bg-[#FBBF24]/10 border border-[#FBBF24]/20 px-4 py-2 rounded-lg text-sm text-[#FBBF24] font-bold hover:bg-[#FBBF24]/20 transition-colors min-w-[140px] justify-between"
                 >
                   Fund Wallet <Banknote className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigate('/sidebets')}
+                  className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-lg text-sm text-amber-400 font-bold hover:bg-amber-500/20 transition-colors justify-between"
+                >
+                  <Swords className="w-4 h-4" /> Side Bets
                 </button>
                 <button
                   onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
@@ -3331,7 +3607,7 @@ export default function AdminCommandCenter() {
                     <div
                       key={row.id}
                       className={clsx(
-                        "px-4 py-3.5 flex items-center gap-3 transition-colors group",
+                        "px-4 py-3.5 flex flex-wrap sm:flex-nowrap items-center gap-3 transition-colors group",
                         memberHasFunding(row)
                           ? "bg-[#10B981]/5 border-l-2 border-[#10B981]"
                           : "hover:bg-white/[0.02] border-l-2 border-transparent",
@@ -3993,8 +4269,106 @@ export default function AdminCommandCenter() {
               </div>
             </div>
           )}
+
+          {manualResolvePromise && (
+            <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4">
+              <div className="w-full max-w-sm bg-[#0b1014] border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-in slide-in-from-bottom-4 duration-300">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                  <AlertCircle className="w-6 h-6 text-amber-500" />
+                </div>
+                <h3 className="text-xl font-black text-white mb-2 tracking-tight">Manual GW Resolution</h3>
+                <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+                  FPL GW{manualResolvePromise.currentGw || '?'} is still ongoing or API is down. Enter the details manually to force payout.
+                </p>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Gameweek Number</label>
+                    <input
+                      type="number"
+                      value={manualGwInput}
+                      onChange={(e) => setManualGwInput(e.target.value)}
+                      placeholder="e.g. 37"
+                      className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Winner's Exact Name</label>
+                    <input
+                      type="text"
+                      value={manualWinnerInput}
+                      onChange={(e) => setManualWinnerInput(e.target.value)}
+                      placeholder="e.g. John Doe"
+                      className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      manualResolvePromise.resolve(null);
+                      setManualResolvePromise(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-sm font-bold hover:bg-white/5 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const gw = parseInt(manualGwInput, 10);
+                      if (isNaN(gw) || !manualWinnerInput.trim()) {
+                        showToast("Please enter a valid GW number and winner name.");
+                        return;
+                      }
+                      manualResolvePromise.resolve({ gw, winner: manualWinnerInput.trim() });
+                      setManualResolvePromise(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-sm font-black transition-all"
+                  >
+                    Force Resolve
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ops Feed Full Modal */}
+          {showOpsModal && (
+            <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowOpsModal(false)}>
+              <div className="w-full max-w-lg bg-[#0b1014] border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                  <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-white">
+                    <Bell className="w-4 h-4 text-emerald-400" /> All Operations ({liveOpsEvents.length})
+                  </h3>
+                  <button onClick={() => setShowOpsModal(false)} className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-lg font-bold">×</button>
+                </div>
+                <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
+                  {liveOpsEvents.map((evt: any) => {
+                    const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : null;
+                    const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
+                    const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
+                    return (
+                      <div key={evt.id} className="flex gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                        <div className={clsx(
+                          "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs",
+                          isSuccess ? "bg-emerald-500/10 border border-emerald-500/20" : isWarning ? "bg-amber-500/10 border border-amber-500/20" : "bg-blue-500/10 border border-blue-500/20"
+                        )}>
+                          {isSuccess ? '✅' : isWarning ? '⚠️' : 'ℹ️'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {evt.title && <p className="text-xs font-bold text-white truncate">{evt.title}</p>}
+                          <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{evt.message}</p>
+                          {ts && <span className="text-[9px] font-bold text-gray-600 tracking-widest uppercase mt-1 block">{ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {ts.toLocaleDateString()}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

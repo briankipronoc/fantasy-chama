@@ -82,7 +82,10 @@ function LedgerDemo() {
 
 
 function TrustSlider() {
-    const [potSize, setPotSize] = useState(10000);
+    const [numPlayers, setNumPlayers] = useState(10);
+    const [stakePerGw, setStakePerGw] = useState(1000);
+    
+    const potSize = numPlayers * stakePerGw;
     const winnerCut = potSize * 0.91;
     const adminCut = potSize * 0.09;
     const chairCut = potSize * 0.04;
@@ -100,27 +103,55 @@ function TrustSlider() {
                 </div>
 
                 <div className="space-y-8">
-                    <div>
-                        <div className="flex justify-between items-end mb-4">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Adjust Gameweek Pot</span>
-                            <span className="text-3xl font-black text-emerald-400 tabular-nums tracking-tight">KES {potSize.toLocaleString()}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+                        <div>
+                            <div className="flex justify-between items-end mb-4">
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Number of Players</span>
+                                <span className="text-2xl font-black text-emerald-400 tabular-nums tracking-tight">{numPlayers} players</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="2" 
+                                max="100" 
+                                step="1" 
+                                value={numPlayers} 
+                                onChange={(e) => setNumPlayers(Number(e.target.value))}
+                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                            />
+                            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+                                <span>2</span><span>100</span>
+                            </div>
                         </div>
-                        <input 
-                            type="range" 
-                            min="1000" 
-                            max="30000" 
-                            step="100" 
-                            value={potSize} 
-                            onChange={(e) => setPotSize(Number(e.target.value))}
-                            className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
-                        />
+                        <div>
+                            <div className="flex justify-between items-end mb-4">
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Stake per GW</span>
+                                <span className="text-2xl font-black text-emerald-400 tabular-nums tracking-tight">KES {stakePerGw.toLocaleString()}</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="20" 
+                                max="5000" 
+                                step="10" 
+                                value={stakePerGw} 
+                                onChange={(e) => setStakePerGw(Number(e.target.value))}
+                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                            />
+                            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+                                <span>KES 20</span><span>KES 5,000</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-between items-end mb-4 border-t border-white/10 pt-6">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Adjust Gameweek Pot</span>
+                        <span className="text-3xl font-black text-white tabular-nums tracking-tight">KES {potSize.toLocaleString()}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="md:col-span-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 flex flex-col justify-center">
                             <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" /> Gameweek Winner (91%)</p>
                             <p className="text-4xl md:text-5xl font-black text-emerald-400 tabular-nums">KES {winnerCut.toLocaleString()}</p>
-                            <p className="text-xs font-medium text-emerald-600 mt-2">Dispatched directly to M-Pesa automatically.</p>
+                            <p className="text-xs font-medium text-emerald-600 mt-2">Dispatched directly to winner's M-Pesa automatically.</p>
                         </div>
                         <div className="md:col-span-4 bg-[#161d24] border border-white/5 rounded-2xl p-6 flex flex-col justify-center shadow-inner">
                             <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> Total Ops Fee (9%)</p>
@@ -165,7 +196,7 @@ export default function LandingPage() {
                     </div>
                     <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 space-x-10 items-center">
                         <a href="#how-it-works" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">How It Works</a>
-                        <a href="#features" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Platform Capabilities</a>
+                        <a href="#features" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Features</a>
                         <Link to="/terms" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Terms</Link>
                     </div>
                     <div className="flex items-center gap-4">
@@ -196,11 +227,11 @@ export default function LandingPage() {
                                 <span className="text-amber-400 italic">FPL.</span>
                             </h1>
                             <p className="max-w-md text-base md:text-lg text-gray-600 dark:text-gray-400 font-medium leading-relaxed">
-                                Connect your mini-league. Automate the stakes. Get paid instantly on M-Pesa the second you win.
+                                Set a stake per gameweek. Members pay via M-Pesa. The week's top scorer gets the pot — automatically calculated every GW.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 items-center pt-2">
                                 <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-8 py-4 rounded-xl font-extrabold text-lg flex items-center justify-center gap-3 transition-colors shadow-lg shadow-emerald-500/20 active:scale-95">
-                                    Initialize League
+                                    Start a League
                                     <ArrowRight className="w-5 h-5" />
                                 </button>
                                 <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 bg-[#161d24] hover:bg-[#1f2937] border border-white/5 transition-colors active:scale-95 text-white">
@@ -225,35 +256,35 @@ export default function LandingPage() {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16">
                             <div className="border-l-2 border-emerald-500/30 pl-8 relative group">
                                 <div className="absolute inset-0 bg-emerald-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Duration</p>
+                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Full Season</p>
                                 <div className="flex flex-wrap items-baseline gap-2 relative z-10">
                                     <span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none tracking-tighter drop-shadow-md">38</span>
-                                    <span className="text-sm font-bold text-white tracking-tight">Gameweeks</span>
+                                    <span className="text-sm font-bold text-white tracking-tight">Gameweeks tracked</span>
                                 </div>
                             </div>
                             <div className="border-l-2 border-amber-500/30 pl-8 relative group">
                                 <div className="absolute inset-0 bg-amber-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Settlement</p>
+                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Admin Overhead</p>
                                 <div className="flex flex-wrap items-baseline gap-2 relative z-10">
-                                    <span className="text-5xl md:text-6xl font-black text-amber-400 leading-none tracking-tighter drop-shadow-md">100</span>
-                                    <span className="text-sm font-bold text-white tracking-tight">% Accuracy</span>
+                                    <span className="text-5xl md:text-6xl font-black text-amber-400 leading-none tracking-tighter drop-shadow-md">KES 0</span>
                                 </div>
+                                <span className="text-sm font-bold text-white tracking-tight">to run your league</span>
                             </div>
                             <div className="border-l-2 border-emerald-500/30 pl-8 relative group">
                                 <div className="absolute inset-0 bg-emerald-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Latency</p>
+                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">To pay each GW</p>
                                 <div className="flex flex-wrap items-baseline gap-2 relative z-10">
                                     <span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none tracking-tighter drop-shadow-md">2</span>
-                                    <span className="text-sm font-bold text-white tracking-tight">Taps</span>
+                                    <span className="text-sm font-bold text-white tracking-tight">Taps on M-Pesa</span>
                                 </div>
                             </div>
                             <div className="border-l-2 border-amber-500/30 pl-8 relative group">
                                 <div className="absolute inset-0 bg-amber-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Efficiency</p>
+                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Payout accuracy</p>
                                 <div className="flex flex-wrap items-baseline gap-2 relative z-10">
-                                    <span className="text-5xl md:text-6xl font-black text-amber-400 leading-none tracking-tighter drop-shadow-md">0</span>
-                                    <span className="text-sm font-bold text-white tracking-tight">Manual Math</span>
+                                    <span className="text-5xl md:text-6xl font-black text-amber-400 leading-none tracking-tighter drop-shadow-md">100%</span>
                                 </div>
+                                <span className="text-sm font-bold text-white tracking-tight">from FPL official API</span>
                             </div>
                         </div>
                     </div>
@@ -277,10 +308,10 @@ export default function LandingPage() {
                             
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 relative z-10">
                                 {[
-                                    { step: '01', title: 'Create League', desc: 'The Chairman sets the stake amount and shares a 6-digit invite code via WhatsApp.', icon: <Users className="w-6 h-6" />, color: 'emerald' },
-                                    { step: '02', title: 'Pay & Play', desc: 'Members pay easily via an automatic M-Pesa STK push. No more tracking exact receipts.', icon: <Smartphone className="w-6 h-6" />, color: 'amber' },
-                                    { step: '03', title: 'Live Scoring', desc: 'We connect directly to the Premier League. See your rank and money rise with every goal.', icon: <TrendingUp className="w-6 h-6" />, color: 'blue' },
-                                    { step: '04', title: 'Instant Payouts', desc: 'When the gameweek ends, the winner gets their cash sent straight to their M-Pesa automatically.', icon: <Banknote className="w-6 h-6" />, color: 'emerald' },
+                                    { step: '01', title: 'Chairman Creates League', desc: 'Set the weekly stake, link your FPL mini-league, and share a 6-character invite code with your group on WhatsApp.', icon: <Users className="w-6 h-6" />, color: 'emerald' },
+                                    { step: '02', title: 'Members Pay via M-Pesa', desc: 'Each member sends their weekly stake to the chairman via M-Pesa Pochi. The system tracks who has paid and who hasn\'t.', icon: <Smartphone className="w-6 h-6" />, color: 'amber' },
+                                    { step: '03', title: 'Live FPL Scoring', desc: 'Points are pulled directly from the official FPL API every gameweek. Standings update in real-time — no manual entry.', icon: <TrendingUp className="w-6 h-6" />, color: 'blue' },
+                                    { step: '04', title: 'Chairman Pays the Winner', desc: 'When the GW ends, the system tells the chairman exactly how much to pay and to whom. One confirmation, done.', icon: <Banknote className="w-6 h-6" />, color: 'emerald' },
                                 ].map((item, i) => (
                                     <div key={i} className="flex flex-col items-center text-center group">
                                         <div className={`fc-landing-card w-20 h-20 rounded-[1.25rem] bg-[#161d24] border border-white/5 flex items-center justify-center mb-8 hover:-translate-y-2 transition-transform duration-500 shadow-xl relative overflow-hidden text-${item.color}-400`}>
@@ -300,8 +331,8 @@ export default function LandingPage() {
                 {/* ── Platform Capabilities: Bento Grid ─────────────────────────────────── */}
                 <section id="features" className="py-24 md:py-32 max-w-7xl mx-auto px-6 md:px-8 relative z-20">
                     <div className="mb-16 md:mb-20">
-                        <span className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-4 block">Institutional Architecture</span>
-                        <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white mb-6">Platform Capabilities</h2>
+                        <span className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-4 block">Everything Included</span>
+                        <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white mb-6">What You Get</h2>
                         <div className="w-16 h-1 bg-gradient-to-r from-amber-500 to-amber-300 rounded-full"></div>
                     </div>
                     
@@ -373,25 +404,29 @@ export default function LandingPage() {
                 </section>
 
                 {/* Closing CTA */}
-                <section className="h-[80vh] flex items-center justify-center px-6 md:px-8 text-center relative overflow-hidden group">
-                    {/* Deep Immersive Ambient Glow that expands on hover inside the section */}
+                <section className="min-h-[80vh] flex items-center justify-center px-6 md:px-8 text-center relative overflow-hidden group">
+                    {/* Deep Immersive Ambient Glow */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[100px] group-hover:bg-emerald-500/30 group-hover:blur-[160px] group-hover:scale-150 transition-all duration-1000 ease-out pointer-events-none"></div>
                     
-                    <div className="relative z-10 max-w-4xl mx-auto space-y-12 transition-transform duration-1000 ease-out group-hover:scale-105">
+                    <div className="relative z-10 max-w-4xl mx-auto space-y-10 transition-transform duration-1000 ease-out group-hover:scale-105 py-20">
                         <div className="space-y-4">
                             <h2 className="fc-landing-title-gradient text-6xl md:text-8xl lg:text-[10rem] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40 leading-none">
-                                The League <br/> Starts Now.
+                                Your League <br/> Starts Here.
                             </h2>
-                            <p className="text-gray-600 dark:text-gray-400 text-xl md:text-3xl font-medium max-w-2xl mx-auto drop-shadow-xl mt-8">
-                                Stop managing spreadsheets. Move your mini-league to the only platform that automatically pays you a commission for hosting it.
+                            <p className="text-gray-400 text-xl md:text-2xl font-medium max-w-2xl mx-auto mt-8">
+                                Stop managing WhatsApp groups and spreadsheets. Set up your league in 5 minutes — every gameweek runs itself.
                             </p>
                         </div>
-                        <div className="flex flex-col justify-center items-center gap-4 pt-8 opacity-0 group-hover:opacity-100 transition-all duration-1000 delay-300 translate-y-4 group-hover:translate-y-0 pb-10">
-                            <button onClick={() => navigate('/setup')} className="fc-landing-cta-secondary bg-[#FBBF24] text-[#0f172a] border border-amber-500/35 px-10 py-5 rounded-xl font-extrabold text-lg shadow-[0_0_40px_rgba(245,158,11,0.16)] hover:bg-[#eab308] hover:scale-105 transition-all active:scale-95 flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 pb-10">
+                            <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-10 py-5 rounded-xl font-extrabold text-lg shadow-[0_0_40px_rgba(16,185,129,0.25)] hover:scale-105 transition-all active:scale-95 flex items-center gap-2">
                                 <Trophy className="w-5 h-5" />
-                                Claim Your 4% Chairman Fee
+                                Start a League — Free
+                            </button>
+                            <button onClick={() => navigate('/access')} className="px-10 py-5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
+                                Join With Invite Code
                             </button>
                         </div>
+                        <p className="text-gray-600 text-sm">No credit card needed. No monthly subscription. Chairman earns 4% of every pot.</p>
                     </div>
                 </section>
             </main>
