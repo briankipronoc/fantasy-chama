@@ -1,13 +1,12 @@
 rules_version = '2';
 
 // ============================================================
-// FantasyChama — Phase 12: Hardened Security Rules
-// Changes from Phase 11:
-//   - Leagues: read now requires authentication (no anonymous sniffing)
-//   - Memberships: read requires authentication (protects phone numbers)
-//   - League create: requires email verification to prevent fake accounts
-//   - mpesa_requests / b2c_requests: tightened update (admin-only)
-//   - Deny all catch-all remains the default
+// FantasyChama — Phase 13: Complete Collection Coverage
+// Changes from Phase 12:
+//   - Added wallet_requests (Pochi deposit queue) rules
+//   - Added side_bets (member-to-member wagers) rules
+//   - Notifications: members can now create targeted notifications
+//     (needed for side bet challenger → opponent notifications)
 // ============================================================
 
 service cloud.firestore {
@@ -96,7 +95,8 @@ service cloud.firestore {
       // ── Notifications ─────────────────────────────────────────
       match /notifications/{notifId} {
         allow read: if isAuthenticated();
-        allow create: if isAdmin(leagueId);
+        // Members can create targeted notifications (e.g. side bet challenges to opponent)
+        allow create: if isAuthenticated();
         allow update: if isAuthenticated() && (
           isAdmin(leagueId)
           ||
@@ -160,7 +160,6 @@ service cloud.firestore {
       // ── Transactions (Immutable Ledger) ───────────────────────
       match /transactions/{txId} {
         // Admins see all; members can read any transaction in their league
-        // (member auth is anonymous so we only need them to be authenticated)
         allow read: if isAuthenticated();
         allow create: if isAdmin(leagueId);
         allow update, delete: if false; // Transactions are immutable — never modifiable
@@ -173,6 +172,55 @@ service cloud.firestore {
         // Only admin can update (e.g. backend marks as completed via Admin SDK)
         allow update: if isAdmin(leagueId);
         allow delete: if false;
+      }
+
+      // ── Pochi Deposit / Wallet Requests ──────────────────────
+      // Members submit Pochi payment acknowledgments here.
+      // The Chairman reviews and approves or rejects each one.
+      match /wallet_requests/{requestId} {
+        // Admin sees all; member sees only their own submissions
+        allow read: if isAuthenticated() && (
+          isAdmin(leagueId) ||
+          resource.data.memberId == request.auth.uid
+        );
+        // Any authenticated member can create a Pochi acknowledgment
+        allow create: if isAuthenticated() &&
+          request.resource.data.memberId == request.auth.uid &&
+          request.resource.data.keys().hasAll(['memberId', 'memberName', 'amount', 'status']);
+        // Chairman/Co-Chair can approve or reject (update status field)
+        allow update: if isAdmin(leagueId);
+        allow delete: if false; // Immutable audit trail
+      }
+
+      // ── Side Bets ─────────────────────────────────────────────
+      // Custom peer-to-peer wagers between league members.
+      // Create: any authenticated member (they become the challenger).
+      // Update: opponent can sign; any member can endorse;
+      //         Chairman can approve, reject, or resolve.
+      match /side_bets/{betId} {
+        allow read: if isAuthenticated();
+
+        // Any member can create a bet (they become the challenger)
+        allow create: if isAuthenticated();
+
+        allow update: if isAuthenticated() && (
+          isAdmin(leagueId) ||
+          (
+            // Opponent signing their agreement
+            resource.data.opponent.id == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['opponent', 'status'])
+          ) ||
+          (
+            // Any non-participant can endorse (only endorsers array changes)
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endorsers']) &&
+            request.resource.data.endorsers.hasAll(resource.data.endorsers) &&
+            resource.data.challenger.id != request.auth.uid &&
+            resource.data.opponent.id != request.auth.uid
+          )
+        );
+
+        // Only chairman can delete a side bet (cleanup)
+        allow delete: if isChairman(leagueId);
       }
 
       // ── Wallet Top-up Requests ────────────────────────────────

@@ -83,6 +83,9 @@ export default function AdminCommandCenter() {
   const [liveOpsEvents, setLiveOpsEvents] = useState<any[]>([]);
   const [showOpsModal, setShowOpsModal] = useState(false);
   const [resolveTargetGw, setResolveTargetGw] = useState<number | null>(null);
+  const [selectedGwForAction, setSelectedGwForAction] = useState<number | null>(null);
+  const [showGwActionModal, setShowGwActionModal] = useState(false);
+  const [isForfeiting, setIsForfeiting] = useState(false);
   // const [recentGovernanceEvents, setRecentGovernanceEvents] = useState<any[]>([]);
 
   // Module 3B: Dispute/Claim alerts
@@ -568,10 +571,10 @@ export default function AdminCommandCenter() {
       activeLeagueId,
       "pending_payouts",
     );
-    // Listen to both awaiting and approved so we can show the right UI state
+    // Listen to awaiting, approved, and forfeited so we can show the right UI state
     const q = query(
       pendingRef,
-      where("status", "in", ["awaiting_approval", "approved"]),
+      where("status", "in", ["awaiting_approval", "approved", "forfeited"]),
     );
     const unsub = onSnapshot(q, (snap) => {
       setPendingPayouts(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -1009,8 +1012,13 @@ export default function AdminCommandCenter() {
   const weeklyPot = totalCollected * (rules.weekly / 100);
 
   // Effective startGw: use Firestore value, or fall back to currentGw-4 (handles leagues that started at GW33)
-  const effectiveStartGw = startGw || (currentGwNumber ? Math.max(1, currentGwNumber - 4) : firestoreGw ? Math.max(1, firestoreGw - 4) : 1);
-  const gwPlayed = (currentGwNumber || firestoreGw) ? Math.max(0, (currentGwNumber || firestoreGw || 1) - effectiveStartGw + (isCurrentEventFinished ? 1 : 0)) : 0;
+  const effectiveStartGw = startGw || (leagueSettings as any)?.startGw || (currentGwNumber ? Math.max(1, currentGwNumber - 4) : firestoreGw ? Math.max(1, firestoreGw - 4) : 1);
+  const forfeitedGws: number[] = Array.from(new Set([
+    ...((leagueSettings as any)?.forfeitedGws || []),
+    ...pendingPayouts.filter((p: any) => p.status === 'forfeited').map((p: any) => Number(p.gw))
+  ]));
+  const totalGwsThroughNow = (currentGwNumber || firestoreGw) ? Math.max(0, (currentGwNumber || firestoreGw || 1) - effectiveStartGw + (isCurrentEventFinished ? 1 : 0)) : 0;
+  const gwPlayed = Math.max(0, totalGwsThroughNow - forfeitedGws.filter(g => g >= effectiveStartGw && g <= (currentGwNumber || firestoreGw || 38)).length);
   const vaultPerGw = totalCollected * (rules.vault / 100);
   // Season vault = only what has actually been collected so far (gwPlayed × vaultPerGw)
   const seasonVault = vaultPerGw * gwPlayed;
@@ -2151,6 +2159,113 @@ burstFrame();
     showToast("Payout request rejected. Chairman will be notified.");
   };
 
+  const handleForfeitGw = async (targetGw: number, bulkUpto = false) => {
+    if (!activeLeagueId) return;
+    setIsForfeiting(true);
+    try {
+      const gwsToForfeit: number[] = bulkUpto
+        ? Array.from({ length: targetGw }, (_, i) => i + 1)
+        : [targetGw];
+
+      const currentForfeited = new Set<number>((leagueSettings as any)?.forfeitedGws || []);
+      gwsToForfeit.forEach(g => currentForfeited.add(g));
+      const newForfeitedList = Array.from(currentForfeited).sort((a, b) => a - b);
+
+      const updatePayload: any = {
+        forfeitedGws: newForfeitedList,
+      };
+      if (gwsToForfeit.includes(1)) {
+        updatePayload.startGw = targetGw + 1;
+        setStartGw(targetGw + 1);
+      }
+
+      await updateDoc(doc(db, "leagues", activeLeagueId), updatePayload);
+
+      // Cancel or update pending payout docs for these GWs
+      for (const g of gwsToForfeit) {
+        const existingPayout = pendingPayouts.find((p: any) => Number(p.gw) === g);
+        if (existingPayout) {
+          // If it was already approved, refund member stakes
+          if (existingPayout.status === "approved" && gameweekStake > 0) {
+            const fundedMembers = members.filter((m) => m.isActive !== false);
+            for (const m of fundedMembers) {
+              const memberRef = doc(db, "leagues", activeLeagueId, "memberships", m.id);
+              const refundedBalance = (m.walletBalance || 0) + gameweekStake;
+              await updateDoc(memberRef, {
+                walletBalance: refundedBalance,
+                hasPaid: refundedBalance >= gameweekStake,
+              });
+            }
+          }
+          await updateDoc(
+            doc(db, "leagues", activeLeagueId, "pending_payouts", existingPayout.id),
+            {
+              status: "forfeited",
+              reason: "Forfeited: league did not play this GW",
+              updatedAt: serverTimestamp(),
+            }
+          );
+        } else {
+          await addDoc(collection(db, "leagues", activeLeagueId, "pending_payouts"), {
+            gw: g,
+            status: "forfeited",
+            reason: "Forfeited: league did not play this GW",
+            amount: 0,
+            timestamp: serverTimestamp(),
+            settledBy: isCoChairSession ? "Co-Chair" : "Chairman",
+          });
+        }
+      }
+
+      await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
+        eventType: "gw_forfeited",
+        message: bulkUpto
+          ? `GW 1–${targetGw} forfeited (unplayed). Stakes & season dues removed.`
+          : `GW${targetGw} forfeited (unplayed). Stakes & season dues removed.`,
+        actor: isCoChairSession ? "Co-Chair" : "Chairman",
+        timestamp: serverTimestamp(),
+      });
+
+      showToast(
+        bulkUpto
+          ? `✓ GW 1–${targetGw} successfully forfeited. Dues & stakes removed!`
+          : `✓ GW${targetGw} successfully forfeited. Dues & stakes removed!`
+      );
+      setShowGwActionModal(false);
+    } catch (err: any) {
+      console.error("Forfeit GW error:", err);
+      showToast(`Failed to forfeit GW: ${err?.message || "Unknown error"}`);
+    } finally {
+      setIsForfeiting(false);
+    }
+  };
+
+  const handleUnforfeitGw = async (targetGw: number) => {
+    if (!activeLeagueId) return;
+    setIsForfeiting(true);
+    try {
+      const currentForfeited = ((leagueSettings as any)?.forfeitedGws || []).filter(
+        (g: number) => g !== targetGw
+      );
+      await updateDoc(doc(db, "leagues", activeLeagueId), {
+        forfeitedGws: currentForfeited,
+      });
+      const existingPayout = pendingPayouts.find(
+        (p: any) => Number(p.gw) === targetGw && p.status === "forfeited"
+      );
+      if (existingPayout) {
+        const { deleteDoc, doc: docRef } = await import("firebase/firestore");
+        await deleteDoc(docRef(db, "leagues", activeLeagueId, "pending_payouts", existingPayout.id));
+      }
+      showToast(`GW${targetGw} restored / un-forfeited.`);
+      setShowGwActionModal(false);
+    } catch (err: any) {
+      showToast(`Failed to restore GW: ${err?.message || "Unknown error"}`);
+    } finally {
+      setIsForfeiting(false);
+    }
+  };
+
   /**
    * Phase 7: Audit CSV Export Engine
    * Generates a downloadable .csv snapshot of the full league ledger.
@@ -2844,21 +2959,32 @@ burstFrame();
 
           
 
-          {/* GW Winners Ledger — compact scroll card, placed before stats */}
+          {/* GW Winners Ledger — scroll card, placed before stats */}
           {activeTab === 'dashboard' && (
             <div className="w-full bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 overflow-hidden">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                  <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
-                </h4>
-                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                  NOW: GW {currentGwNumber || firestoreGw || '--'}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                    <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
+                  </h4>
+                  {forfeitedGws.length > 0 && (
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-500/20 border border-gray-500/30 text-gray-300">
+                      {forfeitedGws.length} Forfeited
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                    NOW: GW {currentGwNumber || firestoreGw || '--'}
+                  </span>
+                  <span className="text-[9px] text-gray-500 hidden sm:inline">
+                    · Tap any GW to manage / forfeit
+                  </span>
+                </div>
               </div>
               <div ref={gwLedgerScrollRef} className="flex md:justify-center gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                 {Array.from({ length: 38 }, (_, i) => i + 1)
                   .filter(gw => gw <= (currentGwNumber || firestoreGw || 38))
-                  .slice(-10) // Show at most the last 10 GWs to avoid overflow clutter
                   .map((gw) => {
                   const approvedPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'approved'
@@ -2866,41 +2992,69 @@ burstFrame();
                   const pendingPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'awaiting_approval'
                   );
+                  const isForfeited = pendingPayouts.some(
+                    (p) => Number(p.gw) === gw && p.status === 'forfeited'
+                  ) || (leagueSettings?.forfeitedGws || []).includes(gw);
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
-                  const isSkipped = !approvedPayout && !pendingPayout && !isCurrent && gw < (currentGwNumber || firestoreGw || 99);
+                  const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isCurrent && gw < (currentGwNumber || firestoreGw || 99);
                   return (
-                    <div
+                    <button
                       key={gw}
+                      type="button"
                       data-gw={gw}
-                      title={isSkipped ? `GW${gw} was skipped — click to resolve` : undefined}
-                      onClick={() => {
-                        if (isSkipped && !gwAlreadySettled) {
-                          setResolveTargetGw(gw);
-                          setTimeout(() => setShowResolveModal(true), 0);
-                        }
-                      }}
-                      className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all min-w-[60px] ${
-                        approvedPayout
-                          ? 'border-emerald-500/40 bg-emerald-500/10'
+                      title={
+                        isForfeited
+                          ? `GW${gw} is forfeited (no play) — click to manage`
+                          : approvedPayout
+                          ? `GW${gw} paid to ${approvedPayout.winnerName} — click to view`
                           : pendingPayout
-                          ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10'
-                          : isCurrent
-                          ? 'border-white/20 bg-white/5'
+                          ? `GW${gw} payout pending approval — click to view`
                           : isSkipped
-                          ? 'border-red-500/30 bg-red-500/8 cursor-pointer hover:border-red-500/60 hover:bg-red-500/15'
-                          : 'border-white/5 bg-transparent'
+                          ? `GW${gw} is unsettled — click to forfeit or resolve`
+                          : isCurrent
+                          ? `GW${gw} is currently live`
+                          : undefined
+                      }
+                      onClick={() => {
+                        setSelectedGwForAction(gw);
+                        setShowGwActionModal(true);
+                      }}
+                      className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all min-w-[64px] text-left cursor-pointer ${
+                        approvedPayout
+                          ? 'border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/70 hover:bg-emerald-500/20'
+                          : pendingPayout
+                          ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
+                          : isForfeited
+                          ? 'border-white/10 bg-black/40 hover:border-white/20 hover:bg-white/5 opacity-85'
+                          : isCurrent
+                          ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                          : isSkipped
+                          ? 'border-amber-500/35 bg-amber-500/10 hover:border-amber-500/65 hover:bg-amber-500/20 animate-pulse'
+                          : 'border-white/5 bg-transparent hover:border-white/15'
                       }`}
                     >
                       <span className={`text-[9px] font-black uppercase tracking-widest ${
-                        isCurrent ? 'text-white' : isSkipped ? 'text-red-400' : 'text-gray-500'
+                        isCurrent ? 'text-white' : isForfeited ? 'text-gray-500' : isSkipped ? 'text-amber-400' : approvedPayout ? 'text-emerald-300' : 'text-gray-400'
                       }`}>GW{gw}</span>
                       <span className={`text-[8px] font-bold ${
-                        approvedPayout ? 'text-emerald-400' : pendingPayout ? 'text-[#FBBF24]' : isSkipped ? 'text-red-400' : 'text-gray-600'
+                        approvedPayout
+                          ? 'text-emerald-400'
+                          : pendingPayout
+                          ? 'text-[#FBBF24]'
+                          : isForfeited
+                          ? 'text-gray-400'
+                          : isCurrent
+                          ? 'text-emerald-400 font-black'
+                          : isSkipped
+                          ? 'text-amber-400'
+                          : 'text-gray-600'
                       }`}>
                         {approvedPayout
                           ? '✓ Paid'
                           : pendingPayout
                           ? '⏳ Pending'
+                          : isForfeited
+                          ? '🚫 Void'
                           : isCurrent
                           ? 'Live'
                           : isSkipped
@@ -2912,10 +3066,16 @@ burstFrame();
                           {approvedPayout.winnerName?.split(' ')[0]}
                         </span>
                       )}
-                      {isSkipped && (
-                        <span className="text-[7px] text-red-500 font-bold uppercase tracking-widest">Tap</span>
+                      {isForfeited && (
+                        <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">No Play</span>
                       )}
-                    </div>
+                      {isSkipped && (
+                        <span className="text-[7px] text-amber-300 font-black uppercase tracking-widest">Tap</span>
+                      )}
+                      {isCurrent && (
+                        <span className="text-[7px] text-emerald-400 font-bold uppercase tracking-widest">Active</span>
+                      )}
+                    </button>
                   );
                 })}
               </div>
@@ -3102,8 +3262,8 @@ burstFrame();
                             </span>
                           </div>
                         </div>
-                        <div className="flex gap-2 flex-wrap shrink-0">
-                          <span className="px-5 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center gap-2 shadow-inner">
+                        <div className="flex gap-2 flex-wrap w-full sm:w-auto mt-2 sm:mt-0 items-center">
+                          <span className="flex-1 sm:flex-initial px-4 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 shadow-inner">
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />{" "}
                             {requiresCoChairSignature
                               ? "Awaiting Co-Chair Signature"
@@ -3113,13 +3273,13 @@ burstFrame();
                           </span>
                           <button
                             onClick={() => generateWhatsAppReceipt(payout)}
-                            className="px-5 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center gap-2"
+                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <Share2 className="w-3.5 h-3.5" /> Share
                           </button>
                           <button
                             onClick={() => handleRejectPayout(payout.id)}
-                            className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center gap-2"
+                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <ShieldAlert className="w-3.5 h-3.5" /> Reject
                           </button>
@@ -3128,7 +3288,7 @@ burstFrame();
                               <button
                                 onClick={() => handleApprovePayout(payout)}
                                 disabled={isApprovingPayout === payout.id}
-                                className="px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-black text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 flex items-center gap-2"
+                                className="w-full sm:w-auto px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-black text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                               >
                                 {isApprovingPayout === payout.id ? (
                                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3145,7 +3305,7 @@ burstFrame();
                                     handleApprovePayout(payout, "cash")
                                   }
                                   disabled={isApprovingPayout === payout.id}
-                                  className="px-5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                   <Banknote className="w-3.5 h-3.5" />
                                   Cash Handoff
@@ -3472,22 +3632,22 @@ burstFrame();
                           KES {req.amount?.toLocaleString()}
                         </span>
                         <span className="text-xs text-gray-400">
-                          covers {Math.floor(req.amount / gameweekStake)} GWs
+                          covers {gameweekStake > 0 ? Math.floor(req.amount / gameweekStake) : '—'} GWs
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex gap-2 w-full sm:w-auto">
                       <button
                         onClick={() => handleRejectPochi(req)}
                         disabled={processingPochi === req.id}
-                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl border border-red-500/20 transition-colors disabled:opacity-50"
+                        className="flex-1 sm:flex-initial px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl border border-red-500/20 transition-colors disabled:opacity-50 text-center"
                       >
                         Reject
                       </button>
                       <button
                         onClick={() => handleApprovePochi(req)}
                         disabled={processingPochi === req.id}
-                        className="px-4 py-2 bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] text-xs font-bold rounded-xl border border-[#10B981]/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        className="flex-1 sm:flex-initial px-4 py-2 bg-[#10B981]/10 hover:bg-[#10B981]/20 text-[#10B981] text-xs font-bold rounded-xl border border-[#10B981]/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                       >
                         {processingPochi === req.id ? (
                           <span className="animate-pulse">...</span>
@@ -3721,9 +3881,220 @@ burstFrame();
           </section>
           </div>
 
+          {/* Gameweek Action / Forfeit Modal */}
+          {showGwActionModal && selectedGwForAction && createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="bg-[#161d24] border border-white/15 w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#FBBF24]/10 border border-[#FBBF24]/25 flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-[#FBBF24]" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-white tracking-tight">
+                        Gameweek {selectedGwForAction} Action
+                      </h3>
+                      <p className="text-[11px] text-gray-400">
+                        Manage settlement, payouts or forfeit unplayed rounds
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowGwActionModal(false)}
+                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Content */}
+                {(() => {
+                  const targetApproved = pendingPayouts.find((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'approved');
+                  const targetPending = pendingPayouts.find((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'awaiting_approval');
+                  const targetForfeited = pendingPayouts.some((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'forfeited') || (leagueSettings?.forfeitedGws || []).includes(selectedGwForAction);
+
+                  if (targetForfeited) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-gray-600/30 bg-gray-800/30 p-4">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-base">🚫</span>
+                            <p className="text-xs font-black uppercase tracking-wider text-gray-200">
+                              Gameweek {selectedGwForAction} is Forfeited
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-relaxed">
+                            This Gameweek is marked as unplayed because your league started later. No pot or stakes were deducted, and any deposited funds remain intact in member wallets.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUnforfeitGw(selectedGwForAction)}
+                          disabled={isForfeiting}
+                          className="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Reopen / Restore GW ${selectedGwForAction}`}
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (targetApproved) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">✓ Settled & Paid</span>
+                            <span className="text-sm font-black text-[#FBBF24]">KES {Number(targetApproved.amount || 0).toLocaleString()}</span>
+                          </div>
+                          <p className="text-sm text-white font-bold">{targetApproved.winnerName}</p>
+                          <p className="text-[11px] text-gray-400 mt-1">
+                            Disbursement: {targetApproved.method === 'cash' ? 'Cash Handoff' : 'M-Pesa B2C'}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+                          <p className="text-xs font-bold text-red-300 mb-1">Resolved in error?</p>
+                          <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                            If your league did not actually play GW{selectedGwForAction}, you can forfeit it. This reverts the payout and refunds the KES {gameweekStake.toLocaleString()} stake back into each member's wallet balance.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleForfeitGw(selectedGwForAction)}
+                            disabled={isForfeiting}
+                            className="w-full py-2.5 px-4 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Forfeit & Refund Member Stakes'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (targetPending) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-[#FBBF24]/30 bg-[#FBBF24]/10 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-black text-[#FBBF24] uppercase tracking-widest">⏳ Pending Approval</span>
+                            <span className="text-sm font-black text-[#FBBF24]">KES {Number(targetPending.amount || 0).toLocaleString()}</span>
+                          </div>
+                          <p className="text-sm text-white font-bold">{targetPending.winnerName}</p>
+                        </div>
+                        <div className="flex flex-col gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowGwActionModal(false);
+                              handleApprovePayout(targetPending);
+                            }}
+                            className="w-full py-3 px-4 rounded-xl bg-[#10B981] hover:bg-[#059669] text-black text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Approve Payout
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleForfeitGw(selectedGwForAction)}
+                            disabled={isForfeiting}
+                            className="w-full py-2.5 px-4 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Did Not Play — Forfeit GW ${selectedGwForAction}`}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Default: Unsettled / Unplayed GW
+                  return (
+                    <div className="space-y-4">
+                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 font-medium">
+                        GW{selectedGwForAction} is unsettled. Choose whether your league competed or did not play:
+                      </div>
+
+                      {/* Choice 1: Forfeit / Skip */}
+                      <div className="p-4 rounded-2xl border border-white/10 bg-black/30 hover:border-gray-500/40 transition-all">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                            <span>⛔</span> Forfeit / Skip Gameweek
+                          </p>
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300">
+                            Didn't Play
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                          Mark as unplayed because your league started later. Removes this GW from required season dues and ensures <strong>no money or stakes are deducted</strong> from member wallets.
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleForfeitGw(selectedGwForAction, false)}
+                            disabled={isForfeiting}
+                            className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Forfeit GW ${selectedGwForAction}`}
+                          </button>
+
+                          {selectedGwForAction > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleForfeitGw(selectedGwForAction, true)}
+                              disabled={isForfeiting}
+                              className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              {isForfeiting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : `⚡ Forfeit All GW 1 through ${selectedGwForAction}`}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Choice 2: Played & Resolve Winner */}
+                      <div className="p-4 rounded-2xl border border-[#FBBF24]/25 bg-[#FBBF24]/5 hover:border-[#FBBF24]/40 transition-all">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                            <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Resolve Winner & Pay Out
+                          </p>
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                            Played
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                          If your league actually competed in GW{selectedGwForAction}: fetch official standings, finalize the winner, and queue the KES {weeklyPot.toLocaleString()} pot payout.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowGwActionModal(false);
+                            setResolveTargetGw(selectedGwForAction);
+                            setTimeout(() => setShowResolveModal(true), 0);
+                          }}
+                          className="w-full py-2.5 px-4 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-black text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(251,191,36,0.2)]"
+                        >
+                          <Trophy className="w-3.5 h-3.5" /> Resolve GW {selectedGwForAction} Winner
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="mt-5 pt-3 border-t border-white/10 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setShowGwActionModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
           {showResolveModal && createPortal(
             <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-              <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/25 w-full max-w-md rounded-2xl shadow-[0_0_60px_rgba(251,191,36,0.1)] overflow-hidden">
+              <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/25 w-full max-w-md rounded-2xl shadow-[0_0_60px_rgba(251,191,36,0.1)] overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="p-5 pb-4 border-b border-white/5">
                   <div className="flex items-center gap-3 mb-3">
@@ -3738,7 +4109,7 @@ burstFrame();
                 </div>
 
                 {/* Body */}
-                <div className="p-5 space-y-4">
+                <div className="p-5 space-y-4 overflow-y-auto">
                   {/* Payout summary */}
                   <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
                     <div>
@@ -3923,7 +4294,7 @@ burstFrame();
 
         {showWalletFundModal && (
           <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="fc-prefund-panel bg-[#161d24] border border-[#10B981]/30 w-full max-w-2xl rounded-4xl p-6 md:p-8 shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="fc-prefund-panel bg-[#161d24] border border-[#10B981]/30 w-full max-w-2xl rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between gap-4 mb-6">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10B981]">

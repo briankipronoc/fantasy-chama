@@ -33,6 +33,8 @@ export interface LeagueSettings {
     suspensionNudges?: string[];
     lastResolvedDate?: any; // Firestore Timestamp — used by 48h grace period engine
     referralCode?: string;  // Unique referral code for this league's chairman
+    forfeitedGws?: number[]; // Gameweeks marked as unplayed/forfeited
+    startGw?: number;        // Initial gameweek for the league
 }
 
 interface AppState {

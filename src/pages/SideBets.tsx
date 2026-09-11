@@ -99,7 +99,17 @@ export default function SideBets() {
                 chairmanApproved: false,
                 createdAt: serverTimestamp(),
             });
-            toast.success('Bet created! Waiting for opponent to agree.');
+
+            // 🔔 Notify opponent in-app so they know they've been challenged
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'side_bet_challenge',
+                targetMemberId: opponent.id,
+                message: `⚔️ ${currentUser.displayName} has challenged you to a side bet: "${betTitle}" — KES ${stake.toLocaleString()}. Open Side Bets to agree or decline.`,
+                readBy: [],
+                createdAt: serverTimestamp(),
+            });
+
+            toast.success('Bet created! Opponent has been notified.');
             setShowCreate(false);
             setBetTitle('');
             setBetDescription('');

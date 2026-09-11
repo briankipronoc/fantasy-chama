@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity,  ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2  } from 'lucide-react';
+import { Activity,  ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, ChevronDown, RefreshCw  } from 'lucide-react';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -42,6 +42,7 @@ export default function Profile() {
     const [showWarningModal, setShowWarningModal] = useState(false);
     const [pendingPhoneMap, setPendingPhoneMap] = useState<Record<string, string>>({});
     const [isSavingPendingPhone, setIsSavingPendingPhone] = useState<string | null>(null);
+    const [showPendingOnboarding, setShowPendingOnboarding] = useState(false);
 
     const activeMembersCount = members.filter((member) => member.isActive !== false).length;
     const maxAllowedWinners = Math.max(1, Math.min(10, Math.max(1, activeMembersCount)));
@@ -404,22 +405,124 @@ export default function Profile() {
         }
     };
 
-    const renderActiveMembersStrip = (extraClassName = '') => (
+    const renderActiveMembersStrip = (extraClassName = '') => {
+        const pendingMembers = members.filter((m: any) => m.isPending === true);
+        return (
         <div className={clsx(
             "fc-active-members-card fc-card bg-[#161d24] border border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden",
             extraClassName
         )}>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
                     <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-white">
                         <Users className="w-5 h-5 text-[#10B981]" /> Active Members
                     </h2>
                     <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Live League Directory</p>
                 </div>
-                <span className="bg-[#0b1014] text-white border border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
-                    {activeMembersCount}
-                </span>
+                <div className="flex items-center gap-2">
+                    {pendingMembers.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowPendingOnboarding(prev => !prev)}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.15)] group"
+                            title="Click to view and onboard pending FPL members"
+                        >
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            </span>
+                            <span>{pendingMembers.length} Pending Onboarding</span>
+                            <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform duration-200", showPendingOnboarding && "rotate-180")} />
+                        </button>
+                    )}
+                    <span className="bg-[#0b1014] text-white border border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
+                        {activeMembersCount}
+                    </span>
+                </div>
             </div>
+
+            {/* Expandable FPL Sync — Pending Onboarding Drawer */}
+            {showPendingOnboarding && pendingMembers.length > 0 && (
+                <div className="mb-5 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 md:p-5 animate-in slide-in-from-top-2 duration-200 shadow-xl">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+                            <p className="text-[11px] font-black text-blue-300 uppercase tracking-widest">
+                                🔗 FPL Sync — Pending Onboarding
+                            </p>
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-400 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/10">
+                            {pendingMembers.length} to activate
+                        </span>
+                    </div>
+                    <p className="text-xs text-gray-300 mb-4">
+                        Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger.
+                    </p>
+                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                        {pendingMembers.map((m: any) => (
+                            <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#0b1014]/90 border border-white/10 hover:border-blue-500/40 transition-all">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-9 h-9 rounded-full bg-[#161d24] border border-white/15 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                                        <img
+                                            src={`https://api.dicebear.com/7.x/notionists/svg?seed=${m.avatarSeed || m.displayName}&backgroundColor=transparent`}
+                                            alt={m.displayName}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-xs md:text-sm font-bold text-white truncate">{m.displayName}</p>
+                                        <p className="text-[10px] text-blue-400 font-semibold truncate">
+                                            {m.fplTeamName || 'FPL Team'} <span className="text-gray-500">· Pending Phone</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <input
+                                        type="tel"
+                                        value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
+                                        onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
+                                        placeholder="07XXXXXXXX"
+                                        className="flex-1 sm:w-36 bg-[#161d24] border border-white/15 rounded-xl py-2 px-3 text-xs text-white font-mono focus:ring-1 focus:ring-blue-400 outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            const phone = pendingPhoneMap[m.id] || m.phoneNumber;
+                                            if (!phone || phone.length < 9) {
+                                                toast.error('Enter a valid phone number (at least 9 digits)');
+                                                return;
+                                            }
+                                            setIsSavingPendingPhone(m.id);
+                                            try {
+                                                const { doc: docFn, updateDoc: updateDocFn } = await import('firebase/firestore');
+                                                await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
+                                                    phoneNumber: phone,
+                                                    phone: phone,
+                                                    isPending: false,
+                                                    isActive: true,
+                                                });
+                                                toast.success(`${m.displayName} activated!`);
+                                            } catch (_e) {
+                                                toast.error('Failed to save. Try again.');
+                                            } finally {
+                                                setIsSavingPendingPhone(null);
+                                            }
+                                        }}
+                                        disabled={isSavingPendingPhone === m.id || !((pendingPhoneMap[m.id] || m.phoneNumber)?.length >= 9)}
+                                        className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                                    >
+                                        {isSavingPendingPhone === m.id ? (
+                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                            '✓ Activate'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-rows-2 grid-flow-col gap-3 overflow-x-auto pb-2 custom-scrollbar auto-cols-max">
                 {[...members]
@@ -486,6 +589,7 @@ export default function Profile() {
             </div>
         </div>
     );
+};
 
     return (
         <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white relative overflow-hidden bg-transparent">
@@ -748,55 +852,6 @@ export default function Profile() {
                                     />
                                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
                                 </div>
-
-                                {/* Pending Members Onboarding Panel */}
-                                {(() => {
-                                    const pendingMembers = members.filter((m: any) => m.isPending === true);
-                                    if (!pendingMembers.length) return null;
-                                    return (
-                                        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
-                                            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">🔗 FPL Sync — Pending Onboarding</p>
-                                            <p className="text-xs text-gray-500 mb-4">{pendingMembers.length} player{pendingMembers.length !== 1 ? 's' : ''} imported from FPL. Add their phone numbers to complete their profiles and activate them.</p>
-                                            <div className="space-y-3">
-                                                {pendingMembers.map((m: any) => (
-                                                    <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/20 border border-white/5">
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-bold text-white truncate">{m.displayName}</p>
-                                                            <p className="text-[10px] text-blue-400 font-bold">{m.fplTeamName || 'FPL team'} · <span className="text-gray-500">No phone yet</span></p>
-                                                        </div>
-                                                        <input
-                                                            type="tel"
-                                                            value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
-                                                            onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
-                                                            placeholder="07XXXXXXXX"
-                                                            className="w-32 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-xs text-white font-mono focus:ring-1 focus:ring-blue-400 outline-none"
-                                                        />
-                                                        <button
-                                                            onClick={async () => {
-                                                                const phone = pendingPhoneMap[m.id];
-                                                                if (!phone || phone.length < 9) return;
-                                                                setIsSavingPendingPhone(m.id);
-                                                                try {
-                                                                    const { doc: docFn, updateDoc: updateDocFn } = await import('firebase/firestore');
-                                                                    await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
-                                                                        phoneNumber: phone,
-                                                                        isPending: false,
-                                                                    });
-                                                                } catch (_e) { /* ignore */ } finally {
-                                                                    setIsSavingPendingPhone(null);
-                                                                }
-                                                            }}
-                                                            disabled={isSavingPendingPhone === m.id || !(pendingPhoneMap[m.id]?.length >= 9)}
-                                                            className="shrink-0 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black hover:bg-blue-500/20 transition-all disabled:opacity-40"
-                                                        >
-                                                            {isSavingPendingPhone === m.id ? '...' : '✓ Save'}
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
 
                                 {/* Co-Chair Designation */}
                                 <div>
