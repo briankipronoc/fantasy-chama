@@ -182,7 +182,14 @@ export default function MemberDashboard() {
                                 // Chama Rule: Minimum 2 funded managers required for a contestable pot
                                 if (eligibleResults.length >= 2) {
                                     const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-                                    setGwWinner(sorted[0]);
+                                    const winner = sorted[0];
+                                    const runnerUp = sorted[1];
+                                    const leadMargin = Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0);
+                                    setGwWinner({
+                                        ...winner,
+                                        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || '2nd Place',
+                                        leadMargin: Math.max(0, leadMargin),
+                                    });
                                 } else {
                                     // 0 or 1 funded managers: Gameweek is unplayable / void; no unfunded winner
                                     setGwWinner(null);
@@ -1111,6 +1118,23 @@ export default function MemberDashboard() {
                                         </p>
                                         <p className="text-lg font-black text-white tabular-nums">{isMeLeader ? firstName : gwWinner.player_name}</p>
                                         <p className="text-[11px] text-[#FBBF24] font-bold tabular-nums">{Number(gwWinner.event_total || 0).toLocaleString()} pts</p>
+                                        {gwWinner.leadMargin !== undefined && (
+                                            <div className="mt-1.5 flex flex-col items-center gap-1">
+                                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                    +{gwWinner.leadMargin} pts ahead
+                                                </span>
+                                                <span className={clsx(
+                                                    "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                                                    gwWinner.leadMargin >= 15
+                                                        ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                                                        : gwWinner.leadMargin >= 5
+                                                        ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                                        : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
+                                                )}>
+                                                    {gwWinner.leadMargin >= 15 ? "Dominant 🛡️" : gwWinner.leadMargin >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     {!isMeLeader && myEntry && (
@@ -1179,6 +1203,24 @@ export default function MemberDashboard() {
                                         </p>
                                         <h3 className="text-2xl font-black text-white leading-tight tracking-tight">{gwWinner.player_name}</h3>
                                         <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mt-0.5">{gwWinner.entry_name} <span className="inline-block text-[#10B981] ml-2 px-1.5 py-0.5 bg-[#10B981]/10 rounded border border-[#10B981]/20 tabular-nums">{gwWinner.event_total} pts</span></p>
+                                        {!hasFinalGwChampion && gwWinner.leadMargin !== undefined && (
+                                            <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                                    +{gwWinner.leadMargin} pts ahead of {gwWinner.runnerUpName}
+                                                </span>
+                                                <span className={clsx(
+                                                    "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border",
+                                                    gwWinner.leadMargin >= 15
+                                                        ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                                                        : gwWinner.leadMargin >= 5
+                                                        ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                                        : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
+                                                )}>
+                                                    {gwWinner.leadMargin >= 15 ? "Dominant Lead 🛡️" : gwWinner.leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

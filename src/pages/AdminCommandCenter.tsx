@@ -109,6 +109,7 @@ export default function AdminCommandCenter() {
   const [showChairmanFlexModal, setShowChairmanFlexModal] = useState(false);
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
+  const [nextDeadlineTime, setNextDeadlineTime] = useState<string | null>(null);
   const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
   const [startGw, setStartGw] = useState<number | null>(null);
 
@@ -518,6 +519,10 @@ export default function AdminCommandCenter() {
             const bootstrapData = await bootstrapRes.json();
             const events = bootstrapData?.events || [];
             const current = events.find((e: any) => e.is_current) || events.find((e: any) => e.is_next);
+            const nextEvent = events.find((e: any) => e.is_next) || current;
+            if (nextEvent?.deadline_time) {
+              setNextDeadlineTime(nextEvent.deadline_time);
+            }
             setIsCurrentEventFinished(current?.finished === true);
             const fetchedGwId = Number(current?.id || 0) || null;
             setCurrentGwNumber(fetchedGwId);
@@ -557,7 +562,14 @@ export default function AdminCommandCenter() {
               // Chama Rule: Minimum 2 funded managers required for a contestable pot
               if (eligibleResults.length >= 2) {
                 const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-                setGwWinner(sorted[0]);
+                const winner = sorted[0];
+                const runnerUp = sorted[1];
+                const leadMargin = Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0);
+                setGwWinner({
+                  ...winner,
+                  runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || '2nd Place',
+                  leadMargin: Math.max(0, leadMargin),
+                });
               } else {
                 // 0 or 1 funded managers: Gameweek cannot be won by an unfunded manager
                 setGwWinner(null);
@@ -1325,7 +1337,23 @@ export default function AdminCommandCenter() {
 
   const handleMemberNudge = (member: any) => {
     const appUrl = window.location.origin;
-    const message = `*${leagueName} Notice*\n\nHi ${member.displayName}, this is a gentle reminder that your GW${currentGwNumber || firestoreGw || '--'} contribution is pending. Please fund your wallet to avoid the red zone.\n\n🔗 ${appUrl}`;
+    const hoursLeft = nextDeadlineTime ? Math.max(0, Math.round((new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60))) : null;
+    const hoursText = hoursLeft !== null ? (hoursLeft > 0 ? `⏳ *~${hoursLeft} hours remaining until deadline*` : `⏳ *Deadline cutoff in progress!*`) : `⏳ *Gameweek deadline approaching*`;
+    const pochiText = leagueSettings?.paymentDetails || leagueSettings?.pochiNumber || leagueSettings?.chairmanPhone || '';
+    const weeklyPot = Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length || 1) * gameweekStake * (rules.weekly / 100));
+
+    const message = [
+      `🚨 *${leagueName} — GW${currentGwNumber || firestoreGw || ''} Deadline Nudge*`,
+      ``,
+      `Habari *${member.displayName}*! 👋`,
+      hoursText,
+      `Your *KES ${gameweekStake.toLocaleString()}* stake for Gameweek ${currentGwNumber || firestoreGw || ''} is still pending in the Red Zone.`,
+      ``,
+      `Don't get locked out of this week's *KES ${weeklyPot.toLocaleString()}* cash prize! 🏆`,
+      pochiText ? `📱 Send to Chairman Pochi: *${pochiText}*` : '',
+      `👉 Fund wallet instantly: ${appUrl}/dashboard`,
+    ].filter(Boolean).join('\n');
+
     if (member.phone) {
       const phone = member.phone.replace(/[^0-9]/g, '');
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
@@ -1347,12 +1375,31 @@ export default function AdminCommandCenter() {
       return;
     }
 
-    const redZoneNames = redZoneMembers.map((m) => `• ${m.displayName}`).join("\n");
-    const message = `🚨 *${leagueName} Red Zone Alert*\n\nThe following members have not yet deposited for the upcoming Gameweek:\n\n${redZoneNames}\n\nPlease complete your contributions to avoid lockout. 💰⚽`;
+    const appUrl = window.location.origin;
+    const hoursLeft = nextDeadlineTime ? Math.max(0, Math.round((new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60))) : null;
+    const hoursText = hoursLeft !== null ? (hoursLeft > 0 ? `⏳ *~${hoursLeft} hours remaining until deadline*` : `⏳ *Deadline cutoff in progress!*`) : `⏳ *Gameweek deadline approaching*`;
+    const pochiText = leagueSettings?.paymentDetails || leagueSettings?.pochiNumber || leagueSettings?.chairmanPhone || '';
+    const totalPotAtStake = (members.filter(m => m.isActive !== false).length) * (gameweekStake || 0);
+    const weeklyPrize = Math.round(totalPotAtStake * (rules.weekly / 100));
+
+    const message = [
+      `🚨 *${leagueName.toUpperCase()} — DEADLINE RED ZONE BLAST* 🚨`,
+      ``,
+      hoursText,
+      `The following *${redZoneMembers.length} managers* have not cleared their KES ${gameweekStake.toLocaleString()} stake:`,
+      ``,
+      ...redZoneMembers.map((m, idx) => `${idx + 1}. *${m.displayName}* (${m.teamName || 'FPL Team'})`),
+      ``,
+      `💰 Total Pot at Stake: *KES ${totalPotAtStake.toLocaleString()}* (Weekly Winner: *KES ${weeklyPrize.toLocaleString()}*)`,
+      pochiText ? `📱 Send directly via Pochi / M-Pesa: *${pochiText}*` : '',
+      ``,
+      `⚠️ *Unfunded managers will NOT be eligible for this week's cash prize!*`,
+      `👉 Settle now on FantasyChama: ${appUrl}/dashboard`
+    ].filter(Boolean).join('\n');
     
     // Open synchronously to avoid browser popup blockers
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
-    showToast("Bulk Nudge saved to system. Opening WhatsApp for group share.");
+    showToast("Bulk Nudge blast opened for WhatsApp.");
 
     setNudgeSent(true);
     setTimeout(() => setNudgeSent(false), 2000);
@@ -3265,6 +3312,24 @@ burstFrame();
                       {gwWinner.event_total} pts
                     </span>
                   </p>
+                  {!isCurrentEventFinished && gwWinner.leadMargin !== undefined && (
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        +{gwWinner.leadMargin} pts ahead of {gwWinner.runnerUpName}
+                      </span>
+                      <span className={clsx(
+                        "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border",
+                        gwWinner.leadMargin >= 15
+                          ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                          : gwWinner.leadMargin >= 5
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                          : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
+                      )}>
+                        {gwWinner.leadMargin >= 15 ? "Dominant Lead 🛡️" : gwWinner.leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

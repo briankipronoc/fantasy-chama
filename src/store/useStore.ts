@@ -21,6 +21,7 @@ export interface Member {
     totalEarned?: number;       // Lifetime earnings from kickbacks
     paymentStreak?: number;     // Consecutive GWs paid without missing (Streak engine)
     fcmToken?: string;          // FCM device push token
+    teamName?: string;          // FPL Team Name
 }
 
 export interface LeagueSettings {
@@ -35,6 +36,10 @@ export interface LeagueSettings {
     referralCode?: string;  // Unique referral code for this league's chairman
     forfeitedGws?: number[]; // Gameweeks marked as unplayed/forfeited
     startGw?: number;        // Initial gameweek for the league
+    paymentDetails?: string; // Chairman payment details (Till/Paybill/Pochi)
+    pochiNumber?: string;    // Chairman Pochi number
+    chairmanPhone?: string;  // Chairman Phone
+    chairmanName?: string;   // Chairman Display Name
 }
 
 interface AppState {
