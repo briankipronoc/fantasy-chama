@@ -8,6 +8,7 @@ import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, C
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
 import DeadlineCountdown from './DeadlineCountdown';
+import LeagueSwitcher from './LeagueSwitcher';
 import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -145,56 +146,61 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
     const unreadSystemCount = systemNotifs.filter(n => !n.readBy?.includes(realActiveUser)).length;
 
     return (
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 md:gap-0 mb-8 md:mb-10 w-full relative z-50">
-            <div className={clsx('fc-header-stage w-full md:w-auto', headerMotion)}>
-                <div className="flex items-center gap-3 md:gap-4 w-full">
+        <div className="flex flex-col gap-2.5 mb-5 md:mb-7 w-full relative z-50">
+            {/* Row 1: League Title/Hub on the left, League Switcher directly to the right */}
+            <div className="flex items-center justify-between gap-3 w-full">
+                <div className={clsx('fc-header-stage flex items-center gap-3 md:gap-4 min-w-0 flex-1', headerMotion)}>
                     <UserAvatar name={fullDisplayName} size="lg" />
                     <div className="min-w-0 flex-1">
-                        <h1 className="fc-frosty-title text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate">
+                        <h1 className="fc-frosty-title text-lg sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate text-slate-900 dark:text-white">
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
-                        <div className="flex items-center gap-2 mt-1.5 truncate">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-md shadow-sm">
+                        <div className="flex items-center gap-2 mt-1 truncate">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/[0.04] backdrop-blur-md shadow-sm">
                                 {role === 'admin' ? (
-                                    <Shield className="w-3 h-3 text-[#22c55e] flex-shrink-0" />
+                                    <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
                                 ) : (
-                                    <Trophy className="w-3 h-3 text-[#FBBF24] flex-shrink-0" />
+                                    <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
                                 )}
-                                <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold">
+                                <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-700 dark:text-gray-300">
                                     {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
                                 </span>
                             </span>
                         </div>
                     </div>
                 </div>
+
+                {/* League Switcher directly to the right of the League Title */}
+                <div className="shrink-0 flex items-center">
+                    <LeagueSwitcher variant="header" />
+                </div>
             </div>
 
-            <div className="flex flex-col items-stretch sm:items-end gap-2.5 w-full md:w-auto mt-3 md:mt-0" ref={dropdownRef}>
-                {/* Row 1: Action Icons moved nicely to the right */}
-                <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full">
-                    {/* Join HQ Trigger */}
+            {/* Row 2: Action Icons neatly right-aligned below the League Switcher */}
+            <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
+                {/* Join HQ Trigger */}
                 {isSuperAdmin && (
                     <button
                         onClick={() => navigate('/hq')}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981]/80 transition-all font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)] active:scale-95"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981]/80 transition-all font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)] active:scale-95"
                         title="Access Super Admin HQ"
                     >
-                        <Shield className="w-4 h-4" /> Join HQ
+                        <Shield className="w-3.5 h-3.5" /> Join HQ
                     </button>
                 )}
 
                 {/* Theme Toggle — 3-way pill: Dark | System | Light */}
-                <div className="fc-theme-toggle-shell hidden sm:flex items-center rounded-xl p-1 gap-0.5">
+                <div className="fc-theme-toggle-shell hidden sm:flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10">
                     {(['dark', 'system', 'light'] as const).map((mode) => (
                         <button
                             key={mode}
                             onClick={() => setTheme(mode)}
-                            className={`fc-theme-toggle-btn flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            className={`fc-theme-toggle-btn flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                                 currentTheme === mode
-                                    ? mode === 'dark' ? 'bg-slate-700 text-white shadow-sm'
-                                    : mode === 'light' ? 'bg-amber-400/20 text-amber-300 shadow-sm'
-                                    : 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-600 dark:text-gray-400'
+                                    ? mode === 'dark' ? 'bg-slate-800 text-white shadow-sm'
+                                    : mode === 'light' ? 'bg-amber-400/20 text-amber-600 dark:text-amber-300 shadow-sm'
+                                    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
                             }`}
                             title={mode === 'dark' ? 'Force dark mode' : mode === 'light' ? 'Force light mode' : 'Auto-match OS theme'}
                         >
@@ -206,19 +212,19 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                 {/* Mobile compact cycle */}
                 <button
                     onClick={() => setTheme(currentTheme === 'dark' ? 'system' : currentTheme === 'system' ? 'light' : 'dark')}
-                    className="fc-theme-toggle-mobile sm:hidden p-2.5 border rounded-xl text-gray-600 dark:text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
+                    className="fc-theme-toggle-mobile sm:hidden p-2 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
                     title={`Theme: ${currentTheme} — tap to cycle`}
                 >
-                    {currentTheme === 'dark' ? <Moon className="w-5 h-5" /> : currentTheme === 'light' ? <Sun className="w-5 h-5 text-amber-300" /> : <span className="text-[9px] font-black text-emerald-400">OS</span>}
+                    {currentTheme === 'dark' ? <Moon className="w-4 h-4" /> : currentTheme === 'light' ? <Sun className="w-4 h-4 text-amber-500" /> : <span className="text-[9px] font-black text-emerald-500">OS</span>}
                 </button>
 
                 {/* Stealth Mode Toggle */}
                 <button
                     onClick={toggleStealthMode}
-                    className="fc-stealth-toggle p-2.5 md:p-3 border rounded-xl text-gray-600 dark:text-gray-400 hover:text-white transition-all duration-300 ease-out active:scale-95"
+                    className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
                     title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                 >
-                    {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
+                    {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                 </button>
 
                 {/* Notifications Bell */}
@@ -226,13 +232,15 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                     <button
                         onClick={handleBellClick}
                         className={clsx(
-                            "p-2.5 md:p-3 border border-white/5 rounded-xl text-gray-600 dark:text-gray-400 hover:text-white transition-all active:scale-95",
-                            isDropdownOpen ? "bg-[#22c55e]/10 border-[#22c55e]/50 text-[#22c55e]" : "bg-[#161d24] hover:bg-white/5"
+                            "p-2 sm:p-2.5 border rounded-xl transition-all active:scale-95",
+                            isDropdownOpen
+                                ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
+                                : "bg-slate-100/80 dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Bell className={clsx("w-5 h-5 md:w-6 md:h-6 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-400")} />
+                        <Bell className={clsx("w-4 h-4 sm:w-5 sm:h-5 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-500 dark:text-amber-400")} />
                         {(unreadPersonalCount + unreadSystemCount) > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 md:top-0 md:right-0 min-w-[18px] h-[18px] bg-[#FBBF24] rounded-full border-2 border-[#0b1014] flex items-center justify-center animate-pulse">
+                            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] bg-amber-500 rounded-full border-2 border-white dark:border-[#0b1014] flex items-center justify-center animate-pulse">
                                 <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
                             </span>
                         )}
@@ -246,12 +254,12 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                 style={{ left: 'var(--fc-sidebar-width, 0px)' }}
                                 onClick={() => setIsDropdownOpen(false)}
                             />
-                            <div className="fc-notif-panel absolute top-3 right-3 md:top-4 md:right-4 w-[min(92vw,28rem)] bg-[#0e1419]/92 border border-white/10 rounded-[1.5rem] shadow-[0_24px_60px_rgba(0,0,0,0.32)] overflow-hidden animate-in zoom-in-95 fade-in slide-in-from-top-3 duration-300 origin-top-right fc-notif-dropdown fc-card">
+                            <div className="fc-notif-panel absolute top-3 right-3 md:top-4 md:right-4 w-[min(92vw,28rem)] bg-white/95 dark:bg-[#0e1419]/95 border border-slate-200 dark:border-white/10 rounded-[1.5rem] shadow-[0_24px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)] overflow-hidden animate-in zoom-in-95 fade-in slide-in-from-top-3 duration-300 origin-top-right fc-notif-dropdown fc-card">
                                 {/* Header row with Mark All Read */}
-                                <div className="fc-notif-header px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/30 backdrop-blur-md">
+                                <div className="fc-notif-header px-5 py-3.5 border-b border-slate-200 dark:border-white/5 flex justify-between items-center bg-slate-50/80 dark:bg-black/30 backdrop-blur-md">
                                     <div>
-                                        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-400/90 mb-0.5">Alerts</p>
-                                        <h3 className="font-bold text-sm tracking-wide text-white">Notifications</h3>
+                                        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-600 dark:text-emerald-400 mb-0.5">Alerts</p>
+                                        <h3 className="font-bold text-sm tracking-wide text-slate-900 dark:text-white">Notifications</h3>
                                     </div>
                                     {(unreadPersonalCount > 0 || unreadSystemCount > 0) && (
                                         <div className="flex items-center gap-1.5">
@@ -278,44 +286,44 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                 </div>
 
                                 {/* Tabs */}
-                                <div className="fc-notif-tabs flex border-b border-white/5 bg-black/15 backdrop-blur-sm">
+                                <div className="fc-notif-tabs flex border-b border-slate-200 dark:border-white/5 bg-slate-100/50 dark:bg-black/15 backdrop-blur-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setActiveTab('personal'); }}
                                         className={clsx(
                                             "fc-notif-tab flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
-                                            activeTab === 'personal' ? "text-emerald-400" : "text-gray-500 hover:text-gray-300"
+                                            activeTab === 'personal' ? "text-emerald-600 dark:text-emerald-400 font-black" : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                                         )}
                                     >
                                         Personal
                                         {unreadPersonalCount > 0 && (
-                                            <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
+                                            <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
                                                 {unreadPersonalCount}
                                             </span>
                                         )}
                                         {activeTab === 'personal' && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
                                         )}
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setActiveTab('system'); }}
                                         className={clsx(
                                             "fc-notif-tab flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
-                                            activeTab === 'system' ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
+                                            activeTab === 'system' ? "text-blue-600 dark:text-blue-400 font-black" : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                                         )}
                                     >
                                         System
                                         {unreadSystemCount > 0 && (
-                                            <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
+                                            <span className="bg-blue-500/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
                                                 {unreadSystemCount}
                                             </span>
                                         )}
                                         {activeTab === 'system' && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 dark:bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
                                         )}
                                     </button>
                                 </div>
                                 {/* Notification Category Chips */}
-                                <div className="fc-notif-chip-row px-3 py-2 border-b border-white/5 flex items-center gap-1.5 overflow-x-auto bg-white/[0.02]">
+                                <div className="fc-notif-chip-row px-3 py-2 border-b border-slate-200 dark:border-white/5 flex items-center gap-1.5 overflow-x-auto bg-slate-50/50 dark:bg-white/[0.02]">
                                     {[
                                         { key: 'all', label: 'All' },
                                         { key: 'payout', label: 'Payouts' },
@@ -328,8 +336,8 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                             className={clsx(
                                                 'fc-notif-chip px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-colors',
                                                 notifView === chip.key
-                                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                                                    : 'bg-white/[0.03] border-white/10 text-gray-500 hover:text-gray-300'
+                                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                                                    : 'bg-slate-100 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                                             )}
                                         >
                                             {chip.label}
@@ -464,13 +472,12 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                     </button>
                 </div>
 
-                {/* Row 2: GW Deadline Timer positioned neatly under action icons */}
+                {/* GW Deadline Timer positioned neatly under action icons */}
                 {!hideCountdown && (
                     <div className="flex items-center justify-end w-full">
                         <DeadlineCountdown />
                     </div>
                 )}
-            </div>
 
             {/* League Constitution Modal */}
             <LeagueRulesModal

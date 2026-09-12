@@ -804,6 +804,7 @@ export default function AdminSetup() {
                                     <input
                                         type="number"
                                         value={monthlyFee === 0 ? '' : monthlyFee}
+                                        onFocus={e => e.target.select()}
                                         onChange={e => setMonthlyFee(Number(e.target.value))}
                                         className="w-full bg-transparent px-4 py-3.5 text-white font-medium focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
                                     />

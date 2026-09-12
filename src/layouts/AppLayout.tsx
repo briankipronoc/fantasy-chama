@@ -115,6 +115,9 @@ export default function AppLayout() {
     // Navigation Items
     const redZoneCount = members.filter((m) => m.role !== 'admin' && m.isActive !== false && !m.hasPaid).length;
     const adminFinanceBadge = redZoneCount + pendingApprovalCount;
+    const activeUserMember = members.find(m => m.id === activeUserId);
+    // Member badge: only show if the current user personally hasn't paid (not all members)
+    const memberOwnUnpaid = activeUserMember && !activeUserMember.hasPaid ? 1 : 0;
 
     const isCoChair = Boolean(coChairMemberId && activeUserId === coChairMemberId);
     const adminNavItems = [
@@ -129,11 +132,12 @@ export default function AppLayout() {
         { name: 'Member Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
         { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
-        { name: 'Finances & Payouts', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: redZoneCount > 0 ? redZoneCount : undefined },
+        // Only show badge if THIS member personally hasn't paid — not other members' debts
+        { name: 'Finances & Payouts', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: memberOwnUnpaid > 0 ? memberOwnUnpaid : undefined },
         { name: 'My Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 
-    const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge, isCoChair]);
+    const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge, memberOwnUnpaid, isCoChair]);
 
     useEffect(() => {
         const currentFinanceBadge = role === 'admin' ? adminFinanceBadge : redZoneCount;
@@ -314,12 +318,27 @@ export default function AppLayout() {
                 </div>
             </main>
 
-            {/* Modern Frosted Pill Mobile Dock */}
+            {/* Modern Frosted Pill Mobile Dock — Theme-aware with Apple-style sliding pill indicator */}
             <div className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none flex justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))] px-3 pt-1 lg:hidden">
                 <nav 
                     aria-label="Mobile Navigation"
-                    className="pointer-events-auto w-full max-w-[26rem] bg-[#0b1219]/85 backdrop-blur-2xl border border-white/[0.12] rounded-full p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.15)] flex items-center justify-between gap-1"
+                    className="pointer-events-auto w-full max-w-[26rem] bg-white/95 dark:bg-[#0b1219]/90 backdrop-blur-2xl border border-slate-300/80 dark:border-white/[0.12] rounded-full p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)] flex items-center justify-between relative"
                 >
+                    {/* Apple-style sliding pill indicator */}
+                    {(() => {
+                        const activeIdx = navItems.findIndex(item => item.path === location.pathname);
+                        if (activeIdx === -1) return null;
+                        return (
+                            <div 
+                                className="absolute top-1.5 bottom-1.5 rounded-full bg-emerald-500/15 dark:bg-emerald-500/20 border border-emerald-500/40 dark:border-emerald-400/35 shadow-[0_2px_12px_rgba(16,185,129,0.2)] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none z-0"
+                                style={{
+                                    left: `calc(6px + ${activeIdx} * (100% - 12px) / ${navItems.length})`,
+                                    width: `calc((100% - 12px) / ${navItems.length})`
+                                }}
+                            />
+                        );
+                    })()}
+
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path;
@@ -336,14 +355,18 @@ export default function AppLayout() {
                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
                                 className={clsx(
-                                    "flex flex-col items-center justify-center gap-1 py-2 px-1.5 rounded-full transition-all duration-200 flex-1 relative active:scale-95",
+                                    "flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-full flex-1 relative active:scale-90 select-none z-10",
+                                    "transition-colors duration-200",
                                     isActive 
-                                        ? 'text-emerald-300 bg-gradient-to-b from-emerald-500/25 to-emerald-500/10 border border-emerald-400/40 shadow-[0_0_16px_rgba(16,185,129,0.22)] font-black' 
-                                        : 'text-gray-400 hover:text-white hover:bg-white/5 font-semibold'
+                                        ? 'text-emerald-700 dark:text-emerald-200 font-black' 
+                                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-semibold'
                                 )}
                             >
                                 <div className="relative">
-                                    <Icon className={clsx("w-4.5 h-4.5 transition-transform duration-200", isActive && "scale-110 drop-shadow-[0_0_6px_rgba(52,211,153,0.5)]")} />
+                                    <Icon className={clsx(
+                                        "w-[18px] h-[18px] transition-transform duration-300",
+                                        isActive && "scale-[1.12] drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]"
+                                    )} />
                                     {item.badge !== undefined && item.badge > 0 && (
                                         <span className="absolute -top-1 -right-2.5 px-1 min-w-[14px] h-[14px] rounded-full text-[9px] font-black bg-amber-500 text-black flex items-center justify-center shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse">
                                             {item.badge > 99 ? '99+' : item.badge}
@@ -351,8 +374,8 @@ export default function AppLayout() {
                                     )}
                                 </div>
                                 <span className={clsx(
-                                    "text-[9.5px] tracking-tight leading-none text-center transition-colors",
-                                    isActive ? "text-emerald-200" : "text-gray-400"
+                                    "text-[9px] tracking-tight leading-none text-center transition-colors duration-200",
+                                    isActive ? "text-emerald-700 dark:text-emerald-200 font-black" : "text-slate-600 dark:text-slate-400"
                                 )}>
                                     {(item as any).shortName || item.name}
                                 </span>

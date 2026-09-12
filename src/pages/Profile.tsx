@@ -831,7 +831,7 @@ export default function Profile() {
                     {isAdminView && (
                         <div className="fc-card w-full bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
-                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 blur-[90px] pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-slate-500/10 blur-[90px] pointer-events-none"></div>
                             
                             <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
                                 <div className="flex items-center gap-2.5">
@@ -853,12 +853,12 @@ export default function Profile() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                 {/* Account ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-cyan-500/30 transition-all">
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-slate-400/30 transition-all">
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" /> Account ID
+                                            <Fingerprint className="w-3.5 h-3.5 text-slate-400" /> Account ID
                                         </span>
-                                        <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">Session</span>
+                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded border border-slate-500/20">Session</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
                                         <span className="text-xs font-mono font-bold text-slate-200">

@@ -9,22 +9,31 @@ export type Theme = 'dark' | 'system' | 'light';
 const THEME_KEY = 'fc-theme';
 const THEME_USER_SET_KEY = 'fc-theme-user-set';
 
+function applyTheme(targetTheme: 'dark' | 'light') {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', targetTheme);
+    if (targetTheme === 'dark') {
+        root.classList.add('dark');
+    } else {
+        root.classList.remove('dark');
+    }
+}
+
 export function initializeTheme() {
     if (typeof window === 'undefined') return;
 
     const hasExplicitUserTheme = localStorage.getItem(THEME_USER_SET_KEY) === '1';
     const savedTheme = (localStorage.getItem(THEME_KEY) as Theme | null);
-    const root = document.documentElement;
     const resolvedTheme: Theme = hasExplicitUserTheme && savedTheme ? savedTheme : 'dark';
 
     if (resolvedTheme === 'system') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        applyTheme(isDark ? 'dark' : 'light');
         localStorage.setItem(THEME_KEY, 'system');
         return;
     }
 
-    root.setAttribute('data-theme', resolvedTheme);
+    applyTheme(resolvedTheme);
     localStorage.setItem(THEME_KEY, resolvedTheme);
 }
 
@@ -34,12 +43,11 @@ export function useTheme() {
     });
 
     useEffect(() => {
-        const root = document.documentElement;
         if (theme === 'system') {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            applyTheme(isDark ? 'dark' : 'light');
         } else {
-            root.setAttribute('data-theme', theme);
+            applyTheme(theme);
         }
         localStorage.setItem(THEME_KEY, theme);
     }, [theme]);
@@ -49,7 +57,7 @@ export function useTheme() {
         if (theme !== 'system') return;
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
         const handler = (e: MediaQueryListEvent) => {
-            document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+            applyTheme(e.matches ? 'dark' : 'light');
         };
         mq.addEventListener('change', handler);
         return () => mq.removeEventListener('change', handler);

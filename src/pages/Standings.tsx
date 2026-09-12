@@ -52,6 +52,15 @@ const fetchFplStandings = async (leagueId: number) => {
 export default function Standings() {
     const role = useStore(state => state.role);
     const league = useStore(state => state.league);
+
+    // Ensure page always renders from the very top — no auto-scroll down to trajectory
+    useEffect(() => {
+        const scrollHost = document.querySelector('.fc-main-scroll') as HTMLElement | null;
+        if (scrollHost) { scrollHost.scrollTop = 0; }
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    }, []);
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -261,10 +270,14 @@ export default function Standings() {
     }, []);
 
     useEffect(() => {
+        // Only scroll the horizontal rail — NOT the page/window — to avoid page jumping
         if (!currentEvent || !ledgerRailRef.current) return;
-        const gwCard = ledgerRailRef.current.querySelector<HTMLElement>(`[data-gw-card="${currentEvent}"]`);
+        const rail = ledgerRailRef.current;
+        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${currentEvent}"]`);
         if (!gwCard) return;
-        gwCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        // Container-only horizontal scroll (does NOT touch vertical scroll)
+        const targetLeft = gwCard.offsetLeft - rail.clientWidth / 2 + gwCard.clientWidth / 2;
+        rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
     }, [currentEvent, gwWinnersLedger.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {

@@ -105,22 +105,22 @@ export default function LiveMatchdayPulse({ className = '' }: LiveMatchdayPulseP
 
     return (
         <div className={`w-full transition-all duration-300 ${className}`}>
-            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0e161c] to-[#0d1319] backdrop-blur-xl p-3 sm:p-4 shadow-[0_10px_30px_rgba(16,185,129,0.12)] relative overflow-hidden">
+            <div className="rounded-2xl border border-emerald-500/30 dark:border-emerald-500/30 bg-white/95 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-[#0e161c] dark:to-[#0d1319] backdrop-blur-xl p-3 sm:p-4 shadow-[0_10px_30px_rgba(16,185,129,0.12)] relative overflow-hidden text-slate-900 dark:text-white">
                 <div className="absolute top-0 right-0 w-48 h-full bg-emerald-500/10 blur-[60px] pointer-events-none" />
 
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                     {/* Pulsing Live Tag */}
                     <div className="flex items-center gap-2.5">
                         <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
                             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                         </span>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Radio className="w-3 h-3 text-emerald-400 animate-pulse" /> Matchday Pulse • GW{liveData.gw}
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/15 border border-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" /> Matchday Pulse • GW{liveData.gw}
                             </span>
-                            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                                <Flame className="w-2.5 h-2.5" /> High Score Active
+                            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
+                                <Flame className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" /> High Score Active
                             </span>
                         </div>
                     </div>
@@ -130,7 +130,7 @@ export default function LiveMatchdayPulse({ className = '' }: LiveMatchdayPulseP
                         <Link
                             to="/standings"
                             onClick={() => haptics.selection()}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-black transition-all active:scale-95"
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border dark:border-emerald-500/30 dark:text-emerald-300 text-xs font-black transition-all active:scale-95 shadow-sm"
                         >
                             <span>Live Standings</span>
                             <ChevronRight className="w-3.5 h-3.5" />
@@ -138,7 +138,7 @@ export default function LiveMatchdayPulse({ className = '' }: LiveMatchdayPulseP
                         <button
                             type="button"
                             onClick={toggleCollapse}
-                            className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition cursor-pointer"
+                            className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition cursor-pointer"
                             title={isCollapsed ? 'Expand Pulse' : 'Collapse Pulse'}
                         >
                             {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
@@ -148,25 +148,25 @@ export default function LiveMatchdayPulse({ className = '' }: LiveMatchdayPulseP
 
                 {/* Expanded Details */}
                 {!isCollapsed && (
-                    <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center text-xs">
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center text-xs">
                         <div className="flex items-center gap-2">
-                            <span className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                            <span className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                                 <Trophy className="w-3.5 h-3.5" />
                             </span>
                             <div className="min-w-0">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pot Leader</p>
-                                <p className="text-xs font-black text-white truncate">{liveData.leaderName} ({liveData.leaderPoints} pts)</p>
+                                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pot Leader</p>
+                                <p className="text-xs font-black text-slate-900 dark:text-white truncate">{liveData.leaderName} ({liveData.leaderPoints} pts)</p>
                             </div>
                         </div>
 
                         <div className="text-left sm:text-center">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Projected Cash Pot</p>
-                            <p className="text-xs font-black text-emerald-400">KES {liveData.potAmount.toLocaleString()}</p>
+                            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Projected Cash Pot</p>
+                            <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">KES {liveData.potAmount.toLocaleString()}</p>
                         </div>
 
                         <div className="text-left sm:text-right">
-                            <p className="text-[10px] font-bold text-emerald-400/90 uppercase tracking-wider">Live Status</p>
-                            <p className="text-[11px] text-gray-300 font-medium truncate">Scores updating in real-time as fixtures progress.</p>
+                            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400/90 uppercase tracking-wider">Live Status</p>
+                            <p className="text-[11px] text-slate-600 dark:text-gray-300 font-medium truncate">Scores updating in real-time as fixtures progress.</p>
                         </div>
                     </div>
                 )}

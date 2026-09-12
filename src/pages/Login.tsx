@@ -346,9 +346,6 @@ export default function Login() {
                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1.5">
-                                Enter either <span className="text-emerald-400 font-mono">07...</span> or <span className="text-emerald-400 font-mono">254...</span> — formatted automatically.
-                            </p>
                         </div>
 
                         <div>

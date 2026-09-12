@@ -15,7 +15,7 @@ const COLOR_PALETTES = [
   { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30' },
   { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30' },
   { bg: 'bg-teal-500/15', text: 'text-teal-400', border: 'border-teal-500/30' },
-  { bg: 'bg-cyan-500/15', text: 'text-cyan-400', border: 'border-cyan-500/30' },
+  { bg: 'bg-slate-500/15 dark:bg-slate-400/10', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-500/30' },
 ];
 
 function getInitials(name?: string): string {

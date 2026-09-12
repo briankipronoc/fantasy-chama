@@ -192,22 +192,42 @@ service cloud.firestore {
 
       // ── Side Bets ─────────────────────────────────────────────
       match /side_bets/{betId} {
-        allow read, write: if true;
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+          request.resource.data.keys().hasAll(['challengerId', 'opponentId', 'amount', 'gameweek', 'status']) &&
+          request.resource.data.status in ['pending', 'open'];
+        allow update: if isAuthenticated();
+        allow delete: if isAdmin(leagueId);
       }
 
       // ── Wallet Top-up Requests ────────────────────────────────
       match /wallet_topup_requests/{requestId} {
-        allow read, write: if true;
+        allow read: if isAuthenticated() && (
+          isAdmin(leagueId) ||
+          resource.data.memberId == request.auth.uid
+        );
+        allow create: if isAuthenticated() &&
+          request.resource.data.keys().hasAll(['memberId', 'amount', 'status']) &&
+          request.resource.data.status == 'pending';
+        allow update: if isAdmin(leagueId);
+        allow delete: if false; // Immutable audit trail
       }
 
       // ── HQ Settlements ────────────────────────────────────────
       match /hq_settlements/{settlementId} {
-        allow read, write: if true;
+        allow read: if isAuthenticated();
+        allow create, update: if isAdmin(leagueId);
+        allow delete: if false;
       }
 
       // ── B2C Payout Requests ───────────────────────────────────
       match /b2c_requests/{requestId} {
-        allow read, write: if true;
+        allow read: if isAuthenticated() && (
+          isAdmin(leagueId) ||
+          resource.data.memberId == request.auth.uid
+        );
+        allow create, update: if isAdmin(leagueId);
+        allow delete: if false;
       }
 
     } // end /leagues/{leagueId}

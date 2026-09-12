@@ -561,7 +561,7 @@ export default function SuperAdminDashboard() {
                         <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
                             <div>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-                                    <CreditCard className="w-3.5 h-3.5 text-cyan-400" />
+                                    <CreditCard className="w-3.5 h-3.5 text-slate-400" />
                                     Collection Routing Gateway
                                 </label>
                                 <p className="text-[11px] text-gray-500 mt-1 leading-snug">
@@ -649,7 +649,7 @@ export default function SuperAdminDashboard() {
                             icon: <Banknote className="w-4 h-4 text-emerald-400" />, 
                             glow: 'bg-emerald-500/10' 
                         },
-                        { label: 'Active Leagues', value: stealthMode ? '**' : String(stats.activeLeagues), sub: `${stats.activeMembers} members`, color: 'text-white', icon: <Activity className="w-4 h-4 text-cyan-400" />, glow: 'bg-cyan-500/5' },
+                        { label: 'Active Leagues', value: stealthMode ? '**' : String(stats.activeLeagues), sub: `${stats.activeMembers} members`, color: 'text-white', icon: <Activity className="w-4 h-4 text-slate-400" />, glow: 'bg-slate-500/5' },
                         { label: 'GW Resolutions', value: stealthMode ? '**' : String(stats.totalResolutions), sub: 'Total processed', color: 'text-white', icon: <CheckCircle className="w-4 h-4 text-gray-600 dark:text-gray-400" />, glow: 'bg-white/3' },
                         { label: 'Chairman Kickbacks', value: fmt(stats.totalChairmanPayouts), sub: '4% governance', color: 'text-amber-400', icon: <Trophy className="w-4 h-4 text-amber-400" />, glow: 'bg-amber-500/5' },
                         { label: 'Co-Chair Kickbacks', value: fmt(stats.totalCoAdminPayouts), sub: '1% audit fee', color: 'text-purple-400', icon: <Users className="w-4 h-4 text-purple-400" />, glow: 'bg-purple-500/5' },
@@ -663,7 +663,7 @@ export default function SuperAdminDashboard() {
                         },
                         { label: 'Avg Rev / League', value: stats.activeLeagues > 0 ? (platformSettings.isPilotMode ? 'KES 0' : fmt(stats.totalPlatformRev / stats.activeLeagues)) : 'KES 0', sub: 'LTV estimate', color: 'text-emerald-300', icon: <ArrowUpRight className="w-4 h-4 text-emerald-300" />, glow: 'bg-emerald-500/5' },
                         { label: 'Pending Receipts', value: stealthMode ? '**' : String(pendingSettlements.length), sub: `${rejectedSettlements.length} rejected`, color: 'text-amber-300', icon: <ShieldAlert className="w-4 h-4 text-amber-300" />, glow: 'bg-amber-500/5' },
-                        { label: 'Cleared By Receipts', value: fmt(totalSettlementClears), sub: `${approvedSettlements.length} approved`, color: 'text-cyan-300', icon: <Check className="w-4 h-4 text-cyan-300" />, glow: 'bg-cyan-500/5' },
+                        { label: 'Cleared By Receipts', value: fmt(totalSettlementClears), sub: `${approvedSettlements.length} approved`, color: 'text-slate-300', icon: <Check className="w-4 h-4 text-slate-300" />, glow: 'bg-slate-500/5' },
                     ].map((stat, i) => (
                         <div key={i} className={`${stat.glow} fc-hq-panel p-4 rounded-xl hover:border-white/10 transition-colors`}>
                             <p className="text-[9px] font-black uppercase text-gray-600 mb-2 flex items-center gap-1.5 tracking-widest">{stat.icon} {stat.label}</p>

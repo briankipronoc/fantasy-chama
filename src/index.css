@@ -1368,8 +1368,8 @@
 [data-theme="light"] .fc-hq-panel .text-red-400 {
   color: #b91c1c !important;
 }
-[data-theme="light"] .fc-hq-panel .text-cyan-300,
-[data-theme="light"] .fc-hq-panel .text-cyan-400,
+[data-theme="light"] .fc-hq-panel .text-slate-300,
+[data-theme="light"] .fc-hq-panel .text-slate-400,
 [data-theme="light"] .fc-hq-panel .text-blue-400,
 [data-theme="light"] .fc-hq-panel .text-purple-400 {
   color: #0f766e !important;

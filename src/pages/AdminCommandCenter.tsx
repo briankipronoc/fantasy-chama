@@ -2905,7 +2905,7 @@ burstFrame();
 
           {/* Main Tab Navigation */}
           <div
-            className="flex overflow-x-auto gap-2 pb-2 mb-6 border-b border-white/5"
+            className="flex overflow-x-auto gap-2 pb-2 mb-6 border-b border-slate-200 dark:border-white/5"
             style={{ scrollbarWidth: "none" }}
           >
             {["dashboard", "ledger", "finance"].map((tab) => (
@@ -2915,8 +2915,8 @@ burstFrame();
                 className={clsx(
                   "px-4 py-2 font-black uppercase tracking-widest text-[10px] sm:text-xs transition-colors whitespace-nowrap",
                   activeTab === tab
-                    ? "bg-[#10B981]/10 text-[#10B981] border-b-2 border-[#10B981]"
-                    : "text-gray-500 hover:text-gray-300 border-b-2 border-transparent",
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-[#10B981] border-b-2 border-emerald-500 dark:border-[#10B981]"
+                    : "text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 border-b-2 border-transparent",
                 )}
               >
                 {tab === "dashboard"
