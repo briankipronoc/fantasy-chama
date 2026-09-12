@@ -50,12 +50,21 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
     }, [activeUserId]);
 
     useEffect(() => {
+        const activeLeagueId = localStorage.getItem('activeLeagueId');
+        if (role === 'admin' || isSuperAdmin) return;
+        if (activeLeagueId && localStorage.getItem(`fc_rules_accepted_${activeLeagueId}`) === 'true') return;
         if (!currentMember) return;
-        if (currentMember.id !== realActiveUser) return;
-        if (currentMember.hasAcceptedRules !== true && currentMember.role !== 'admin') {
-            setShowConstitution(true);
+        if (currentMember.role === 'admin') return;
+        if (currentMember.hasAcceptedRules === true) {
+            if (activeLeagueId) {
+                try {
+                    localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                } catch {}
+            }
+            return;
         }
-    }, [currentMember, realActiveUser]);
+        setShowConstitution(true);
+    }, [currentMember, role, isSuperAdmin]);
 
     useEffect(() => {
         setHeaderMotion('fc-header-enter');
@@ -159,8 +168,10 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto mt-2 md:mt-0" ref={dropdownRef}>
-                {/* Join HQ Trigger */}
+            <div className="flex flex-col items-stretch sm:items-end gap-2.5 w-full md:w-auto mt-3 md:mt-0" ref={dropdownRef}>
+                {/* Row 1: Action Icons moved nicely to the right */}
+                <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full">
+                    {/* Join HQ Trigger */}
                 {isSuperAdmin && (
                     <button
                         onClick={() => navigate('/hq')}
@@ -437,28 +448,35 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                         document.body
                     )}
                 </div>
-                {!hideCountdown && <DeadlineCountdown />}
-                <LeagueSwitcher />
-                {/* Mobile Quick Sign Out */}
-                <button
-                    onClick={() => {
-                        haptics.selection();
-                        try { logout(); } catch {}
-                        window.location.href = '/login';
-                    }}
-                    className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
-                    title="Sign Out"
-                    aria-label="Sign Out"
-                >
-                    <LogOut className="w-5 h-5" />
-                </button>
+                    <LeagueSwitcher />
+                    {/* Mobile Quick Sign Out */}
+                    <button
+                        onClick={() => {
+                            haptics.selection();
+                            try { logout(); } catch {}
+                            window.location.href = '/login';
+                        }}
+                        className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
+                        title="Sign Out"
+                        aria-label="Sign Out"
+                    >
+                        <LogOut className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Row 2: GW Deadline Timer positioned neatly under action icons */}
+                {!hideCountdown && (
+                    <div className="flex items-center justify-end w-full">
+                        <DeadlineCountdown />
+                    </div>
+                )}
             </div>
 
             {/* League Constitution Modal */}
             <LeagueRulesModal
                 isOpen={showConstitution}
                 onClose={() => setShowConstitution(false)}
-                currentMember={members.find(m => m.id === activeUserId)}
+                currentMember={currentMember}
             />
         </div>
     );

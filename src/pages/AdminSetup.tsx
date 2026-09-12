@@ -6,6 +6,7 @@ import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
 import { normalizeKenyanPhone } from '../utils/phone';
+import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
 const STEPS = 5;
@@ -494,11 +495,11 @@ export default function AdminSetup() {
         const mName = (newMemberName || '').trim().toLowerCase();
 
         if (cleanFullName && mName === cleanFullName) {
-            alert('Chairman is already enrolled as the league administrator.');
+            toast.error('Chairman is already enrolled as the league administrator.');
             return;
         }
         if (cleanChairmanPhone && mPhone && cleanChairmanPhone.slice(-9) === mPhone.slice(-9)) {
-            alert('This phone number is already registered to the Chairman.');
+            toast.error('This phone number is already registered to the Chairman.');
             return;
         }
 

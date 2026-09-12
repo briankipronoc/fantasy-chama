@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import ChampionFlexCardModal from "../components/ChampionFlexCardModal";
+import ConfirmModal from "../components/ConfirmModal";
 import UserAvatar from "../components/UserAvatar";
 import { DashboardSkeleton } from "../components/Skeleton";
 import { haptics } from "../utils/haptics";
@@ -337,6 +338,8 @@ export default function AdminCommandCenter() {
   const [editMemberFplId, setEditMemberFplId] = useState('');
   const [editMemberName, setEditMemberName] = useState('');
   const [isSavingMemberEdit, setIsSavingMemberEdit] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
 
   const recordOperationEvent = async (payload: {
     title: string;
@@ -1571,15 +1574,22 @@ export default function AdminCommandCenter() {
     }
   };
 
-  const handleDeleteMember = async (memberId: string, memberName: string) => {
-    if (!activeLeagueId) return;
-    if (!window.confirm(`Are you sure you want to remove ${memberName} from this league? This will permanently delete this membership record.`)) return;
+  const handleDeleteMember = (memberId: string, memberName: string) => {
+    setMemberToDelete({ id: memberId, name: memberName });
+  };
+
+  const confirmDeleteMember = async () => {
+    if (!activeLeagueId || !memberToDelete) return;
+    setIsDeletingMember(true);
     try {
       const { deleteDoc, doc: docRef } = await import('firebase/firestore');
-      await deleteDoc(docRef(db, 'leagues', activeLeagueId, 'memberships', memberId));
-      showToast(`Removed ${memberName} from league.`);
+      await deleteDoc(docRef(db, 'leagues', activeLeagueId, 'memberships', memberToDelete.id));
+      showToast(`Removed ${memberToDelete.name} from league.`);
+      setMemberToDelete(null);
     } catch (e: any) {
       showToast('Failed to remove: ' + (e.message || 'Unknown error'));
+    } finally {
+      setIsDeletingMember(false);
     }
   };
 
@@ -4981,6 +4991,18 @@ burstFrame();
               </div>
             </div>
           )}
+
+          {/* Custom Delete Member Confirmation Modal */}
+          <ConfirmModal
+            isOpen={!!memberToDelete}
+            onClose={() => !isDeletingMember && setMemberToDelete(null)}
+            onConfirm={confirmDeleteMember}
+            title="Remove Member"
+            message={`Are you sure you want to remove ${memberToDelete?.name || 'this member'} from this league? This will permanently delete this membership record.`}
+            confirmText="Remove Member"
+            variant="danger"
+            isLoading={isDeletingMember}
+          />
         </div>
       </div>
     </div>

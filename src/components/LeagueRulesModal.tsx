@@ -76,8 +76,8 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
             {/* Backdrop */}
             <div className="fc-rules-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
 
-            {/* Modal Body */}
-            <div className="fc-rules-modal relative w-full md:w-[min(96vw,72rem)] h-[calc(100dvh-1rem)] md:h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] md:max-h-[calc(100dvh-2rem)] flex flex-col bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/70 animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-300 overflow-hidden">
+            {/* Modal Body - Centered Card */}
+            <div className="fc-rules-modal relative w-full max-w-2xl max-h-[85vh] my-auto flex flex-col bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/80 animate-in zoom-in-95 slide-in-from-bottom-3 fade-in duration-300 overflow-hidden">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.06),transparent_34%)]" />
 
                 {/* Header */}
@@ -91,7 +91,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                                 {hasAccepted ? 'Already Signed' : 'Signature Required'}
                             </p>
                             <h2 className="fc-rules-heading text-base font-black tracking-tight text-white">
-                                {leagueName ? `${leagueName} — League Constitution` : 'League Constitution'}
+                                {leagueName ? `${leagueName} : League Constitution` : 'League Constitution'}
                             </h2>
                         </div>
                     </div>
@@ -248,11 +248,17 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                                 if (!hasScrolledToBottom) return;
                                 setIsAccepting(true);
                                 try {
+                                    if (activeLeagueId) {
+                                        try {
+                                            localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                                        } catch {}
+                                    }
                                     if (activeLeagueId && currentMember) {
                                         await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', currentMember.id), {
                                             hasAcceptedRules: true
                                         });
                                     }
+                                    toast.success('League Constitution accepted!');
                                     onClose();
                                 } catch (e: any) {
                                     console.error("Failed to accept rules:", e);
@@ -267,7 +273,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                             {isAccepting
                                 ? <Loader2 className="w-5 h-5 animate-spin" />
                                 : hasScrolledToBottom
-                                    ? <>🛡️ I Accept — Enter League</>
+                                    ? <>🛡️ I Accept & Enter League</>
                                     : <>Scroll to unlock signature</>
                             }
                         </button>

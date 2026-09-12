@@ -180,7 +180,7 @@ export default function AppLayout() {
                 'hidden lg:flex fixed left-4 top-4 bottom-4 z-20 p-0 transition-[width] duration-300 ease-out',
                 isSidebarCollapsed ? 'w-24' : 'w-72'
             )} style={{ width: isSidebarCollapsed ? '96px' : '288px' }}>
-                <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/10 bg-[#0b1014]/85 backdrop-blur-xl p-5 flex flex-col relative overflow-hidden">
+                <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/[0.12] bg-[#0c1219]/85 backdrop-blur-2xl p-5 flex flex-col relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.08)]">
                     <div className="fc-sidebar-glow absolute -top-24 -right-20 w-56 h-56 rounded-full bg-emerald-500/10 blur-[80px] pointer-events-none" />
 
                     <div className={clsx('mb-7 relative z-10 text-center')}>
@@ -241,7 +241,7 @@ export default function AppLayout() {
                                         'fc-sidebar-link group flex items-center w-full py-2.5 rounded-xl transition-all font-bold text-sm border relative',
                                         isSidebarCollapsed ? 'fc-sidebar-link-collapsed px-0 justify-center' : 'px-3',
                                         isActive && !isSidebarCollapsed
-                                            ? 'fc-sidebar-link-active text-[#d1fae5] border-emerald-500/35 bg-emerald-500/15 shadow-[0_0_16px_rgba(34,197,94,0.12)]'
+                                            ? 'fc-sidebar-link-active text-emerald-100 border-emerald-500/35 bg-gradient-to-r from-emerald-500/20 to-emerald-500/05 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
                                             : isActive && isSidebarCollapsed
                                                 ? 'text-emerald-300 border-transparent bg-transparent shadow-none'
                                                 : 'text-gray-400 hover:text-white border-transparent hover:bg-white/5'
@@ -308,11 +308,11 @@ export default function AppLayout() {
                 </div>
             </main>
 
-            {/* Modern Floating Mobile Island Dock */}
-            <div className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none flex justify-center pb-[max(0.6rem,env(safe-area-inset-bottom))] px-3 pt-1.5 lg:hidden">
+            {/* Modern Frosted Pill Mobile Dock */}
+            <div className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none flex justify-center pb-[max(0.75rem,env(safe-area-inset-bottom))] px-3 pt-1 lg:hidden">
                 <nav 
                     aria-label="Mobile Navigation"
-                    className="pointer-events-auto w-full max-w-md bg-[#0b1116]/92 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.65)] flex items-center justify-between gap-1"
+                    className="pointer-events-auto w-full max-w-[26rem] bg-[#0b1219]/85 backdrop-blur-2xl border border-white/[0.12] rounded-full p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.15)] flex items-center justify-between gap-1"
                 >
                     {navItems.map((item) => {
                         const Icon = item.icon;
@@ -330,21 +330,24 @@ export default function AppLayout() {
                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
                                 className={clsx(
-                                    "flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all duration-200 flex-1 relative active:scale-95",
+                                    "flex flex-col items-center justify-center gap-1 py-2 px-1.5 rounded-full transition-all duration-200 flex-1 relative active:scale-95",
                                     isActive 
-                                        ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.18)] font-black' 
+                                        ? 'text-emerald-300 bg-gradient-to-b from-emerald-500/25 to-emerald-500/10 border border-emerald-400/40 shadow-[0_0_16px_rgba(16,185,129,0.22)] font-black' 
                                         : 'text-gray-400 hover:text-white hover:bg-white/5 font-semibold'
                                 )}
                             >
                                 <div className="relative">
-                                    <Icon className={clsx("w-5 h-5 transition-transform", isActive && "scale-110")} />
+                                    <Icon className={clsx("w-4.5 h-4.5 transition-transform duration-200", isActive && "scale-110 drop-shadow-[0_0_6px_rgba(52,211,153,0.5)]")} />
                                     {item.badge !== undefined && item.badge > 0 && (
                                         <span className="absolute -top-1 -right-2.5 px-1 min-w-[14px] h-[14px] rounded-full text-[9px] font-black bg-amber-500 text-black flex items-center justify-center shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse">
                                             {item.badge > 99 ? '99+' : item.badge}
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-[10px] tracking-tight leading-none text-center">
+                                <span className={clsx(
+                                    "text-[9.5px] tracking-tight leading-none text-center transition-colors",
+                                    isActive ? "text-emerald-200" : "text-gray-400"
+                                )}>
                                     {(item as any).shortName || item.name}
                                 </span>
                             </Link>

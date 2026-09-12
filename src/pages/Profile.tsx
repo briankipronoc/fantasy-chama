@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, ChevronDown, RefreshCw, Trash2, Fingerprint, Key, LogOut, HelpCircle, BookOpen } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, LogOut, HelpCircle, BookOpen, X } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -475,8 +475,11 @@ export default function Profile() {
                     {pendingMembers.length > 0 && (
                         <button
                             type="button"
-                            onClick={() => setShowPendingOnboarding(prev => !prev)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.15)] group"
+                            onClick={() => {
+                                haptics.selection();
+                                setShowPendingOnboarding(true);
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.15)] group active:scale-95"
                             title="Click to view and onboard pending FPL members"
                         >
                             <span className="relative flex h-2 w-2">
@@ -484,7 +487,6 @@ export default function Profile() {
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                             </span>
                             <span>{pendingMembers.length} Pending Onboarding</span>
-                            <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform duration-200", showPendingOnboarding && "rotate-180")} />
                         </button>
                     )}
                     <span className="bg-[#0b1014] text-white border border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
@@ -493,91 +495,114 @@ export default function Profile() {
                 </div>
             </div>
 
-            {/* Expandable FPL Sync — Pending Onboarding Drawer */}
-            {showPendingOnboarding && pendingMembers.length > 0 && (
-                <div className="mb-5 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 md:p-5 animate-in slide-in-from-top-2 duration-200 shadow-xl">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-                            <p className="text-[11px] font-black text-blue-300 uppercase tracking-widest">
-                                🔗 FPL Sync — Pending Onboarding
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={handleShare}
-                                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all"
-                            >
-                                <Share2 className="w-3 h-3" /> Share Code ({inviteCode || '------'})
-                            </button>
-                            <span className="text-[10px] font-bold text-gray-400 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/10">
-                                {pendingMembers.length} to activate
-                            </span>
-                        </div>
-                    </div>
-                    <p className="text-xs text-slate-700 dark:text-slate-200 mb-4 font-medium leading-relaxed">
-                        Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger. Or share the code so members can join directly.
-                    </p>
-                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
-                        {pendingMembers.map((m: any) => (
-                            <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-[#0b1014]/90 border border-white/10 hover:border-blue-500/40 transition-all">
-                                <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                                    <UserAvatar name={m.displayName} size="md" />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-black text-white break-words leading-tight">{m.displayName}</p>
-                                        <p className="text-[11px] text-blue-300 font-semibold break-words mt-0.5">
-                                            {m.fplTeamName || 'FPL Team'} <span className="text-slate-400">· Pending Phone</span>
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                                    <input
-                                        type="tel"
-                                        value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
-                                        onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
-                                        placeholder="07XXXXXXXX"
-                                        className="flex-1 sm:w-36 bg-[#161d24] border border-white/15 rounded-xl py-2 px-3 text-xs text-white font-mono focus:ring-1 focus:ring-blue-400 outline-none"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={async () => {
-                                            const phone = pendingPhoneMap[m.id] || m.phoneNumber;
-                                            if (!phone || phone.length < 9) {
-                                                toast.error('Enter a valid phone number (at least 9 digits)');
-                                                return;
-                                            }
-                                            setIsSavingPendingPhone(m.id);
-                                            try {
-                                                const { doc: docFn, updateDoc: updateDocFn } = await import('firebase/firestore');
-                                                await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
-                                                    phoneNumber: phone,
-                                                    phone: phone,
-                                                    isPending: false,
-                                                    isActive: true,
-                                                });
-                                                haptics.success();
-                                                toast.success(`${m.displayName} activated!`);
-                                            } catch (_e) {
-                                                toast.error('Failed to save. Try again.');
-                                            } finally {
-                                                setIsSavingPendingPhone(null);
-                                            }
-                                        }}
-                                        disabled={isSavingPendingPhone === m.id || !((pendingPhoneMap[m.id] || m.phoneNumber)?.length >= 9)}
-                                        className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm"
-                                    >
-                                        {isSavingPendingPhone === m.id ? (
-                                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                        ) : (
-                                            '✓ Activate'
-                                        )}
-                                    </button>
+            {/* Centered Interactive Modal: FPL Sync • Pending Onboarding */}
+            {showPendingOnboarding && pendingMembers.length > 0 && typeof document !== 'undefined' && createPortal(
+                <div
+                    className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+                    onClick={() => setShowPendingOnboarding(false)}
+                >
+                    <div
+                        className="relative w-full max-w-xl bg-[#0c1218] border border-blue-500/30 rounded-3xl shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
+                                <div>
+                                    <h3 className="text-sm md:text-base font-black text-white">
+                                        🔗 FPL Sync • Pending Onboarding
+                                    </h3>
+                                    <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider mt-0.5">
+                                        {pendingMembers.length} Members to Activate
+                                    </p>
                                 </div>
                             </div>
-                        ))}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleShare}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <Share2 className="w-3 h-3" /> Share Code ({inviteCode || '------'})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPendingOnboarding(false)}
+                                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all active:scale-95 cursor-pointer"
+                                    aria-label="Close"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-300 my-3 font-medium leading-relaxed shrink-0">
+                            Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger. Or share the code so members can join directly.
+                        </p>
+
+                        {/* Scrollable Members List */}
+                        <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                            {pendingMembers.map((m: any) => (
+                                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#141b22] border border-white/10 hover:border-blue-500/40 transition-all">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
+                                        <UserAvatar name={m.displayName} size="md" />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-black text-white break-words leading-tight">{m.displayName}</p>
+                                            <p className="text-[11px] text-blue-300 font-semibold break-words mt-0.5">
+                                                {m.fplTeamName || 'FPL Team'} <span className="text-slate-400">· Pending Phone</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                                        <input
+                                            type="tel"
+                                            value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
+                                            onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
+                                            placeholder="07XXXXXXXX"
+                                            className="flex-1 sm:w-36 bg-[#0c1218] border border-white/15 rounded-xl py-2 px-3 text-xs text-white font-mono focus:ring-1 focus:ring-blue-400 outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                const phone = pendingPhoneMap[m.id] || m.phoneNumber;
+                                                if (!phone || phone.length < 9) {
+                                                    toast.error('Enter a valid phone number (at least 9 digits)');
+                                                    return;
+                                                }
+                                                setIsSavingPendingPhone(m.id);
+                                                try {
+                                                    const { doc: docFn, updateDoc: updateDocFn } = await import('firebase/firestore');
+                                                    await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
+                                                        phoneNumber: phone,
+                                                        phone: phone,
+                                                        isPending: false,
+                                                        isActive: true,
+                                                    });
+                                                    haptics.success();
+                                                    toast.success(`${m.displayName} activated!`);
+                                                } catch (_e) {
+                                                    toast.error('Failed to save. Try again.');
+                                                } finally {
+                                                    setIsSavingPendingPhone(null);
+                                                }
+                                            }}
+                                            disabled={isSavingPendingPhone === m.id || !((pendingPhoneMap[m.id] || m.phoneNumber)?.length >= 9)}
+                                            className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                        >
+                                            {isSavingPendingPhone === m.id ? (
+                                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                            ) : (
+                                                '✓ Activate'
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <div className={clsx(
