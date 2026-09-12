@@ -24,7 +24,7 @@ export default function QuickActionFab() {
   const isAdmin = role === 'admin';
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-2.5">
+    <div className="hidden lg:flex fixed bottom-6 right-6 z-[100] flex-col items-end gap-2.5">
       {isOpen && (
         <div className="flex flex-col items-end gap-2 animate-in slide-in-from-bottom-3 fade-in duration-200">
           {isAdmin ? (

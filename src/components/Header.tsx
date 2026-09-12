@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, HelpCircle } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, HelpCircle, LogOut } from 'lucide-react';
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
@@ -14,10 +14,12 @@ import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
 import { onAuthStateChanged } from 'firebase/auth';
 import UserAvatar from './UserAvatar';
+import { haptics } from '../utils/haptics';
 
 export default function Header({ role, title, subtitle, hideCountdown }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
     const members = useStore(state => state.members);
+    const logout = useStore(state => state.logout);
     const realActiveUser = members.find(m => m.id === activeUserId)?.id || members[0]?.id || activeUserId;
     const { isStealthMode, toggleStealthMode } = useStore();
     const { notifications, markAllAsRead, markAsRead } = useNotifications();
@@ -448,6 +450,19 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                 </div>
                 {!hideCountdown && <DeadlineCountdown />}
                 <LeagueSwitcher />
+                {/* Mobile Quick Sign Out */}
+                <button
+                    onClick={() => {
+                        haptics.selection();
+                        try { logout(); } catch {}
+                        window.location.href = '/login';
+                    }}
+                    className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
+                    title="Sign Out"
+                    aria-label="Sign Out"
+                >
+                    <LogOut className="w-5 h-5" />
+                </button>
             </div>
 
             {/* League Constitution Modal */}

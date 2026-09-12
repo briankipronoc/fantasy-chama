@@ -102,17 +102,28 @@ export const useStore = create<AppState>((set) => ({
             ]
         })),
     logout: () => {
-        // Clear local storage — all session keys
-        localStorage.removeItem('activeLeagueId');
-        localStorage.removeItem('memberPhone');
-        localStorage.removeItem('activeUserId');
-        localStorage.removeItem('fc-role');
-        localStorage.removeItem('role');
-        // Sign out from Firebase Auth
-        signOut(auth).catch(console.error);
+        try {
+            // Clear local storage — all session keys
+            localStorage.removeItem('activeLeagueId');
+            localStorage.removeItem('memberPhone');
+            localStorage.removeItem('activeUserId');
+            localStorage.removeItem('fc-role');
+            localStorage.removeItem('role');
+        } catch {}
+
+        // Sign out from Firebase Auth safely
+        try {
+            signOut(auth).catch((err) => {
+                console.warn('[store] signOut non-fatal error:', err?.message || err);
+            });
+        } catch (err: any) {
+            console.warn('[store] signOut exception:', err?.message || err);
+        }
         
         // Reset state
-        set({ role: null, league: null, members: [], transactions: [] });
+        try {
+            set({ role: null, league: null, members: [], transactions: [] });
+        } catch {}
     },
 
     // Firebase Methods

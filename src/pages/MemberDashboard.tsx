@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, Swords, MessageCircle } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, Swords, MessageCircle, Calendar, Flame } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -59,7 +59,16 @@ export default function MemberDashboard() {
     // Phase 29: FPL GW Winner + full standings
     const [gwWinner, setGwWinner] = useState<any>(null);
     const [fplStandings, setFplStandings] = useState<any[]>([]);
-    const [currentFplEvent, setCurrentFplEvent] = useState<{ id: number; finished: boolean } | null>(null);
+    const [currentFplEvent, setCurrentFplEvent] = useState<{
+        id: number;
+        name?: string;
+        finished: boolean;
+        deadlineTime?: string;
+        nextId?: number;
+        nextName?: string;
+        nextDeadlineTime?: string;
+        isPreparingForNextGw?: boolean;
+    } | null>(null);
 
     // Phase 30: panel toggles
     const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
@@ -299,11 +308,30 @@ export default function MemberDashboard() {
                 const response = await fetch(`/fpl-api/bootstrap-static/`);
                 if (!response.ok) return;
                 const data = await response.json();
-                const current = (data?.events || []).find((event: any) => event.is_current);
+                const events = data?.events || [];
+                const current = events.find((event: any) => event.is_current);
+                const next = events.find((event: any) => event.is_next);
+
                 if (current?.id) {
+                    let isPreparingForNext = false;
+                    if (current.finished === true) {
+                        const deadlineMs = current.deadline_time ? new Date(current.deadline_time).getTime() : 0;
+                        const hoursSinceDeadline = deadlineMs ? (Date.now() - deadlineMs) / (1000 * 60 * 60) : 0;
+                        // If it's been > 48 hours since the gameweek deadline or next GW deadline is within 5 days
+                        if (hoursSinceDeadline >= 48 || (next?.deadline_time && (new Date(next.deadline_time).getTime() - Date.now()) <= 5 * 24 * 3600 * 1000)) {
+                            isPreparingForNext = true;
+                        }
+                    }
+
                     setCurrentFplEvent({
                         id: current.id,
+                        name: current.name || `Gameweek ${current.id}`,
                         finished: current.finished === true,
+                        deadlineTime: current.deadline_time,
+                        nextId: next?.id || current.id + 1,
+                        nextName: next?.name || `Gameweek ${next?.id || current.id + 1}`,
+                        nextDeadlineTime: next?.deadline_time,
+                        isPreparingForNextGw: isPreparingForNext,
                     });
                     // Auto-persist startGw if the league doesn't have it yet
                     const leagueRef2 = activeLeagueId ? (await import('firebase/firestore').then(({ doc, getDoc }) => getDoc(doc(db, 'leagues', activeLeagueId)))) : null;
@@ -772,14 +800,14 @@ export default function MemberDashboard() {
         setShowLeagueGuide(false);
     };
 
-    // Phase 30: Is the logged-in user the current GW Winner?
-    const isCurrentUserGwWinner = Boolean(gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0 && currentUser && (
+    // Phase 30: Is the logged-in user the current GW Winner? (Suppressed once GW ends and preparation begins)
+    const isCurrentUserGwWinner = Boolean(!currentFplEvent?.isPreparingForNextGw && gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0 && currentUser && (
         (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
         (currentUser.secondFplTeamId && Number(currentUser.secondFplTeamId) === Number(gwWinner.entry)) ||
         currentUser.displayName?.toLowerCase().includes(gwWinner.player_name?.toLowerCase()) ||
         gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
     ));
-    const hasFinalGwChampion = Boolean(gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0);
+    const hasFinalGwChampion = Boolean(!currentFplEvent?.isPreparingForNextGw && gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0);
 
     // Trigger celebratory confetti for the GW winner
     useEffect(() => {
@@ -899,7 +927,10 @@ export default function MemberDashboard() {
                                 {isNudgingHQ ? "Reminding..." : "Remind Chairman"}
                             </button>
                             <button 
-                                onClick={logout}
+                                onClick={() => {
+                                    try { logout(); } catch {}
+                                    window.location.href = '/login';
+                                }}
                                 className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest text-[11px] rounded-xl transition-all"
                             >
                                 Sign Out
@@ -1185,8 +1216,72 @@ export default function MemberDashboard() {
                             </div>
                         )}
 
-                        {/* Live Gameweek Winner Gold UI */}
-                        {gwWinner && (
+                        {/* Gameweek Preparation Stage — Displayed once the finished GW concludes */}
+                        {currentFplEvent?.isPreparingForNextGw && (
+                            <div className="w-full rounded-[2rem] border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0e171b] to-emerald-950/30 p-6 shadow-2xl relative overflow-hidden mt-4 mb-2 animate-in fade-in duration-500">
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500 blur-[130px] opacity-10 pointer-events-none" />
+                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative z-10">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                                            <Calendar className="w-7 h-7" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                    Preparing for {currentFplEvent.nextName || `Gameweek ${currentFplEvent.nextId}`}
+                                                </span>
+                                                {currentFplEvent.nextDeadlineTime && (
+                                                    <span className="text-[11px] text-gray-400 font-medium">
+                                                        Deadline: {new Date(currentFplEvent.nextDeadlineTime).toLocaleDateString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                                                {hasPaid 
+                                                    ? "You're Locked In for the Next Gameweek 🔒" 
+                                                    : "Fund Your Wallet for the Next Gameweek ⚡"}
+                                            </h3>
+                                            <p className="text-xs text-gray-300 mt-1 max-w-xl leading-relaxed">
+                                                {hasPaid
+                                                    ? `Your KES ${gameweekStake.toLocaleString()} stake is covered from your wallet balance (KES ${walletBalance.toLocaleString()}). Tweak your team and prepare your lineup!`
+                                                    : `Deposit your KES ${gameweekStake.toLocaleString()} weekly stake before the deadline to compete for the ${leagueName} weekly pot.`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap">
+                                        {!hasPaid ? (
+                                            <button
+                                                onClick={() => navigate('/deposit')}
+                                                className="flex-1 md:flex-initial px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                                            >
+                                                <Wallet className="w-4 h-4" />
+                                                Fund Wallet (KES {gameweekStake})
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => navigate('/sidebets')}
+                                                className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                                            >
+                                                <Flame className="w-4 h-4 text-amber-400" />
+                                                Challenge in Side Bets
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => navigate('/standings')}
+                                            className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                        >
+                                            <BarChart3 className="w-4 h-4 text-blue-400" />
+                                            Standings
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Live Gameweek Winner Gold UI — Only during active GW or immediate finish */}
+                        {!currentFplEvent?.isPreparingForNextGw && gwWinner && (
                             <div className="fc-highlight-card bg-gradient-to-r from-[#FBBF24]/10 via-[#F59E0B]/5 to-transparent border border-[#FBBF24]/30 rounded-[2rem] p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mt-4 mb-2">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
                                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
@@ -1231,7 +1326,7 @@ export default function MemberDashboard() {
                             </div>
                         )}
 
-                        {!gwWinner && members.length > 0 && (
+                        {!currentFplEvent?.isPreparingForNextGw && !gwWinner && members.length > 0 && (
                             <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 mb-2">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0">
@@ -1727,36 +1822,7 @@ export default function MemberDashboard() {
                 </div>
             )}
 
-            {/* Module 4A: Winner Confirmation Banner */}
-            {winnerConfirmation && (
-                <div className="fixed bottom-36 lg:bottom-24 left-0 lg:left-64 xl:left-72 right-0 px-4 md:px-8 z-40 flex justify-center">
-                    <div className="w-full max-w-2xl bg-[#1c1a09] border border-[#FBBF24]/40 rounded-2xl p-4 shadow-[0_0_30px_rgba(251,191,36,0.15)] flex items-center gap-4 animate-in slide-in-from-bottom-4 duration-500">
-                        <div className="w-10 h-10 rounded-full bg-[#FBBF24]/15 border border-[#FBBF24]/30 flex items-center justify-center flex-shrink-0">
-                            <Trophy className="w-5 h-5 text-[#FBBF24]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="font-extrabold text-white text-sm">Chairman disbursed KES {winnerConfirmation.amount?.toLocaleString()} to your M-Pesa</p>
-                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">Tap confirm once you receive the funds</p>
-                        </div>
-                        <button
-                            onClick={handleConfirmWinnings}
-                            className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-4 py-2.5 rounded-xl transition-colors"
-                        >
-                            Confirm Receipt ✓
-                        </button>
-                        <button
-                            onClick={() => {
-                                setTopUpAmount(Math.max(1, Number(winnerConfirmation.amount || gameweekStake || 0)));
-                                setTopUpNote(`Credit this payout to my wallet.`);
-                                setTimeout(() => setShowTopUpModal(true), 0);
-                            }}
-                            className="flex-shrink-0 bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-black px-4 py-2.5 rounded-xl transition-colors border border-white/10"
-                        >
-                            Request Wallet Credit
-                        </button>
-                    </div>
-                </div>
-            )}
+
 
             {/* Module 3B: Claim Payment Modal */}
             {showClaimModal && (

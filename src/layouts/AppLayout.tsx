@@ -1,4 +1,4 @@
-import { Outlet, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Trophy, Flame } from 'lucide-react';
@@ -14,7 +14,6 @@ export default function AppLayout() {
     const logout = useStore((state) => state.logout);
     const members = useStore((state) => state.members);
     const location = useLocation();
-    const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => localStorage.getItem('fc-sidebar-collapsed') === '1');
     const [routeTransitionClass, setRouteTransitionClass] = useState('');
@@ -117,19 +116,19 @@ export default function AppLayout() {
     const adminFinanceBadge = redZoneCount + pendingApprovalCount;
 
     const adminNavItems = [
-        { name: 'Chairman Hub', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Standings', path: '/standings', icon: BarChart3 },
-        { name: 'Side Bets', path: '/sidebets', icon: Flame },
-        { name: 'Red Zone & Finances', path: '/finances', icon: AlertTriangle, badge: adminFinanceBadge > 0 ? adminFinanceBadge : undefined },
-        { name: 'Settings & Profile', path: '/profile', icon: Settings },
+        { name: 'Chairman Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
+        { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
+        { name: 'Red Zone & Finances', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: adminFinanceBadge > 0 ? adminFinanceBadge : undefined },
+        { name: 'Settings & Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 
     const memberNavItems = [
-        { name: 'Member Hub', path: '/dashboard', icon: LayoutDashboard },
-        { name: 'Standings', path: '/standings', icon: BarChart3 },
-        { name: 'Side Bets', path: '/sidebets', icon: Flame },
-        { name: 'Finances & Payouts', path: '/finances', icon: AlertTriangle, badge: redZoneCount > 0 ? redZoneCount : undefined },
-        { name: 'My Profile', path: '/profile', icon: Settings },
+        { name: 'Member Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
+        { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
+        { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
+        { name: 'Finances & Payouts', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: redZoneCount > 0 ? redZoneCount : undefined },
+        { name: 'My Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 
     const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge]);
@@ -157,11 +156,13 @@ export default function AppLayout() {
     }, [location.pathname]);
 
     const handleLogout = () => {
+        haptics.selection();
         try {
             logout();
-        } finally {
-            navigate('/login', { replace: true });
+        } catch (err) {
+            console.warn('[logout] catch error:', err);
         }
+        window.location.href = '/login';
     };
 
     const shellBackgroundClass = useMemo(() => {
@@ -307,41 +308,50 @@ export default function AppLayout() {
                 </div>
             </main>
 
-            {/* Mobile Bottom Nav */}
-            <nav className="fc-mobile-dock fixed bottom-0 left-0 right-0 border-t border-white/5 bg-[#0a100a]/90 backdrop-blur-xl flex lg:hidden items-center justify-around p-2.5 z-[100] pb-safe shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-                {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => {
-                                haptics.selection();
-                                const scrollHost = document.querySelector('.fc-main-scroll');
-                                if (scrollHost && 'scrollTo' in scrollHost) {
-                                    (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
-                                }
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className={clsx(
-                                "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all flex-1 basis-0 max-w-[82px]",
-                                isActive ? 'text-[#22c55e] bg-[#22c55e]/12 shadow-[0_0_12px_rgba(34,197,94,0.12)]' : 'text-gray-500 hover:text-white active:scale-95'
-                            )}
-                        >
-                            <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                            <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight truncate w-full">{item.name}</span>
-                        </Link>
-                    );
-                })}
-                <button
-                    onClick={handleLogout}
-                    className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all flex-1 basis-0 max-w-[80px] bg-[#EF4444] text-white hover:bg-red-600 active:scale-95 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+            {/* Modern Floating Mobile Island Dock */}
+            <div className="fixed bottom-0 left-0 right-0 z-[100] pointer-events-none flex justify-center pb-[max(0.6rem,env(safe-area-inset-bottom))] px-3 pt-1.5 lg:hidden">
+                <nav 
+                    aria-label="Mobile Navigation"
+                    className="pointer-events-auto w-full max-w-md bg-[#0b1116]/92 backdrop-blur-2xl border border-white/10 rounded-2xl p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.65)] flex items-center justify-between gap-1"
                 >
-                    <LogOut className="w-5 h-5 sm:w-6 sm:h-6" />
-                    <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight truncate w-full">Sign Out</span>
-                </button>
-            </nav>
+                    {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = location.pathname === item.path;
+                        return (
+                            <Link
+                                key={item.path}
+                                to={item.path}
+                                onClick={() => {
+                                    haptics.selection();
+                                    const scrollHost = document.querySelector('.fc-main-scroll');
+                                    if (scrollHost && 'scrollTo' in scrollHost) {
+                                        (scrollHost as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+                                    }
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className={clsx(
+                                    "flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all duration-200 flex-1 relative active:scale-95",
+                                    isActive 
+                                        ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.18)] font-black' 
+                                        : 'text-gray-400 hover:text-white hover:bg-white/5 font-semibold'
+                                )}
+                            >
+                                <div className="relative">
+                                    <Icon className={clsx("w-5 h-5 transition-transform", isActive && "scale-110")} />
+                                    {item.badge !== undefined && item.badge > 0 && (
+                                        <span className="absolute -top-1 -right-2.5 px-1 min-w-[14px] h-[14px] rounded-full text-[9px] font-black bg-amber-500 text-black flex items-center justify-center shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse">
+                                            {item.badge > 99 ? '99+' : item.badge}
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-[10px] tracking-tight leading-none text-center">
+                                    {(item as any).shortName || item.name}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </nav>
+            </div>
 
             {/* PWA Install Banner */}
             <PwaInstallPrompt />
