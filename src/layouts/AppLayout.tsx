@@ -115,8 +115,9 @@ export default function AppLayout() {
     const redZoneCount = members.filter((m) => m.role !== 'admin' && m.isActive !== false && !m.hasPaid).length;
     const adminFinanceBadge = redZoneCount + pendingApprovalCount;
 
+    const isCoChair = Boolean(coChairMemberId && activeUserId === coChairMemberId);
     const adminNavItems = [
-        { name: 'Chairman Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
+        { name: isCoChair ? 'Co-Chair Hub' : 'Chairman Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
         { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
         { name: 'Red Zone & Finances', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: adminFinanceBadge > 0 ? adminFinanceBadge : undefined },
@@ -131,10 +132,7 @@ export default function AppLayout() {
         { name: 'My Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 
-    const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge]);
-    const headerTitle = role === 'admin'
-        ? (coChairMemberId && activeUserId === coChairMemberId ? 'Co-Chair Hub' : 'Chairman Hub')
-        : 'Members Hub';
+    const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge, isCoChair]);
 
     useEffect(() => {
         const currentFinanceBadge = role === 'admin' ? adminFinanceBadge : redZoneCount;
@@ -183,8 +181,16 @@ export default function AppLayout() {
                 <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/[0.12] bg-[#0c1219]/85 backdrop-blur-2xl p-5 flex flex-col relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.08)]">
                     <div className="fc-sidebar-glow absolute -top-24 -right-20 w-56 h-56 rounded-full bg-emerald-500/10 blur-[80px] pointer-events-none" />
 
-                    <div className={clsx('mb-7 relative z-10 text-center')}>
-                        <div className={clsx('mb-3 flex items-center', isSidebarCollapsed ? 'justify-center' : 'justify-between')}>
+                    <div className={clsx('mb-6 relative z-10')}>
+                        <div className={clsx('flex items-center', isSidebarCollapsed ? 'justify-center' : 'justify-between')}>
+                            {!isSidebarCollapsed && (
+                                <div className="fc-sidebar-brand inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 shadow-[0_0_16px_rgba(16,185,129,0.15)]">
+                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-lg bg-emerald-500/20 border border-emerald-400/30">
+                                        <Trophy className="w-3.5 h-3.5 text-emerald-300" />
+                                    </span>
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-emerald-300">Fantasy Chama</span>
+                                </div>
+                            )}
                             <button
                                 onClick={() => setIsSidebarCollapsed(prev => !prev)}
                                 className={clsx(
@@ -197,22 +203,8 @@ export default function AppLayout() {
                             </button>
                         </div>
 
-                        {!isSidebarCollapsed && (
-                            <>
-                                <div className="fc-sidebar-brand inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 mb-3">
-                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-emerald-500/20 border border-emerald-400/30">
-                                        <Trophy className="w-3.5 h-3.5 text-emerald-300" />
-                                    </span>
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Fantasy Chama</span>
-                                </div>
-                                <h2 className="fc-frosty-title text-2xl font-black tracking-tight mb-1.5">{headerTitle}</h2>
-                                <p className="text-[10px] font-bold text-[#22c55e] tracking-widest uppercase">
-                                    {role === 'admin' ? 'TRANSPARENCY PORTAL' : 'SECURE WEALTH CIRCLE'}
-                                </p>
-                            </>
-                        )}
                         {isSidebarCollapsed && (
-                            <div className="pt-2 flex flex-col items-center gap-2">
+                            <div className="pt-3 flex flex-col items-center gap-2">
                                 <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl border border-emerald-400/30 bg-emerald-500/12">
                                     <Trophy className="w-4.5 h-4.5 text-emerald-400" />
                                 </span>

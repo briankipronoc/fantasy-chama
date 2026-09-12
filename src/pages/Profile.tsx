@@ -829,30 +829,6 @@ export default function Profile() {
                     {/* Active Members / Chama Directory — Balanced in Column */}
                     {renderActiveMembersStrip('w-full')}
 
-                    {/* Chama Rules, Constitution & Manuals Card */}
-                    <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-                                    <BookOpen className="w-4 h-4 text-blue-400" />
-                                </div>
-                                <div>
-                                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
-                                        Chama Guides & Constitution
-                                    </h2>
-                                    <p className="text-[10px] text-gray-500 font-medium">Official league governance, manual, rules, and FAQ</p>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => { haptics.selection(); setShowDocsModal(true); }}
-                                className="px-3.5 py-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                            >
-                                <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
-                            </button>
-                        </div>
-                    </div>
-
                     {isAdminView && (
                         <div className="fc-card w-full bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
@@ -1025,9 +1001,10 @@ export default function Profile() {
                     )}
                     </div>
 
-                    {/* Admin View (League Command & Invite Hub) */}
+                    {/* Right Column: League Governance & Chama Guides */}
                     {isAdminView && (
-                        <div className="fc-card xl:col-span-5 bg-[#161d24] border border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
+                        <div className="xl:col-span-5 flex flex-col gap-4">
+                            <div className="fc-card w-full bg-[#161d24] border border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
 
                             <h2 className="fc-frosty-title text-xl font-black flex items-center gap-2 mb-2">
@@ -1306,6 +1283,58 @@ export default function Profile() {
                             </form>
 
 
+                            </div>
+
+                            {/* Chama Guides & Constitution Card — Below League Governance, rendered last on mobile */}
+                            <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
+                                            <BookOpen className="w-4 h-4 text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
+                                                Chama Guides & Constitution
+                                            </h2>
+                                            <p className="text-[10px] text-gray-500 font-medium">Official league governance, manual, rules, and FAQ</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setShowDocsModal(true); }}
+                                        className="px-3.5 py-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                    >
+                                        <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!isAdminView && (
+                        <div className="xl:col-span-12">
+                            <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
+                                            <BookOpen className="w-4 h-4 text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
+                                                Chama Guides & Constitution
+                                            </h2>
+                                            <p className="text-[10px] text-gray-500 font-medium">Official league governance, manual, rules, and FAQ</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setShowDocsModal(true); }}
+                                        className="px-3.5 py-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                    >
+                                        <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
 

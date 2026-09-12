@@ -2948,10 +2948,20 @@ burstFrame();
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 w-full">
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/35 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       sortedPendingPayouts.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
-                    onClick={() => { setActiveTab("dashboard"); setTimeout(() => window.document.getElementById("pending-payout-queue")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }}
+                    onClick={() => {
+                      if (sortedPendingPayouts.length > 0) {
+                        setActiveTab("dashboard");
+                        setTimeout(() => scrollToSection("pending-payout-queue"), 100);
+                        showToast("Viewing pending payout approvals.");
+                      } else {
+                        setActiveTab("dashboard");
+                        showToast("All payouts are up to date! 0 approvals pending.");
+                      }
+                    }}
+                    title="Tap to review payout approvals"
                   >
                     <p className="fc-metric-label text-xs tracking-wide font-semibold">
                       approve payouts
@@ -2959,13 +2969,22 @@ burstFrame();
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
                       {sortedPendingPayouts.length}
                     </p>
+                    <p className="text-[10px] text-gray-500 font-medium">
+                      {sortedPendingPayouts.length > 0 ? "Action required" : "All cleared ✓"}
+                    </p>
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-amber-500/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       redZoneMembers.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
-                    onClick={() => { setActiveTab("ledger"); setPaymentFilter("Red Zone"); setTimeout(() => window.document.getElementById("master-ledger")?.scrollIntoView({ behavior: "smooth" }), 100); }}
+                    onClick={() => {
+                      setActiveTab("ledger");
+                      setPaymentFilter("Red Zone");
+                      setTimeout(() => scrollToSection("master-ledger"), 100);
+                      showToast(`Viewing ${redZoneMembers.length} Red Zone members in ledger.`);
+                    }}
+                    title="Tap to view Red Zone members"
                   >
                     <p className="fc-metric-label text-xs tracking-wide font-semibold">
                       red zone follow-ups
@@ -2973,13 +2992,21 @@ burstFrame();
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
                       {redZoneMembers.length}
                     </p>
+                    <p className="text-[10px] text-gray-500 font-medium">
+                      {redZoneMembers.length > 0 ? "Tap to send reminders" : "All members funded ✓"}
+                    </p>
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-white/20 transition-colors shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-blue-500/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       pendingDisputes.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
                     )}
-                    onClick={() => { setActiveTab("finance"); setTimeout(() => window.document.getElementById("dispute-claims")?.scrollIntoView({ behavior: "smooth" }), 100); }}
+                    onClick={() => {
+                      setActiveTab("finance");
+                      setTimeout(() => scrollToSection("dispute-claims"), 100);
+                      showToast(pendingDisputes.length > 0 ? "Viewing unresolved disputes." : "No disputes pending! Viewing claims history.");
+                    }}
+                    title="Tap to view payment disputes"
                   >
                     <p className="fc-metric-label text-xs tracking-wide font-semibold text-white">
                       unresolved disputes
@@ -2987,49 +3014,75 @@ burstFrame();
                     <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
                       {pendingDisputes.length}
                     </p>
+                    <p className="text-[10px] text-gray-500 font-medium">
+                      {pendingDisputes.length > 0 ? "Review payment claims" : "Zero active disputes ✓"}
+                    </p>
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
+                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       gwAlreadySettled
-                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/12 via-[#161d24] to-[#161d24] cursor-default shadow-[0_0_18px_rgba(16,185,129,0.15)]"
-                        : "border-white/10 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] hover:border-[#FBBF24]/50 hover:shadow-[0_0_20px_rgba(251,191,36,0.3)] cursor-pointer active:scale-95"
+                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/12 via-[#161d24] to-[#161d24] hover:border-emerald-400/60 shadow-[0_0_18px_rgba(16,185,129,0.15)]"
+                        : "border-white/10 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] hover:border-[#FBBF24]/50 hover:shadow-[0_0_20px_rgba(251,191,36,0.3)]"
                     )}
-                    onClick={() => !gwAlreadySettled && setTimeout(() => setShowResolveModal(true), 0)}
+                    onClick={() => {
+                      setShowResolveModal(true);
+                      showToast(gwAlreadySettled ? `Viewing GW${currentGwNumber || ''} settlement summary.` : `Opening GW${currentGwNumber || ''} payout resolution.`);
+                    }}
+                    title={gwAlreadySettled ? "Tap to review GW settlement" : "Tap to settle GW winner"}
                   >
-                    <p className={clsx(
-                      "fc-metric-label text-xs tracking-wide font-semibold",
-                      gwAlreadySettled ? "text-emerald-300" : "text-white"
-                    )}>
-                      {gwAlreadySettled ? "GW Settled ✓" : "Settle GW Winner"}
-                    </p>
-                    <div className={clsx(
-                      "mt-2 flex flex-col",
-                      gwAlreadySettled ? "items-center" : "items-start"
-                    )}>
+                    <div className="flex items-center justify-between gap-1 w-full">
                       <p className={clsx(
-                        "text-sm font-semibold",
-                        gwAlreadySettled ? "text-emerald-400 text-center" : "text-[#FBBF24]"
+                        "fc-metric-label text-xs tracking-wide font-semibold",
+                        gwAlreadySettled ? "text-emerald-300" : "text-white"
+                      )}>
+                        {gwAlreadySettled ? "GW Settled ✓" : "Settle GW Winner"}
+                      </p>
+                      {gwAlreadySettled && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      )}
+                    </div>
+
+                    <div className="my-auto py-1 flex flex-col items-center justify-center text-center w-full">
+                      <p className={clsx(
+                        "text-lg md:text-xl font-black tracking-tight",
+                        gwAlreadySettled ? "text-emerald-300" : "text-[#FBBF24]"
                       )}>
                         {gwAlreadySettled
                           ? `GW${currentGwNumber || ''} Done`
                           : `Pay GW${currentGwNumber || ''} Winner`
                         }
                       </p>
-                      {gwAlreadySettled && (
-                        <p className="text-[11px] text-emerald-600 text-center mt-0.5">
-                          Awaiting GW{currentGwNumber ? currentGwNumber + 1 : ''}
-                        </p>
-                      )}
+                      <span className={clsx(
+                        "text-[11px] font-bold mt-1 px-2.5 py-0.5 rounded-full inline-block",
+                        gwAlreadySettled 
+                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
+                          : "text-amber-300 bg-amber-500/10 border border-amber-500/20"
+                      )}>
+                        {gwAlreadySettled 
+                          ? `Awaiting GW${currentGwNumber ? currentGwNumber + 1 : ''}` 
+                          : "Deadline Finalized"}
+                      </span>
                     </div>
+
+                    <p className="text-[10px] text-gray-500 text-center font-medium">
+                      {gwAlreadySettled ? "Tap to review settlement" : "Ready for payout"}
+                    </p>
                   </div>
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between",
+                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
                       allPayableMembersFunded
-                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/14 via-[#161d24] to-[#0f1419] shadow-[0_0_18px_rgba(16,185,129,0.15)] fc-metric-stable"
-                        : "border-red-500/35 bg-gradient-to-br from-red-500/14 via-[#161d24] to-[#0f1419] fc-metric-alert",
+                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/14 via-[#161d24] to-[#0f1419] shadow-[0_0_18px_rgba(16,185,129,0.15)] fc-metric-stable hover:border-emerald-400/50"
+                        : "border-red-500/35 bg-gradient-to-br from-red-500/14 via-[#161d24] to-[#0f1419] fc-metric-alert hover:border-red-400/50",
                     )}
+                    onClick={() => {
+                      setActiveTab("ledger");
+                      setPaymentFilter(allPayableMembersFunded ? "Verified" : "Red Zone");
+                      setTimeout(() => scrollToSection("master-ledger"), 100);
+                      showToast(allPayableMembersFunded ? "Viewing funded members in ledger." : "Viewing unfunded members in ledger.");
+                    }}
+                    title="Tap to view member payment statuses in ledger"
                   >
                     <p
                       className={clsx(
@@ -3046,13 +3099,13 @@ burstFrame();
                     </p>
                     <p
                       className={clsx(
-                        "text-[11px] font-medium mt-1",
+                        "text-[10px] font-medium mt-1",
                         allPayableMembersFunded
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-red-700 dark:text-red-300",
+                          ? "text-emerald-400/80"
+                          : "text-red-400/80 font-bold",
                       )}
                     >
-                      {!allPayableMembersFunded ? "funding incomplete" : ""}
+                      {!allPayableMembersFunded ? "funding incomplete · Tap to inspect" : "100% funded ✓"}
                     </p>
                   </div>
                 </div>

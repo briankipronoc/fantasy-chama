@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3 } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -313,12 +313,6 @@ export default function Standings() {
         URL.revokeObjectURL(url);
     };
 
-    const [swapFace, setSwapFace] = useState(0);
-    useEffect(() => {
-        const t = setInterval(() => setSwapFace(p => (p + 1) % 2), 4000);
-        return () => clearInterval(t);
-    }, []);
-
     const activeUserId = localStorage.getItem('activeUserId') || '';
     const myMember = members.find(m => m.id === activeUserId);
     const myFplTeamId = myMember ? Number((myMember as any).fplTeamId || 0) : 0;
@@ -485,14 +479,16 @@ export default function Standings() {
                 )}
                 {/* Stats swapper + user hero */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Swapper card: Total Members ↔ GW Average */}
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px] cursor-pointer" onClick={() => setSwapFace(p => (p + 1) % 2)}>
-                        {swapFace === 0 ? (
-                            <div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p><p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-400">Players</span></p></div>
-                        ) : (
-                            <div><p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">GW Average</p><p className="text-2xl font-black text-white">{currentGwAverage} <span className="text-sm font-bold text-gray-400">pts</span></p></div>
-                        )}
-                        <div className="flex gap-1">{[0,1].map(i => <div key={i} className={clsx('w-1.5 h-1.5 rounded-full transition-colors', swapFace === i ? 'bg-emerald-400' : 'bg-gray-700')} />)}</div>
+                    {/* Clean Total Members Card */}
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px]">
+                        <div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p>
+                            <p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-400">Players</span></p>
+                            <p className="text-[10px] text-emerald-400/80 font-semibold mt-0.5">Active in FPL league</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                            <Users className="w-5 h-5 text-emerald-400" />
+                        </div>
                     </div>
 
                     {/* User hero card */}
@@ -708,10 +704,17 @@ export default function Standings() {
 
                 {!error && performanceData.length > 0 && (
                     <div className="fc-card bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5">
-                        <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
-                            <BarChart3 className="w-3.5 h-3.5" /> Performance Trajectory (Top 5 + You)
-                            <span className="ml-auto text-gray-600 text-[10px] font-medium">— vs League Avg</span>
-                        </h4>
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                                <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Performance Trajectory (Top 5 + You)
+                            </h4>
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/25 text-[#FBBF24] text-[11px] font-bold shadow-sm">
+                                    <span className="w-2.5 h-0.5 bg-[#FBBF24] inline-block" />
+                                    <span>GW Average: <strong className="text-white font-black">{currentGwAverage}</strong> pts</span>
+                                </div>
+                            </div>
+                        </div>
                         <div className="h-64 w-full" style={{ position: 'relative' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={performanceData}>

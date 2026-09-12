@@ -154,14 +154,16 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                         <h1 className="fc-frosty-title text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate">
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
-                        <div className="flex items-center gap-2 mt-1 truncate">
-                            {role === 'admin' ? (
-                                <Shield className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#22c55e] flex-shrink-0" />
-                            ) : (
-                                <Trophy className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FBBF24] flex-shrink-0" />
-                            )}
-                            <span className="fc-metallic-badge text-xs md:text-sm tracking-widest uppercase truncate block">
-                                {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                        <div className="flex items-center gap-2 mt-1.5 truncate">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-white/10 bg-white/[0.04] backdrop-blur-md shadow-sm">
+                                {role === 'admin' ? (
+                                    <Shield className="w-3 h-3 text-[#22c55e] flex-shrink-0" />
+                                ) : (
+                                    <Trophy className="w-3 h-3 text-[#FBBF24] flex-shrink-0" />
+                                )}
+                                <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold">
+                                    {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                                </span>
                             </span>
                         </div>
                     </div>
