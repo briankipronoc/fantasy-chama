@@ -229,7 +229,7 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                             isDropdownOpen ? "bg-[#22c55e]/10 border-[#22c55e]/50 text-[#22c55e]" : "bg-[#161d24] hover:bg-white/5"
                         )}
                     >
-                        <Bell className="w-5 h-5 md:w-6 md:h-6" />
+                        <Bell className={clsx("w-5 h-5 md:w-6 md:h-6 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-400")} />
                         {(unreadPersonalCount + unreadSystemCount) > 0 && (
                             <span className="absolute -top-0.5 -right-0.5 md:top-0 md:right-0 min-w-[18px] h-[18px] bg-[#FBBF24] rounded-full border-2 border-[#0b1014] flex items-center justify-center animate-pulse">
                                 <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
@@ -340,9 +340,11 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                 <div
                                     className="fc-dropdown-scroll max-h-[380px] overflow-y-auto"
                                 >
-                                    <div className={clsx('fc-dropdown-scroll max-h-[380px] overflow-y-auto divide-y divide-white/[0.06] transition-all duration-300 ease-out', notifListMotion)}>
+                                    <div className={clsx('fc-dropdown-scroll max-h-[380px] overflow-y-auto p-2 space-y-2 transition-all duration-300 ease-out', notifListMotion)}>
                                         {filteredNotifs.length > 0 ? filteredNotifs.map((notif) => {
                                             const isRead = notif.readBy?.includes(realActiveUser);
+                                            const isFinancial = notif.type === 'transactionSuccess' || notif.isWinnerEvent;
+                                            const isWarning = notif.type === 'warning';
                                             return (
                                                 <div
                                                     key={notif.id}
@@ -356,35 +358,62 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                         }
                                                     }}
                                                     className={clsx(
-                                                        "fc-notif-item p-4 transition-colors group flex gap-3 cursor-pointer outline-none",
+                                                        "fc-notif-item p-3.5 rounded-2xl border transition-all group flex gap-3 cursor-pointer outline-none relative overflow-hidden",
                                                         isRead
-                                                            ? "bg-slate-500/[0.08] hover:bg-slate-500/[0.12] opacity-85"
-                                                            : "hover:bg-white/[0.04] bg-white/[0.02]"
+                                                            ? "bg-white/[0.02] border-white/5 opacity-70 hover:opacity-100 hover:bg-white/[0.04]"
+                                                            : isFinancial
+                                                                ? "bg-gradient-to-r from-amber-500/10 via-[#161d24] to-[#161d24] border-amber-500/30 shadow-[0_4px_16px_rgba(245,158,11,0.08)]"
+                                                                : isWarning
+                                                                    ? "bg-gradient-to-r from-red-500/10 via-[#161d24] to-[#161d24] border-red-500/30 shadow-[0_4px_16px_rgba(239,68,68,0.08)]"
+                                                                    : "bg-[#161d24] border-white/10 hover:border-emerald-500/30"
                                                     )}
                                                 >
-                                                    <div className="fc-notif-icon mt-0.5 flex-shrink-0">
-                                                        {notif.type === 'success' && <CheckCircle2 className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#10B981]")} />}
-                                                        {notif.type === 'transactionSuccess' && <CheckCircle2 className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#10B981]")} />}
-                                                        {notif.type === 'warning' && <AlertTriangle className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#ef4444]")} />}
-                                                        {notif.type === 'info' && <Info className={clsx("w-4 h-4", isRead ? "text-slate-400" : "text-[#60a5fa]")} />}
+                                                    <div className="fc-notif-icon mt-1 flex-shrink-0">
+                                                        {isFinancial ? (
+                                                            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                                                <Trophy className="w-4 h-4" />
+                                                            </div>
+                                                        ) : isWarning ? (
+                                                            <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400">
+                                                                <AlertTriangle className="w-4 h-4" />
+                                                            </div>
+                                                        ) : notif.type === 'info' ? (
+                                                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                                                                <Info className="w-4 h-4" />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                                                <CheckCircle2 className="w-4 h-4" />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                                            <span className={clsx(
+                                                                "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                                                                isFinancial
+                                                                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                                                    : isWarning
+                                                                        ? "bg-red-500/15 border-red-500/30 text-red-300"
+                                                                        : "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                                            )}>
+                                                                {isFinancial ? '🏆 Payout / Pot' : isWarning ? '⚠️ Deadline Alert' : 'ℹ️ Chama Sync'}
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-400 font-mono">
+                                                                {formatMessageTime(notif.timestamp)}
+                                                            </span>
+                                                        </div>
                                                         <p className={clsx(
-                                                            "text-xs leading-relaxed",
+                                                            "text-xs leading-relaxed font-medium",
                                                             isRead
-                                                                ? "text-slate-300"
-                                                                : notif.type === 'success'
-                                                                    ? "text-emerald-300"
-                                                                    : notif.type === 'transactionSuccess'
-                                                                        ? "text-emerald-300"
-                                                                        : notif.type === 'warning'
-                                                                            ? "text-red-300"
-                                                                            : "text-blue-300"
+                                                                ? "text-gray-300"
+                                                                : isFinancial
+                                                                    ? "text-amber-100 font-semibold"
+                                                                    : isWarning
+                                                                        ? "text-red-200 font-semibold"
+                                                                        : "text-emerald-100"
                                                         )}>
                                                             {notif.message}
-                                                        </p>
-                                                        <p className="text-[10px] text-gray-600 mt-1 font-medium uppercase tracking-wider">
-                                                            {formatMessageTime(notif.timestamp)}
                                                         </p>
                                                     </div>
                                                     <button
@@ -395,10 +424,10 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                             handleNotificationClick(notif.id, isRead);
                                                         }}
                                                         className={clsx(
-                                                            "mt-0.5 flex-shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-colors",
+                                                            "mt-1 flex-shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all",
                                                             isRead
-                                                                ? "bg-slate-500/15 border-slate-400/30 text-slate-400"
-                                                                : "bg-blue-500/10 border-blue-400/30 text-blue-400 hover:bg-blue-500/20"
+                                                                ? "bg-slate-500/15 border-slate-400/30 text-slate-400 opacity-60"
+                                                                : "bg-emerald-500/20 border-emerald-400/40 text-emerald-300 hover:scale-110"
                                                         )}
                                                     >
                                                         {isRead ? <CheckCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -406,9 +435,10 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                 </div>
                                             );
                                         }) : (
-                                            <div className="fc-notif-empty p-10 text-center text-gray-600">
-                                                <Bell className="w-7 h-7 mx-auto mb-3 opacity-20" />
-                                                <p className="text-sm font-medium">All clear. No alerts.</p>
+                                            <div className="fc-notif-empty p-10 text-center text-gray-500">
+                                                <Bell className="w-8 h-8 mx-auto mb-3 opacity-30 text-emerald-400" />
+                                                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">All clear</p>
+                                                <p className="text-[11px] text-gray-500 mt-1">No unread alerts in this category.</p>
                                             </div>
                                         )}
                                     </div>

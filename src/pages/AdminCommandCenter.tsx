@@ -1818,12 +1818,18 @@ export default function AdminCommandCenter() {
       // 1. Fetch live FPL Standings via generic proxy
       const leagueRef = doc(db, "leagues", activeLeagueId);
       const leagueSnap = await getDoc(leagueRef);
-      const fplLeagueId = leagueSnap.data()?.fplLeagueId || 314;
+      const fplLeagueId = leagueSnap.data()?.fplLeagueId;
+
+      if (!fplLeagueId) {
+        showToast("Cannot resolve: No FPL League linked. Please connect your official FPL League ID in Settings.");
+        setIsResolving(false);
+        return;
+      }
 
       const res = await fetch(
         `/fpl-api/leagues-classic/${fplLeagueId}/standings/`
       );
-      if (!res.ok) throw new Error("Failed to fetch standings");
+      if (!res.ok) throw new Error("Failed to fetch FPL standings for League ID " + fplLeagueId);
       const data = await res.json();
 
       const standings = data.standings.results || [];
@@ -4733,7 +4739,7 @@ burstFrame();
                       value={newMemberName}
                       onChange={(e) => setNewMemberName(e.target.value)}
                       className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
-                      placeholder="e.g. John Doe"
+                      placeholder="e.g. David Kariuki"
                     />
                   </div>
                   <div>
@@ -4837,7 +4843,7 @@ burstFrame();
                       value={editMemberName}
                       onChange={e => setEditMemberName(e.target.value)}
                       className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:ring-1 focus:ring-[#FBBF24]/50 outline-none"
-                      placeholder="e.g. John Doe"
+                      placeholder="e.g. Kevin Otieno"
                     />
                   </div>
 
@@ -4914,7 +4920,7 @@ burstFrame();
                       type="text"
                       value={manualWinnerInput}
                       onChange={(e) => setManualWinnerInput(e.target.value)}
-                      placeholder="e.g. John Doe"
+                      placeholder="e.g. Brian Kiprono"
                       className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none"
                     />
                   </div>

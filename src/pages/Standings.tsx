@@ -76,19 +76,20 @@ export default function Standings() {
     } | null>(null);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
-    const fallbackFplLeagueId = 314;
-
     const members = useStore(state => state.members);
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
 
     useEffect(() => {
-        if (!activeLeagueId) return;
+        if (!activeLeagueId) {
+            setIsLoading(false);
+            return;
+        }
         if (members.length === 0) listenToLeagueMembers(activeLeagueId);
 
         const fetchFPLStandings = async () => {
             try {
-                let targetFplId = fallbackFplLeagueId;
+                let targetFplId: number | null = null;
 
                 try {
                     const leagueRef = doc(db, 'leagues', activeLeagueId);
@@ -102,12 +103,21 @@ export default function Standings() {
                         if (lData.forfeitedGws) setForfeitedGws(lData.forfeitedGws);
                         if (lData.startGw) setLeagueStartGw(Number(lData.startGw));
                         if (lData.fplLeagueId) {
-                            setDbFplLeagueId(lData.fplLeagueId);
-                            targetFplId = lData.fplLeagueId;
+                            setDbFplLeagueId(Number(lData.fplLeagueId));
+                            targetFplId = Number(lData.fplLeagueId);
                         }
                     }
                 } catch (leagueErr: any) {
                     console.warn('[standings] league metadata read skipped:', leagueErr?.message || leagueErr);
+                }
+
+                if (!targetFplId) {
+                    // No FPL league linked yet - do NOT fallback to global FPL league 314
+                    setStandingsData([]);
+                    setPerformanceData([]);
+                    setIsLoading(false);
+                    setError(null);
+                    return;
                 }
 
                 const results = await fetchFplStandings(targetFplId);
@@ -496,7 +506,49 @@ export default function Standings() {
                 </div>
 
                 {/* Standings — responsive card list */}
-                {error ? (
+                {!dbFplLeagueId ? (
+                    <div className="fc-card w-full bg-[#161d24] border border-amber-500/20 p-8 md:p-12 rounded-[2rem] text-center relative overflow-hidden mt-6 shadow-2xl">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
+                            <Trophy className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-xl md:text-2xl font-black text-white mb-2">No FPL League Linked Yet</h3>
+                        <p className="text-sm text-gray-400 max-w-lg mx-auto leading-relaxed mb-6">
+                            Connect your Fantasy Premier League mini-league ID so FantasyChama can pull live weekly scores, rank managers, and calculate the pot winners.
+                        </p>
+                        {role === 'admin' ? (
+                            <div className="max-w-md mx-auto space-y-3">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Paste FPL Standings URL or ID..."
+                                        value={inputFplLeagueId}
+                                        onChange={(e) => {
+                                            let val = e.target.value.trim();
+                                            const match = val.match(/leagues\/(\d+)\/standings/);
+                                            if (match && match[1]) val = match[1];
+                                            setInputFplLeagueId(val.replace(/\D/g, ''));
+                                        }}
+                                        className="flex-1 bg-[#0b1014] border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400"
+                                    />
+                                    <button
+                                        onClick={handleSaveFplId}
+                                        disabled={isSavingFplId || !inputFplLeagueId}
+                                        className="bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black px-5 py-2.5 rounded-xl text-sm transition-all"
+                                    >
+                                        {isSavingFplId ? 'Saving...' : 'Link League'}
+                                    </button>
+                                </div>
+                                <p className="text-[11px] text-gray-500">
+                                    Find your ID in the URL on fantasy.premierleague.com (e.g. /leagues/<strong>123456</strong>/standings)
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold">
+                                ⏳ Waiting for Chairman to link the FPL League Code
+                            </div>
+                        )}
+                    </div>
+                ) : error ? (
                     <div className="fc-card w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center relative overflow-hidden mt-6">
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-red-500 blur-[80px] opacity-10 pointer-events-none"></div>
                         <ShieldAlert className="w-10 h-10 text-red-400 mx-auto mb-4" />

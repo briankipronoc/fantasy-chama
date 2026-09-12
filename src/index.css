@@ -2593,3 +2593,21 @@ textarea {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255,255,255,0.18);
 }
+
+/* ══════════════════════════════════════════════
+   BELL RING & NOTIFICATION ENHANCEMENTS
+══════════════════════════════════════════════ */
+@keyframes fc-bell-ring {
+    0%, 100% { transform: rotate(0deg); }
+    10%, 30% { transform: rotate(-14deg); }
+    20%, 40% { transform: rotate(14deg); }
+    50% { transform: rotate(-7deg); }
+    60% { transform: rotate(7deg); }
+    70% { transform: rotate(0deg); }
+}
+
+.fc-bell-shake {
+    animation: fc-bell-ring 2.4s ease-in-out infinite;
+    transform-origin: top center;
+}
+

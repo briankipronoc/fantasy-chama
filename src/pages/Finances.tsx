@@ -88,7 +88,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
         const loadStandings = async () => {
             try {
-                let targetFplId = 314;
+                let targetFplId: number | null = null;
                 const leagueSnap = await getDoc(doc(db, 'leagues', activeLeagueId));
                 if (leagueSnap.exists()) {
                     const data = leagueSnap.data();
@@ -108,8 +108,12 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     console.warn('[finances] bootstrap current GW fetch failed:', bootstrapErr?.message || bootstrapErr);
                 }
 
-                const results = await fetchFplStandings(targetFplId);
-                if (!cancelled) setStandingsData(results || []);
+                if (targetFplId) {
+                    const results = await fetchFplStandings(targetFplId);
+                    if (!cancelled) setStandingsData(results || []);
+                } else {
+                    if (!cancelled) setStandingsData([]);
+                }
             } catch (err: any) {
                 console.warn('[finances] standings preview failed:', err?.message || err);
                 if (!cancelled) setStandingsData([]);

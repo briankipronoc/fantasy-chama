@@ -554,7 +554,7 @@ export default function AdminSetup() {
                             value={fullName}
                             onChange={e => setFullName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
                             pattern="^[a-zA-Z][a-zA-Z'\-\s]{1,}[a-zA-Z]$"
-                            title="Please enter at least two names (e.g., John Doe)"
+                            title="Please enter at least two names (e.g., Brian Kiprono)"
                             className={inputClasses}
                             placeholder="Enter your legal name"
                         />
@@ -1138,7 +1138,7 @@ export default function AdminSetup() {
                                 type="text"
                                 value={newMemberName}
                                 onChange={e => setNewMemberName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
-                                placeholder="e.g. John Doe"
+                                placeholder="e.g. Kevin Otieno"
                                 className={inputClasses}
                             />
                         </div>
