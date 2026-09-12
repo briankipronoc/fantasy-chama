@@ -3,13 +3,12 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, HelpCircle, LogOut } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, LogOut } from 'lucide-react';
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
 import LeagueSwitcher from './LeagueSwitcher';
 import DeadlineCountdown from './DeadlineCountdown';
-import DocsModal from './DocsModal';
 import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -29,7 +28,6 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
     const setActiveTab = activeTabState[1];
     const [notifView, setNotifView] = useState<'all' | 'payout' | 'security' | 'updates'>('all');
     const [showConstitution, setShowConstitution] = useState(false);
-    const [showDocsModal, setShowDocsModal] = useState(false);
     const [notifListMotion, setNotifListMotion] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -209,15 +207,6 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                     title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                 >
                     {isStealthMode ? <EyeOff className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" /> : <Eye className="w-5 h-5 md:w-6 md:h-6" />}
-                </button>
-
-                {/* Help & Docs */}
-                <button
-                    onClick={() => setShowDocsModal(true)}
-                    className="p-2.5 md:p-3 border border-white/5 rounded-xl text-gray-600 dark:text-gray-400 hover:text-blue-400 hover:border-blue-500/20 transition-all duration-300 ease-out active:scale-95"
-                    title="Help & Documentation"
-                >
-                    <HelpCircle className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
 
                 {/* Notifications Bell */}
@@ -470,12 +459,6 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                 isOpen={showConstitution}
                 onClose={() => setShowConstitution(false)}
                 currentMember={members.find(m => m.id === activeUserId)}
-            />
-
-            {/* Docs Modal */}
-            <DocsModal
-                isOpen={showDocsModal}
-                onClose={() => setShowDocsModal(false)}
             />
         </div>
     );

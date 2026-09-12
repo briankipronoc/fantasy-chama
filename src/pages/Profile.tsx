@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, ChevronDown, RefreshCw, Trash2, Fingerprint, Key, LogOut } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, ChevronDown, RefreshCw, Trash2, Fingerprint, Key, LogOut, HelpCircle, BookOpen } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -11,6 +11,7 @@ import Header from '../components/Header';
 import ConfirmModal from '../components/ConfirmModal';
 import toast from 'react-hot-toast';
 import UserAvatar from '../components/UserAvatar';
+import DocsModal from '../components/DocsModal';
 
 export default function Profile() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -49,6 +50,7 @@ export default function Profile() {
     const [showPendingOnboarding, setShowPendingOnboarding] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
     const [isDeletingMember, setIsDeletingMember] = useState(false);
+    const [showDocsModal, setShowDocsModal] = useState(false);
 
     const isMemberFunded = (m: any) =>
         m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
@@ -798,6 +800,204 @@ export default function Profile() {
                             </form>
                         </div>
                     </div>
+
+                    {/* Active Members / Chama Directory — Balanced in Column */}
+                    {renderActiveMembersStrip('w-full')}
+
+                    {/* Chama Rules, Constitution & Manuals Card */}
+                    <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
+                                    <BookOpen className="w-4 h-4 text-blue-400" />
+                                </div>
+                                <div>
+                                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
+                                        Chama Guides & Constitution
+                                    </h2>
+                                    <p className="text-[10px] text-gray-500 font-medium">Official league governance, manual, rules, and FAQ</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { haptics.selection(); setShowDocsModal(true); }}
+                                className="px-3.5 py-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            >
+                                <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
+                            </button>
+                        </div>
+                    </div>
+
+                    {isAdminView && (
+                        <div className="fc-card w-full bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 blur-[90px] pointer-events-none"></div>
+                            
+                            <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+                                        <Activity className="w-4 h-4 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
+                                            Account & Session Details
+                                        </h2>
+                                        <p className="text-[10px] text-gray-500 font-medium">Your login credentials and league membership details</p>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Active Session
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                {/* Account ID */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-cyan-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" /> Account ID
+                                        </span>
+                                        <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">Session</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                            {auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}
+                                        </span>
+                                        {auth.currentUser?.uid && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(auth.currentUser?.uid || '');
+                                                    toast.success('Account ID copied!');
+                                                }}
+                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                title="Copy Account ID"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Your active authenticated user ID</p>
+                                </div>
+
+                                {/* Chairman ID */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Chairman ID
+                                        </span>
+                                        <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Primary</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                            {chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}
+                                        </span>
+                                        {chairmanId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(chairmanId || '');
+                                                    toast.success('Chairman ID copied!');
+                                                }}
+                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                title="Copy Chairman ID"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">League Chairman administrator ID</p>
+                                </div>
+
+                                {/* Co-Chair ID */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Co-Chair ID
+                                        </span>
+                                        <span className={clsx(
+                                            "text-[9px] font-bold px-1.5 py-0.5 rounded border",
+                                            coAdminId ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-gray-500 bg-white/5 border-white/10"
+                                        )}>
+                                            {coAdminId ? "Dual-Sign" : "Unset"}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                            {coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}
+                                        </span>
+                                        {coAdminId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(coAdminId || '');
+                                                    toast.success('Co-Chair ID copied!');
+                                                }}
+                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                title="Copy Co-Chair ID"
+                                            >
+                                                <Copy className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Secondary payout approver ID</p>
+                                </div>
+
+                                {/* Your Role */}
+                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                                            <Key className="w-3.5 h-3.5 text-emerald-400" /> Your Role
+                                        </span>
+                                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Verified</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                        <div className="flex items-center gap-2 text-xs font-black">
+                                            <span className={clsx(
+                                                "px-2 py-0.5 rounded-lg border text-[11px]",
+                                                chairmanId && auth.currentUser?.uid === chairmanId
+                                                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                                    : "text-gray-500 border-transparent"
+                                            )}>
+                                                Chair
+                                            </span>
+                                            <span className="text-gray-600 font-normal">•</span>
+                                            <span className={clsx(
+                                                "px-2 py-0.5 rounded-lg border text-[11px]",
+                                                coAdminId && auth.currentUser?.uid === coAdminId
+                                                    ? "bg-blue-500/15 border-blue-500/30 text-blue-300"
+                                                    : "text-gray-500 border-transparent"
+                                            )}>
+                                                Co-Admin
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Dual-governance permission status for this session</p>
+                                </div>
+                            </div>
+
+                            {/* Session Sign Out */}
+                            <div className="mt-5 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-bold text-white">Sign Out of Session</p>
+                                    <p className="text-[11px] text-gray-500">Safely disconnect this device from your league account</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        try { logout(); } catch {}
+                                        window.location.href = '/login';
+                                    }}
+                                    className="px-4 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 hover:text-red-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <LogOut className="w-3.5 h-3.5" />
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     </div>
 
                     {/* Admin View (League Command & Invite Hub) */}
@@ -1083,180 +1283,6 @@ export default function Profile() {
 
                         </div>
                     )}
-                    
-                    {/* Active Members / Chama Directory — Full width */}
-                    {renderActiveMembersStrip('xl:col-span-12')}
-
-                    {isAdminView && (
-                        <div className="fc-card xl:col-span-12 bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
-                            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
-                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 blur-[90px] pointer-events-none"></div>
-                            
-                            <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.2)]">
-                                        <Activity className="w-4 h-4 text-emerald-400" />
-                                    </div>
-                                    <div>
-                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
-                                            Account & Session Details
-                                        </h2>
-                                        <p className="text-[10px] text-gray-500 font-medium">Your login credentials and league membership details</p>
-                                    </div>
-                                </div>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Active Session
-                                </span>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                                {/* Account ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-cyan-500/30 transition-all">
-                                    <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" /> Account ID
-                                        </span>
-                                        <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">Session</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <span className="text-xs font-mono font-bold text-slate-200">
-                                            {auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}
-                                        </span>
-                                        {auth.currentUser?.uid && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(auth.currentUser?.uid || '');
-                                                    toast.success('Account ID copied!');
-                                                }}
-                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                                                title="Copy Account ID"
-                                            >
-                                                <Copy className="w-3 h-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Your active authenticated user ID</p>
-                                </div>
-
-                                {/* Chairman ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
-                                    <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Chairman ID
-                                        </span>
-                                        <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Primary</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <span className="text-xs font-mono font-bold text-slate-200">
-                                            {chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}
-                                        </span>
-                                        {chairmanId && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(chairmanId || '');
-                                                    toast.success('Chairman ID copied!');
-                                                }}
-                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                                                title="Copy Chairman ID"
-                                            >
-                                                <Copy className="w-3 h-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">League Chairman administrator ID</p>
-                                </div>
-
-                                {/* Co-Chair ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/30 transition-all">
-                                    <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Co-Chair ID
-                                        </span>
-                                        <span className={clsx(
-                                            "text-[9px] font-bold px-1.5 py-0.5 rounded border",
-                                            coAdminId ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-gray-500 bg-white/5 border-white/10"
-                                        )}>
-                                            {coAdminId ? "Dual-Sign" : "Unset"}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <span className="text-xs font-mono font-bold text-slate-200">
-                                            {coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}
-                                        </span>
-                                        {coAdminId && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(coAdminId || '');
-                                                    toast.success('Co-Chair ID copied!');
-                                                }}
-                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                                                title="Copy Co-Chair ID"
-                                            >
-                                                <Copy className="w-3 h-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Secondary payout approver ID</p>
-                                </div>
-
-                                {/* Your Role */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
-                                    <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Key className="w-3.5 h-3.5 text-emerald-400" /> Your Role
-                                        </span>
-                                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Verified</span>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <div className="flex items-center gap-2 text-xs font-black">
-                                            <span className={clsx(
-                                                "px-2 py-0.5 rounded-lg border text-[11px]",
-                                                chairmanId && auth.currentUser?.uid === chairmanId
-                                                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                                                    : "text-gray-500 border-transparent"
-                                            )}>
-                                                Chair
-                                            </span>
-                                            <span className="text-gray-600 font-normal">•</span>
-                                            <span className={clsx(
-                                                "px-2 py-0.5 rounded-lg border text-[11px]",
-                                                coAdminId && auth.currentUser?.uid === coAdminId
-                                                    ? "bg-blue-500/15 border-blue-500/30 text-blue-300"
-                                                    : "text-gray-500 border-transparent"
-                                            )}>
-                                                Co-Admin
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Dual-governance permission status for this session</p>
-                                </div>
-                            </div>
-
-                            {/* Session Sign Out */}
-                            <div className="mt-5 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div>
-                                    <p className="text-xs font-bold text-white">Sign Out of Session</p>
-                                    <p className="text-[11px] text-gray-500">Safely disconnect this device from your league account</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        haptics.selection();
-                                        try { logout(); } catch {}
-                                        window.location.href = '/login';
-                                    }}
-                                    className="px-4 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 hover:text-red-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-                                >
-                                    <LogOut className="w-3.5 h-3.5" />
-                                    Sign Out
-                                </button>
-                            </div>
-                        </div>
-                    )}
 
                 </div>
             </div>
@@ -1307,6 +1333,12 @@ export default function Profile() {
                 cancelText="Cancel"
                 variant="danger"
                 isLoading={isDeletingMember}
+            />
+
+            {/* Chama Constitution & Guides Modal */}
+            <DocsModal
+                isOpen={showDocsModal}
+                onClose={() => setShowDocsModal(false)}
             />
 
         </div >

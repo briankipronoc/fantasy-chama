@@ -32,10 +32,6 @@ export default function MemberDashboard() {
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
     const [isPushingMpesa, setIsPushingMpesa] = useState(false);
-    const [showReceiptModal, setShowReceiptModal] = useState(false);
-    const [receiptCode, setReceiptCode] = useState('');
-    const [isQueryingReceipt, setIsQueryingReceipt] = useState(false);
-    const [receiptResult, setReceiptResult] = useState<{ success: boolean; message: string } | null>(null);
 
     // Module 3B: Dispute/Claim state
     const [showClaimModal, setShowClaimModal] = useState(false);
@@ -464,30 +460,6 @@ export default function MemberDashboard() {
         } finally {
             setIsPushingMpesa(false);
             setIsSubmittingTopUp(false);
-        }
-    };
-
-    const handleReceiptQuery = async () => {
-        if (!receiptCode.trim() || !activeUserId || !activeLeagueId) return;
-        setIsQueryingReceipt(true);
-        setReceiptResult(null);
-        try {
-            const apiUrl = getApiBaseUrl();
-            if (!apiUrl) throw new Error('Payment server is not configured. Set VITE_API_URL for production.');
-            const data = await secureApiPost(`${apiUrl}/api/mpesa/query`, {
-                receiptNumber: receiptCode.trim().toUpperCase(),
-                userId: activeUserId,
-                leagueId: activeLeagueId
-            });
-            setReceiptResult({ success: data.success && data.verified !== false, message: data.message });
-            if (data.success && data.verified === true) {
-                showToast('✅ Payment verified! Your status has been updated.', 'success');
-                setTimeout(() => setShowReceiptModal(false), 2000);
-            }
-        } catch (err) {
-            setReceiptResult({ success: false, message: 'Network error. Please try again.' });
-        } finally {
-            setIsQueryingReceipt(false);
         }
     };
 
@@ -1559,18 +1531,12 @@ export default function MemberDashboard() {
                                         Destination: <span className="font-black text-[#10B981]">{payoutDestinationPhone}</span>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                                        <button
-                                            onClick={() => { setShowReceiptModal(true); setReceiptResult(null); setReceiptCode(''); }}
-                                            className="flex-1 text-[11px] text-gray-600 hover:text-gray-600 dark:text-gray-400 underline underline-offset-2 transition-colors text-center"
-                                        >
-                                            Already paid? Verify →
-                                        </button>
+                                    <div className="flex justify-end mt-1">
                                         <button
                                             onClick={() => { setShowClaimModal(true); setClaimSubmitted(false); setClaimReceiptCode(''); }}
-                                            className="flex-1 text-[11px] text-[#FBBF24]/60 hover:text-[#FBBF24] underline underline-offset-2 transition-colors text-center"
+                                            className="text-[11px] text-[#FBBF24]/80 hover:text-[#FBBF24] underline underline-offset-2 transition-colors flex items-center gap-1 font-bold"
                                         >
-                                            Confirm M-Pesa Receipt →
+                                            Claim M-Pesa Receipt via WhatsApp →
                                         </button>
                                     </div>
                                 </div>
@@ -1708,54 +1674,6 @@ export default function MemberDashboard() {
                 </div>
                 </>,
                 document.body
-            )}
-
-            {/* Missing Payment? Receipt Query Modal */}
-            {showReceiptModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="w-full max-w-md bg-[#111c14]/90 border border-white/10 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
-                        <div className="mb-5">
-                            <h3 className="text-xl font-extrabold text-white mb-1 flex items-center gap-2">
-                                🔍 Verify Your Payment
-                            </h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Paid but still showing as unpaid? Enter your M-Pesa confirmation code to self-reconcile.
-                            </p>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
-                                <input
-                                    type="text"
-                                    value={receiptCode}
-                                    onChange={e => setReceiptCode(e.target.value.toUpperCase())}
-                                    placeholder="e.g. SCL90XXXXXX"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
-                                />
-                            </div>
-                            {receiptResult && (
-                                <div className={`p-3 rounded-xl text-sm font-medium border ${receiptResult?.success ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                                    {receiptResult?.message}
-                                </div>
-                            )}
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowReceiptModal(false)}
-                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleReceiptQuery}
-                                    disabled={isQueryingReceipt || !receiptCode.trim()}
-                                    className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                >
-                                    {isQueryingReceipt ? <><Zap className="w-4 h-4 animate-pulse" /> Verifying...</> : <><Check className="w-4 h-4" /> Verify Payment</>}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             )}
 
             {/* Wallet Top-Up Modal */}

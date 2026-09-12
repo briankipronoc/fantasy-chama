@@ -311,11 +311,11 @@ export default function ChampionFlexCardModal({
 
   return (
     <div className="fixed inset-0 z-[125000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
-      <div className="w-full max-w-lg bg-[#0e1419] border-2 border-amber-500/40 rounded-3xl p-5 md:p-6 shadow-[0_0_80px_rgba(245,158,11,0.25)] relative text-white my-6">
+      <div className="w-full max-w-lg bg-[#0e1419] border-2 border-amber-500/40 rounded-3xl p-5 md:p-6 shadow-[0_0_80px_rgba(245,158,11,0.25)] relative text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Close Button */}
         <button
           onClick={() => { haptics.selection(); onClose(); }}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer z-20"
         >
           <X className="w-5 h-5" />
         </button>
@@ -420,14 +420,14 @@ export default function ChampionFlexCardModal({
           <div className="flex items-center gap-2">
             <button
               onClick={handleShareWhatsApp}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 transition-all active:scale-95"
+              className="flex-1 py-3.5 px-4 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(37,211,102,0.35)] flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
               Flex on WhatsApp Group
             </button>
             <button
               onClick={handleCopyMessage}
-              className="py-3 px-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5"
+              className="py-3.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               {copied ? 'Copied' : 'Copy'}

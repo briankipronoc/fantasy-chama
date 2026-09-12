@@ -17,6 +17,8 @@ interface Participant {
     id: string;
     name: string;
     signed: boolean;
+    teamLabel?: string;
+    fplEntryId?: number;
 }
 
 interface SideBet {
@@ -55,6 +57,7 @@ export default function SideBets() {
     const [betDescription, setBetDescription] = useState('');
     const [betStake, setBetStake] = useState('');
     const [opponentId, setOpponentId] = useState('');
+    const [selectedTeam, setSelectedTeam] = useState<'primary' | 'secondary'>('primary');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showOpponentPicker, setShowOpponentPicker] = useState(false);
 
@@ -117,10 +120,20 @@ export default function SideBets() {
 
         setIsSubmitting(true);
         try {
+            const challengerFplEntry = selectedTeam === 'secondary'
+                ? (currentUser.secondFplTeamId || currentUser.fplTeamId)
+                : currentUser.fplTeamId;
+
             await addDoc(collection(db, 'leagues', activeLeagueId, 'side_bets'), {
                 title: betTitle.trim(),
                 description: betDescription.trim(),
-                challenger: { id: currentUser.id, name: currentUser.displayName, signed: true },
+                challenger: {
+                    id: currentUser.id,
+                    name: currentUser.displayName,
+                    signed: true,
+                    teamLabel: currentUser.secondFplTeamId ? (selectedTeam === 'secondary' ? 'Team 2' : 'Team 1') : undefined,
+                    fplEntryId: challengerFplEntry || undefined,
+                },
                 opponent: { id: opponent.id, name: opponent.displayName, signed: false },
                 stake,
                 status: 'pending_opponent',
@@ -485,6 +498,43 @@ export default function SideBets() {
                                     className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none resize-none"
                                 />
                             </div>
+                            {currentUser?.secondFplTeamId && (
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                        Stake With Team
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-2 bg-[#161d24] p-1.5 rounded-xl border border-white/10">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedTeam('primary')}
+                                            className={clsx(
+                                                "py-2 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
+                                                selectedTeam === 'primary'
+                                                    ? "bg-amber-500 text-black shadow-sm font-black"
+                                                    : "text-gray-400 hover:text-white"
+                                            )}
+                                        >
+                                            Team 1 (Primary)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedTeam('secondary')}
+                                            className={clsx(
+                                                "py-2 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
+                                                selectedTeam === 'secondary'
+                                                    ? "bg-amber-500 text-black shadow-sm font-black"
+                                                    : "text-gray-400 hover:text-white"
+                                            )}
+                                        >
+                                            Team 2 (Dual #{currentUser.secondFplTeamId})
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1 font-medium">
+                                        Points scored by {selectedTeam === 'secondary' ? 'Team 2' : 'Team 1'} will determine your wager score.
+                                    </p>
+                                </div>
+                            )}
+
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stake (KES)</label>

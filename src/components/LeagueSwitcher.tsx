@@ -2,12 +2,13 @@
 // Reads the userLeagues/{phone} Firestore document and renders a dropdown
 // that lets the user hot-swap their active league context.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db, auth } from '../firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
-import { ChevronDown, Trophy } from 'lucide-react';
+import { ChevronDown, Trophy, Check } from 'lucide-react';
+import { haptics } from '../utils/haptics';
 
 interface LeagueEntry {
     leagueId: string;
@@ -19,6 +20,7 @@ export default function LeagueSwitcher() {
     const [leagues, setLeagues] = useState<LeagueEntry[]>([]);
     const [open, setOpen] = useState(false);
     const [showHint, setShowHint] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const phone = localStorage.getItem('memberPhone');
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid || null);
@@ -91,6 +93,26 @@ export default function LeagueSwitcher() {
         if (!hintDismissed) setShowHint(true);
     }, []);
 
+    useEffect(() => {
+        if (!open) return;
+        const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('touchstart', handleOutsideClick);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('touchstart', handleOutsideClick);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [open]);
+
     // Only render if user is in multiple leagues
     if (leagues.length <= 1) return null;
 
@@ -102,6 +124,7 @@ export default function LeagueSwitcher() {
     };
 
     const switchLeague = (league: LeagueEntry) => {
+        haptics.selection();
         localStorage.setItem('activeLeagueId', league.leagueId);
         localStorage.setItem('activeUserRole', league.role);
         useStore.getState().setRole(league.role === 'admin' ? 'admin' : 'member');
@@ -113,10 +136,10 @@ export default function LeagueSwitcher() {
     };
 
     return (
-        <div className="relative">
+        <div ref={dropdownRef} className="relative">
             <button
-                onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white transition-all"
+                onClick={() => { haptics.selection(); setOpen(!open); }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white transition-all cursor-pointer"
             >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 <span className="max-w-[100px] truncate">{active?.leagueName || 'Switch League'}</span>
@@ -159,7 +182,9 @@ export default function LeagueSwitcher() {
                                 <p className="text-[10px] text-gray-500 capitalize">{league.role}</p>
                             </div>
                             {league.leagueId === activeLeagueId && (
-                                <span className="ml-auto text-[9px] text-emerald-400 font-black uppercase tracking-widest">Active</span>
+                                <span className="ml-auto inline-flex items-center gap-1 text-[9px] text-emerald-400 font-black uppercase tracking-widest">
+                                    <Check className="w-3 h-3" /> Active
+                                </span>
                             )}
                         </button>
                     ))}
