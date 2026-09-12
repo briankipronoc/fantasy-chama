@@ -7,7 +7,6 @@ export default function PwaInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIos, setIsIos] = useState(false);
-  const [showIosGuide, setShowIosGuide] = useState(false);
 
   useEffect(() => {
     // Don't show if already installed / running in standalone mode
@@ -31,7 +30,7 @@ export default function PwaInstallPrompt() {
 
     // iOS Safari detection
     const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const isSafari = /safari/.test(userAgent) && !/chrome|crios|fxios/.test(userAgent);
 
     if (isIosDevice && isSafari && !isStandalone) {
@@ -48,11 +47,6 @@ export default function PwaInstallPrompt() {
 
   const handleInstallClick = async () => {
     haptics.selection();
-    if (isIos) {
-      setShowIosGuide(true);
-      return;
-    }
-
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -66,7 +60,6 @@ export default function PwaInstallPrompt() {
   const handleDismiss = () => {
     haptics.selection();
     setShowPrompt(false);
-    setShowIosGuide(false);
     localStorage.setItem('fc-pwa-dismissed', String(Date.now()));
   };
 
@@ -96,35 +89,38 @@ export default function PwaInstallPrompt() {
           </button>
         </div>
 
-        {showIosGuide ? (
-          <div className="mt-3 pt-3 border-t border-white/10 text-xs text-gray-300 space-y-1.5 animate-in fade-in duration-200">
-            <p className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold">1</span>
-              Tap the <Share2 className="w-3.5 h-3.5 text-blue-400 inline mx-0.5" /> <strong>Share</strong> button in Safari's bottom toolbar.
-            </p>
-            <p className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold">2</span>
-              Scroll down and tap <strong>Add to Home Screen</strong>.
-            </p>
-            <button
-              onClick={handleDismiss}
-              className="mt-2 w-full py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-bold text-center"
-            >
-              Got it
-            </button>
+        {isIos ? (
+          <div className="mt-3 pt-2.5 border-t border-white/10 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 bg-black/40 border border-blue-500/30 rounded-xl p-2.5 text-xs text-gray-200 shadow-inner">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.3)]">
+                <Share2 className="w-4 h-4 animate-pulse" />
+              </div>
+              <p className="text-[11px] leading-snug">
+                Tap the <strong className="text-white">Share</strong> button <Share2 className="w-3.5 h-3.5 text-blue-400 inline mx-0.5" /> in Safari's bottom bar, then select <strong className="text-emerald-400 font-bold">Add to Home Screen</strong>.
+              </p>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between">
+              <span className="text-[10px] text-gray-500 font-medium">Feels like a native iOS app</span>
+              <button
+                onClick={handleDismiss}
+                className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-colors cursor-pointer"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         ) : (
           <div className="mt-3 flex items-center gap-2">
             <button
               onClick={handleInstallClick}
-              className="flex-1 py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+              className="flex-1 py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
-              {isIos ? 'How to Install' : 'Install App'}
+              Install App
             </button>
             <button
               onClick={handleDismiss}
-              className="py-2 px-3 text-xs font-bold text-gray-400 hover:text-white transition-colors"
+              className="py-2 px-3 text-xs font-bold text-gray-400 hover:text-white transition-colors cursor-pointer"
             >
               Later
             </button>

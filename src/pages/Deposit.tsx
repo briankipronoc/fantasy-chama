@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, ArrowRight, Wallet, Smartphone, Copy, Check, Send, Info, AlertCircle, QrCode, Zap, CheckCircle2 } from 'lucide-react';
+import { Shield, ArrowRight, Wallet, Smartphone, Copy, Check, Send, Info, AlertCircle, QrCode, Zap, CheckCircle2, MessageCircle } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -279,13 +279,34 @@ export default function Deposit() {
 
                                 {/* CTA */}
                                 {pochiAckSent ? (
-                                    <div className="rounded-[0.875rem] p-4 flex items-center gap-3 fc-bounce-in"
-                                        style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                                        <CheckCircle2 className="w-6 h-6 text-[#10B981] flex-shrink-0" />
-                                        <div>
-                                            <p className="text-[#10B981] font-bold text-sm">Confirmation sent!</p>
-                                            <p className="text-gray-400 text-xs mt-0.5">Chairman will verify and credit your wallet shortly.</p>
+                                    <div className="space-y-3 fc-bounce-in">
+                                        <div className="rounded-[0.875rem] p-4 flex items-center gap-3"
+                                            style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                            <CheckCircle2 className="w-6 h-6 text-[#10B981] flex-shrink-0" />
+                                            <div>
+                                                <p className="text-[#10B981] font-bold text-sm">Confirmation logged!</p>
+                                                <p className="text-gray-400 text-xs mt-0.5">Chairman has received your in-app request.</p>
+                                            </div>
                                         </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const currentMember = members.find(m => m.id === activeUserId);
+                                                const senderName = currentMember?.displayName || 'A Member';
+                                                const msg = `*M-Pesa Pochi Payment Notification*\n\n` +
+                                                    `🏆 *League:* ${leagueName}\n` +
+                                                    `👤 *Member:* ${senderName} (${currentMember?.phone || memberPhone})\n` +
+                                                    `💰 *Amount:* KES ${finalAmount.toLocaleString()}\n\n` +
+                                                    `I have sent the funds via Pochi La Biashara. Kindly confirm and credit my wallet on FantasyChama. Thank you!`;
+                                                
+                                                const targetPhone = chairmanPhone.startsWith('0') ? `254${chairmanPhone.slice(1)}` : chairmanPhone;
+                                                window.open(`https://wa.me/${targetPhone || ''}?text=${encodeURIComponent(msg)}`, '_blank');
+                                            }}
+                                            className="w-full py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,211,102,0.25)] hover:scale-[1.01] active:scale-95 cursor-pointer"
+                                        >
+                                            <MessageCircle className="w-4 h-4 fill-current" /> Share Receipt with Chairman on WhatsApp
+                                        </button>
                                     </div>
                                 ) : (
                                     <button

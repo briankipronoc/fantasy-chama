@@ -577,7 +577,12 @@ export default function Profile() {
                 </div>
             )}
 
-            <div className="grid grid-rows-3 grid-flow-col gap-3 overflow-x-auto pb-2 custom-scrollbar auto-cols-max">
+            <div className={clsx(
+                "gap-3 pb-2 custom-scrollbar",
+                directoryMembers.length <= 6
+                    ? "flex flex-wrap items-center"
+                    : "grid grid-rows-2 sm:grid-rows-3 grid-flow-col overflow-x-auto auto-cols-max"
+            )}>
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
@@ -654,7 +659,7 @@ export default function Profile() {
             <div className="max-w-6xl mx-auto space-y-10">
                 <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity, League Controls & Payout Configuration" hideCountdown={true} />
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-6 items-start">
                     <div className={clsx(
                         "flex flex-col gap-4",
                         isAdminView ? 'xl:col-span-7' : 'xl:col-span-12'
@@ -792,8 +797,6 @@ export default function Profile() {
                             </form>
                         </div>
                     </div>
-                    {!isAdminView && renderActiveMembersStrip()}
-                    {isAdminView && renderActiveMembersStrip('hidden xl:block')}
                     </div>
 
                     {/* Admin View (League Command & Invite Hub) */}
@@ -1080,8 +1083,11 @@ export default function Profile() {
                         </div>
                     )}
                     
+                    {/* Active Members / Chama Directory — Full width */}
+                    {renderActiveMembersStrip('xl:col-span-12')}
+
                     {isAdminView && (
-                        <div className="fc-card xl:col-span-12 bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col mt-2 shadow-2xl">
+                        <div className="fc-card xl:col-span-12 bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 blur-[90px] pointer-events-none"></div>
                             
@@ -1230,7 +1236,6 @@ export default function Profile() {
                             </div>
                         </div>
                     )}
-                    {isAdminView && renderActiveMembersStrip('order-3 xl:hidden')}
 
                 </div>
             </div>

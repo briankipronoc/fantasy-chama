@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, Swords } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, Swords, MessageCircle } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -1763,12 +1763,31 @@ export default function MemberDashboard() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
                     <div className="w-full max-w-md bg-[#111820]/95 border border-[#FBBF24]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
                         {claimSubmitted ? (
-                            <div className="text-center py-4">
-                                <div className="w-14 h-14 rounded-full bg-[#FBBF24]/10 border border-[#FBBF24]/30 flex items-center justify-center mx-auto mb-4">
+                            <div className="text-center py-4 space-y-4">
+                                <div className="w-14 h-14 rounded-full bg-[#FBBF24]/10 border border-[#FBBF24]/30 flex items-center justify-center mx-auto">
                                     <Check className="w-7 h-7 text-[#FBBF24]" />
                                 </div>
-                                <h3 className="text-xl font-extrabold text-white mb-2">Claim Submitted ✓</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Your claim has been flagged to the Chairman for review. You'll be updated within 24 hours.</p>
+                                <div>
+                                    <h3 className="text-xl font-extrabold text-white mb-1">Claim Submitted ✓</h3>
+                                    <p className="text-sm text-gray-400">Your claim has been logged for the Chairman's review.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const targetPhone = (payoutDestinationPhone || chairmanPhone || '').startsWith('0') 
+                                            ? `254${(payoutDestinationPhone || chairmanPhone || '').slice(1)}` 
+                                            : (payoutDestinationPhone || chairmanPhone || '');
+                                        const msg = `*M-Pesa Payment Claim*\n\n` +
+                                            `🏆 *League:* ${leagueName || 'FantasyChama'}\n` +
+                                            `👤 *Member:* ${currentUser?.displayName || 'Member'} (${memberPhone || ''})\n` +
+                                            `🧾 *M-Pesa Code:* ${claimReceiptCode}\n\n` +
+                                            `I have logged my payment claim in FantasyChama. Please confirm and update my wallet status!`;
+                                        window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                    }}
+                                    className="w-full py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,211,102,0.25)]"
+                                >
+                                    <MessageCircle className="w-4 h-4 fill-current" /> Notify Chairman via WhatsApp
+                                </button>
                             </div>
                         ) : (
                             <>
