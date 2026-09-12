@@ -543,7 +543,7 @@ export default function AdminSetup() {
             <form className="space-y-4 relative z-10" onSubmit={async (e) => { e.preventDefault(); await nextStep(); }}>
                 <div>
                     <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
-                        Full Name <Tooltip text="Identifies you as the official gatekeeper to joining members." />
+                        Full Name <Tooltip text="Your name as Chairman, shown to members when they join." />
                     </label>
                     <div className="relative">
                         <PersonStanding className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -1354,8 +1354,8 @@ export default function AdminSetup() {
                 <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-4 rounded-xl flex items-start gap-3 relative z-10 shadow-sm">
                     <Check className="w-5 h-5 text-[#22c55e] shrink-0 mt-0.5" />
                     <p className="text-xs text-[#22c55e] leading-relaxed">
-                        <strong className="block mb-1 text-sm tracking-tight text-white">Architecture Lock-In</strong>
-                        Once you hit "Initialize League", these economic parameters (Escrow splits, Gameweek stakes, and FPL mappings) are permanently compiled to the Firestore Ledger and cannot be changed. Double check them below.
+                        <strong className="block mb-1 text-sm tracking-tight text-white">Final Review</strong>
+                        Once you initialize your league, your Gameweek stake and pot rules are saved and locked for fairness. Please review the summary below before creating the league.
                     </p>
                 </div>
 

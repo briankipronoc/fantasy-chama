@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import ChampionFlexCardModal from "../components/ChampionFlexCardModal";
+import UserAvatar from "../components/UserAvatar";
 import { haptics } from "../utils/haptics";
 import {
   Megaphone,
@@ -4006,18 +4007,7 @@ burstFrame();
                       )}
                     >
                       {/* Avatar */}
-                      <div className={clsx(
-                        "w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border overflow-hidden",
-                        memberHasFunding(row)
-                          ? "border-[#10B981]/50 shadow-[0_0_10px_rgba(16,185,129,0.2)] bg-[#10B981]/10"
-                          : "border-white/10 bg-[#161d24]",
-                      )}>
-                        <img
-                          src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(row as any).avatarSeed || row.displayName}&backgroundColor=transparent`}
-                          alt={row.displayName}
-                          className={clsx("w-full h-full object-cover", !memberHasFunding(row) && "grayscale opacity-80")}
-                        />
-                      </div>
+                      <UserAvatar name={row.displayName} size="md" />
 
                       {/* Name + actions */}
                       <div className="flex-1 min-w-0">

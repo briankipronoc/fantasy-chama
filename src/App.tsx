@@ -4,6 +4,8 @@ import AppLayout from './layouts/AppLayout';
 import { useStore } from './store/useStore';
 import ErrorBoundary from './components/ErrorBoundary';
 import { NotificationProvider } from './components/NotificationProvider';
+import OfflineBanner from './components/OfflineBanner';
+import QuickActionFab from './components/QuickActionFab';
 import { auth } from './firebase';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
@@ -125,6 +127,7 @@ function App() {
 
   return (
     <>
+      <OfflineBanner />
       <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe — please retry.">
         <Suspense fallback={<RouteLoader />}>
           <Routes>
@@ -161,6 +164,7 @@ function App() {
               <Route path="/docs" element={<Docs />} />
             </Route>
           </Routes>
+          <QuickActionFab />
         </Suspense>
       </ErrorBoundary>
     </>

@@ -4,15 +4,15 @@ import DocLayout from '../layouts/DocLayout';
 export default function Terms() {
     return (
         <DocLayout
-            title="The Rules of the Vault"
+            title="Terms of Service & Rules"
             icon={Shield}
             iconColor="text-emerald-400"
             iconBg="bg-emerald-500/10"
             iconBorder="border-emerald-500/20"
-            kicker="Legal Architecture"
+            kicker="Terms & Conditions"
         >
             <p>
-                Institutional-grade transparency. Everything you need to know about how the platform routes, protects, and settles your stakes.
+                Transparent Chama rules. Clear guidelines on how stakes, weekly pots, and season distributions are settled.
             </p>
 
             <h2>1. Vault Mechanics & Escrow</h2>

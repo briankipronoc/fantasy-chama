@@ -13,6 +13,7 @@ import DocsModal from './DocsModal';
 import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
 import { onAuthStateChanged } from 'firebase/auth';
+import UserAvatar from './UserAvatar';
 
 export default function Header({ role, title, subtitle, hideCountdown }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
@@ -63,7 +64,6 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
     }, [location.pathname]);
     const fullDisplayName = currentMember?.displayName || (role === 'admin' ? 'Chairman' : 'Manager');
     const displayName = fullDisplayName.split(' ')[0];
-    const avatarSeed = (currentMember as any)?.avatarSeed || fullDisplayName;
 
     useEffect(() => {
         if (!isDropdownOpen) return;
@@ -140,9 +140,7 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 md:gap-0 mb-8 md:mb-10 w-full relative z-50">
             <div className={clsx('fc-header-stage w-full md:w-auto', headerMotion)}>
                 <div className="flex items-center gap-3 md:gap-4 w-full">
-                    <div className="h-12 w-12 md:h-14 md:w-14 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-2 border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}&backgroundColor=transparent`} alt="User avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-300" />
-                    </div>
+                    <UserAvatar name={fullDisplayName} size="lg" />
                     <div className="min-w-0 flex-1">
                         <h1 className="fc-frosty-title text-xl sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate">
                             {title || `${getGreeting()}, ${displayName}!`}
@@ -250,7 +248,7 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                 <div className="fc-notif-header px-5 py-3.5 border-b border-white/5 flex justify-between items-center bg-black/30 backdrop-blur-md">
                                     <div>
                                         <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-400/90 mb-0.5">Alerts</p>
-                                        <h3 className="font-bold text-sm tracking-wide text-white">Mission Control</h3>
+                                        <h3 className="font-bold text-sm tracking-wide text-white">Notifications</h3>
                                     </div>
                                     {(unreadPersonalCount > 0 || unreadSystemCount > 0) && (
                                         <div className="flex items-center gap-1.5">

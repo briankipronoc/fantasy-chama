@@ -4,18 +4,18 @@ import DocLayout from '../layouts/DocLayout';
 export default function PrivacyPolicy() {
     return (
         <DocLayout
-            title="Privacy Architecture"
+            title="Privacy Policy"
             icon={ShieldAlert}
             iconColor="text-emerald-400"
             iconBg="bg-emerald-500/10"
             iconBorder="border-emerald-500/20"
-            kicker="Data Assurance"
+            kicker="Data Privacy & Security"
         >
             <p>
-                Zero compromises. How we secure your identification, protect your cryptographic keys, and keep the master ledger entirely private.
+                Simple, transparent privacy. How we protect your M-Pesa phone number and Chama records.
             </p>
 
-            <h2>Minimal Telemetry Collection</h2>
+            <h2>Minimal Data Collection</h2>
             <p>
                 We strip out invasive analytics. Fantasy Chama explicitly gathers the absolute minimum personal data necessary to power financial pipelines. Your encrypted M-Pesa phone number is retained natively for the strict purpose of securely handling real-time deposits and automated B2C payout sweeps.
             </p>

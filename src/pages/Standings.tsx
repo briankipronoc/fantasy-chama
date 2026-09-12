@@ -7,6 +7,7 @@ import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore'
 import clsx from 'clsx';
 import Header from '../components/Header';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import UserAvatar from '../components/UserAvatar';
 
 const fetchFplStandings = async (leagueId: number) => {
     // Check cache
@@ -618,14 +619,7 @@ export default function Standings() {
                                             <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-6 text-center shrink-0', isTop1Overall ? 'text-[#10B981]' : 'text-gray-500')}>
                                                 {medal || rankNum}
                                             </span>
-                                            <div className={clsx(
-                                                'w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs flex-shrink-0',
-                                                isTop1Overall ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]' : 'border-white/10 bg-white/5 text-gray-400'
-                                            )}>
-                                                {matchedMember ? (
-                                                    <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(matchedMember as any).avatarSeed || matchedMember.displayName}&backgroundColor=transparent`} alt="" className="w-full h-full rounded-full object-cover" />
-                                                ) : row.player_name.charAt(0)}
-                                            </div>
+                                            <UserAvatar name={row.player_name} size="sm" />
                                             <div className="flex-1 min-w-0">
                                                 <span className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
                                                     <span className="truncate max-w-[160px] md:max-w-none">{row.player_name}</span>

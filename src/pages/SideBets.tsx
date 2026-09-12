@@ -10,6 +10,7 @@ import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import Header from '../components/Header';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import UserAvatar from '../components/UserAvatar';
 
 interface Participant {
     id: string;
@@ -522,9 +523,7 @@ export default function SideBets() {
                                                 className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 flex items-center justify-between transition-colors border-b border-white/5 last:border-0"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 border border-white/10">
-                                                        <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(m as any).avatarSeed || m.displayName}&backgroundColor=transparent`} alt={m.displayName} className="w-full h-full object-cover" />
-                                                    </div>
+                                                    <UserAvatar name={m.displayName} size="xs" />
                                                     <span className="font-bold">{m.displayName}</span>
                                                 </div>
                                                 <span className="text-[10px] font-bold text-gray-500">

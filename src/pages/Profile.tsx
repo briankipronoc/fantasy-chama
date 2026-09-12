@@ -10,6 +10,7 @@ import clsx from 'clsx';
 import Header from '../components/Header';
 import ConfirmModal from '../components/ConfirmModal';
 import toast from 'react-hot-toast';
+import UserAvatar from '../components/UserAvatar';
 
 export default function Profile() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -465,7 +466,7 @@ export default function Profile() {
                     <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-white">
                         <Users className="w-5 h-5 text-[#10B981]" /> Active Members
                     </h2>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Live League Directory</p>
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Chama Members</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {pendingMembers.length > 0 && (
@@ -519,13 +520,7 @@ export default function Profile() {
                         {pendingMembers.map((m: any) => (
                             <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-[#0b1014]/90 border border-white/10 hover:border-blue-500/40 transition-all">
                                 <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                                    <div className="w-10 h-10 rounded-full bg-[#161d24] border border-white/15 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                                        <img
-                                            src={`https://api.dicebear.com/7.x/notionists/svg?seed=${m.avatarSeed || m.displayName}&backgroundColor=transparent`}
-                                            alt={m.displayName}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
+                                    <UserAvatar name={m.displayName} size="md" />
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-black text-white break-words leading-tight">{m.displayName}</p>
                                         <p className="text-[11px] text-blue-300 font-semibold break-words mt-0.5">
@@ -601,15 +596,7 @@ export default function Profile() {
                         && (member.role === 'co-chair' || member.role === 'admin');
                     return (
                         <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative flex-shrink-0 w-24 h-24 rounded-2xl border border-white/10 bg-[#0f151a] px-2 py-2.5 flex flex-col items-center justify-center gap-1.5">
-                            <div className={clsx("w-10 h-10 rounded-full bg-gradient-to-b from-[#1c272c] to-[#0b1014] p-0.5 shadow-lg border border-white/5 group-hover:border-[#10B981]/50 transition-all",
-                                !isActive && "opacity-30 grayscale"
-                            )}>
-                                <img
-                                    src={`https://api.dicebear.com/7.x/notionists/svg?seed=${(member as any).avatarSeed || member.displayName}&backgroundColor=transparent`}
-                                    alt={member.displayName}
-                                    className="w-full h-full rounded-full object-cover bg-[#161d24]"
-                                />
-                            </div>
+                            <UserAvatar name={member.displayName} size="md" />
                             <div className="text-center flex flex-col items-center gap-1 w-full">
                                 <span className={clsx("text-[10px] font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
                                 <div className="flex flex-col items-center gap-1 min-h-5 justify-start">
@@ -708,20 +695,7 @@ export default function Profile() {
 
                         <div className="flex flex-col gap-4 items-stretch">
                             <div className="flex flex-col items-center justify-start gap-2.5 pt-1">
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1b2b22] to-[#101613] p-1 shadow-xl border border-white/10">
-                                    <img
-                                        src={`https://api.dicebear.com/7.x/notionists/svg?seed=${avatarSeed}&backgroundColor=transparent`}
-                                        alt="Avatar"
-                                        className="w-full h-full rounded-full object-cover bg-[#0b1014]"
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setAvatarSeed(Math.random().toString(36).substring(7))}
-                                    className="text-[10px] font-bold text-[#10B981] bg-[#10B981]/10 px-2.5 py-1.5 rounded-lg hover:bg-[#10B981]/20 transition-colors border border-[#10B981]/20 text-center leading-tight"
-                                >
-                                    Generate New Avatar
-                                </button>
+                                <UserAvatar name={displayName || 'Manager'} size="xl" />
                             </div>
 
                             <form onSubmit={handleSaveMember} className="grid grid-cols-1 gap-3.5 items-start w-full">
