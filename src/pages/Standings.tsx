@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users, Swords } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -7,8 +7,10 @@ import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore'
 import clsx from 'clsx';
 import Header from '../components/Header';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import HeadToHeadModal from '../components/HeadToHeadModal';
 import UserAvatar from '../components/UserAvatar';
 import { StandingsSkeleton } from '../components/Skeleton';
+import { haptics } from '../utils/haptics';
 
 const fetchFplStandings = async (leagueId: number) => {
     // Check cache
@@ -76,6 +78,9 @@ export default function Standings() {
         amountWon: number;
         gameweek: number | string;
     } | null>(null);
+    const [showH2hModal, setShowH2hModal] = useState(false);
+    const [h2hManagerAId, setH2hManagerAId] = useState<number>(0);
+    const [h2hManagerBId, setH2hManagerBId] = useState<number>(0);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     const members = useStore(state => state.members);
@@ -441,6 +446,19 @@ export default function Standings() {
                         <button onClick={exportStandingsCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap active:scale-95">
                             <Download className="w-4 h-4" /> Export CSV
                         </button>
+                        <button
+                            onClick={() => {
+                                haptics.selection();
+                                setH2hManagerAId(myStanding?.entry || standingsData[0]?.entry || 0);
+                                setH2hManagerBId(standingsData[1]?.entry || standingsData[0]?.entry || 0);
+                                setShowH2hModal(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap active:scale-95 cursor-pointer shadow-sm"
+                            title="Compare managers Head-to-Head"
+                        >
+                            <Swords className="w-4 h-4 text-amber-400" />
+                            <span>H2H Radar</span>
+                        </button>
                     </div>
                 </div>
 
@@ -479,12 +497,18 @@ export default function Standings() {
                 )}
                 {/* Stats swapper + user hero */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Clean Total Members Card */}
+                    {/* Honest Funded Pot Members Card */}
                     <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px]">
                         <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Members</p>
-                            <p className="text-2xl font-black text-white">{standingsData.length || '--'} <span className="text-sm font-bold text-gray-400">Players</span></p>
-                            <p className="text-[10px] text-emerald-400/80 font-semibold mt-0.5">Active in FPL league</p>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Funded Pot Members</p>
+                            <p className="text-2xl font-black text-white">
+                                {eligibleGwStandings.length} <span className="text-sm font-bold text-gray-400">/ {standingsData.length || members.length} Paid</span>
+                            </p>
+                            <p className="text-[10px] font-semibold mt-0.5 text-amber-400">
+                                {Math.max(0, (standingsData.length || members.length) - eligibleGwStandings.length) > 0
+                                    ? `${Math.max(0, (standingsData.length || members.length) - eligibleGwStandings.length)} in Red Zone (scores blurred)`
+                                    : '100% of league funded ✓'}
+                            </p>
                         </div>
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                             <Users className="w-5 h-5 text-emerald-400" />
@@ -671,7 +695,7 @@ export default function Standings() {
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
                                                     </span>
-                                                ) : isGwWinnerRow ? (
+                                                ) : isTop1Overall || isGwWinnerRow ? (
                                                     <button
                                                         onClick={() => setFlexCardData({
                                                             winnerName: row.player_name,
@@ -686,7 +710,18 @@ export default function Standings() {
                                                         <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Flex Win
                                                     </button>
                                                 ) : (
-                                                    <span className="text-gray-700 hidden md:inline pr-4">—</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            haptics.selection();
+                                                            setH2hManagerAId(row.entry);
+                                                            setH2hManagerBId(myStanding?.entry && myStanding.entry !== row.entry ? myStanding.entry : (standingsData[0]?.entry || row.entry));
+                                                            setShowH2hModal(true);
+                                                        }}
+                                                        className="px-2 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer active:scale-95"
+                                                        title={`Compare ${row.player_name} in H2H Radar`}
+                                                    >
+                                                        <Swords className="w-3 h-3 text-amber-400" /> H2H
+                                                    </button>
                                                 )}
                                             </div>
                                         </div>
@@ -868,6 +903,17 @@ export default function Standings() {
                         leagueName={leagueName || 'League'}
                     />
                 )}
+
+                {/* Head-to-Head Radar Modal */}
+                <HeadToHeadModal
+                    isOpen={showH2hModal}
+                    onClose={() => setShowH2hModal(false)}
+                    managers={standingsData}
+                    initialManagerAId={h2hManagerAId}
+                    initialManagerBId={h2hManagerBId}
+                    currentGw={Number(currentEvent || 3)}
+                    leagueName={leagueName || 'League'}
+                />
             </div>
         </div>
     );

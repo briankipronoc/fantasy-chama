@@ -48,6 +48,7 @@ import clsx from "clsx";
 import confetti from "canvas-confetti";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
+import LiveMatchdayPulse from "../components/LiveMatchdayPulse";
 
 export default function AdminCommandCenter() {
   const navigate = useNavigate();
@@ -1388,18 +1389,18 @@ export default function AdminCommandCenter() {
     const weeklyPrize = Math.round(totalPotAtStake * (rules.weekly / 100));
 
     const message = [
-      `🚨 *${leagueName.toUpperCase()} — DEADLINE RED ZONE BLAST* 🚨`,
+      `🚨 *${leagueName.toUpperCase()} — RED ZONE WAKE UP CALL* 🚨`,
       ``,
       hoursText,
-      `The following *${redZoneMembers.length} managers* have not cleared their KES ${gameweekStake.toLocaleString()} stake:`,
+      `Kuna watu wanataka kucheza na jasho ya watu! 😂 Hawa wafuatao ${redZoneMembers.length} bado hawajatoa stake ya KES ${gameweekStake.toLocaleString()}:`,
       ``,
       ...redZoneMembers.map((m, idx) => `${idx + 1}. *${m.displayName}* (${m.teamName || 'FPL Team'})`),
       ``,
-      `💰 Total Pot at Stake: *KES ${totalPotAtStake.toLocaleString()}* (Weekly Winner: *KES ${weeklyPrize.toLocaleString()}*)`,
-      pochiText ? `📱 Send directly via Pochi / M-Pesa: *${pochiText}*` : '',
+      `💰 Weekly Cash Pot: *KES ${weeklyPrize.toLocaleString()}*`,
+      pochiText ? `📱 Tuma kakitu via Pochi / M-Pesa: *${pochiText}*` : '',
       ``,
-      `⚠️ *Unfunded managers will NOT be eligible for this week's cash prize!*`,
-      `👉 Settle now on FantasyChama: ${appUrl}/dashboard`
+      `⚠️ *Kumbuka: Kama hujaweka kakitu, scores zitakuwa blurred na huwezi kula pot ata ukipata 100 points!*`,
+      `👉 Lipa chap chap hapa: ${appUrl}/dashboard`
     ].filter(Boolean).join('\n');
     
     // Open synchronously to avoid browser popup blockers
@@ -2524,16 +2525,19 @@ burstFrame();
     const method = payout.method === "cash" ? "Cash Handoff 💵" : "M-Pesa ✅";
 
     const message = [
-      `🏆 *${leagueName} — GW${payout.gw} Winner!*`,
+      `🏆 *${leagueName.toUpperCase()} — GW${payout.gw} OFFICIAL BULLETIN* 🚨`,
       ``,
-      `🥇 *${payout.winnerName}* — ${payout.points} pts`,
-      `💰 KES ${Number(payout.amount).toLocaleString()} sent via ${method}`,
+      `🥇 Mwizi wa points this week is *${payout.winnerName}* na *${payout.points} pts*! 👑`,
+      `💰 Payout: *KES ${Number(payout.amount).toLocaleString()}* imetumwa safi via ${method}.`,
+      ``,
+      `👏 Wengine poleni sana kwa mshtuko wa moyo! Alama zilikataa lakini weekend ijayo kimeumana tena! 🏃‍♂️💨`,
       ``,
       unpaidCount > 0
-        ? `${unpaidCount} member${unpaidCount !== 1 ? "s" : ""} still need to pay for next GW.`
-        : `Everyone is funded for next GW. Good luck!`,
+        ? `⚠️ *RED ZONE CALLOUT*: Kuna watu ${unpaidCount} bado hawajatuma kakitu. Treasurer halali na pochi haina huruma kabla deadline!`
+        : `✅ Watu wote wako funded kishujaa. Hatutaki vilio deadline ikipita!`,
       ``,
-      `👉 ${appUrl}`,
+      `📊 Angalia live table & wallet yako:`,
+      `👉 ${appUrl}/dashboard`,
     ].join("\n");
 
     const encoded = encodeURIComponent(message);
@@ -2929,6 +2933,9 @@ burstFrame();
                 : "hidden"
             }
           >
+            {/* Gameweek Live Matchday Pulse */}
+            <LiveMatchdayPulse className="mb-2" />
+
             <section className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
               <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-4xl border border-amber-300/40 dark:border-[#FBBF24]/24 bg-gradient-to-br from-amber-100 via-white to-slate-100 dark:from-[#FBBF24]/12 dark:via-[#161d24] dark:to-[#161d24] p-5 md:p-7 shadow-xl">
                 <div className="flex flex-col items-center text-center gap-5 mb-5">

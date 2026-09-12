@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DashboardSkeleton } from '../components/Skeleton';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import LiveMatchdayPulse from '../components/LiveMatchdayPulse';
 import { haptics } from '../utils/haptics';
 
 export default function MemberDashboard() {
@@ -627,21 +628,19 @@ export default function MemberDashboard() {
         const method = payout.method === 'cash' ? 'Cash Handoff 💵' : 'M-Pesa ✅';
 
         const message = [
-            `🏆 *${leagueName} — GW${payout.gw} is DONE!*`,
+            `🏆 *${leagueName.toUpperCase()} — GW${payout.gw} WINNER'S PODIUM* 🚨`,
             ``,
-            `Congratulations to this week's winner 🎉`,
+            `🥇 Mwizi wa points this week is *${payout.winnerName}* na *${payout.points} pts*! 👑`,
+            `💰 Payout: *KES ${Number(payout.amount).toLocaleString()}* imetumwa safi via ${method}.`,
             ``,
-            `🥇 *${payout.winnerName}* — ${payout.points} pts`,
-            `💰 *Payout: KES ${Number(payout.amount).toLocaleString()}* sent via ${method}`,
+            `👏 Wengine poleni kwa mshtuko wa moyo! Alama zilikataa lakini weekend ijayo kimeumana tena! 🏃‍♂️💨`,
             ``,
             unpaidCount > 0
-                ? `⚠️ *${unpaidCount} member${unpaidCount !== 1 ? 's' : ''} still need to deposit* for next GW — don't get locked out!`
-                : `✅ All members are funded for the next gameweek. Let's go!`,
+                ? `⚠️ *RED ZONE CALLOUT*: Kuna watu ${unpaidCount} bado hawajatuma kakitu. Treasurer halali na pochi haina huruma kabla deadline!`
+                : `✅ Watu wote wako funded kishujaa. Hatutaki vilio deadline ikipita!`,
             ``,
-            `📊 Check the live standings & your wallet:`,
-            `👉 ${appUrl}`,
-            ``,
-            `_${leagueName} — powered by FantasyChama_ ⚡`,
+            `📊 Angalia live table & wallet yako:`,
+            `👉 ${appUrl}/dashboard`,
         ].join('\n');
 
         const encoded = encodeURIComponent(message);
@@ -958,6 +957,7 @@ export default function MemberDashboard() {
                     title={leagueName || 'The Big League'}
                     subtitle="Member Hub"
                 />
+                <LiveMatchdayPulse className="mt-2 mb-2" />
                 <section className="fc-card mt-4 mb-4 rounded-3xl border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-400 mb-2">Member Dashboard</p>

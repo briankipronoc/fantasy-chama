@@ -89,16 +89,16 @@ export default function ChampionFlexCardModal({
     },
   } : {
     mirrors: {
-      label: '🏎️ Side Mirrors',
-      title: 'Side Mirrors Banter',
+      label: '🥷 Mwizi wa Points',
+      title: 'Mwizi wa Points',
       text: [
-        `🏆 *${leagueName} — GW${gameweek} Champion!*`,
+        `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
         ``,
-        `Hii wiki mliniona kwa side mirrors tu 😂!`,
+        `Hii wiki mimi ndiye mwizi wa points rasmi 😂!`,
         `Score: *${points || 0} pts*`,
-        `Pot Won: *KES ${amountWon.toLocaleString()}* 💰`,
+        `Pot Secured: *KES ${amountWon.toLocaleString()}* 💰 safi via Pochi!`,
         ``,
-        `Poleni sana wazee, chezeni chini next gameweek! 🏁🔥`,
+        `Poleni sana wazee kwa mshtuko wa moyo, chezeni chini next gameweek! 🏁🔥`,
         `👉 ${appUrl}`,
       ].join('\n'),
     },
