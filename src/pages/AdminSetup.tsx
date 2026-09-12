@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
+import { normalizeKenyanPhone } from '../utils/phone';
 import clsx from 'clsx';
 
 const STEPS = 5;
@@ -610,14 +611,16 @@ export default function AdminSetup() {
                             type="tel"
                             autoComplete="tel"
                             value={phone}
-                            pattern="^0[0-9]{9}$"
-                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0.')}
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
                             onChange={e => {
                                 (e.target as HTMLInputElement).setCustomValidity('');
-                                setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
+                                setPhone(normalizeKenyanPhone(e.target.value));
+                            }}
+                            onBlur={() => {
+                                if (phone) setPhone(normalizeKenyanPhone(phone));
                             }}
                             className={inputClasses}
-                            placeholder="e.g. 0712345678"
+                            placeholder="e.g. 0712345678 or 254..."
                         />
                     </div>
                 </div>
@@ -824,9 +827,12 @@ export default function AdminSetup() {
                                 <input
                                     type="tel"
                                     value={chairmanPayoutPhone}
-                                    onChange={e => setChairmanPayoutPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                                    onChange={e => setChairmanPayoutPhone(normalizeKenyanPhone(e.target.value))}
+                                    onBlur={() => {
+                                        if (chairmanPayoutPhone) setChairmanPayoutPhone(normalizeKenyanPhone(chairmanPayoutPhone));
+                                    }}
                                     className={inputClasses}
-                                    placeholder="e.g. 0712345678"
+                                    placeholder="e.g. 0712345678 or 254..."
                                 />
                                 <p className="text-[9px] text-gray-500 mt-1.5">This is the chairman payout destination used for Pochi/cash fallback references.</p>
                             </div>
@@ -1149,13 +1155,15 @@ export default function AdminSetup() {
                             <input
                                 type="tel"
                                 value={newMemberPhone}
-                                pattern="^0[0-9]{9}$"
-                                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Must be a 10-digit number starting with 0.')}
+                                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
                                 onChange={e => {
                                     (e.target as HTMLInputElement).setCustomValidity('');
-                                    setNewMemberPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
+                                    setNewMemberPhone(normalizeKenyanPhone(e.target.value));
                                 }}
-                                placeholder="e.g. 0712345678"
+                                onBlur={() => {
+                                    if (newMemberPhone) setNewMemberPhone(normalizeKenyanPhone(newMemberPhone));
+                                }}
+                                placeholder="e.g. 0712345678 or 254..."
                                 className={inputClasses}
                             />
                             {/* Dual-team warning: same phone already exists */}
@@ -1306,7 +1314,7 @@ export default function AdminSetup() {
                                                 autoFocus
                                                 className="w-full pl-3 pr-3 py-2 rounded-lg border border-[#FBBF24]/30 bg-[#161d24] text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/60 transition-all"
                                                 onChange={e => {
-                                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                                    const val = normalizeKenyanPhone(e.target.value);
                                                     setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
                                                 }}
                                             />

@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signInAnonymously, sendPasswordResetEmail } from 'firebase/auth';
+import { normalizeKenyanPhone, getPhoneVariants } from '../utils/phone';
 
 export default function Login() {
     const location = useLocation();
@@ -89,9 +90,7 @@ export default function Login() {
         }
         
         if (urlPhone) {
-            let formattedPhone = urlPhone;
-            if (formattedPhone.startsWith('254')) formattedPhone = '0' + formattedPhone.slice(3);
-            setPhone(formattedPhone);
+            setPhone(normalizeKenyanPhone(urlPhone));
             setIsPhoneLocked(true);
         }
     }, []);
@@ -139,14 +138,7 @@ export default function Login() {
             const leagueId = leagueData.id;
 
             // 2. Check if the user's phone number is on the Chairman's pre-approved list
-            const cleanInputPhone = phone.trim();
-            const phoneVariants = Array.from(new Set([
-                cleanInputPhone,
-                cleanInputPhone.startsWith('0') ? '254' + cleanInputPhone.slice(1) : cleanInputPhone,
-                cleanInputPhone.startsWith('254') ? '0' + cleanInputPhone.slice(3) : cleanInputPhone,
-                cleanInputPhone.startsWith('+254') ? '0' + cleanInputPhone.slice(4) : cleanInputPhone,
-                cleanInputPhone.startsWith('0') ? '+254' + cleanInputPhone.slice(1) : cleanInputPhone,
-            ])).filter(Boolean);
+            const phoneVariants = getPhoneVariants(phone);
 
             const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
             const qMember = query(membershipsRef, where("phone", "in", phoneVariants));
@@ -340,18 +332,23 @@ export default function Login() {
                                     type="tel"
                                     required
                                     autoComplete="tel"
-                                    pattern="^0[0-9]{9}$"
                                     value={phone}
-                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid 10-digit Kenyan phone number starting with 0 (e.g. 0712345678)')}
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
                                     disabled={isPhoneLocked}
                                     onChange={(e) => {
                                         (e.target as HTMLInputElement).setCustomValidity('');
-                                        setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10));
+                                        setPhone(normalizeKenyanPhone(e.target.value));
                                     }}
-                                    placeholder="e.g. 0712345678"
+                                    onBlur={() => {
+                                        if (phone) setPhone(normalizeKenyanPhone(phone));
+                                    }}
+                                    placeholder="e.g. 0712345678 or 254..."
                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                             </div>
+                            <p className="text-[10px] text-gray-500 mt-1.5">
+                                Enter either <span className="text-emerald-400 font-mono">07...</span> or <span className="text-emerald-400 font-mono">254...</span> — formatted automatically.
+                            </p>
                         </div>
 
                         <div>

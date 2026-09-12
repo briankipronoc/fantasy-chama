@@ -5,6 +5,7 @@ import { collection, addDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'fir
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
 import ConfirmModal from '../components/ConfirmModal';
+import { normalizeKenyanPhone } from '../utils/phone';
 
 export default function MemberEnrollment() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -240,10 +241,10 @@ export default function MemberEnrollment() {
                                             <input
                                                 type="tel"
                                                 value={newPhone}
-                                                onInvalid={e => (e.target as HTMLInputElement).setCustomValidity('Enter a 10-digit number')}
-                                                onChange={e => { (e.target as HTMLInputElement).setCustomValidity(''); setNewPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10)); }}
-                                                placeholder="e.g. 0712345678"
-                                                pattern="^0[0-9]{9}$"
+                                                onInvalid={e => (e.target as HTMLInputElement).setCustomValidity('Enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
+                                                onChange={e => { (e.target as HTMLInputElement).setCustomValidity(''); setNewPhone(normalizeKenyanPhone(e.target.value)); }}
+                                                onBlur={() => { if (newPhone) setNewPhone(normalizeKenyanPhone(newPhone)); }}
+                                                placeholder="e.g. 0712345678 or 254..."
                                                 className="fc-input pl-10"
                                             />
                                         </div>
