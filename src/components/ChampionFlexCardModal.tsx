@@ -89,8 +89,8 @@ export default function ChampionFlexCardModal({
     },
   } : {
     mirrors: {
-      label: '🥷 Mwizi wa Points',
-      title: 'Mwizi wa Points',
+      label: '🥷 Points Master',
+      title: 'Points Master',
       text: [
         `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
         ``,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users, Swords } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -7,10 +7,8 @@ import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore'
 import clsx from 'clsx';
 import Header from '../components/Header';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
-import HeadToHeadModal from '../components/HeadToHeadModal';
 import UserAvatar from '../components/UserAvatar';
 import { StandingsSkeleton } from '../components/Skeleton';
-import { haptics } from '../utils/haptics';
 
 const fetchFplStandings = async (leagueId: number) => {
     // Check cache
@@ -78,9 +76,6 @@ export default function Standings() {
         amountWon: number;
         gameweek: number | string;
     } | null>(null);
-    const [showH2hModal, setShowH2hModal] = useState(false);
-    const [h2hManagerAId, setH2hManagerAId] = useState<number>(0);
-    const [h2hManagerBId, setH2hManagerBId] = useState<number>(0);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     const members = useStore(state => state.members);
@@ -446,19 +441,6 @@ export default function Standings() {
                         <button onClick={exportStandingsCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap active:scale-95">
                             <Download className="w-4 h-4" /> Export CSV
                         </button>
-                        <button
-                            onClick={() => {
-                                haptics.selection();
-                                setH2hManagerAId(myStanding?.entry || standingsData[0]?.entry || 0);
-                                setH2hManagerBId(standingsData[1]?.entry || standingsData[0]?.entry || 0);
-                                setShowH2hModal(true);
-                            }}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap active:scale-95 cursor-pointer shadow-sm"
-                            title="Compare managers Head-to-Head"
-                        >
-                            <Swords className="w-4 h-4 text-amber-400" />
-                            <span>H2H Radar</span>
-                        </button>
                     </div>
                 </div>
 
@@ -709,20 +691,7 @@ export default function Standings() {
                                                     >
                                                         <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Flex Win
                                                     </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => {
-                                                            haptics.selection();
-                                                            setH2hManagerAId(row.entry);
-                                                            setH2hManagerBId(myStanding?.entry && myStanding.entry !== row.entry ? myStanding.entry : (standingsData[0]?.entry || row.entry));
-                                                            setShowH2hModal(true);
-                                                        }}
-                                                        className="px-2 py-1 rounded-lg border border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer active:scale-95"
-                                                        title={`Compare ${row.player_name} in H2H Radar`}
-                                                    >
-                                                        <Swords className="w-3 h-3 text-amber-400" /> H2H
-                                                    </button>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </div>
                                     </div>
@@ -903,17 +872,6 @@ export default function Standings() {
                         leagueName={leagueName || 'League'}
                     />
                 )}
-
-                {/* Head-to-Head Radar Modal */}
-                <HeadToHeadModal
-                    isOpen={showH2hModal}
-                    onClose={() => setShowH2hModal(false)}
-                    managers={standingsData}
-                    initialManagerAId={h2hManagerAId}
-                    initialManagerBId={h2hManagerBId}
-                    currentGw={Number(currentEvent || 3)}
-                    leagueName={leagueName || 'League'}
-                />
             </div>
         </div>
     );

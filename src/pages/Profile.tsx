@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, LogOut, HelpCircle, BookOpen, X } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -18,7 +18,6 @@ export default function Profile() {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id'; // Fallback for MVP
     const role = useStore(state => state.role);
     const members = useStore(state => state.members);
-    const logout = useStore(state => state.logout);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
 
@@ -976,26 +975,6 @@ export default function Profile() {
                                     </div>
                                     <p className="text-[9px] text-gray-500 mt-2 font-medium">Dual-governance permission status for this session</p>
                                 </div>
-                            </div>
-
-                            {/* Session Sign Out */}
-                            <div className="mt-5 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div>
-                                    <p className="text-xs font-bold text-white">Sign Out of Session</p>
-                                    <p className="text-[11px] text-gray-500">Safely disconnect this device from your league account</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        haptics.selection();
-                                        try { logout(); } catch {}
-                                        window.location.href = '/login';
-                                    }}
-                                    className="px-4 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 hover:text-red-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-                                >
-                                    <LogOut className="w-3.5 h-3.5" />
-                                    Sign Out
-                                </button>
                             </div>
                         </div>
                     )}

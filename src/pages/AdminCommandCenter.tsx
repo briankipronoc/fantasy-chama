@@ -24,6 +24,8 @@ import {
   ShieldAlert,
   AlertCircle,
   Swords,
+  Users,
+  Clock,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import { db, auth } from "../firebase";
@@ -3977,45 +3979,85 @@ burstFrame();
           }
         >
           {/* The Master Ledger Section */}
-          <div className="w-full mx-auto">
+          <div className="w-full max-w-6xl mx-auto space-y-6">
+            {/* Quick Ledger Overview Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="fc-card rounded-2xl p-4 sm:p-5 border border-amber-300/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex items-center justify-between shadow-md">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-[#FBBF24]">Total Members</p>
+                  <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">{members.length}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Registered in league</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-[#FBBF24]/10 border border-[#FBBF24]/20 flex items-center justify-center text-amber-500 dark:text-[#FBBF24]">
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="fc-card rounded-2xl p-4 sm:p-5 border border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex items-center justify-between shadow-md">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Funded / Active</p>
+                  <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">
+                    {members.filter(m => memberHasFunding(m)).length}
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Eligible for GW pot</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 dark:text-emerald-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className="fc-card rounded-2xl p-4 sm:p-5 border border-amber-500/25 bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex items-center justify-between shadow-md">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Pending Deposit</p>
+                  <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">
+                    {members.filter(m => !memberHasFunding(m)).length}
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Top-up required</p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
             <section
               id="master-ledger"
-              className="fc-card rounded-4xl border border-[#FBBF24]/20 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] overflow-hidden shadow-2xl"
+              className="fc-card rounded-3xl sm:rounded-4xl border border-amber-300/40 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-50/50 via-white to-slate-50/50 dark:from-[#FBBF24]/10 dark:via-[#161d24] dark:to-[#161d24] overflow-hidden shadow-2xl"
             >
-            <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="p-5 sm:p-6 border-b border-black/5 dark:border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24] mb-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600 dark:text-[#FBBF24] mb-1">
                   {tabCopy.ledger.eyebrow}
                 </p>
-                <h2 className="text-2xl font-black tracking-tight text-white">
+                <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
                   {tabCopy.ledger.title}
                 </h2>
-                <p className="text-sm text-gray-400 mt-1 max-w-2xl">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 max-w-xl font-medium">
                   {tabCopy.ledger.description}
                 </p>
               </div>
-              <div className="flex items-center gap-3 relative">
-                <span className="text-xs text-gray-500 font-medium">
-                  Filter by:
+              <div className="flex items-center flex-wrap gap-2.5 sm:justify-end relative">
+                <span className="text-xs text-gray-500 font-medium hidden sm:inline">
+                  Filter:
                 </span>
                 <button
                   onClick={() => openWalletFundModal()}
-                  className="flex items-center gap-2 bg-[#FBBF24]/10 border border-[#FBBF24]/20 px-4 py-2 rounded-lg text-sm text-[#FBBF24] font-bold hover:bg-[#FBBF24]/20 transition-colors min-w-[140px] justify-between"
+                  className="flex items-center gap-2 bg-[#FBBF24]/10 border border-[#FBBF24]/30 px-3.5 py-2 rounded-xl text-xs sm:text-sm text-amber-600 dark:text-[#FBBF24] font-bold hover:bg-[#FBBF24]/20 transition-colors active:scale-95 cursor-pointer"
                 >
-                  Fund Wallet <Banknote className="w-4 h-4" />
+                  <Banknote className="w-4 h-4" /> Fund Wallet
                 </button>
                 <button
                   onClick={() => navigate('/sidebets')}
-                  className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-lg text-sm text-amber-400 font-bold hover:bg-amber-500/20 transition-colors justify-between"
+                  className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3.5 py-2 rounded-xl text-xs sm:text-sm text-amber-600 dark:text-amber-400 font-bold hover:bg-amber-500/20 transition-colors active:scale-95 cursor-pointer"
                 >
                   <Swords className="w-4 h-4" /> Side Bets
                 </button>
                 <button
                   onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
-                  className="flex items-center gap-2 bg-[#1a232b] border border-white/10 px-4 py-2 rounded-lg text-sm text-white font-bold hover:bg-white/5 transition-colors min-w-[140px] justify-between"
+                  className="flex items-center gap-2 bg-black/5 dark:bg-[#1a232b] border border-black/10 dark:border-white/10 px-3.5 py-2 rounded-xl text-xs sm:text-sm text-gray-900 dark:text-white font-bold hover:bg-black/10 dark:hover:bg-white/5 transition-colors active:scale-95 cursor-pointer"
                 >
                   {paymentFilter === "All" ? "All Payments" : paymentFilter}{" "}
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
                 </button>
 
                 {/* Dropdown Menu */}

@@ -120,7 +120,7 @@ export default function LiveMatchdayPulse({ className = '' }: LiveMatchdayPulseP
                                 <Radio className="w-3 h-3 text-emerald-400 animate-pulse" /> Matchday Pulse • GW{liveData.gw}
                             </span>
                             <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                                <Flame className="w-2.5 h-2.5" /> Mwizi wa points spotted
+                                <Flame className="w-2.5 h-2.5" /> High Score Active
                             </span>
                         </div>
                     </div>
@@ -165,8 +165,8 @@ export default function LiveMatchdayPulse({ className = '' }: LiveMatchdayPulseP
                         </div>
 
                         <div className="text-left sm:text-right">
-                            <p className="text-[10px] font-bold text-amber-400/90 uppercase tracking-wider">Chama Banter</p>
-                            <p className="text-[11px] text-gray-300 font-medium truncate">Kimeumana! Mtu atetee pointi zake kabla full-time.</p>
+                            <p className="text-[10px] font-bold text-emerald-400/90 uppercase tracking-wider">Live Status</p>
+                            <p className="text-[11px] text-gray-300 font-medium truncate">Scores updating in real-time as fixtures progress.</p>
                         </div>
                     </div>
                 )}

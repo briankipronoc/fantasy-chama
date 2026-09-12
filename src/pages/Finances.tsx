@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, ShieldCheck, Wallet, TrendingUp, ShieldAlert, Clock3, Share2, RefreshCw, Trophy } from 'lucide-react';
+import { ReceiptText, History, Download, ShieldCheck, Wallet, TrendingUp, Clock3, Trophy } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
 import { collection, onSnapshot, query, orderBy, doc, getDoc, addDoc, updateDoc, serverTimestamp, where, increment } from 'firebase/firestore';
@@ -52,6 +52,7 @@ export default function Finances() {
     const [showVaultChart, setShowVaultChart] = useState(false);
     const [showSeasonCeremony, setShowSeasonCeremony] = useState(false);
     const [selectedPayoutForFlex, setSelectedPayoutForFlex] = useState<any>(null);
+    // @ts-ignore
     const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
     // @ts-ignore
 const [isApprovingPayoutId, setIsApprovingPayoutId] = useState<string | null>(null);
@@ -348,7 +349,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }, 0);
     const projectedSeasonCollectionsGross = Math.max(0, seasonCollectedSoFarGross + projectedRemainingCollectionsGross);
     const projectedSeasonVault = projectedSeasonCollectionsGross * (rules.vault / 100);
-    const redZoneCount = members.filter((m) => m.role !== 'admin' && m.isActive !== false && !m.hasPaid).length;
     const activeMembersCount = members.filter((member) => member.isActive !== false).length;
     const configuredWinnersCount = Number(rules.seasonWinnersCount || 3);
     const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
@@ -407,7 +407,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const currentUser = members.find(m => m.id === activeUserId) || members.find(m => m.phone === memberPhone);
     const isAdmin = role === 'admin';
     const nowMs = Date.now();
-    const redZoneMembers = members.filter((m) => m.isActive !== false && !m.hasPaid);
     const projectedWeeklyPayout = totalSecured * (Number(rules.weekly || 0) / 100);
     const projectedWeeklyPayoutFormula = `${paidMembers.length} × KES ${Number(gameweekStake || 0).toLocaleString()} × ${Number(rules.weekly || 0).toFixed(0)}% = KES ${Number(projectedWeeklyPayout || 0).toLocaleString()}`;
     const projectedSeasonCollections = projectedSeasonVault;
@@ -448,27 +447,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return ts >= currentSeasonStartMs;
     });
 
-        const scopeTx = isAdmin ? transactions : myTransactions;
-        const gwScopedTx = scopeTx.filter((tx) => {
-            if (inferredGw > 0) {
-                const txGw = Number(tx.gameweek || tx.gw || 0);
-                return txGw === inferredGw;
-            }
-            const txTs = toMillis(tx.timestamp);
-            if (!txTs) return false;
-            return nowMs - txTs <= 7 * 24 * 60 * 60 * 1000;
-        });
-
-        const inflowThisGw = gwScopedTx
-            .filter((tx) => {
-                const txType = String(tx.type || '');
-                return txType === 'deposit' || txType === 'wallet_funding' || txType === 'wallet_prefund' || (txType === 'ledger_adjustment' && Number(tx.amount || 0) > 0);
-            })
-            .reduce((sum, tx) => sum + Number(tx.amount > 0 ? tx.amount : 0), 0);
-        const outflowThisGw = gwScopedTx
-            .filter((tx) => tx.type === 'payout')
-            .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-        const netThisGw = inflowThisGw - outflowThisGw;
 
         const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nowMs + 72 * 60 * 60 * 1000);
         const dueDate = new Date(dueTs);
@@ -479,16 +457,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             : nextDueStatus === 'grace'
                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
                 : 'border-red-500/30 bg-red-500/10 text-red-300';
-
-        const pendingAgesHours = pendingApprovals
-            .map((item) => {
-                const created = toMillis((item as any).createdAt) || toMillis((item as any).timestamp) || toMillis((item as any).requestedAt);
-                if (!created) return 0;
-                return Math.max(0, (nowMs - created) / (1000 * 60 * 60));
-            })
-            .filter((hours) => Number.isFinite(hours));
-        const oldestPendingHours = pendingAgesHours.length > 0 ? Math.max(...pendingAgesHours) : 0;
-        const staleApprovalCount = pendingAgesHours.filter((hours) => hours >= 6).length;
 
     const exportLedgerCSV = () => {
         const exportRows = (isAdmin ? transactions : myTransactions).map((tx: any) => {
@@ -529,39 +497,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
     const openWhatsApp = (message: string) => {
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-    };
-
-    const shareRedZone = () => {
-        if (redZoneMembers.length === 0) {
-            showActionMessage('success', 'No members are currently in the Red Zone.');
-            return;
-        }
-
-        const lines = redZoneMembers.map((member, index) => `${index + 1}. *${member.displayName}* (${member.teamName || 'FPL Team'})${member.phone ? ` • ${member.phone}` : ''}`);
-        const totalUnpaidAmount = redZoneMembers.length * Number(gameweekStake || 0);
-        const hoursLeft = Math.max(0, Math.round((dueTs - Date.now()) / (1000 * 60 * 60)));
-        const countdownText = hoursLeft > 0 ? `⏳ *Deadline Window:* ~${hoursLeft} hours remaining` : `⏳ *Deadline Window:* Final hours before cutoff!`;
-        const pochiText = leagueSettings?.paymentDetails || leagueSettings?.pochiNumber || leagueSettings?.chairmanPhone || '';
-        const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://fantasychama.onrender.com';
-
-        const message = [
-            `🚨 *${leagueName.toUpperCase()} — RED ZONE DEADLINE ALERT* 🚨`,
-            '',
-            countdownText,
-            `The following *${redZoneMembers.length} managers* still have pending KES ${Number(gameweekStake || 0).toLocaleString()} contributions for GW${currentGwNumber || ''}:`,
-            '',
-            ...lines,
-            '',
-            `💰 *Total Pot at Stake:* KES ${(members.filter((m: any) => m.isActive !== false).length * Number(gameweekStake || 0)).toLocaleString()}`,
-            `⚠️ *Unpaid Deficit:* KES ${totalUnpaidAmount.toLocaleString()}`,
-            pochiText ? `📱 *Direct Chairman Pochi / M-Pesa:* ${pochiText}` : '',
-            '',
-            `⚽ *Chama Rule:* Unfunded managers cannot win the gameweek cash pot. Clear your dues to stay active!`,
-            `👉 *Settle instantly on FantasyChama:* ${appUrl}/dashboard`,
-        ].filter(Boolean).join('\n');
-
-        openWhatsApp(message);
-        showActionMessage('success', 'Red Zone list ready for WhatsApp share.');
     };
 
     const shareTransactionReceipt = (tx: any) => {
@@ -875,74 +810,25 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
                 </div>
 
-                <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                    {!isAdmin && currentUser && (
-                        <article className="fc-card rounded-2xl p-6 border border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between">
+                {/* Member Personal Wallet & Due Actions (shown for members) */}
+                {!isAdmin && currentUser && (
+                    <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <article className="fc-card rounded-2xl p-6 border border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between shadow-md">
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Next Due</p>
-                                    <Clock3 className="w-4 h-4 text-emerald-300" />
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">Next Due</p>
+                                    <Clock3 className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
                                 </div>
-                                <p className="text-2xl font-black tabular-nums text-white">{Number(gameweekStake || 0).toLocaleString()} KES</p>
+                                <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">{Number(gameweekStake || 0).toLocaleString()} KES</p>
                                 <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">Deadline: {dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
                             </div>
                             <span className={clsx('mt-4 inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border w-fit', nextDueTone)}>{nextDueLabel}</span>
                         </article>
-                    )}
 
-                    
-
-                    {isAdmin && (
-                        <article className="fc-card rounded-2xl p-6 border border-red-500/25 bg-gradient-to-br from-red-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Red Zone Members</p>
-                                    <ShieldAlert className="w-4 h-4 text-red-400" />
-                                </div>
-                                <p className="text-2xl font-black tabular-nums text-white">{redZoneCount}</p>
-                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">Members with pending deposits</p>
-                            </div>
-                            <button onClick={shareRedZone} className="mt-4 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors w-full border border-red-500/20">
-                                Notify Group <Share2 className="w-3 h-3" />
-                            </button>
-                        </article>
-                    )}
-
-                    {isAdmin && (
-                        <article className="fc-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Approval SLA</p>
-                                    <RefreshCw className="w-4 h-4 text-amber-300" />
-                                </div>
-                                <p className="text-2xl font-black tabular-nums text-white">{oldestPendingHours.toFixed(1)}h</p>
-                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">Oldest pending payout age</p>
-                            </div>
-                            <p className="text-[11px] font-bold text-amber-300 mt-4">{staleApprovalCount} stale (≥6h)</p>
-                        </article>
-                    )}
-
-                    <article className="fc-card fc-cashflow-health-card rounded-2xl p-6 border border-sky-500/20 bg-gradient-to-br from-sky-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between">
-                        <div>
+                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] shadow-md">
                             <div className="flex items-center justify-between mb-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-sky-300">Cashflow Health</p>
-                                <TrendingUp className="w-4 h-4 text-sky-300" />
-                            </div>
-                            <div className="space-y-2 text-[11px] font-bold">
-                                <p className="flex justify-between text-gray-600 dark:text-gray-300"><span>Inflow {inferredGw > 0 ? `GW${inferredGw}` : '7d'}</span><span className="text-emerald-300">+ KES {inflowThisGw.toLocaleString()}</span></p>
-                                <p className="flex justify-between text-gray-600 dark:text-gray-300"><span>Outflow {inferredGw > 0 ? `GW${inferredGw}` : '7d'}</span><span className="text-amber-300">- KES {outflowThisGw.toLocaleString()}</span></p>
-                                <div className="pt-2 mt-2 border-t border-white/10">
-                                    <p className="flex justify-between text-white text-sm font-black"><span>Net</span><span className={netThisGw >= 0 ? 'text-emerald-300' : 'text-red-300'}>{netThisGw >= 0 ? '+' : '-'} KES {Math.abs(netThisGw).toLocaleString()}</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </article>
-
-                    {!isAdmin && (
-                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24]">
-                            <div className="flex items-center justify-between mb-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Wallet Top-Up</p>
-                                <Wallet className="w-4 h-4 text-amber-300" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">Wallet Top-Up</p>
+                                <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-300" />
                             </div>
 
                             <div className="space-y-2.5">
@@ -953,34 +839,173 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     value={cashTopUpAmount}
                                     onChange={(e) => setCashTopUpAmount(e.target.value)}
                                     placeholder="Amount (KES)"
-                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
+                                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
                                 />
                                 <input
                                     type="text"
                                     value={cashTopUpNote}
                                     onChange={(e) => setCashTopUpNote(e.target.value)}
                                     placeholder="Optional note"
-                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
+                                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 px-3 py-2.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
                                 />
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         onClick={() => navigate('/deposit')}
-                                        className="px-3 py-2.5 rounded-lg border border-emerald-500/35 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors"
+                                        className="px-3 py-2.5 rounded-lg border border-emerald-500/35 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors cursor-pointer"
                                     >
                                         M-Pesa
                                     </button>
                                     <button
                                         onClick={handleSubmitCashTopUpRequest}
                                         disabled={isSubmittingCashTopUpRequest}
-                                        className="px-3 py-2.5 rounded-lg border border-amber-500/35 bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/25 transition-colors disabled:opacity-50"
+                                        className="px-3 py-2.5 rounded-lg border border-amber-500/35 bg-amber-500/15 text-amber-600 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer"
                                     >
                                         {isSubmittingCashTopUpRequest ? '...' : 'Cash'}
                                     </button>
                                 </div>
-                                <p className="text-[10px] text-gray-600 dark:text-gray-400 pt-2">Request after cash handoff to Chairman.</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
                             </div>
                         </article>
-                    )}
+                    </section>
+                )}
+
+                {/* Main Treasury Metric Cards (1 Row) */}
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                    {/* Card 1: Projected Weekly / Season Collection */}
+                    <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-5 sm:p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[185px]">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400">
+                                    <ShieldCheck className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
+                                        {projectedCardIndex === 0 ? "Projected Weekly Payout" : "Projected Season Collection"}
+                                    </h3>
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                        {projectedCardIndex === 0 ? "Current Gameweek Pot" : "Join-aware remaining estimate"}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setProjectedCardIndex(0)}
+                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                >
+                                    GW
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setProjectedCardIndex(1)}
+                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                >
+                                    Season
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            {projectedCardIndex === 0 ? (
+                                <>
+                                    <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-gray-900 dark:text-white">
+                                        KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                        {projectedWeeklyPayoutFormula}
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
+                                        KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                        {projectedSeasonCollectionsFormula}
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Card 2: Total Payouts Yielded */}
+                    <div className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 p-5 sm:p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[185px]">
+                        <div className="flex items-center gap-2.5 mb-3">
+                            <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400">
+                                <Trophy className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">Total Payouts Yielded</h3>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Issued from ledger</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-amber-600 dark:text-[#FBBF24]">
+                                KES {isStealthMode ? '****' : totalPayoutsYielded.toLocaleString()}
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
+                                Settled payouts already disbursed and approved from the ledger.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Card 3: League Treasury Split */}
+                    {(() => {
+                        const totalCollectedGross = totalSecured;
+                        const hasCoAdmin = members.filter(m => m.role === 'admin' || m.role === 'co-chair').length > 1;
+                        const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
+                        const coAdminRate = hasCoAdmin ? 0.01 : 0;
+                        const chairmanShare = totalCollectedGross * chairmanRate;
+                        const coChairShare = totalCollectedGross * coAdminRate;
+                        const isPilot = (leagueSettings as any)?.pilotMode !== false;
+                        const hqRate = isPilot ? 0 : 0.035;
+                        const hqShare = totalCollectedGross * hqRate;
+                        const networkShare = totalCollectedGross * 0.015;
+
+                        return (
+                            <div className="fc-card bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-amber-500/25 p-4 sm:p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[185px]">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2.5">
+                                        <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400 flex-shrink-0">
+                                            <Wallet className="w-3.5 h-3.5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white truncate">League Treasury Split</h3>
+                                            <p className="text-[9px] text-gray-500 dark:text-gray-400 font-medium truncate">Current GW secured funds snapshot</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Chairman</p>
+                                            <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(chairmanShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-amber-600 dark:text-amber-400 font-bold">{(chairmanRate * 100).toFixed(1)}% fee</p>
+                                        </div>
+                                        <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Co-Chair</p>
+                                            <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(coChairShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-gray-500 dark:text-gray-400 font-bold">{(coAdminRate * 100).toFixed(1)}% fee</p>
+                                        </div>
+                                        <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">HQ Share</p>
+                                            <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(hqShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-emerald-600 dark:text-emerald-400 font-bold">{isPilot ? '0% (Pilot Waived)' : '3.5%'}</p>
+                                        </div>
+                                        <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
+                                            <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Network Buffer</p>
+                                            <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(networkShare).toLocaleString()}</p>
+                                            <p className="text-[7.5px] text-gray-500 dark:text-gray-400 font-bold">1.5% fee</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-[8px] text-gray-500 dark:text-gray-400 font-medium mt-2 text-center leading-tight bg-black/5 dark:bg-black/30 px-2 py-1 rounded-lg border border-black/5 dark:border-white/5">
+                                    Withdrawals are hidden while payouts route through Pochi. Enable after Paybill/Till switch.
+                                </p>
+                            </div>
+                        );
+                    })()}
                 </section>
 
                 <section className="fc-card rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-[#161d24] to-[#0c1218] p-5 md:p-7 mb-8 shadow-2xl relative overflow-hidden">
@@ -1087,114 +1112,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </section>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <div className="fc-card bg-[#151c18] border border-white/5 p-6 rounded-2xl relative overflow-hidden group min-h-[140px] flex items-center">
-                        <div className="absolute top-0 right-0 p-4 opacity-5 transition-opacity">
-                            <ShieldCheck className={clsx("w-32 h-32 transition-colors duration-1000", projectedCardIndex === 0 ? "text-[#22c55e]" : "text-[#10B981]")} />
-                        </div>
-                        
-                        <div className={clsx("absolute inset-0 p-6 flex flex-col justify-between transition-all duration-700 ease-in-out", projectedCardIndex === 0 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center border border-[#22c55e]/20">
-                                    <ShieldCheck className="w-5 h-5 text-[#22c55e]" />
-                                </div>
-                                <h3 className="text-[10px] font-bold text-[#22c55e] uppercase tracking-widest bg-[#22c55e]/10 px-2.5 py-1 rounded-md border border-[#22c55e]/20">Projected weekly payout</h3>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}</p>
-                                <p className="text-[11px] text-gray-500 mt-2 line-clamp-1">{projectedWeeklyPayoutFormula}</p>
-                            </div>
-                        </div>
-
-                        <div className={clsx("absolute inset-0 p-6 flex flex-col justify-between transition-all duration-700 ease-in-out", projectedCardIndex === 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none")}>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-[#10B981]/10 flex items-center justify-center border border-[#10B981]/20">
-                                    <ShieldCheck className="w-5 h-5 text-[#10B981]" />
-                                </div>
-                                <h3 className="text-[10px] font-bold text-[#10B981] uppercase tracking-widest bg-[#10B981]/10 px-2.5 py-1 rounded-md border border-[#10B981]/20">Projected season collection</h3>
-                            </div>
-                            <div>
-                                <p className="text-3xl font-black tabular-nums tracking-tighter text-white">KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}</p>
-                                <p className="text-[11px] text-gray-500 mt-2 line-clamp-1">{projectedSeasonCollectionsFormula}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="fc-card bg-[#151c18] border border-[#FBBF24]/20 bg-gradient-to-br from-[#151c18] to-[#FBBF24]/5 p-6 rounded-2xl overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                            <ShieldCheck className="w-24 h-24 text-[#FBBF24]" />
-                        </div>
-                        <div className="relative z-10 flex flex-col h-full justify-between">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
-                                    <ShieldCheck className="w-5 h-5 text-[#FBBF24]" />
-                                </div>
-                                <h3 className="text-[10px] font-bold text-[#FBBF24] uppercase tracking-widest bg-[#FBBF24]/10 px-2.5 py-1 rounded-md border border-[#FBBF24]/20">Total Payouts Yielded</h3>
-                            </div>
-                            <p className="text-3xl font-black tabular-nums tracking-tighter text-[#FBBF24] relative z-10">KES {isStealthMode ? '****' : totalPayoutsYielded.toLocaleString()}</p>
-                            <p className="text-[11px] text-gray-500 mt-2">Settled payouts already issued from the ledger.</p>
-                        </div>
-                    </div>
-
-                    {/* League Treasury Split (compact card on the far right) */}
-                    {(() => {
-                        const totalCollectedGross = totalSecured;
-                        const hasCoAdmin = members.filter(m => m.role === 'admin' || m.role === 'co-chair').length > 1;
-                        const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
-                        const coAdminRate = hasCoAdmin ? 0.01 : 0;
-                        const chairmanShare = totalCollectedGross * chairmanRate;
-                        const coChairShare = totalCollectedGross * coAdminRate;
-                        const isPilot = (leagueSettings as any)?.pilotMode !== false;
-                        const hqRate = isPilot ? 0 : 0.035;
-                        const hqShare = totalCollectedGross * hqRate;
-                        const networkShare = totalCollectedGross * 0.015;
-
-                        return (
-                            <div className="fc-highlight-card fc-card bg-gradient-to-br from-[#FBBF24]/14 via-[#161d24] to-[#0c1218] border border-[#FBBF24]/30 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-lg">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[80px] opacity-[0.08] pointer-events-none"></div>
-                                
-                                <div>
-                                    <div className="flex items-center gap-2.5 mb-3">
-                                        <div className="w-8 h-8 rounded-full bg-[#FBBF24]/20 flex items-center justify-center border border-[#FBBF24]/35 flex-shrink-0">
-                                            <Wallet className="w-4 h-4 text-[#FBBF24]" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h3 className="text-xs font-black text-white uppercase tracking-widest truncate">League Treasury Split</h3>
-                                            <p className="text-[9px] text-gray-400 font-bold truncate">Current GW secured funds snapshot</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
-                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Chairman Share</p>
-                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(chairmanShare).toLocaleString()}</p>
-                                            <p className="text-[7.5px] text-amber-400">{(chairmanRate * 100).toFixed(1)}% governance</p>
-                                        </div>
-                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
-                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Co-Chair Share</p>
-                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(coChairShare).toLocaleString()}</p>
-                                            <p className="text-[7.5px] text-gray-400">{(coAdminRate * 100).toFixed(1)}% audit fee</p>
-                                        </div>
-                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
-                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">HQ Share</p>
-                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(hqShare).toLocaleString()}</p>
-                                            <p className="text-[7.5px] text-emerald-400">{isPilot ? '0.0% (Pilot Waived)' : '3.5% platform fee'}</p>
-                                        </div>
-                                        <div className="bg-black/30 rounded-xl p-2 text-center border border-white/5">
-                                            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Network Buffer</p>
-                                            <p className="text-sm font-black text-white tabular-nums">KES {Math.round(networkShare).toLocaleString()}</p>
-                                            <p className="text-[7.5px] text-gray-400">1.5% telecom fee</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <p className="text-[8px] text-gray-400 font-medium mt-2 text-center leading-tight bg-black/40 px-2 py-1 rounded-lg border border-white/5">
-                                    Withdrawals are hidden while payouts route through Pochi. Enable after Paybill/Till switch.
-                                </p>
-                            </div>
-                        );
-                    })()}
-                </div>
 
                 <div className="fc-card bg-[#151c18] border border-white/5 rounded-2xl overflow-hidden">
                     <div className="p-5 md:p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

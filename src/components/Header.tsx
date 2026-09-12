@@ -7,7 +7,6 @@ import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, C
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
-import LeagueSwitcher from './LeagueSwitcher';
 import DeadlineCountdown from './DeadlineCountdown';
 import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
@@ -450,7 +449,6 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                         document.body
                     )}
                 </div>
-                    <LeagueSwitcher />
                     {/* Mobile Quick Sign Out */}
                     <button
                         onClick={() => {
