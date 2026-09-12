@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import ChampionFlexCardModal from "../components/ChampionFlexCardModal";
 import UserAvatar from "../components/UserAvatar";
+import { DashboardSkeleton } from "../components/Skeleton";
 import { haptics } from "../utils/haptics";
 import {
   Megaphone,
@@ -2531,9 +2532,10 @@ burstFrame();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen w-full text-[#10B981] flex flex-col items-center justify-center font-bold tracking-widest uppercase bg-[#0a0e17]">
-        <RefreshCw className="w-8 h-8 animate-spin mb-4" />
-        Syncing Ledger...
+      <div className="fc-admin-loading min-h-screen w-full font-sans text-white bg-[#070b10] py-6 md:py-10">
+        <div className="max-w-7xl mx-auto px-6 md:px-10">
+          <DashboardSkeleton />
+        </div>
       </div>
     );
   }

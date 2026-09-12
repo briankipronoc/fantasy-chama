@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import Header from '../components/Header';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import UserAvatar from '../components/UserAvatar';
+import { DashboardSkeleton } from '../components/Skeleton';
 
 interface Participant {
     id: string;
@@ -329,9 +330,8 @@ export default function SideBets() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0b1014] flex flex-col items-center justify-center font-sans text-white">
-                <div className="w-10 h-10 border-2 border-amber-500/40 border-t-amber-500 rounded-full animate-spin mb-4" />
-                <p className="text-xs uppercase tracking-widest font-black text-amber-400">Loading Side Bets...</p>
+            <div className="fc-sidebets-loading min-h-screen bg-[#0b1014] p-5 md:p-10 font-sans text-white">
+                <DashboardSkeleton />
             </div>
         );
     }

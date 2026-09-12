@@ -864,7 +864,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <ReceiptText className="w-7 h-7 text-emerald-400" /> Audit Log
                         </h2>
                         <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
-                            A transparent, 100% immutable history of all funds entering and exiting the Chama Vault.
+                            A transparent, permanent history of all funds entering and exiting the Chama Vault.
                         </p>
                     </div>
 

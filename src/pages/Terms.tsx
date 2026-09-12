@@ -38,12 +38,12 @@ export default function Terms() {
                 All electronic transactions flow strictly through Safaricom Daraja APIs. Payout speeds and STK push reliability are subject to network uptime. Fantasy Chama is not liable for upstream telecom latency or delayed B2C executions.
             </p>
 
-            <h2>5. Operational Indemnity & Platform Fees</h2>
+            <h2>5. Platform Fees & Responsibilities</h2>
             <p>
-                By deploying or participating in a league engineered by Fantasy Chama, users acknowledge and agree to an irrevocable <strong>9% Gross Operational Cut</strong> per gameweek resolution. This constitutes a 4% Chairman Governance Fee, 3.5% HQ Platform Execution Fee, and a 1.5% Telecom Processing buffer. These fees are algorithmically deducted from the gross pot and are absolutely <strong>non-refundable</strong> under all circumstances, regardless of user dropout or league dissolution.
+                By creating or participating in a league on Fantasy Chama, members agree to the standard league commission and platform fees configured by the Chairman (such as Chairman administration, platform maintenance, and M-Pesa network processing). All deducted fees are finalized once a gameweek is resolved.
             </p>
             <p>
-                Furthermore, Fantasy Chama operates strictly as a parallel calculation matrix bridging the Official Premier League API and Safaricom's Daraja gateway. We accept <strong>zero liability</strong> for financial misallocations, resolution delays, or payout failures stemming from upstream FPL API outages, catastrophic Safaricom telecom latency, or Chairman fraud via hybrid cash-handoffs. Users assume all sovereign risk when authorizing M-Pesa deposits into the platform.
+                Fantasy Chama coordinates league standings calculations with official Premier League data and Safaricom M-Pesa. Members are responsible for ensuring their M-Pesa phone numbers and transaction details are accurate.
             </p>
         </DocLayout>
     );

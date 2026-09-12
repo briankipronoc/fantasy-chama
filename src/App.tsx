@@ -33,9 +33,11 @@ const Docs = lazy(() => import('./pages/Docs'));
 const SideBets = lazy(() => import('./pages/SideBets'));
 
 
+import { DashboardSkeleton } from './components/Skeleton';
+
 const RouteLoader = () => (
-  <div className="min-h-screen w-full flex items-center justify-center bg-[#0b1014] text-[#10B981] text-sm font-bold tracking-widest uppercase">
-    Loading FantasyChama...
+  <div className="min-h-screen w-full bg-[#070b10] text-white">
+    <DashboardSkeleton />
   </div>
 );
 

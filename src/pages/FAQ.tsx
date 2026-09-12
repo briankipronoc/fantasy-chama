@@ -21,17 +21,17 @@ export default function FAQ() {
 
             <h2>How fast is the FPL score sync?</h2>
             <p>
-                Fantasy Chama is directly linked via API to the Official Premier League servers. As points accumulate globally on a matchday, your positional standings within your private ledger update synchronously.
+                Fantasy Chama links directly to the Official Premier League data. As points accumulate on a matchday, your positional standings within your Chama league update in real time.
             </p>
 
             <h2>What happens if I miss a payment?</h2>
             <p>
-                If your wallet hits zero, you are instantly flagged and moved into the "Red Zone." During this state, your points are ignored by the payout resolution engine, mathematically excluding you from the active weekly pot until the arrears are cleared.
+                If your wallet balance is insufficient for the gameweek stake, you are temporarily moved to the "Red Zone." While in the Red Zone, you are excluded from winning that gameweek's active pot until your wallet is funded.
             </p>
 
-            <h2>Can the Chairman steal funds?</h2>
+            <h2>Can the Chairman withdraw funds without permission?</h2>
             <p>
-                Absolutely not. Our architecture strictly relies on the Maker/Checker Protocol. Every payout or manual deduction must be explicitly cryptographically signed and approved by a secondary Co-Chair before execution.
+                No. Fantasy Chama uses a dual-approval Maker/Checker system. Any payout initiated by the Chairman must be verified and approved by the assigned Co-Chair before funds are disbursed.
             </p>
         </DocLayout>
     );

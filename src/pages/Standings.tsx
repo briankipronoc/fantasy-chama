@@ -8,6 +8,7 @@ import clsx from 'clsx';
 import Header from '../components/Header';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import UserAvatar from '../components/UserAvatar';
+import { StandingsSkeleton } from '../components/Skeleton';
 
 const fetchFplStandings = async (leagueId: number) => {
     // Check cache
@@ -396,10 +397,11 @@ export default function Standings() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen w-full flex flex-col items-center justify-center font-sans text-white bg-[#0a0e17]">
-                <Zap className="w-10 h-10 animate-pulse text-[#10B981] mb-4" />
-                <h2 className="text-xl font-bold tracking-widest uppercase text-[#10B981]">Syncing with FPL Servers...</h2>
-                <p className="text-gray-500 mt-2 text-sm font-medium">Fetching live Gameweek data.</p>
+            <div className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden bg-[#070b10]">
+                <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10">
+                    <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Live Standings" />
+                    <StandingsSkeleton />
+                </div>
             </div>
         );
     }
@@ -606,14 +608,21 @@ export default function Standings() {
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const rankNum = Number(row.rank || index + 1);
                                 const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
+                                const podiumBorder = rankNum === 1 ? 'border-l-4 border-l-amber-400' : rankNum === 2 ? 'border-l-4 border-l-slate-300' : rankNum === 3 ? 'border-l-4 border-l-amber-700' : 'border-l-4 border-l-transparent';
                                 return (
-                                    <div key={row.id} className={clsx(
-                                        'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all',
-                                        isTop1Overall ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
-                                        isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
-                                        isMe ? 'ring-1 ring-[#FBBF24]/40' : '',
-                                        !isFunded && 'opacity-40 blur-[0.4px] hover:blur-none hover:opacity-85 transition-all saturate-50'
-                                    )}>
+                                    <div
+                                        key={row.id}
+                                        data-testid={`standings-row-${row.id || index}`}
+                                        style={{ animationDelay: `${Math.min(index * 45, 600)}ms` }}
+                                        className={clsx(
+                                            'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards',
+                                            podiumBorder,
+                                            isTop1Overall ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
+                                            isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
+                                            isMe ? 'ring-1 ring-[#FBBF24]/40' : '',
+                                            !isFunded && 'opacity-40 blur-[0.4px] hover:blur-none hover:opacity-85 transition-all saturate-50'
+                                        )}
+                                    >
                                         {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
                                         <div className="flex items-center gap-3 md:col-span-5 w-full">
                                             <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-6 text-center shrink-0', isTop1Overall ? 'text-[#10B981]' : 'text-gray-500')}>

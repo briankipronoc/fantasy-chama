@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCountUp } from '../hooks/useCountUp';
 
 interface SwapperProps {
     weeklyPot: number;
@@ -10,6 +11,8 @@ interface SwapperProps {
 
 export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPercent, isStealthMode, projectedSeasonVault }: SwapperProps) {
     const [showWeeklyPot, setShowWeeklyPot] = useState(true);
+    const animatedWeeklyPot = useCountUp(weeklyPot);
+    const animatedSeasonVault = useCountUp(seasonVault);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -69,7 +72,7 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
                 </p>
                 <div className="flex items-baseline gap-2 mb-1">
                     <span className="text-4xl md:text-5xl font-black text-white tracking-tight tabular-nums">
-                        {isStealthMode ? '****' : weeklyPot.toLocaleString()}
+                        {isStealthMode ? '****' : animatedWeeklyPot.toLocaleString()}
                     </span>
                     <span className="text-[#FBBF24] text-sm md:text-base font-bold">KES</span>
                 </div>
@@ -93,7 +96,7 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
                 </div>
                 <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-4xl md:text-5xl font-black text-white tracking-tight tabular-nums">
-                        {isStealthMode ? '****' : seasonVault.toLocaleString()}
+                        {isStealthMode ? '****' : animatedSeasonVault.toLocaleString()}
                     </span>
                     <span className="text-[#10B981] text-sm md:text-base font-bold">KES</span>
                 </div>

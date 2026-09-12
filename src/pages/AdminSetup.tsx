@@ -708,7 +708,7 @@ export default function AdminSetup() {
                                     )}
                                     <Tooltip text="Enter your FPL League ID below to auto-fill this, or type manually." />
                                 </label>
-                                <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. The Alpha Syndicate" />
+                                <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. Nairobi Premier League" />
                             </div>
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">

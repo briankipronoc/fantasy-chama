@@ -1092,23 +1092,23 @@ export default function Profile() {
                                     </div>
                                     <div>
                                         <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
-                                            System Diagnostics & Governance Keys
+                                            Account & Session Details
                                         </h2>
-                                        <p className="text-[10px] text-gray-500 font-medium">Cryptographic credentials & active role telemetry</p>
+                                        <p className="text-[10px] text-gray-500 font-medium">Your login credentials and league membership details</p>
                                     </div>
                                 </div>
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-black uppercase tracking-widest text-emerald-400">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Node Online
+                                    Active Session
                                 </span>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                                {/* Auth Node */}
+                                {/* Account ID */}
                                 <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-cyan-500/30 transition-all">
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" /> Auth Node
+                                            <Fingerprint className="w-3.5 h-3.5 text-cyan-400" /> Account ID
                                         </span>
                                         <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">Session</span>
                                     </div>
@@ -1121,23 +1121,23 @@ export default function Profile() {
                                                 type="button"
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(auth.currentUser?.uid || '');
-                                                    toast.success('Auth Node ID copied!');
+                                                    toast.success('Account ID copied!');
                                                 }}
                                                 className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                                                title="Copy Auth Node ID"
+                                                title="Copy Account ID"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Your active authenticated Firebase UID</p>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Your active authenticated user ID</p>
                                 </div>
 
-                                {/* Chairman Key */}
+                                {/* Chairman ID */}
                                 <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Chairman Key
+                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Chairman ID
                                         </span>
                                         <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Primary</span>
                                     </div>
@@ -1150,23 +1150,23 @@ export default function Profile() {
                                                 type="button"
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(chairmanId || '');
-                                                    toast.success('Chairman Key copied!');
+                                                    toast.success('Chairman ID copied!');
                                                 }}
                                                 className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                                                title="Copy Chairman Key"
+                                                title="Copy Chairman ID"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Master signature authority for payouts</p>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">League Chairman administrator ID</p>
                                 </div>
 
-                                {/* Co-Admin Key */}
+                                {/* Co-Chair ID */}
                                 <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/30 transition-all">
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Co-Admin Key
+                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Co-Chair ID
                                         </span>
                                         <span className={clsx(
                                             "text-[9px] font-bold px-1.5 py-0.5 rounded border",
@@ -1184,23 +1184,23 @@ export default function Profile() {
                                                 type="button"
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(coAdminId || '');
-                                                    toast.success('Co-Admin Key copied!');
+                                                    toast.success('Co-Chair ID copied!');
                                                 }}
                                                 className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                                                title="Copy Co-Admin Key"
+                                                title="Copy Co-Chair ID"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Secondary audit and settlement approval key</p>
+                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Secondary payout approver ID</p>
                                 </div>
 
-                                {/* Perms Flag */}
+                                {/* Your Role */}
                                 <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Key className="w-3.5 h-3.5 text-emerald-400" /> Perms Flag
+                                            <Key className="w-3.5 h-3.5 text-emerald-400" /> Your Role
                                         </span>
                                         <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Verified</span>
                                     </div>

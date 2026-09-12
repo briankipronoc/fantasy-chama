@@ -23,14 +23,14 @@ export default function PrivacyPolicy() {
                 Official FPL metadata, such as generic team details and gameweek scores, are ingested synchronously via the public FPL architecture. We do not permanently warehouse FPL roster data beyond what is required to render the live positional standings.
             </p>
 
-            <h2>Strict Legal Isolation & PII</h2>
+            <h2>Strict Data Privacy</h2>
             <p>
-                We categorically do not sell, rent, or trade your financial or performance Personally Identifiable Information (PII) to outside marketers, aggregators, or brokers. All Daraja pipeline transactions adhere strictly to the Safaricom API Data Privacy rulesets, completely shielding your M-Pesa PINs and sensitive financial vectors from our servers.
+                We do not sell, rent, or trade your personal or financial information to outside parties. All M-Pesa transactions adhere strictly to Safaricom Data Privacy standards, completely shielding your M-Pesa PIN and personal details from our servers.
             </p>
 
-            <h2>Cryptographic Authentication</h2>
+            <h2>Secure Authentication & Safeguards</h2>
             <p>
-                Your login payload is securely hashed, salted, and governed by Google Firebase Infrastructure. Fantasy Chama codebase administrators entirely lack the capability to view plaintext passwords. Furthermore, our Maker/Checker disbursement logic relies on segmented multi-signature workflows, ensuring no single entity can execute unauthorized payouts without generating immutable audit trails sequentially validated on the server.
+                Your account authentication is encrypted and managed via Google Firebase Infrastructure. Fantasy Chama administrators cannot view plaintext passwords. Furthermore, our Maker/Checker disbursement flow requires dual authorization from the Chairman and Co-Chair, ensuring funds cannot be disbursed without proper approval and a permanent audit record.
             </p>
         </DocLayout>
     );
