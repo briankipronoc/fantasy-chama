@@ -197,47 +197,61 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         });
     };
 
+    const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 640);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     return (
         <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead, markAsRead }}>
             {children}
-            {/* Phase 10.5: Strict Toaster — top-right, max 1, timed, financial only */}
+            {/* Phase 10.5: Strict Toaster — theme-aware, top-center mobile / top-right desktop, highest zIndex */}
             <Toaster
-                position="top-right"
+                position={isMobile ? "top-center" : "top-right"}
                 toastOptions={{
                     duration: 3600,
+                    className: 'fc-toast-item',
                     style: {
                         fontFamily: 'inherit',
-                        background: 'rgba(11,16,20,0.92)',
-                        color: '#d1fae5',
-                        border: '1px solid rgba(16,185,129,0.22)',
-                        borderRadius: '14px',
+                        background: 'var(--fc-toast-bg, rgba(14, 20, 25, 0.96))',
+                        color: 'var(--fc-toast-color, #f8fafc)',
+                        border: '1px solid var(--fc-toast-border, rgba(16,185,129,0.28))',
+                        borderRadius: '16px',
                         fontWeight: 700,
                         fontSize: '13px',
-                        padding: '14px 18px',
-                        boxShadow: '0 22px 60px rgba(0,0,0,0.36)',
-                        backdropFilter: 'blur(18px) saturate(125%)',
-                        WebkitBackdropFilter: 'blur(18px) saturate(125%)',
-                        maxWidth: '28rem',
+                        padding: '12px 16px',
+                        boxShadow: 'var(--fc-toast-shadow, 0 16px 40px rgba(0,0,0,0.3))',
+                        backdropFilter: 'blur(20px) saturate(140%)',
+                        WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+                        maxWidth: 'min(28rem, calc(100vw - 2rem))',
                         wordBreak: 'break-word',
                         overflowWrap: 'anywhere',
                         lineHeight: '1.45',
                         boxSizing: 'border-box',
                     },
                     success: {
-                        iconTheme: { primary: '#10B981', secondary: '#0e1419' },
+                        iconTheme: { primary: '#10B981', secondary: '#ffffff' },
                     },
                     error: {
                         style: {
-                            color: '#fca5a5',
-                            border: '1px solid rgba(239,68,68,0.22)',
+                            background: 'var(--fc-toast-bg, rgba(14, 20, 25, 0.96))',
+                            color: 'var(--fc-toast-color, #f8fafc)',
+                            border: '1px solid rgba(239,68,68,0.35)',
                             wordBreak: 'break-word',
                             overflowWrap: 'anywhere',
                             lineHeight: '1.45',
                         },
-                        iconTheme: { primary: '#ef4444', secondary: '#0e1419' },
+                        iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
                     }
                 }}
-                containerStyle={{ top: 92, right: 20, width: 'min(28rem, calc(100vw - 1.5rem))' }}
+                containerStyle={{
+                    top: isMobile ? 16 : 84,
+                    right: isMobile ? 'auto' : 20,
+                    zIndex: 999999,
+                }}
             />
         </NotificationContext.Provider>
     );

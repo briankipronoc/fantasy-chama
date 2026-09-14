@@ -125,7 +125,7 @@ export default function DeadlineCountdown({
             haptics.selection();
             setIsModalOpen(true);
           }}
-          className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none active:scale-95 bg-emerald-500/15 border-emerald-500/35 text-emerald-300 hover:bg-emerald-500/25 shadow-[0_0_15px_rgba(16,185,129,0.2)] ${className}`}
+          className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none active:scale-95 bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 shadow-[0_0_15px_rgba(16,185,129,0.2)] ${className}`}
           title={`GW${liveEvent.id} is currently LIVE! Tap to send banter or check standings.`}
         >
           <span className="relative flex h-2 w-2">
@@ -134,12 +134,12 @@ export default function DeadlineCountdown({
           </span>
 
           <span className="flex items-center gap-1.5 font-mono tracking-tight text-[11px] sm:text-xs">
-            <strong className="text-white">GW{liveEvent.id}</strong>
-            <span className="font-sans font-black uppercase text-[10px] tracking-wider text-emerald-400">is LIVE</span>
+            <strong className="text-slate-900 dark:text-white">GW{liveEvent.id}</strong>
+            <span className="font-sans font-black uppercase text-[10px] tracking-wider text-emerald-600 dark:text-emerald-400">is LIVE</span>
           </span>
 
           {unpaidMembers.length > 0 && role === 'admin' && (
-            <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
               <Flame className="w-2.5 h-2.5" />
               {unpaidMembers.length} unpaid
             </span>
@@ -179,10 +179,10 @@ export default function DeadlineCountdown({
         }}
         className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none active:scale-95 ${
           isUrgent
-            ? 'bg-red-500/15 border-red-500/40 text-red-300 hover:bg-red-500/25 shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse'
+            ? 'bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-300 hover:bg-red-500/25 shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse'
             : isWarning
-            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
-            : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
+            ? 'bg-amber-500/15 border-amber-500/35 text-amber-800 dark:text-amber-300 hover:bg-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+            : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'
         } ${className}`}
         title={`Click to send Banter Nudges for GW${nextEvent.id}`}
       >
@@ -203,12 +203,12 @@ export default function DeadlineCountdown({
 
         <span className="flex items-center gap-1 font-mono tracking-tight text-[11px] sm:text-xs">
           <Clock className="w-3.5 h-3.5 opacity-70" />
-          <strong className="text-white">GW{nextEvent.id}:</strong>
+          <strong className="text-slate-900 dark:text-white">GW{nextEvent.id}:</strong>
           <span>{countdownString}</span>
         </span>
 
         {unpaidMembers.length > 0 && role === 'admin' && (
-          <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
             <Flame className="w-2.5 h-2.5" />
             {unpaidMembers.length} unpaid
           </span>

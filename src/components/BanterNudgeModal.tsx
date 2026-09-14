@@ -111,52 +111,52 @@ export default function BanterNudgeModal({
 
   return (
     <div className="fixed inset-0 z-[120000] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-[#0e1419] border border-white/10 rounded-3xl p-5 md:p-6 shadow-2xl relative text-white my-8">
+      <div className="w-full max-w-lg bg-white dark:bg-[#0e1419] border border-slate-200 dark:border-white/10 rounded-3xl p-5 md:p-6 shadow-2xl relative text-slate-900 dark:text-white my-8">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/10">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 dark:text-amber-400">
               <Flame className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-black text-white">Gameweek Banter Nudge</h3>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Gameweek Banter Nudge</h3>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest">
                 {gwLabel} Deadline: {deadlineFormatted}
               </p>
             </div>
           </div>
           <button
             onClick={() => { haptics.selection(); onClose(); }}
-            className="p-1.5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Unpaid managers summary */}
-        <div className="my-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-            <Users className="w-4 h-4" />
+        <div className="my-4 p-3 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+            <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             <span>{unpaidCount} Unfunded Manager{unpaidCount !== 1 ? 's' : ''}</span>
           </div>
-          <span className="text-[10px] font-bold text-amber-400/80 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400/80 uppercase tracking-wider">
             Stake: KES {gameweekStake.toLocaleString()}
           </span>
         </div>
 
         {/* Tone Selector Pills & Dice Shuffle */}
         <div className="flex items-center justify-between gap-2 mb-2.5">
-          <p className="text-[11px] font-bold text-gray-300 flex items-center gap-1">
+          <p className="text-[11px] font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1">
             Pick Style:
           </p>
           <button
             type="button"
             onClick={handleShuffleTone}
             disabled={isRollingDice}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
             title="Roll dice to shuffle tone"
           >
-            <Dices className={`w-4 h-4 text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
+            <Dices className={`w-4 h-4 text-amber-500 dark:text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
             <span>Shuffle 🎲</span>
           </button>
         </div>
@@ -174,8 +174,8 @@ export default function BanterNudgeModal({
                 }}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
                   isSelected
-                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
-                    : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                    ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-400 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 shadow-sm'
+                    : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {templates[tone].label}
@@ -185,14 +185,14 @@ export default function BanterNudgeModal({
         </div>
 
         {/* Message Preview Box */}
-        <div className="rounded-2xl border border-white/10 bg-[#070b0e] p-3.5 relative mb-5">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#070b0e] p-3.5 relative mb-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-400">
               WhatsApp Message (Editable)
             </p>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+              className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 cursor-pointer"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy'}
@@ -202,10 +202,10 @@ export default function BanterNudgeModal({
             value={customMessage}
             onChange={(e) => setCustomMessage(e.target.value)}
             rows={6}
-            className="w-full text-xs font-mono bg-transparent text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
+            className="w-full text-xs font-mono bg-transparent text-slate-900 dark:text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
             placeholder="Edit your WhatsApp reminder here..."
           />
-          <div className="text-[10px] text-gray-500 text-right mt-1">
+          <div className="text-[10px] text-slate-500 dark:text-gray-500 text-right mt-1">
             {customMessage.length} chars
           </div>
         </div>
@@ -221,7 +221,7 @@ export default function BanterNudgeModal({
           </button>
           <button
             onClick={handleCopy}
-            className="py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
+            className="py-3 px-4 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
           >
             {copied ? 'Copied' : 'Copy Text'}
           </button>

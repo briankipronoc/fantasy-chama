@@ -369,29 +369,29 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                     className={clsx(
                                                         "fc-notif-item p-3.5 rounded-2xl border transition-all group flex gap-3 cursor-pointer outline-none relative overflow-hidden",
                                                         isRead
-                                                            ? "bg-white/[0.02] border-white/5 opacity-70 hover:opacity-100 hover:bg-white/[0.04]"
+                                                            ? "bg-slate-100/70 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100 hover:bg-slate-200/60 dark:hover:bg-white/[0.04]"
                                                             : isFinancial
-                                                                ? "bg-gradient-to-r from-amber-500/10 via-[#161d24] to-[#161d24] border-amber-500/30 shadow-[0_4px_16px_rgba(245,158,11,0.08)]"
+                                                                ? "bg-amber-50/90 dark:bg-gradient-to-r dark:from-amber-500/10 dark:via-[#161d24] dark:to-[#161d24] border-amber-300 dark:border-amber-500/30 shadow-[0_4px_16px_rgba(245,158,11,0.08)]"
                                                                 : isWarning
-                                                                    ? "bg-gradient-to-r from-red-500/10 via-[#161d24] to-[#161d24] border-red-500/30 shadow-[0_4px_16px_rgba(239,68,68,0.08)]"
-                                                                    : "bg-[#161d24] border-white/10 hover:border-emerald-500/30"
+                                                                    ? "bg-red-50/90 dark:bg-gradient-to-r dark:from-red-500/10 dark:via-[#161d24] dark:to-[#161d24] border-red-300 dark:border-red-500/30 shadow-[0_4px_16px_rgba(239,68,68,0.08)]"
+                                                                    : "bg-emerald-50/90 dark:bg-[#161d24] border-emerald-300 dark:border-white/10 hover:border-emerald-500/40"
                                                     )}
                                                 >
                                                     <div className="fc-notif-icon mt-1 flex-shrink-0">
                                                         {isFinancial ? (
-                                                            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                                            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 dark:text-amber-400">
                                                                 <Trophy className="w-4 h-4" />
                                                             </div>
                                                         ) : isWarning ? (
-                                                            <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400">
+                                                            <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-500 dark:text-red-400">
                                                                 <AlertTriangle className="w-4 h-4" />
                                                             </div>
                                                         ) : notif.type === 'info' ? (
-                                                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                                                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-500 dark:text-blue-400">
                                                                 <Info className="w-4 h-4" />
                                                             </div>
                                                         ) : (
-                                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                                                                 <CheckCircle2 className="w-4 h-4" />
                                                             </div>
                                                         )}
@@ -401,26 +401,26 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                             <span className={clsx(
                                                                 "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
                                                                 isFinancial
-                                                                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                                                    ? "bg-amber-100 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300"
                                                                     : isWarning
-                                                                        ? "bg-red-500/15 border-red-500/30 text-red-300"
-                                                                        : "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                                                        ? "bg-red-100 dark:bg-red-500/15 border-red-300 dark:border-red-500/30 text-red-800 dark:text-red-300"
+                                                                        : "bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
                                                             )}>
                                                                 {isFinancial ? '🏆 Payout / Pot' : isWarning ? '⚠️ Deadline Alert' : 'ℹ️ Chama Sync'}
                                                             </span>
-                                                            <span className="text-[10px] text-gray-400 font-mono">
+                                                            <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono">
                                                                 {formatMessageTime(notif.timestamp)}
                                                             </span>
                                                         </div>
                                                         <p className={clsx(
                                                             "text-xs leading-relaxed font-medium break-words overflow-hidden [overflow-wrap:anywhere] [word-break:break-word]",
                                                             isRead
-                                                                ? "text-gray-300"
+                                                                ? "text-slate-600 dark:text-gray-300"
                                                                 : isFinancial
-                                                                    ? "text-amber-100 font-semibold"
+                                                                    ? "text-amber-950 dark:text-amber-100 font-semibold"
                                                                     : isWarning
-                                                                        ? "text-red-200 font-semibold"
-                                                                        : "text-emerald-100"
+                                                                        ? "text-red-950 dark:text-red-200 font-semibold"
+                                                                        : "text-emerald-950 dark:text-emerald-100 font-semibold"
                                                         )} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                                                             {notif.message}
                                                         </p>
@@ -435,8 +435,8 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                         className={clsx(
                                                             "mt-1 flex-shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all",
                                                             isRead
-                                                                ? "bg-slate-500/15 border-slate-400/30 text-slate-400 opacity-60"
-                                                                : "bg-emerald-500/20 border-emerald-400/40 text-emerald-300 hover:scale-110"
+                                                                ? "bg-slate-200/60 dark:bg-slate-500/15 border-slate-300 dark:border-slate-400/30 text-slate-500 dark:text-slate-400 opacity-70"
+                                                                : "bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-300 hover:scale-110"
                                                         )}
                                                     >
                                                         {isRead ? <CheckCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}

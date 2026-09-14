@@ -62,33 +62,33 @@ export default function QuickActionFab() {
               <button
                 type="button"
                 onClick={() => handleAction('/dashboard')}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-emerald-500/40 text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 text-slate-900 dark:text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <Shield className="w-4 h-4 text-emerald-400" />
+                <Shield className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                 <span>Chairman Dashboard</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleAction('/finances')}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-amber-500/40 text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-amber-500/40 text-slate-900 dark:text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <Trophy className="w-4 h-4 text-amber-400" />
+                <Trophy className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                 <span>Vault & Finances</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleAction('/standings')}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-blue-500/40 text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-blue-500/40 text-slate-900 dark:text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <Trophy className="w-4 h-4 text-blue-400" />
+                <Trophy className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                 <span>Live Standings</span>
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-red-500/40 text-gray-300 hover:text-red-400 text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-red-500/40 text-slate-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <LogOut className="w-4 h-4 text-red-400" />
+                <LogOut className="w-4 h-4 text-red-500 dark:text-red-400" />
                 <span>Sign Out</span>
               </button>
             </>
@@ -97,33 +97,33 @@ export default function QuickActionFab() {
               <button
                 type="button"
                 onClick={() => handleAction('/deposit')}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-emerald-500/40 text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 text-slate-900 dark:text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <Wallet className="w-4 h-4 text-emerald-400" />
+                <Wallet className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                 <span>Fund Wallet</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleAction('/sidebets')}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-amber-500/40 text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-amber-500/40 text-slate-900 dark:text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <Swords className="w-4 h-4 text-amber-400" />
+                <Swords className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                 <span>Challenge Someone</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleAction('/standings')}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-blue-500/40 text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-blue-500/40 text-slate-900 dark:text-white text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <Trophy className="w-4 h-4 text-blue-400" />
+                <Trophy className="w-4 h-4 text-blue-500 dark:text-blue-400" />
                 <span>Live Standings</span>
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#161d24]/95 backdrop-blur-md border border-white/10 hover:border-red-500/40 text-gray-300 hover:text-red-400 text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-md border border-slate-200 dark:border-white/10 hover:border-red-500/40 text-slate-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 text-xs font-black shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                <LogOut className="w-4 h-4 text-red-400" />
+                <LogOut className="w-4 h-4 text-red-500 dark:text-red-400" />
                 <span>Sign Out</span>
               </button>
             </>
@@ -140,7 +140,7 @@ export default function QuickActionFab() {
         }}
         className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-[0_12px_28px_rgba(0,0,0,0.4)] transition-all cursor-pointer select-none active:scale-95 ${
           isOpen
-            ? 'bg-[#161d24] border-white/20 text-gray-300 rotate-90'
+            ? 'bg-white dark:bg-[#161d24] border-slate-300 dark:border-white/20 text-slate-800 dark:text-gray-300 rotate-90 shadow-xl'
             : 'bg-emerald-500 hover:bg-emerald-400 border-emerald-400/40 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105'
         }`}
         title="Quick Actions"
