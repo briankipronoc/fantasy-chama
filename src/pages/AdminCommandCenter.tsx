@@ -12,6 +12,7 @@ import {
   Megaphone,
   Share2,
   RefreshCw,
+  RotateCcw,
   Banknote,
   ChevronDown,
   ChevronRight,
@@ -49,6 +50,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  writeBatch,
 } from "firebase/firestore";
 import { useStore } from "../store/useStore";
 import { getApiBaseUrl, secureApiPost } from "../utils/api";
@@ -345,9 +347,16 @@ export default function AdminCommandCenter() {
   const [editMemberPhone, setEditMemberPhone] = useState('');
   const [editMemberFplId, setEditMemberFplId] = useState('');
   const [editMemberName, setEditMemberName] = useState('');
+  const [editMemberPlayMode, setEditMemberPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
   const [isSavingMemberEdit, setIsSavingMemberEdit] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
+
+  // Clean Slate / Season Reset state
+  const [showCleanSlateModal, setShowCleanSlateModal] = useState(false);
+  const [cleanSlateTargetGw, setCleanSlateTargetGw] = useState(10);
+  const [cleanSlateConfirmText, setCleanSlateConfirmText] = useState('');
+  const [isExecutingCleanSlate, setIsExecutingCleanSlate] = useState(false);
 
   const recordOperationEvent = async (payload: {
     title: string;
@@ -1542,6 +1551,7 @@ export default function AdminCommandCenter() {
     setEditMemberName(member.displayName || '');
     setEditMemberPhone(member.phone || '');
     setEditMemberFplId(String(member.fplTeamId || ''));
+    setEditMemberPlayMode((member as any).playMode || 'pot');
     setIsSavingMemberEdit(false);
     setShowEditMemberModal(true);
   };
@@ -1554,12 +1564,13 @@ export default function AdminCommandCenter() {
       if (editMemberPhone) updates.phone = editMemberPhone;
       if (editMemberFplId) updates.fplTeamId = Number(editMemberFplId);
       if (editMemberName) updates.displayName = editMemberName;
+      updates.playMode = editMemberPlayMode;
       await import('firebase/firestore').then(({ updateDoc, doc }) =>
         updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', editTargetMemberId), updates)
       );
       await recordOperationEvent({
         title: 'Member Profile Updated',
-        message: `Chairman updated profile for ${editMemberName}: phone=${editMemberPhone || '—'}, FPL=${editMemberFplId || '—'}`,
+        message: `Chairman updated profile for ${editMemberName}: mode=${editMemberPlayMode === 'sidebets_only' ? 'Spectator' : 'Cash Pot'}, phone=${editMemberPhone || '—'}, FPL=${editMemberFplId || '—'}`,
         targetMemberId: editTargetMemberId,
         type: 'info',
       });
@@ -1569,6 +1580,90 @@ export default function AdminCommandCenter() {
       showToast('Failed to update: ' + (e.message || 'Unknown error'));
     } finally {
       setIsSavingMemberEdit(false);
+    }
+  };
+
+  const handleToggleSpectator = async (memberId: string, currentPlayMode?: string) => {
+    if (!activeLeagueId || !memberId) return;
+    const newMode = currentPlayMode === 'sidebets_only' ? 'pot' : 'sidebets_only';
+    try {
+      await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', memberId), {
+        playMode: newMode
+      });
+      showToast(newMode === 'sidebets_only' ? 'Member switched to Spectator (1v1 bets only) 👁️' : 'Member enrolled in Weekly & Season Cash Pot 🏆');
+    } catch (e: any) {
+      showToast('Failed to update status: ' + (e?.message || 'Error'));
+    }
+  };
+
+  const handleExecuteCleanSlate = async () => {
+    if (!activeLeagueId) return;
+    if (cleanSlateConfirmText.trim().toUpperCase() !== 'RESET') {
+      showToast('Please type RESET to confirm.');
+      return;
+    }
+    setIsExecutingCleanSlate(true);
+    try {
+      const targetGw = Number(cleanSlateTargetGw) || 10;
+      
+      // 1. Reset all memberships
+      const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
+      const membersSnap = await getDocs(membershipsRef);
+      const batch = writeBatch(db);
+      membersSnap.docs.forEach((mDoc) => {
+        batch.update(mDoc.ref, {
+          walletBalance: 0,
+          hasPaid: false,
+          paymentStreak: 0,
+          lastPaymentGw: null,
+          joinedAtGw: targetGw,
+          nextDueAt: null,
+          dueAt: null,
+        });
+      });
+      // Update league settings
+      const leagueDocRef = doc(db, 'leagues', activeLeagueId);
+      batch.update(leagueDocRef, {
+        startGw: targetGw,
+        currentGw: targetGw,
+        vaultBalance: 0,
+        totalPot: 0,
+        lastResetAt: serverTimestamp(),
+        createdAt: Date.now(),
+      });
+      await batch.commit();
+
+      // 2. Clear subcollections
+      const subcollections = ['transactions', 'side_bets', 'gw_settlements', 'hq_settlements'];
+      for (const sub of subcollections) {
+        try {
+          const subSnap = await getDocs(collection(db, 'leagues', activeLeagueId, sub));
+          if (!subSnap.empty) {
+            const subBatch = writeBatch(db);
+            subSnap.docs.forEach(d => subBatch.delete(d.ref));
+            await subBatch.commit();
+          }
+        } catch (subErr) {
+          console.warn(`[clean-slate] clear ${sub} skipped:`, subErr);
+        }
+      }
+
+      // 3. Post notification
+      await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+        type: 'info',
+        message: `🔄 Clean Slate Activated: All wallet balances and transactions reset. Season officially starting from Gameweek ${targetGw}!`,
+        timestamp: serverTimestamp(),
+        readBy: [],
+      });
+
+      setShowCleanSlateModal(false);
+      setCleanSlateConfirmText('');
+      showToast(`Clean slate complete! League reset to GW${targetGw} ✅`);
+    } catch (err: any) {
+      console.error('[clean-slate] Failed:', err);
+      showToast('Clean slate failed: ' + (err?.message || 'Error'));
+    } finally {
+      setIsExecutingCleanSlate(false);
     }
   };
 
@@ -2860,7 +2955,7 @@ burstFrame();
           {toastMessage}
         </div>
 
-        <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8 pb-28">
+        <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8 pb-6 lg:pb-8">
           {/* Top Header */}
           <Header
             role="admin"
@@ -2892,6 +2987,17 @@ burstFrame();
                   className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(239,68,68,0.28)] shrink-0"
                 >
                   <Megaphone className="w-4 h-4" /> Bulk Nudge
+                </button>
+                <button
+                  onClick={() => {
+                    setCleanSlateTargetGw(currentGwNumber || 10);
+                    setCleanSlateConfirmText('');
+                    setShowCleanSlateModal(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer"
+                  title="Clean Slate / Reset Season Wallets & Ledger"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-red-400" /> Clean Slate
                 </button>
               </div>
             )}
@@ -4237,6 +4343,17 @@ burstFrame();
                           <span className="text-white/20">•</span>
                           <button onClick={() => openEditMemberModal(row)} className="hover:text-[#FBBF24] transition-colors">✏️ Edit</button>
                           <span className="text-white/20">•</span>
+                          <button
+                            onClick={() => handleToggleSpectator(row.id, (row as any).playMode)}
+                            className={clsx(
+                              "transition-colors",
+                              (row as any).playMode === "sidebets_only" ? "text-cyan-400 hover:text-cyan-300 font-bold" : "hover:text-cyan-400"
+                            )}
+                            title={(row as any).playMode === "sidebets_only" ? "Switch member to Weekly & Season Cash Pot" : "Set member as Spectator (1v1 side bets only)"}
+                          >
+                            {(row as any).playMode === "sidebets_only" ? "Switch to Pot" : "Make Spectator"}
+                          </button>
+                          <span className="text-white/20">•</span>
                           <button onClick={() => handleDeleteMember(row.id, row.displayName)} className="text-red-400/80 hover:text-red-300 transition-colors">🗑️ Remove</button>
                         </div>
                       </div>
@@ -5125,6 +5242,36 @@ burstFrame();
                       placeholder="e.g. 1234567"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Participation Mode</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditMemberPlayMode('pot')}
+                        className={clsx(
+                          "py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer",
+                          editMemberPlayMode === 'pot'
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 shadow-sm"
+                            : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
+                        )}
+                      >
+                        🏆 Cash Pot
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditMemberPlayMode('sidebets_only')}
+                        className={clsx(
+                          "py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer",
+                          editMemberPlayMode === 'sidebets_only'
+                            ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-300 shadow-sm"
+                            : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
+                        )}
+                      >
+                        👁️ Spectator (1v1)
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="px-6 pb-5 flex gap-3">
@@ -5143,6 +5290,86 @@ burstFrame();
                       ? <RefreshCw className="w-4 h-4 animate-spin" />
                       : '✓ Save Changes'
                     }
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Clean Slate / Season Reset Modal ─────────────────────────── */}
+          {showCleanSlateModal && (
+            <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200 p-4">
+              <div className="w-full max-w-md bg-[#161d24] border border-red-500/30 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 overflow-hidden text-white">
+                <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-red-400">Danger Zone</p>
+                      <h3 className="text-base font-black">Clean Slate / Season Reset</h3>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowCleanSlateModal(false)}
+                    className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 leading-relaxed">
+                    <span className="font-bold">⚠️ Warning:</span> This will reset all member wallet balances to <span className="font-bold">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                      New Official Starting Round
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-gray-400">Gameweek</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="38"
+                        value={cleanSlateTargetGw}
+                        onChange={(e) => setCleanSlateTargetGw(Math.max(1, Math.min(38, Number(e.target.value || 1))))}
+                        className="w-24 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
+                      />
+                      <span className="text-xs text-gray-500 font-medium">e.g. 10 (players start clean from GW10)</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                      Type <span className="text-red-400 font-mono font-black">RESET</span> to confirm
+                    </label>
+                    <input
+                      type="text"
+                      value={cleanSlateConfirmText}
+                      onChange={(e) => setCleanSlateConfirmText(e.target.value)}
+                      placeholder="RESET"
+                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono uppercase tracking-widest focus:ring-1 focus:ring-red-500/50 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="px-6 pb-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCleanSlateModal(false)}
+                    className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-bold hover:bg-white/5 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isExecutingCleanSlate || cleanSlateConfirmText.trim().toUpperCase() !== 'RESET'}
+                    onClick={handleExecuteCleanSlate}
+                    className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition-all disabled:opacity-30 shadow-lg shadow-red-900/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {isExecutingCleanSlate ? 'Resetting...' : 'Execute Clean Slate'}
                   </button>
                 </div>
               </div>

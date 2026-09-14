@@ -798,7 +798,7 @@ export default function MemberDashboard() {
 
     return (
         <div className={clsx(
-            "fc-member-dashboard min-h-[100dvh] text-slate-900 dark:text-white flex flex-col font-sans relative pb-32 w-full overflow-x-hidden transition-colors duration-700",
+            "fc-member-dashboard min-h-[100dvh] text-slate-900 dark:text-white flex flex-col font-sans relative pb-6 w-full overflow-x-hidden transition-colors duration-700",
             isCurrentUserGwWinner
                 ? "bg-gradient-to-br from-[#0b1014] via-[#1a1608] to-[#2a1f05] dark:from-[#0b1014] dark:via-[#1a1608] dark:to-[#2a1f05]"
                 : hasPaid ? "bg-slate-50 dark:bg-[#0b1014]" : "bg-gradient-to-br from-slate-100 to-red-50 dark:from-[#0b1014] dark:to-[#2a0808]",
@@ -1278,7 +1278,7 @@ export default function MemberDashboard() {
             </div>
 
             {/* Main Content — Dense Grid Layout */}
-            <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-40 lg:pb-28 z-10 relative mt-2">
+            <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-6 lg:pb-8 z-10 relative mt-2">
 
                 {/* === ROW 1: Vault (8) + GW Rank Card (4) === */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4 items-stretch">

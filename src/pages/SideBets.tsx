@@ -372,7 +372,7 @@ export default function SideBets() {
     const selectedOpponent = members.find(m => m.id === opponentId);
 
     return (
-        <div className="fc-sidebets-page min-h-screen p-5 md:p-10 w-full animate-in fade-in duration-500 pb-32 font-sans text-white relative overflow-hidden bg-transparent">
+        <div className="fc-sidebets-page min-h-screen p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white relative overflow-hidden bg-transparent">
             {/* Ambient Lighting Background */}
             <div className="absolute inset-0 pointer-events-none opacity-70">
                 <div className="absolute -top-24 right-[10%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />

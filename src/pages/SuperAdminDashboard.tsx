@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc, addDoc, serverTimestamp, runTransaction, limit, writeBatch, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save, RotateCcw, AlertTriangle, X } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 import ConfirmModal from '../components/ConfirmModal';
@@ -48,6 +48,85 @@ export default function SuperAdminDashboard() {
         platformFeePercent: 3.5
     });
     const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+    // Clean Slate / Season Reset state for HQ
+    const [selectedLeagueForReset, setSelectedLeagueForReset] = useState<any | null>(null);
+    const [resetTargetGw, setResetTargetGw] = useState(10);
+    const [resetConfirmText, setResetConfirmText] = useState('');
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [isResettingLeague, setIsResettingLeague] = useState(false);
+
+    const handleExecuteHqCleanSlate = async () => {
+        if (!selectedLeagueForReset) return;
+        if (resetConfirmText.trim().toUpperCase() !== 'RESET') {
+            alert('Please type RESET to confirm.');
+            return;
+        }
+        setIsResettingLeague(true);
+        try {
+            const leagueId = selectedLeagueForReset.id;
+            const targetGw = Number(resetTargetGw) || 10;
+
+            // 1. Reset all memberships
+            const membersSnap = await getDocs(collection(db, 'leagues', leagueId, 'memberships'));
+            const batch = writeBatch(db);
+            membersSnap.docs.forEach((mDoc) => {
+                batch.update(mDoc.ref, {
+                    walletBalance: 0,
+                    hasPaid: false,
+                    paymentStreak: 0,
+                    lastPaymentGw: null,
+                    joinedAtGw: targetGw,
+                    nextDueAt: null,
+                    dueAt: null,
+                });
+            });
+            // Update league document
+            const leagueDocRef = doc(db, 'leagues', leagueId);
+            batch.update(leagueDocRef, {
+                startGw: targetGw,
+                currentGw: targetGw,
+                vaultBalance: 0,
+                totalPot: 0,
+                lastResetAt: serverTimestamp(),
+                createdAt: Date.now(),
+            });
+            await batch.commit();
+
+            // 2. Clear subcollections
+            const subcollections = ['transactions', 'side_bets', 'gw_settlements', 'hq_settlements'];
+            for (const sub of subcollections) {
+                try {
+                    const subSnap = await getDocs(collection(db, 'leagues', leagueId, sub));
+                    if (!subSnap.empty) {
+                        const subBatch = writeBatch(db);
+                        subSnap.docs.forEach(d => subBatch.delete(d.ref));
+                        await subBatch.commit();
+                    }
+                } catch (subErr) {
+                    console.warn(`[hq-clean-slate] clear ${sub} skipped:`, subErr);
+                }
+            }
+
+            // 3. Post notification
+            await addDoc(collection(db, 'leagues', leagueId, 'notifications'), {
+                type: 'info',
+                message: `🔄 Clean Slate Activated by HQ: All wallet balances and ledger transactions reset. Season officially starting from Gameweek ${targetGw}!`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+
+            setShowResetModal(false);
+            setSelectedLeagueForReset(null);
+            setResetConfirmText('');
+            alert(`Clean slate complete! League "${selectedLeagueForReset.leagueName || leagueId}" reset to GW${targetGw}.`);
+        } catch (err: any) {
+            console.error('[hq-clean-slate] Failed:', err);
+            alert('Clean slate failed: ' + (err?.message || 'Error'));
+        } finally {
+            setIsResettingLeague(false);
+        }
+    };
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -864,6 +943,18 @@ export default function SuperAdminDashboard() {
                                                     isSuspended ? "bg-white/10 text-white hover:bg-white/20 border-transparent" : "bg-red-500/10 hover:bg-red-500 hover:text-white border-red-500/30 text-red-500")}>
                                                 <Power className="w-3 h-3" /> {isSuspended ? 'Unlock' : 'Suspend'}
                                             </button>
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedLeagueForReset(league);
+                                                    setResetTargetGw(league.startGw || 10);
+                                                    setResetConfirmText('');
+                                                    setShowResetModal(true);
+                                                }}
+                                                className="px-3 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border bg-red-500/10 hover:bg-red-500 hover:text-white border-red-500/30 text-red-400 flex items-center justify-center gap-1 cursor-pointer"
+                                                title="Clean Slate / Reset Season Ledger & Wallets"
+                                            >
+                                                <RotateCcw className="w-3 h-3" /> Reset
+                                            </button>
                                         </div>
                                     </div>
                                 );
@@ -954,6 +1045,88 @@ export default function SuperAdminDashboard() {
                 variant={confirmModal?.variant || 'danger'}
                 isLoading={isConfirmModalLoading}
             />
+
+            {/* Clean Slate Reset Modal for HQ */}
+            {showResetModal && selectedLeagueForReset && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200 p-4">
+                    <div className="w-full max-w-md bg-[#161d24] border border-red-500/30 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 overflow-hidden text-white font-sans">
+                        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                                    <AlertTriangle className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-red-400">HQ Master Control</p>
+                                    <h3 className="text-base font-black">Clean Slate / Season Reset</h3>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowResetModal(false)}
+                                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white text-xs cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 leading-relaxed">
+                                <span className="font-bold">Target League:</span> {selectedLeagueForReset.leagueName || selectedLeagueForReset.id}
+                                <br />
+                                <span className="font-bold">⚠️ Action:</span> This will reset all member wallet balances to <span className="font-bold">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                    New Official Starting Round
+                                </label>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-bold text-gray-400">Gameweek</span>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="38"
+                                        value={resetTargetGw}
+                                        onChange={(e) => setResetTargetGw(Math.max(1, Math.min(38, Number(e.target.value || 1))))}
+                                        className="w-24 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
+                                    />
+                                    <span className="text-xs text-gray-500 font-medium">e.g. 10 (players start clean from GW10)</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                    Type <span className="text-red-400 font-mono font-black">RESET</span> to confirm
+                                </label>
+                                <input
+                                    type="text"
+                                    value={resetConfirmText}
+                                    onChange={(e) => setResetConfirmText(e.target.value)}
+                                    placeholder="RESET"
+                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono uppercase tracking-widest focus:ring-1 focus:ring-red-500/50 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="px-6 pb-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowResetModal(false)}
+                                className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-bold hover:bg-white/5 transition-all cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isResettingLeague || resetConfirmText.trim().toUpperCase() !== 'RESET'}
+                                onClick={handleExecuteHqCleanSlate}
+                                className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition-all disabled:opacity-30 shadow-lg shadow-red-900/30 flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                                {isResettingLeague ? 'Resetting...' : 'Execute Clean Slate'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

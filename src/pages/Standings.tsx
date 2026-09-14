@@ -424,7 +424,7 @@ export default function Standings() {
             <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
             <div className="fixed bottom-0 left-0 w-full h-[600px] pointer-events-none z-0" style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%)' }} />
 
-            <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-8 pb-28">
+            <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-8 pb-6 lg:pb-8">
                 {/* Header — matches other pages */}
                 <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Gameweek Rankings" />
 

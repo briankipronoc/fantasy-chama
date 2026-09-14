@@ -789,7 +789,7 @@ const handleRejectPendingPayout = async (payout: any) => {
     }
 
     return (
-        <div className="fc-finances-page p-5 md:p-10 w-full animate-in fade-in duration-500 pb-24 font-sans text-white h-full overflow-y-auto relative">
+        <div className="fc-finances-page p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white h-full overflow-y-auto relative">
             <div className="absolute inset-0 pointer-events-none opacity-70">
                 <div className="absolute -top-20 right-[8%] h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
                 <div className="absolute bottom-10 left-[6%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
