@@ -1054,7 +1054,7 @@ export default function MemberDashboard() {
                             }}
                             className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
                         >
-                            🏆 Flex on WhatsApp
+                            🏆 Share Win Card
                         </button>
                     </div>
                 ) : gwWinner && !currentFplEvent?.finished ? (

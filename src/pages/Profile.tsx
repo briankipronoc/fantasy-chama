@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import clsx from 'clsx';
@@ -251,7 +251,10 @@ export default function Profile() {
     useEffect(() => {
         // Find current member to prepopulate
         if (members.length > 0) {
-            const currentMember = members.find(m => m.id === activeUserId) || members[0];
+            const currentMember = members.find(m => m.id === activeUserId)
+                || members.find(m => (m as any).userId === activeUserId)
+                || (role === 'admin' ? members.find(m => m.role === 'admin' || (m as any).isAdmin || (m as any).isChairman) : undefined)
+                || members[0];
             if (currentMember) {
                 setDisplayName(currentMember.displayName || '');
                 setPhoneNumber(currentMember.phone || '');
@@ -293,8 +296,11 @@ export default function Profile() {
         
 
         try {
-            // Using members[0].id for MVP if activeUserId is a fallback
-            const targetMemberId = members.find(m => m.id === activeUserId)?.id || members[0]?.id;
+            const targetMember = members.find(m => m.id === activeUserId)
+                || members.find(m => (m as any).userId === activeUserId)
+                || (role === 'admin' ? members.find(m => m.role === 'admin' || (m as any).isAdmin || (m as any).isChairman) : undefined)
+                || members[0];
+            const targetMemberId = targetMember?.id;
 
             if (targetMemberId) {
                 const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', targetMemberId);
@@ -303,6 +309,7 @@ export default function Profile() {
                     phone: phoneNumber,
                     avatarSeed: avatarSeed,
                     playMode: playMode,
+                    updatedAt: serverTimestamp(),
                 };
 
                 // The dropdown stores the numeric FPL entry ID. Only update if valid.

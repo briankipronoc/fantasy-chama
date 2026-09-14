@@ -716,9 +716,9 @@ export default function Standings() {
                                                             gameweek: currentEvent || '',
                                                         })}
                                                         className="font-black text-[10px] md:text-xs tracking-tight border px-2.5 py-1 rounded-lg text-[#10B981] border-[#10B981]/40 bg-[#10B981]/15 hover:bg-[#10B981]/25 flex items-center gap-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all active:scale-95 cursor-pointer"
-                                                        title={hasFinalGwChampion ? "Flex GW Champion on WhatsApp" : "Flex Live Leader on WhatsApp"}
+                                                        title={hasFinalGwChampion ? "Share GW Champion on WhatsApp" : "Share Live Leader on WhatsApp"}
                                                     >
-                                                        <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Flex Win
+                                                        <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Share Win
                                                     </button>
                                                 ) : null}
                                             </div>

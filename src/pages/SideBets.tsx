@@ -857,7 +857,7 @@ function BetCard({ bet, currentUserId, isAdmin, onSign, onEndorse, onApprove, on
                         onClick={onShareWin}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-amber-500/25"
                     >
-                        <Trophy className="w-3.5 h-3.5" /> Flex Duel Win
+                        <Trophy className="w-3.5 h-3.5" /> Share Duel Win
                     </button>
                 )}
             </div>

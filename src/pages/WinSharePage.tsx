@@ -22,12 +22,13 @@ export default function WinSharePage() {
         setMeta('og:title', `🏆 ${winner} wins Gameweek ${gw}!`);
         setMeta('og:description', `${winner} just won KES ${amount.toLocaleString()} from ${league}. ${pts ? `${pts} pts` : ''} Join the action on FantasyChama!`);
         setMeta('og:url', window.location.href);
-        setMeta('og:image', 'https://fantasychama.vercel.app/og-preview.png');
+        setMeta('og:image', 'https://fantasy-chama.vercel.app/og-preview.png');
     }, [league, gw, winner, amount, pts]);
 
+    const appOrigin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
     const shareUrl = code
-        ? `https://fantasychama.vercel.app/invite?code=${code}`
-        : 'https://fantasychama.vercel.app';
+        ? `${appOrigin}/login?code=${code}`
+        : appOrigin;
     const shareText = `🏆 ${winner} just won KES ${amount.toLocaleString()} from Gameweek ${gw} on ${league}!${pts ? ` (${pts} pts)` : ''}\n\nJoin the action on FantasyChama 👇\n${shareUrl}${code ? `\nInvite Code: ${code}` : ''}`;
 
     const handleShare = () => {
@@ -123,7 +124,7 @@ export default function WinSharePage() {
                     </div>
                 </div>
 
-                <p className="text-center text-gray-700 text-[10px] font-medium mt-6 tracking-widest uppercase">fantasychama.vercel.app</p>
+                <p className="text-center text-gray-700 text-[10px] font-medium mt-6 tracking-widest uppercase">fantasy-chama.vercel.app</p>
             </div>
         </div>
     );

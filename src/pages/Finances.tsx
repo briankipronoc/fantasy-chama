@@ -71,6 +71,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [seasonFilter, setSeasonFilter] = useState<'current' | 'all'>('current');
     const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
     const [leagueCreatedAtMs, setLeagueCreatedAtMs] = useState<number | null>(null);
+    const [startGw, setStartGw] = useState<number>(1);
+    const [lastResetAtMs, setLastResetAtMs] = useState<number | null>(null);
     const [chartHostWidth, setChartHostWidth] = useState(0);
     const chartHostRef = useRef<HTMLDivElement | null>(null);
 
@@ -162,6 +164,13 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     setMonthlyContribution(data.gameweekStake || 0);
                     if (data.rules) setRules(data.rules);
                     setLeagueName(data.name || data.leagueName || 'League');
+                    if (data.startGw) setStartGw(Number(data.startGw));
+                    const resetAt = data?.lastResetAt;
+                    if (resetAt?.toDate) {
+                        setLastResetAtMs(resetAt.toDate().getTime());
+                    } else if (typeof resetAt === 'number') {
+                        setLastResetAtMs(resetAt);
+                    }
                     const createdAt = data?.createdAt;
                     if (createdAt?.toDate) {
                         setLeagueCreatedAtMs(createdAt.toDate().getTime());
@@ -412,10 +421,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const projectedWeeklyPayoutFormula = `${paidMembers.length} × KES ${Number(gameweekStake || 0).toLocaleString()} × ${Number(rules.weekly || 0).toFixed(0)}% = KES ${Number(projectedWeeklyPayout || 0).toLocaleString()}`;
     const projectedSeasonCollections = projectedSeasonVault;
     const projectedSeasonCollectionsFormula = `(Collected KES ${Number(seasonCollectedSoFarGross || 0).toLocaleString()} + Join-aware remaining KES ${Number(projectedRemainingCollectionsGross || 0).toLocaleString()}) × ${Number(rules.vault || 0).toFixed(0)}% = KES ${Number(projectedSeasonCollections || 0).toLocaleString()}`;
-    const totalPayoutsYielded = transactions
-        .filter((t) => t.type === 'payout')
-        .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
-
     const toMillis = (value: any): number | null => {
         if (!value) return null;
         if (typeof value?.toDate === 'function') return value.toDate().getTime();
@@ -424,6 +429,21 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         const parsed = Date.parse(String(value));
         return Number.isNaN(parsed) ? null : parsed;
     };
+
+    const totalPayoutsYielded = transactions
+        .filter((t) => {
+            if (t.type !== 'payout') return false;
+            // Filter out payouts from prior season cycles before clean slate / reset
+            if (lastResetAtMs) {
+                const txTime = toMillis(t.timestamp);
+                if (txTime && txTime < lastResetAtMs) return false;
+            }
+            // Filter out test payouts logged before official start gameweek
+            const txGw = Number(t.gw || t.gameweek);
+            if (Number.isFinite(txGw) && startGw && txGw < startGw) return false;
+            return true;
+        })
+        .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
 
     // Member-only transaction log: their deposits + payout wins + wallet credits
     const myTransactions = isAdmin ? transactions : transactions.filter(tx =>

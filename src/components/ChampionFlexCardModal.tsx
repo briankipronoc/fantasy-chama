@@ -447,15 +447,15 @@ export default function ChampionFlexCardModal({
         {/* Modal Title */}
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-2">
-            <Sparkles className="w-3.5 h-3.5" /> WhatsApp Flex Card
+            <Sparkles className="w-3.5 h-3.5" /> WhatsApp Share Card
           </div>
           <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
             {isSideBet ? 'Share Your Duel Victory!' : 'Share Your Gameweek Victory!'}
           </h2>
           <p className="text-xs text-gray-400 mt-1">
             {isSideBet
-              ? 'Flex on the Chama WhatsApp group with an official sidebet victory card or spicy banter.'
-              : 'Flex on the Chama WhatsApp group with an official victory card or spicy banter.'}
+              ? 'Share with the Chama WhatsApp group with an official sidebet victory card or friendly banter.'
+              : 'Share with the Chama WhatsApp group with an official victory card or friendly banter.'}
           </p>
         </div>
 
@@ -589,7 +589,7 @@ export default function ChampionFlexCardModal({
               className="flex-1 py-3.5 px-4 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(37,211,102,0.35)] flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
             >
               <Share2 className="w-4 h-4" />
-              Flex on WhatsApp Group
+              Share to WhatsApp Group
             </button>
             <button
               onClick={handleCopyMessage}

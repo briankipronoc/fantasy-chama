@@ -1634,7 +1634,16 @@ export default function AdminCommandCenter() {
       await batch.commit();
 
       // 2. Clear subcollections
-      const subcollections = ['transactions', 'side_bets', 'gw_settlements', 'hq_settlements'];
+      const subcollections = [
+        'transactions',
+        'side_bets',
+        'gw_settlements',
+        'hq_settlements',
+        'pending_payouts',
+        'wallet_topup_requests',
+        'payouts',
+        'league_events'
+      ];
       for (const sub of subcollections) {
         try {
           const subSnap = await getDocs(collection(db, 'leagues', activeLeagueId, sub));
@@ -3179,16 +3188,17 @@ burstFrame();
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
                             haptics.celebrate();
                             setShowChairmanFlexModal(true);
                           }}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border dark:border-emerald-500/40 dark:text-emerald-300 text-xs font-black tracking-wider rounded-xl transition-all shadow-sm uppercase active:scale-95 cursor-pointer"
-                          title="Generate Champion Flex Card for WhatsApp"
+                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer"
+                          title="Share Gameweek Leader Card on WhatsApp"
                         >
-                          <Share2 className="w-4 h-4" /> Flex Card
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>Share Card</span>
                         </button>
 
                         <button
@@ -3196,14 +3206,14 @@ burstFrame();
                           onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
                           disabled={isResolved}
                           className={clsx(
-                            "flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 text-xs font-black tracking-widest rounded-xl transition-all uppercase active:scale-95 cursor-pointer",
+                            "flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs",
                             isResolved
-                              ? "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-gray-400 cursor-not-allowed"
-                              : "bg-[#FBBF24] hover:bg-amber-400 text-black shadow-[0_0_20px_rgba(251,191,36,0.25)]"
+                              ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
+                              : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
                           )}
                         >
-                          <Trophy className="w-4 h-4 hidden sm:block" />
-                          {isResolved ? "Resolved ✓" : "Resolve"}
+                          <Trophy className="w-3.5 h-3.5" />
+                          <span>{isResolved ? "Resolved ✓" : "Resolve"}</span>
                         </button>
                       </div>
                     </div>
@@ -3323,7 +3333,7 @@ burstFrame();
                           ? "GW Settled ✓"
                           : isCurrentEventFinished
                             ? "Settle GW Winner"
-                            : "GW In Play 🟢"
+                            : "GW In Play"
                         }
                       </p>
                       {gwAlreadySettled ? (
@@ -3336,24 +3346,23 @@ burstFrame();
                       ) : null}
                     </div>
 
-                    <div className="my-auto py-1 flex flex-col items-center justify-center text-center w-full">
-                      <p className={clsx(
-                        "text-lg md:text-xl font-black tracking-tight",
-                        gwAlreadySettled
-                          ? "text-emerald-300"
-                          : isCurrentEventFinished
-                            ? "text-[#FBBF24]"
-                            : "text-emerald-400"
-                      )}>
-                        {gwAlreadySettled
-                          ? `GW${currentGwNumber || ''} Done`
-                          : isCurrentEventFinished
-                            ? `Pay GW${currentGwNumber || ''} Winner`
-                            : `GW${currentGwNumber || ''} Live Matches`
-                        }
-                      </p>
+                    <div className="my-auto py-1.5 flex flex-col items-center justify-center text-center w-full">
+                      {(gwAlreadySettled || isCurrentEventFinished) && (
+                        <p className={clsx(
+                          "text-lg md:text-xl font-black tracking-tight",
+                          gwAlreadySettled
+                            ? "text-emerald-300"
+                            : "text-[#FBBF24]"
+                        )}>
+                          {gwAlreadySettled
+                            ? `GW${currentGwNumber || ''} Done`
+                            : `Pay GW${currentGwNumber || ''} Winner`
+                          }
+                        </p>
+                      )}
                       <span className={clsx(
-                        "text-[11px] font-bold mt-1 px-2.5 py-0.5 rounded-full inline-block",
+                        "text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-block",
+                        (gwAlreadySettled || isCurrentEventFinished) ? "mt-1" : "my-1",
                         gwAlreadySettled 
                           ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
                           : isCurrentEventFinished
