@@ -39,6 +39,11 @@ export default function Login() {
     const [onboardPlayMode, setOnboardPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
     const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
     const [onboardError, setOnboardError] = useState('');
+    const [previewLeague, setPreviewLeague] = useState<{
+        name: string;
+        memberNames: string[];
+        totalMembers: number;
+    } | null>(null);
 
     const filteredUnlinkedTeams = useMemo(() => {
         if (!onboardData?.unlinkedTeams) return [];
@@ -126,6 +131,56 @@ export default function Login() {
             setIsPhoneLocked(true);
         }
     }, []);
+
+    // Social proof: preview who has already joined the league when 6-digit code is ready
+    useEffect(() => {
+        const fullCode = code.join('');
+        if (fullCode.length !== 6) {
+            setPreviewLeague(null);
+            return;
+        }
+
+        let isMounted = true;
+        (async () => {
+            try {
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+                const leaguesRef = collection(db, 'leagues');
+                const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode));
+                const snap = await getDocs(qLeague);
+                if (snap.empty || !isMounted) return;
+
+                const leagueDoc = snap.docs[0];
+                const lData = leagueDoc.data();
+                const membershipsRef = collection(db, 'leagues', leagueDoc.id, 'memberships');
+                const membersSnap = await getDocs(membershipsRef);
+                
+                if (!isMounted) return;
+                const names: string[] = [];
+                membersSnap.docs.forEach(docSnap => {
+                    const d = docSnap.data();
+                    const rawName = (d.displayName || d.name || '').trim();
+                    if (rawName && d.isActive !== false && d.role !== 'admin') {
+                        const firstName = rawName.split(' ')[0];
+                        if (firstName && !names.includes(firstName)) {
+                            names.push(firstName);
+                        }
+                    }
+                });
+
+                setPreviewLeague({
+                    name: lData.name || 'FPL Chama',
+                    memberNames: names.slice(0, 3),
+                    totalMembers: membersSnap.docs.filter(d => d.data().isActive !== false && d.data().role !== 'admin').length,
+                });
+            } catch (err) {
+                console.warn("Could not fetch preview league members:", err);
+            }
+        })();
+
+        return () => { isMounted = false; };
+    }, [code]);
 
     const handleJoin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -559,6 +614,28 @@ export default function Login() {
                             </div>
                         )}
 
+                        {/* Social proof: Show who has joined when invite code is prefilled or typed */}
+                        {previewLeague && (
+                            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm shrink-0 border border-emerald-500/30 shadow-sm">
+                                    🏆
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-black text-white truncate">
+                                        {previewLeague.name}
+                                    </p>
+                                    <p className="text-[11px] text-emerald-300 font-medium truncate mt-0.5">
+                                        {previewLeague.memberNames.length > 0
+                                            ? `Join ${previewLeague.memberNames.join(', ')}${previewLeague.totalMembers > previewLeague.memberNames.length ? ` +${previewLeague.totalMembers - previewLeague.memberNames.length} others` : ''}`
+                                            : `${previewLeague.totalMembers} managers competing`}
+                                    </p>
+                                </div>
+                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                    Active Pot
+                                </span>
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Phone Number</label>
                             <div className="relative">
@@ -568,7 +645,7 @@ export default function Login() {
                                     required
                                     autoComplete="tel"
                                     value={phone}
-                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
+                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid phone number')}
                                     disabled={isPhoneLocked}
                                     onChange={(e) => {
                                         (e.target as HTMLInputElement).setCustomValidity('');
@@ -577,15 +654,14 @@ export default function Login() {
                                     onBlur={() => {
                                         if (phone) setPhone(normalizeKenyanPhone(phone));
                                     }}
-                                    placeholder="e.g. 0712345678 or 254..."
+                                    placeholder="0712 345 678"
                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Your 6-Character Invite Code</label>
-                            <p className="text-[10px] text-gray-500 mb-3">Your chairman sent this via WhatsApp. It looks like: <span className="text-amber-400 font-mono font-bold">ABC123</span></p>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">6-Character Invite Code</label>
                             <div className="flex justify-between gap-1.5 md:gap-2">
                                 {code.map((digit, index) => (
                                     <input
@@ -603,7 +679,6 @@ export default function Login() {
                                     />
                                 ))}
                             </div>
-                            <p className="text-center text-gray-600 text-[9px] mt-2">You can paste the code directly — all 6 boxes fill automatically</p>
                         </div>
 
                         <button
@@ -776,6 +851,14 @@ export default function Login() {
                             <p className="text-[11px] text-gray-500 mt-0.5">
                                 WhatsApp Invite Code <span className="text-emerald-400 font-mono font-bold">{code.join('')}</span>
                             </p>
+                            {previewLeague && previewLeague.memberNames.length > 0 && (
+                                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[11px] font-semibold">
+                                    <span>👥 Join <strong className="text-white">{previewLeague.memberNames.join(', ')}</strong></span>
+                                    {previewLeague.totalMembers > previewLeague.memberNames.length && (
+                                        <span className="text-emerald-400 font-normal">+{previewLeague.totalMembers - previewLeague.memberNames.length} others</span>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Gameweek Join Pill */}
@@ -884,7 +967,7 @@ export default function Login() {
                                                     required
                                                     value={onboardManagerName}
                                                     onChange={(e) => setOnboardManagerName(e.target.value)}
-                                                    placeholder="e.g. Antonio Kipyegon"
+                                                    placeholder="Your Full Name"
                                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
                                                 />
                                             </div>
@@ -896,7 +979,7 @@ export default function Login() {
                                                     type="text"
                                                     value={onboardTeamName}
                                                     onChange={(e) => setOnboardTeamName(e.target.value)}
-                                                    placeholder="e.g. Kipyegon Stars"
+                                                    placeholder="Team Name"
                                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
                                                 />
                                             </div>
@@ -910,7 +993,7 @@ export default function Login() {
                                                 type="number"
                                                 value={customFplId}
                                                 onChange={(e) => setCustomFplId(e.target.value)}
-                                                placeholder="e.g. 482910"
+                                                placeholder="Numeric Team ID"
                                                 className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50 font-mono"
                                             />
                                         </div>

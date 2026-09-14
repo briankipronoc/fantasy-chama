@@ -1232,7 +1232,7 @@ export default function AdminCommandCenter() {
     navigator.clipboard.writeText(inviteCode);
     const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
     const link = `${appUrl}/login?code=${inviteCode}`;
-    const message = `⚽ Join our FPL Chama (${leagueName || "Tentshakers FC"})!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
+    const message = `🏆 Join our FPL Chama — *${leagueName || "Tentshakers FC"}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${inviteCode}*`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
     showToast("Invite link copied & WhatsApp opened!");
   };

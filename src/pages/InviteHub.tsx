@@ -22,7 +22,7 @@ export default function InviteHub() {
         }
 
         const inviteLink = `${appUrl}/login${params}`;
-        const message = `⚽ Join our FPL Chama (Tentshakers FC)!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${inviteLink}`;
+        const message = `🏆 Join our FPL Chama — *Tentshakers FC*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${inviteLink}\nLeague Code: *${inviteCode}*`;
         navigator.clipboard.writeText(message);
         setCopied(true);
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
@@ -128,7 +128,7 @@ export default function InviteHub() {
                         <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Invitation Preview</span>
                     </div>
                     <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 text-gray-300 text-sm leading-relaxed shadow-lg font-mono whitespace-pre-wrap">
-                        {`⚽ Join our FPL Chama (Tentshakers FC)!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: https://fantasy-chama.vercel.app/login?code=${inviteCode}`}
+                        {`🏆 Join our FPL Chama — *Tentshakers FC*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: https://fantasy-chama.vercel.app/login?code=${inviteCode}\nLeague Code: *${inviteCode}*`}
                     </div>
                 </div>
 

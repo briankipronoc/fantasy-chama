@@ -427,14 +427,14 @@ export default function Profile() {
     const handleShare = () => {
         const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
         const link = `${origin}/login?code=${inviteCode}`;
-        const text = `⚽ Join our FPL Chama (${leagueName || 'Tentshakers FC'})!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
+        const text = `🏆 Join our FPL Chama — *${leagueName || 'Tentshakers FC'}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${inviteCode}*`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleCopy = () => {
         const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
         const link = `${origin}/login?code=${inviteCode}`;
-        const text = `⚽ Join our FPL Chama (${leagueName || 'Tentshakers FC'})!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
+        const text = `🏆 Join our FPL Chama — *${leagueName || 'Tentshakers FC'}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${inviteCode}*`;
         navigator.clipboard.writeText(text);
         toast.success(`Invite message copied to clipboard!`);
     };

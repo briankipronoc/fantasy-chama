@@ -499,21 +499,26 @@ export default function ChampionFlexCardModal({
             )}
 
             <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/10">
-              <div className="bg-white/5 rounded-xl p-2.5 border border-white/5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
-                  {isSideBet ? 'Humbled Rival' : 'Score'}
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 flex flex-col justify-center items-center text-center h-[76px]">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
+                  {isSideBet ? 'Humbled Rival' : 'Gameweek Score'}
                 </p>
-                <p className="text-lg md:text-xl font-black text-emerald-400 truncate">
+                <p className="text-xl font-black text-emerald-400 truncate">
                   {isSideBet ? (defeatedOpponent || 'Rival') : `${points || 0} pts`}
                 </p>
               </div>
-              <div className="bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/20">
-                <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">
-                  {isSideBet ? 'Duel Pot Won' : 'Pot Won'}
+              <div className="bg-amber-500/10 rounded-xl p-3 border border-amber-500/25 flex flex-col justify-center items-center text-center h-[76px]">
+                <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+                  {isSideBet ? 'Duel Pot Won' : 'Pot Secured'}
                 </p>
-                <p className="text-xl font-black text-amber-300 tabular-nums">KES {amountWon.toLocaleString()}</p>
+                <p className="text-xl font-black text-amber-300 tabular-nums">
+                  KES {amountWon.toLocaleString()}
+                </p>
               </div>
             </div>
+            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-3">
+              Verified Chama Settlement • Official FPL Sync
+            </p>
           </div>
         </div>
 
@@ -521,10 +526,10 @@ export default function ChampionFlexCardModal({
         <button
           onClick={handleDownloadImage}
           disabled={isExporting}
-          className="w-full mb-5 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="w-full mb-5 py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           <Download className="w-4 h-4" />
-          {isExporting ? 'Generating High-Res Card...' : 'Download Flex Image (PNG for WhatsApp Status)'}
+          {isExporting ? 'Generating High-Res Victory Card...' : 'Download Victory Card (PNG for WhatsApp Status)'}
         </button>
 
         {/* Banter Caption Selector */}

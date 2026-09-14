@@ -517,7 +517,7 @@ export default function AdminSetup() {
     const handleCopyCode = () => {
         const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
         const link = `${appUrl}/login?code=${generatedCode}`;
-        const message = `⚽ Join our FPL Chama (${leagueName || "Tentshakers FC"})!\nLeague Code: *${generatedCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
+        const message = `🏆 Join our FPL Chama — *${leagueName || "Tentshakers FC"}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${generatedCode}*`;
         navigator.clipboard.writeText(message);
         setCopied(true);
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
