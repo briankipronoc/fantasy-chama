@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
-import { collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signInAnonymously, sendPasswordResetEmail } from 'firebase/auth';
 import { normalizeKenyanPhone, getPhoneVariants } from '../utils/phone';
 
@@ -18,6 +18,24 @@ export default function Login() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+    // Self-onboarding state (for users joining via WhatsApp invite code)
+    const [showSelfOnboardModal, setShowSelfOnboardModal] = useState(false);
+    const [onboardData, setOnboardData] = useState<{
+        leagueId: string;
+        leagueName: string;
+        monthlyFee: number;
+        phone: string;
+        userUid: string;
+        currentGw: number;
+        unlinkedTeams: any[];
+    } | null>(null);
+    const [selectedTeamClaim, setSelectedTeamClaim] = useState<string>('custom');
+    const [onboardManagerName, setOnboardManagerName] = useState('');
+    const [onboardTeamName, setOnboardTeamName] = useState('');
+    const [onboardPlayMode, setOnboardPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
+    const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
+    const [onboardError, setOnboardError] = useState('');
 
     // Admin State
     const [email, setEmail] = useState('');
@@ -145,7 +163,46 @@ export default function Login() {
             const memberSnapshot = await getDocs(qMember);
 
             if (memberSnapshot.empty) {
-                setError("Your number isn't registered for this league. Contact the Chairman.");
+                // If member's phone isn't pre-registered, launch Self-Onboarding wizard
+                console.log("Phone not found. Loading league details for self-onboarding wizard...");
+                const allMembersSnap = await getDocs(membershipsRef);
+                const unlinked = allMembersSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() } as any))
+                    .filter(m => (!m.phone && !m.phoneNumber) || m.isPending === true);
+
+                let detectedGw = leagueData.data()?.currentGw || leagueData.data()?.startGw || 1;
+                try {
+                    const res = await fetch('/fpl-api/bootstrap-static/');
+                    if (res.ok) {
+                        const boot = await res.json();
+                        const cur = boot.events?.find((ev: any) => ev.is_current) || boot.events?.find((ev: any) => ev.is_next);
+                        if (cur?.id) detectedGw = cur.id;
+                    }
+                } catch {
+                    // fallback to detectedGw
+                }
+
+                setOnboardData({
+                    leagueId,
+                    leagueName: leagueData.data()?.name || 'Fantasy Chama',
+                    monthlyFee: leagueData.data()?.monthlyFee || 0,
+                    phone,
+                    userUid,
+                    currentGw: detectedGw,
+                    unlinkedTeams: unlinked,
+                });
+
+                if (unlinked.length > 0) {
+                    setSelectedTeamClaim(unlinked[0].id);
+                    setOnboardManagerName(unlinked[0].displayName || '');
+                    setOnboardTeamName(unlinked[0].fplTeamName || unlinked[0].teamName || '');
+                } else {
+                    setSelectedTeamClaim('custom');
+                    setOnboardManagerName('');
+                    setOnboardTeamName('');
+                }
+
+                setShowSelfOnboardModal(true);
                 return;
             }
 
@@ -173,6 +230,106 @@ export default function Login() {
             setError("Something went wrong connecting to the vault. Check your internet connection.");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleCompleteOnboarding = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!onboardData) return;
+        setOnboardError('');
+        setIsOnboardingSubmitting(true);
+
+        try {
+            let finalDisplayName = onboardManagerName.trim();
+            let finalTeamName = onboardTeamName.trim();
+
+            if (selectedTeamClaim !== 'custom') {
+                const claimed = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
+                if (claimed) {
+                    if (!finalDisplayName) finalDisplayName = claimed.displayName || '';
+                    if (!finalTeamName) finalTeamName = claimed.fplTeamName || claimed.teamName || claimed.displayName || '';
+                }
+            }
+
+            if (!finalDisplayName) {
+                setOnboardError('Please enter your Manager / Display Name.');
+                setIsOnboardingSubmitting(false);
+                return;
+            }
+
+            let memberId = selectedTeamClaim;
+
+            if (selectedTeamClaim !== 'custom') {
+                const memberRef = doc(db, 'leagues', onboardData.leagueId, 'memberships', selectedTeamClaim);
+                await updateDoc(memberRef, {
+                    phone: onboardData.phone,
+                    displayName: finalDisplayName,
+                    fplTeamName: finalTeamName || finalDisplayName,
+                    teamName: finalTeamName || finalDisplayName,
+                    isPending: false,
+                    isActive: true,
+                    playMode: onboardPlayMode,
+                    joinedGw: onboardData.currentGw,
+                    authUid: onboardData.userUid,
+                    walletBalance: 0,
+                    hasPaid: false,
+                    updatedAt: serverTimestamp(),
+                });
+            } else {
+                const docRef = await addDoc(collection(db, 'leagues', onboardData.leagueId, 'memberships'), {
+                    phone: onboardData.phone,
+                    displayName: finalDisplayName,
+                    fplTeamName: finalTeamName || finalDisplayName,
+                    teamName: finalTeamName || finalDisplayName,
+                    isPending: false,
+                    isActive: true,
+                    role: 'member',
+                    playMode: onboardPlayMode,
+                    joinedGw: onboardData.currentGw,
+                    authUid: onboardData.userUid,
+                    walletBalance: 0,
+                    hasPaid: false,
+                    totalEarned: 0,
+                    paymentStreak: 0,
+                    createdAt: serverTimestamp(),
+                });
+                memberId = docRef.id;
+            }
+
+            // Post join notification to league
+            try {
+                await addDoc(collection(db, 'leagues', onboardData.leagueId, 'notifications'), {
+                    type: 'member_joined',
+                    eventType: 'member_joined',
+                    title: 'New Member Self-Onboarded',
+                    message: `${finalDisplayName} joined ${onboardData.leagueName} (${onboardPlayMode === 'pot' ? '🏆 Cash Pot Contributor' : '🛡️ Spectator & Side-Bets Only'}).`,
+                    createdAt: serverTimestamp(),
+                });
+            } catch (notifErr) {
+                console.warn("Could not post join notification:", notifErr);
+            }
+
+            // Save session to localStorage
+            localStorage.setItem('activeLeagueId', onboardData.leagueId);
+            localStorage.setItem('memberPhone', onboardData.phone);
+            localStorage.setItem('activeUserId', memberId);
+
+            localStorage.removeItem('fc-login-code');
+            localStorage.removeItem('fc-login-phone');
+
+            setRole('member');
+            navigate('/dashboard', {
+                state: {
+                    welcomeMsg: `Welcome to ${onboardData.leagueName}, ${finalDisplayName}! ${onboardPlayMode === 'sidebets_only' ? 'You are in Free Spectator & Side-Bets mode.' : 'Your spot in the chama is confirmed.'}`
+                },
+                replace: true,
+            });
+
+        } catch (err: any) {
+            console.error("Self-onboarding error:", err);
+            setOnboardError(err?.message || "Failed to complete onboarding. Please try again.");
+        } finally {
+            setIsOnboardingSubmitting(false);
         }
     };
 
@@ -513,6 +670,188 @@ export default function Login() {
                     © {new Date().getFullYear()} Fantasy Chama Global Wealth Management. All Rights Reserved.
                 </p>
             </div>
+
+            {/* ── Modal: Self-Onboarding Wizard ──────────────────── */}
+            {showSelfOnboardModal && onboardData && (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative text-white animate-in zoom-in-95 duration-200 my-8">
+                        {/* Close button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowSelfOnboardModal(false)}
+                            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        {/* Header */}
+                        <div className="text-center mb-5">
+                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-3 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                                <Sparkles className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-xl md:text-2xl font-black tracking-tight mb-1">
+                                Welcome to {onboardData.leagueName}!
+                            </h2>
+                            <p className="text-xs text-gray-400">
+                                Joining via WhatsApp Invite Code <span className="text-emerald-400 font-mono font-bold">{code.join('')}</span>
+                            </p>
+                        </div>
+
+                        {/* Gameweek Join Pill */}
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-4 flex items-start gap-2.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                            <div className="text-[11px] leading-relaxed text-gray-300">
+                                <span className="font-bold text-white">Joining from Gameweek {onboardData.currentGw}:</span> Your contributions only apply from this round forward. You are never back-charged for earlier gameweeks!
+                            </div>
+                        </div>
+
+                        {onboardError && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium p-3 rounded-xl mb-4 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <span>{onboardError}</span>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCompleteOnboarding} className="space-y-4">
+                            {/* Step 1: Claim FPL Team or Enter */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                    1. Link Your FPL Team
+                                </label>
+
+                                {onboardData.unlinkedTeams.length > 0 && (
+                                    <div className="mb-2.5">
+                                        <select
+                                            value={selectedTeamClaim}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setSelectedTeamClaim(val);
+                                                if (val !== 'custom') {
+                                                    const matched = onboardData.unlinkedTeams.find(t => t.id === val);
+                                                    if (matched) {
+                                                        setOnboardManagerName(matched.displayName || '');
+                                                        setOnboardTeamName(matched.fplTeamName || matched.teamName || '');
+                                                    }
+                                                }
+                                            }}
+                                            className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                                        >
+                                            <optgroup label="Select Your Team (Imported by Chairman)">
+                                                {onboardData.unlinkedTeams.map((t) => (
+                                                    <option key={t.id} value={t.id}>
+                                                        {t.displayName} ({t.fplTeamName || t.teamName || 'FPL Team'})
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                            <option value="custom">➕ Not in list / Enter manually</option>
+                                        </select>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                            Your Name (Manager)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={onboardManagerName}
+                                            onChange={(e) => setOnboardManagerName(e.target.value)}
+                                            placeholder="e.g. Antonio Kipyegon"
+                                            className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                            FPL Team Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={onboardTeamName}
+                                            onChange={(e) => setOnboardTeamName(e.target.value)}
+                                            placeholder="e.g. Kipyegon Stars"
+                                            className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Step 2: Choose Mode */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                    2. Choose Your Participation Tier
+                                </label>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {/* Option 1: Cash Pot */}
+                                    <div
+                                        onClick={() => setOnboardPlayMode('pot')}
+                                        className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
+                                            onboardPlayMode === 'pot'
+                                                ? 'bg-emerald-500/10 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                                                : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-black flex items-center gap-1.5 text-white">
+                                                <Trophy className="w-4 h-4 text-[#FBBF24]" /> Cash Pot
+                                            </span>
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20">
+                                                KES {onboardData.monthlyFee.toLocaleString()}/GW
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 leading-snug mb-2">
+                                            Compete for weekly 1st place payouts and season vault jackpot.
+                                        </p>
+                                        <span className="text-[9px] font-bold text-emerald-400 block">
+                                            ✓ Weekly & Season Vault Eligible
+                                        </span>
+                                    </div>
+
+                                    {/* Option 2: Spectator & Side-Bets Only */}
+                                    <div
+                                        onClick={() => setOnboardPlayMode('sidebets_only')}
+                                        className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
+                                            onboardPlayMode === 'sidebets_only'
+                                                ? 'bg-cyan-500/10 border-cyan-500/60 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+                                                : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-xs font-black flex items-center gap-1.5 text-white">
+                                                <Swords className="w-4 h-4 text-cyan-400" /> Spectator & Bets
+                                            </span>
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                                Free Entry
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 leading-snug mb-2">
+                                            Zero weekly pot dues. Challenge rivals to 1v1 M-Pesa cash side bets anytime!
+                                        </p>
+                                        <span className="text-[9px] font-bold text-cyan-400 block">
+                                            ✓ 1v1 Side Bets · Test for Next Season
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Submit */}
+                            <button
+                                type="submit"
+                                disabled={isOnboardingSubmitting}
+                                className="w-full bg-[#22C55E] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-sm md:text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_20px_rgba(34,197,94,0.2)] mt-2 disabled:opacity-50"
+                            >
+                                {isOnboardingSubmitting ? (
+                                    <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Activating Profile...</>
+                                ) : (
+                                    <>Complete Onboarding & Enter League <ArrowRight className="w-4 h-4" /></>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

@@ -1054,13 +1054,13 @@ export default function AdminCommandCenter() {
   const filteredMembers = members.filter((m) => {
     if (m.isActive === false || isPendingMember(m)) return false;
     if (paymentFilter === "Verified") return memberHasFunding(m);
-    if (paymentFilter === "Red Zone") return !memberHasFunding(m);
+    if (paymentFilter === "Red Zone") return !memberHasFunding(m) && (m as any).playMode !== "sidebets_only";
     return true;
   });
 
   const fundedMembersCount = members.filter(memberHasFunding).length;
   const activeMembersCount = members.filter(
-    (m) => m.isActive !== false && !isPendingMember(m),
+    (m) => m.isActive !== false && !isPendingMember(m) && (m as any).playMode !== "sidebets_only",
   ).length;
   const totalSecured = fundedMembersCount * gameweekStake;
   const exactCurrentGwFormula = `${fundedMembersCount} × KES ${Number(gameweekStake || 0).toLocaleString()} = KES ${Number(totalSecured || 0).toLocaleString()}`;
@@ -1093,7 +1093,7 @@ export default function AdminCommandCenter() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal, showHqSettlementForm, showTutorial, showOpsModal, resolveTargetGw]);
   const redZoneMembers = members.filter(
-    (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false,
+    (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false && (m as any).playMode !== "sidebets_only",
   );
   const allPayableMembersFunded =
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
@@ -1370,7 +1370,7 @@ export default function AdminCommandCenter() {
     if (!activeLeagueId) return;
 
     const redZoneMembers = members.filter(
-      (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false,
+      (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false && (m as any).playMode !== "sidebets_only",
     );
 
     if (redZoneMembers.length === 0) {
@@ -1382,7 +1382,7 @@ export default function AdminCommandCenter() {
     const hoursLeft = nextDeadlineTime ? Math.max(0, Math.round((new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60))) : null;
     const hoursText = hoursLeft !== null ? (hoursLeft > 0 ? `⏳ *~${hoursLeft} hours remaining until deadline*` : `⏳ *Deadline cutoff in progress!*`) : `⏳ *Gameweek deadline approaching*`;
     const pochiText = leagueSettings?.paymentDetails || leagueSettings?.pochiNumber || leagueSettings?.chairmanPhone || '';
-    const totalPotAtStake = (members.filter(m => m.isActive !== false).length) * (gameweekStake || 0);
+    const totalPotAtStake = (members.filter(m => m.isActive !== false && (m as any).playMode !== "sidebets_only").length) * (gameweekStake || 0);
     const weeklyPrize = Math.round(totalPotAtStake * (rules.weekly / 100));
 
     const message = [
@@ -3211,39 +3211,63 @@ burstFrame();
                     <div className="flex items-center justify-between gap-1 w-full">
                       <p className={clsx(
                         "fc-metric-label text-xs tracking-wide font-semibold",
-                        gwAlreadySettled ? "text-emerald-300" : "text-white"
+                        gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-white" : "text-emerald-400"
                       )}>
-                        {gwAlreadySettled ? "GW Settled ✓" : "Settle GW Winner"}
+                        {gwAlreadySettled
+                          ? "GW Settled ✓"
+                          : isCurrentEventFinished
+                            ? "Settle GW Winner"
+                            : "GW In Play 🟢"
+                        }
                       </p>
-                      {gwAlreadySettled && (
+                      {gwAlreadySettled ? (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      )}
+                      ) : !isCurrentEventFinished ? (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="my-auto py-1 flex flex-col items-center justify-center text-center w-full">
                       <p className={clsx(
                         "text-lg md:text-xl font-black tracking-tight",
-                        gwAlreadySettled ? "text-emerald-300" : "text-[#FBBF24]"
+                        gwAlreadySettled
+                          ? "text-emerald-300"
+                          : isCurrentEventFinished
+                            ? "text-[#FBBF24]"
+                            : "text-emerald-400"
                       )}>
                         {gwAlreadySettled
                           ? `GW${currentGwNumber || ''} Done`
-                          : `Pay GW${currentGwNumber || ''} Winner`
+                          : isCurrentEventFinished
+                            ? `Pay GW${currentGwNumber || ''} Winner`
+                            : `GW${currentGwNumber || ''} Live Matches`
                         }
                       </p>
                       <span className={clsx(
                         "text-[11px] font-bold mt-1 px-2.5 py-0.5 rounded-full inline-block",
                         gwAlreadySettled 
                           ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
-                          : "text-amber-300 bg-amber-500/10 border border-amber-500/20"
+                          : isCurrentEventFinished
+                            ? "text-amber-300 bg-amber-500/10 border border-amber-500/20"
+                            : "text-emerald-300 bg-emerald-500/10 border border-emerald-500/30"
                       )}>
                         {gwAlreadySettled 
                           ? `Awaiting GW${currentGwNumber ? currentGwNumber + 1 : ''}` 
-                          : "Deadline Finalized"}
+                          : isCurrentEventFinished
+                            ? "Deadline Finalized"
+                            : "Fixtures in Progress"}
                       </span>
                     </div>
 
                     <p className="text-[10px] text-gray-500 text-center font-medium">
-                      {gwAlreadySettled ? "Tap to review settlement" : "Ready for payout"}
+                      {gwAlreadySettled
+                        ? "Tap to review settlement"
+                        : isCurrentEventFinished
+                          ? "Ready for payout"
+                          : "Resolves after final whistle"}
                     </p>
                   </div>
                   <div
@@ -4223,13 +4247,18 @@ burstFrame();
                           {isStealthMode ? "****" : `KES ${wallet.toLocaleString()}`}
                         </div>
                         <div className="text-[10px] text-gray-600 font-medium">
-                          {gwsLeft > 0 ? `${gwsLeft} GW${gwsLeft !== 1 ? "s" : ""} covered` : "Top up needed"}
+                          {(row as any).playMode === "sidebets_only" ? "Side-bets only" : gwsLeft > 0 ? `${gwsLeft} GW${gwsLeft !== 1 ? "s" : ""} covered` : "Top up needed"}
                         </div>
                       </div>
 
                       {/* Status badge */}
                       <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
-                        {memberHasFunding(row) ? (
+                        {(row as any).playMode === "sidebets_only" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold" title="Spectator & 1v1 Side-Bets Only">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                            <span>Spectator</span>
+                          </span>
+                        ) : memberHasFunding(row) ? (
                           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold">
                             <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                             <span className="hidden sm:inline">Funded</span>
@@ -4537,6 +4566,18 @@ burstFrame();
 
                 {/* Body */}
                 <div className="p-5 space-y-4 overflow-y-auto">
+                  {!isCurrentEventFinished && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-300">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-bold text-white">Gameweek {currentGwNumber || ''} Fixtures Still in Play</p>
+                        <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                          Matches are currently active. Official FPL scores, bonus points, and rankings will finalize once the Premier League marks all fixtures finished.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Payout summary */}
                   <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
                     <div>

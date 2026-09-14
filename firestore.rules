@@ -65,10 +65,28 @@ service cloud.firestore {
         // Authenticated read only — phone numbers are PII; no public exposure
         allow read: if isAuthenticated();
 
-        allow create: if isAdmin(leagueId);
+        allow create: if
+          isAdmin(leagueId)
+          ||
+          (
+            // Self-onboarding: member can create their own profile with 0 wallet balance and member role
+            isAuthenticated() &&
+            request.resource.data.walletBalance == 0 &&
+            request.resource.data.hasPaid == false &&
+            request.resource.data.role == 'member' &&
+            request.resource.data.authUid == request.auth.uid
+          );
 
         allow update: if
           isAdmin(leagueId)
+          ||
+          (
+            // Member claiming an unlinked pending imported team
+            isAuthenticated() &&
+            (resource.data.get('isPending', false) == true || resource.data.get('phone', '') == '') &&
+            !touchesFinancialFields() &&
+            request.resource.data.authUid == request.auth.uid
+          )
           ||
           (
             // Member updating their own non-financial profile fields

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -50,6 +50,7 @@ export default function Profile() {
     const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
     const [isDeletingMember, setIsDeletingMember] = useState(false);
     const [showDocsModal, setShowDocsModal] = useState(false);
+    const [onboardingSearch, setOnboardingSearch] = useState('');
 
     const isMemberFunded = (m: any) =>
         m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
@@ -458,6 +459,12 @@ export default function Profile() {
         // Funded members are considered active regardless of phone status
         // Only show as "Pending Onboarding" if they have no phone AND are not funded
         const pendingMembers = members.filter((m: any) => isMemberPending(m));
+        const filteredPendingMembers = pendingMembers.filter((m: any) => {
+            if (!onboardingSearch.trim()) return true;
+            const q = onboardingSearch.toLowerCase();
+            return (m.displayName || '').toLowerCase().includes(q) ||
+                   (m.fplTeamName || '').toLowerCase().includes(q);
+        });
         const directoryMembers = members.filter((m: any) => !isMemberPending(m));
         return (
         <div className={clsx(
@@ -541,9 +548,35 @@ export default function Profile() {
                             Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger. Or share the code so members can join directly.
                         </p>
 
+                        {/* Search Bar for Member Matching */}
+                        <div className="relative mb-3 shrink-0">
+                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <input
+                                type="text"
+                                value={onboardingSearch}
+                                onChange={(e) => setOnboardingSearch(e.target.value)}
+                                placeholder="Search member name or FPL team..."
+                                className="w-full pl-10 pr-12 py-2.5 bg-[#141b22] border border-white/10 rounded-xl text-xs text-white placeholder-gray-500 focus:border-blue-400 focus:outline-none transition-all"
+                            />
+                            {onboardingSearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setOnboardingSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 hover:text-white uppercase font-bold"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+
                         {/* Scrollable Members List */}
                         <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                            {pendingMembers.map((m: any) => (
+                            {filteredPendingMembers.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500 text-xs">
+                                    No pending members match "{onboardingSearch}"
+                                </div>
+                            ) : (
+                                filteredPendingMembers.map((m: any) => (
                                 <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#141b22] border border-white/10 hover:border-blue-500/40 transition-all">
                                     <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
                                         <UserAvatar name={m.displayName} size="md" />
@@ -598,7 +631,7 @@ export default function Profile() {
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                            )))}
                         </div>
                     </div>
                 </div>,

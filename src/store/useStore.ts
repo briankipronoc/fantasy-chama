@@ -22,6 +22,8 @@ export interface Member {
     paymentStreak?: number;     // Consecutive GWs paid without missing (Streak engine)
     fcmToken?: string;          // FCM device push token
     teamName?: string;          // FPL Team Name
+    playMode?: 'pot' | 'sidebets_only'; // 'pot': regular weekly/season cash pot, 'sidebets_only': free spectator & 1v1 side bets
+    joinedGw?: number;          // Gameweek joined (contributions only apply from this GW forward)
 }
 
 export interface LeagueSettings {

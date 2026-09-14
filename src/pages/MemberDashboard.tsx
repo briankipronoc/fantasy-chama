@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -82,6 +82,7 @@ export default function MemberDashboard() {
     const [activeLeagueRole, setActiveLeagueRole] = useState<string>('member');
     const [showLeagueGuide, setShowLeagueGuide] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
+    const [isUpgradingToPot, setIsUpgradingToPot] = useState(false);
 
     const members = useStore(state => state.members);
     const logout = useStore(state => state.logout);
@@ -128,6 +129,7 @@ export default function MemberDashboard() {
         || (role === 'admin' ? chairmanMember : undefined)
         || (role === 'admin' ? members.find(m => (m as any).role === 'admin') : undefined);
     const walletBalance = currentUser?.walletBalance || 0;
+    const isSpectator = currentUser?.playMode === 'sidebets_only';
     const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
     const activeUserId = currentUser?.id || activeUserIdStored || 'dummy';
     const coChairMember = members.find(m => m.id === coAdminId);
@@ -427,6 +429,23 @@ export default function MemberDashboard() {
         setToastType(type);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setTimeout(() => setToastMessage(''), 3000);
+    };
+
+    const handleUpgradeToPot = async () => {
+        if (!activeLeagueId || !currentUser?.id) return;
+        setIsUpgradingToPot(true);
+        try {
+            await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', currentUser.id), {
+                playMode: 'pot',
+                updatedAt: serverTimestamp()
+            });
+            showToast("Upgraded to Weekly & Season Cash Pot! Top up your wallet to compete in the next round.", 'success');
+        } catch (err: any) {
+            console.error("Failed to upgrade:", err);
+            showToast("Failed to switch mode. Please try again.", 'error');
+        } finally {
+            setIsUpgradingToPot(false);
+        }
     };
 
     const handleMpesaSTKPush = async (amount = gameweekStake) => {
@@ -902,13 +921,15 @@ export default function MemberDashboard() {
                     "fc-card mt-3 mb-3 rounded-3xl border p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4",
                     isCurrentUserGwWinner
                         ? "border-amber-400/30 bg-gradient-to-br from-amber-400/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24]"
-                        : hasPaid
-                            ? "border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
-                            : "border-red-400/20 bg-gradient-to-br from-red-400/6 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
+                        : isSpectator
+                            ? "border-cyan-500/25 bg-gradient-to-br from-cyan-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
+                            : hasPaid
+                                ? "border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
+                                : "border-red-400/20 bg-gradient-to-br from-red-400/6 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
                 )}>
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400 mb-2">
-                            {hasPaid ? '✓ Contribution Secured' : 'Action Required'}
+                            {isSpectator ? '🛡️ Spectator Mode · Side-Bets Active' : (hasPaid ? '✓ Contribution Secured' : 'Action Required')}
                         </p>
                         <div className="flex items-center gap-2.5">
                             <span className="text-2xl md:text-3xl">
@@ -918,8 +939,8 @@ export default function MemberDashboard() {
                                 {greetingText},{' '}
                                 <span className={clsx(
                                     "bg-clip-text text-transparent bg-gradient-to-r",
-                                    isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : hasPaid ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
-                                    )}>
+                                    isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : isSpectator ? "from-cyan-400 to-teal-300" : hasPaid ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
+                                )}>
                                     {firstName}!
                                 </span>
                             </p>
@@ -1091,7 +1112,7 @@ export default function MemberDashboard() {
                 ) : (
                     <>
                         {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
-                        {(currentUser && (winnerConfirmation || !hasPaid)) && (
+                        {(currentUser && (winnerConfirmation || (!hasPaid && !isSpectator))) && (
                             <div className={clsx(
                                 "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
                                 winnerConfirmation
@@ -1122,6 +1143,38 @@ export default function MemberDashboard() {
                                         Confirm ✓
                                     </button>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Spectator Mode Banner */}
+                        {currentUser && isSpectator && (
+                            <div className="w-full rounded-2xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_20px_rgba(6,182,212,0.08)] animate-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl flex-shrink-0">🛡️</span>
+                                    <div>
+                                        <p className="font-extrabold text-sm text-cyan-300 leading-tight">
+                                            Spectator & Side-Bets Mode Active
+                                        </p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                            You are not charged weekly pot stakes. You can challenge rivals to 1v1 M-Pesa side bets anytime!
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    <button
+                                        onClick={() => navigate('/sidebets')}
+                                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-xs font-black hover:opacity-90 transition-all flex items-center gap-1.5"
+                                    >
+                                        <Swords className="w-3.5 h-3.5" /> Side Bets
+                                    </button>
+                                    <button
+                                        onClick={handleUpgradeToPot}
+                                        disabled={isUpgradingToPot}
+                                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/10 disabled:opacity-50"
+                                    >
+                                        {isUpgradingToPot ? "Upgrading..." : "Join Pot 🏆"}
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -1378,7 +1431,8 @@ export default function MemberDashboard() {
                             "lg:col-span-5 rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50 flex flex-col justify-between h-full",
                             isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
                                 (isCurrentGwVoided ? "bg-amber-500/5 border-amber-500/20" :
-                                    (hasPaid ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20"))
+                                    (isSpectator ? "bg-cyan-500/5 border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.08)]" :
+                                        (hasPaid ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")))
                         )}>
                             {isRecentWinner && (
                                 <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-[#FBBF24] to-transparent" />
@@ -1388,36 +1442,60 @@ export default function MemberDashboard() {
                                 <span className={clsx(
                                     "text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 mb-2",
                                     isRecentWinner ? "text-[#FBBF24]" :
-                                        (isCurrentGwVoided ? "text-amber-400" : (hasPaid ? "text-[#10B981]" : "text-red-400"))
+                                        (isCurrentGwVoided ? "text-amber-400" :
+                                            (isSpectator ? "text-cyan-400" : (hasPaid ? "text-[#10B981]" : "text-red-400")))
                                 )}>
                                     <span className={clsx(
                                         "w-1.5 h-1.5 rounded-full animate-pulse",
                                         isRecentWinner ? "bg-[#FBBF24]" :
-                                            (isCurrentGwVoided ? "bg-amber-400" : (hasPaid ? "bg-[#10B981]" : "bg-red-500"))
+                                            (isCurrentGwVoided ? "bg-amber-400" :
+                                                (isSpectator ? "bg-cyan-400" : (hasPaid ? "bg-[#10B981]" : "bg-red-500")))
                                     )} />
-                                    Your Gameweek Status
+                                    {isSpectator ? "Spectator & Side-Bets Active" : "Your Gameweek Status"}
                                 </span>
-                                <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : "text-white")}>
+                                <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : (isSpectator ? "text-cyan-300" : "text-white"))}>
                                     {isRecentWinner
                                         ? "Champion of the Week 🏆"
                                         : (isCurrentGwVoided
                                             ? "Gameweek Voided ⚠️"
-                                            : (hasPaid ? "Verified & Active" : "Action Required"))}
+                                            : (isSpectator
+                                                ? "Spectator & Side-Bets Only 🛡️"
+                                                : (hasPaid ? "Verified & Active" : "Action Required")))}
                                 </h3>
-                                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
+                                <p className="text-xs text-gray-400 leading-relaxed mb-4">
                                     {isRecentWinner
                                         ? "Incredible! You secured the highest points this GW. Payout processing."
                                         : (isCurrentGwVoided
                                             ? "Contest requires at least 2 funded managers to disburse the weekly pot. All funds and balances are preserved."
-                                            : (hasPaid
-                                                ? `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`
-                                                : (currentUser?.missedGameweeks === 1
-                                                    ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
-                                                    : "Your contribution is missing. Pay before the FPL deadline.")))}
+                                            : (isSpectator
+                                                ? "You chose not to play the weekly and season cash pot. No weekly dues or arrears apply to you! You can freely track standings, banter, and challenge any rival to 1v1 M-Pesa cash side bets."
+                                                : (hasPaid
+                                                    ? `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`
+                                                    : (currentUser?.missedGameweeks === 1
+                                                        ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
+                                                        : "Your contribution is missing. Pay before the FPL deadline."))))}
                                 </p>
                             </div>
 
-                            {!hasPaid && !isCurrentGwVoided && (
+                            {isSpectator ? (
+                                <div className="flex flex-col gap-2 mt-auto">
+                                    <button
+                                        onClick={() => navigate('/sidebets')}
+                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:opacity-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 active:scale-[0.98]"
+                                    >
+                                        <Swords className="w-4 h-4" />
+                                        Place Head-to-Head Side Bet
+                                    </button>
+                                    <button
+                                        onClick={handleUpgradeToPot}
+                                        disabled={isUpgradingToPot}
+                                        className="w-full px-4 py-2 rounded-xl font-semibold text-[11px] bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                    >
+                                        <Trophy className="w-3.5 h-3.5 text-[#10B981]" />
+                                        {isUpgradingToPot ? "Activating..." : `Upgrade to Weekly & Season Pot (KES ${gameweekStake.toLocaleString()}/GW)`}
+                                    </button>
+                                </div>
+                            ) : !hasPaid && !isCurrentGwVoided ? (
                                 <div className="flex flex-col gap-2 mt-auto">
                                     <div className="flex items-baseline justify-center gap-1.5 mb-2 mt-1">
                                         <span className="text-3xl font-black text-white tracking-tight tabular-nums">
@@ -1457,7 +1535,7 @@ export default function MemberDashboard() {
                                         </button>
                                     </div>
                                 </div>
-                            )}
+                            ) : null}
                             {hasPaid && !isCurrentGwVoided && (
                                 <div className="flex items-center gap-2 text-[#10B981]/70 text-xs font-bold mt-auto">
                                     <Check className="w-4 h-4" /> Contribution confirmed
