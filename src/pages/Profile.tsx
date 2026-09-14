@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -26,6 +26,7 @@ export default function Profile() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [fplTeamName, setFplTeamName] = useState('');
     const [avatarSeed, setAvatarSeed] = useState('chairman');
+    const [playMode, setPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
     const [isSavingMember, setIsSavingMember] = useState(false);
     const [fplStandings, setFplStandings] = useState<any[]>([]);
     const [isFetchingFpl, setIsFetchingFpl] = useState(false);
@@ -256,6 +257,7 @@ export default function Profile() {
                 setPhoneNumber(currentMember.phone || '');
                 setFplTeamName((currentMember as any).fplTeamId ? String((currentMember as any).fplTeamId) : '');
                 setAvatarSeed((currentMember as any).avatarSeed || ((currentMember.role === 'admin' || role === 'admin') ? 'chairman' : currentMember.displayName));
+                setPlayMode((currentMember as any).playMode || 'pot');
             }
         }
     }, [members, activeUserId, role]);
@@ -299,7 +301,8 @@ export default function Profile() {
                 const updates: any = {
                     displayName: displayName,
                     phone: phoneNumber,
-                    avatarSeed: avatarSeed
+                    avatarSeed: avatarSeed,
+                    playMode: playMode,
                 };
 
                 // The dropdown stores the numeric FPL entry ID. Only update if valid.
@@ -314,7 +317,13 @@ export default function Profile() {
                 }
 
                 await updateDoc(memberRef, updates);
-                toast.success('Profile updated successfully!');
+                const currentMember = members.find(m => m.id === targetMemberId);
+                const currentBal = Number(currentMember?.walletBalance || 0);
+                if (playMode === 'pot' && gameweekStake > 0 && currentBal < gameweekStake) {
+                    toast.success('Profile saved! Remember to fund your wallet to activate pot eligibility.', { duration: 4500 });
+                } else {
+                    toast.success('Profile updated successfully!');
+                }
             }
         } catch (error) {
             toast.error('Could not save profile changes.');
@@ -848,11 +857,57 @@ export default function Profile() {
                                     <p className="text-[10px] text-gray-600 font-medium mt-1.5 leading-relaxed">Managed by Firebase Auth. Cannot be changed here.</p>
                                 </div>
 
-                                    <button
-                                        type="submit"
-                                        disabled={isSavingMember}
-                                        className="w-full bg-[#10B981] hover:bg-[#10B981]/80 text-[#0b1014] font-bold rounded-xl py-3.5 transition-colors mt-1 flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                                    >
+                                {/* Participation Mode Selector */}
+                                <div>
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Trophy className="w-3 h-3 text-amber-400" /> Chama Participation Mode
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPlayMode('pot')}
+                                            className={clsx(
+                                                "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                                                playMode === 'pot'
+                                                    ? "border-emerald-500/50 bg-emerald-500/10 text-white shadow-sm"
+                                                    : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs font-bold text-emerald-400">Weekly & Season Pot</span>
+                                                {playMode === 'pot' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 leading-snug">
+                                                Active cash pot contender. Eligible for weekly & season prizes when wallet is funded.
+                                            </p>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setPlayMode('sidebets_only')}
+                                            className={clsx(
+                                                "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                                                playMode === 'sidebets_only'
+                                                    ? "border-cyan-500/50 bg-cyan-500/10 text-white shadow-sm"
+                                                    : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
+                                            )}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs font-bold text-cyan-400">Spectator Mode</span>
+                                                {playMode === 'sidebets_only' && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 leading-snug">
+                                                Free system visibility. Play 1v1 side bets. Not enrolled in cash pot dues or payouts.
+                                            </p>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSavingMember}
+                                    className="w-full bg-[#10B981] hover:bg-[#10B981]/80 text-[#0b1014] font-bold rounded-xl py-3.5 transition-colors mt-1 flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)] cursor-pointer"
+                                >
                                     {isSavingMember ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </form>
