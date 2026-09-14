@@ -260,7 +260,7 @@ export default function Standings() {
                 const current = (data?.events || []).find((event: any) => event.is_current);
                 if (current?.id) {
                     setCurrentEvent(current.id);
-                    setIsCurrentEventFinished(current.finished === true);
+                    setIsCurrentEventFinished(Boolean(current.finished === true && current.data_checked === true));
                 }
             } catch (err) {
                 console.warn('Could not fetch current FPL event', err);
@@ -342,6 +342,7 @@ export default function Standings() {
         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
         if (!matched) return false;
         if (matched.isActive === false) return false;
+        if ((matched as any).playMode === 'sidebets_only') return false;
         const stake = Number((league as any)?.gameweekStake || (league as any)?.monthlyFee || 0);
         return matched.hasPaid === true || (stake > 0 && (matched.walletBalance || 0) >= stake);
     };
@@ -697,7 +698,11 @@ export default function Standings() {
                                                 <div className="font-extrabold text-white text-sm tabular-nums">{row.total.toLocaleString()}</div>
                                             </div>
                                             <div className="md:col-span-2 flex justify-end md:justify-end items-center w-28 md:w-auto">
-                                                {!isFunded ? (
+                                                {isSpectator ? (
+                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-cyan-400 border-cyan-500/25 bg-cyan-500/10 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> Spectator
+                                                    </span>
+                                                ) : !isFunded ? (
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
                                                     </span>

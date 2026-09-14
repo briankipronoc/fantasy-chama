@@ -536,7 +536,7 @@ export default function AdminCommandCenter() {
             if (nextEvent?.deadline_time) {
               setNextDeadlineTime(nextEvent.deadline_time);
             }
-            setIsCurrentEventFinished(current?.finished === true);
+            setIsCurrentEventFinished(Boolean(current?.finished === true && current?.data_checked === true));
             const fetchedGwId = Number(current?.id || 0) || null;
             setCurrentGwNumber(fetchedGwId);
             if (fetchedGwId && !data.startGw && activeLeagueId) {
@@ -1771,7 +1771,7 @@ export default function AdminCommandCenter() {
           const currentEvent = events.find((e: any) => e.is_current) || events.find((e: any) => e.is_next);
           if (currentEvent) {
             gwNumber = Number(currentEvent.id || 0);
-            isGwFinished = currentEvent.finished === true;
+            isGwFinished = Boolean(currentEvent.finished === true && currentEvent.data_checked === true);
             setCurrentGwNumber(gwNumber || null);
           }
         }
