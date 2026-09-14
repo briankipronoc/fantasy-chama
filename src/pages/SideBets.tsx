@@ -124,31 +124,37 @@ export default function SideBets() {
                 ? (currentUser.secondFplTeamId || currentUser.fplTeamId)
                 : currentUser.fplTeamId;
 
+            const challengerId = currentUser.id || activeUserId || '';
+            const challengerName = currentUser.displayName || (currentUser as any).name || 'Challenger';
+            const opponentIdClean = opponent.id || opponentId || '';
+            const opponentName = opponent.displayName || (opponent as any).name || 'Opponent';
+
             const challengerData: Record<string, any> = {
-                id: currentUser.id,
-                name: currentUser.displayName || 'Challenger',
+                id: challengerId,
+                name: challengerName,
                 signed: true,
             };
             if (currentUser.secondFplTeamId) {
                 challengerData.teamLabel = selectedTeam === 'secondary' ? 'Team 2' : 'Team 1';
             }
-            if (challengerFplEntry) {
-                challengerData.fplEntryId = Number(challengerFplEntry);
+            const parsedFpl = Number(challengerFplEntry);
+            if (challengerFplEntry && !isNaN(parsedFpl) && parsedFpl > 0) {
+                challengerData.fplEntryId = parsedFpl;
             }
 
             await addDoc(collection(db, 'leagues', activeLeagueId, 'side_bets'), {
                 title: betTitle.trim(),
-                description: betDescription.trim() || '',
+                description: (betDescription || '').trim(),
                 challenger: challengerData,
                 opponent: {
-                    id: opponent.id,
-                    name: opponent.displayName || 'Opponent',
+                    id: opponentIdClean,
+                    name: opponentName,
                     signed: false
                 },
-                challengerId: currentUser.id,
-                opponentId: opponent.id,
-                stake,
-                amount: stake,
+                challengerId,
+                opponentId: opponentIdClean,
+                stake: Number(stake) || 0,
+                amount: Number(stake) || 0,
                 status: 'pending_opponent',
                 winnerId: null,
                 winnerName: null,
@@ -161,7 +167,7 @@ export default function SideBets() {
             // Create notification for league
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `🎲 ${currentUser.displayName || 'A member'} challenged ${opponent.displayName || 'an opponent'} to a side bet: "${betTitle.trim()}" (KES ${stake.toLocaleString()})`,
+                message: `🎲 ${challengerName} challenged ${opponentName} to a side bet: "${betTitle.trim()}" (KES ${stake.toLocaleString()})`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
