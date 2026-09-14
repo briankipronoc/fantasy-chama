@@ -499,11 +499,18 @@ export default function Standings() {
                             <p className="text-2xl font-black text-white">
                                 {eligibleGwStandings.length} <span className="text-sm font-bold text-gray-400">/ {standingsData.length || members.length} Paid</span>
                             </p>
-                            <p className="text-[10px] font-semibold mt-0.5 text-amber-400">
-                                {Math.max(0, (standingsData.length || members.length) - eligibleGwStandings.length) > 0
-                                    ? `${Math.max(0, (standingsData.length || members.length) - eligibleGwStandings.length)} in Red Zone (scores blurred)`
-                                    : '100% of league funded ✓'}
-                            </p>
+                            {(() => {
+                                const spectatorCount = members.filter(m => m.isActive !== false && m.playMode === 'sidebets_only').length;
+                                const unpaidCount = Math.max(0, (standingsData.length || members.length) - eligibleGwStandings.length - spectatorCount);
+                                return (
+                                    <p className="text-[10px] font-semibold mt-0.5 text-amber-400">
+                                        {unpaidCount > 0
+                                            ? `${unpaidCount} in Red Zone (unpaid)`
+                                            : 'All pot members funded ✓'}
+                                        {spectatorCount > 0 ? ` · ${spectatorCount} Spectators (1v1 Bets)` : ''}
+                                    </p>
+                                );
+                            })()}
                         </div>
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                             <Users className="w-5 h-5 text-emerald-400" />
@@ -609,10 +616,12 @@ export default function Standings() {
                                 const isTop1Overall = index === 0;
                                 const isInPodium = index < visibleSeasonWinnerCount;
                                 const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
+                                const isSpectator = (matchedMember as any)?.playMode === 'sidebets_only';
                                 const stake = Number((league as any)?.gameweekStake || (league as any)?.monthlyFee || 0);
                                 const isFunded = Boolean(
                                     matchedMember &&
                                     matchedMember.isActive !== false &&
+                                    !isSpectator &&
                                     (matchedMember.hasPaid === true || (stake > 0 && (matchedMember.walletBalance || 0) >= stake))
                                 );
                                 const isGwWinnerRow = Boolean(
@@ -635,7 +644,7 @@ export default function Standings() {
                                             isTop1Overall ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
                                             isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
                                             isMe ? 'ring-1 ring-[#FBBF24]/40' : '',
-                                            !isFunded && 'opacity-40 blur-[0.4px] hover:blur-none hover:opacity-85 transition-all saturate-50'
+                                            !isFunded && !isSpectator && 'opacity-40 blur-[0.4px] hover:blur-none hover:opacity-85 transition-all saturate-50'
                                         )}
                                     >
                                         {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
@@ -653,7 +662,9 @@ export default function Standings() {
                                                     {matchedMember?.id === coAdminId && matchedMember.id !== chairmanId && matchedMember.isActive !== false && (matchedMember.role === 'co-chair' || matchedMember.role === 'admin') && (
                                                         <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30">Co</span>
                                                     )}
-                                                    {!isFunded ? (
+                                                    {isSpectator ? (
+                                                        <span className="bg-cyan-500/15 text-cyan-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-cyan-500/25">Spectator</span>
+                                                    ) : !isFunded ? (
                                                         <span className="bg-red-500/15 text-red-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-red-500/25">Unfunded</span>
                                                     ) : (
                                                         <Circle className="w-2 h-2 fill-current text-[#10B981]" />
@@ -674,7 +685,7 @@ export default function Standings() {
                                                     'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
                                                     isGwWinnerRow
                                                         ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
-                                                        : isFunded
+                                                        : (isFunded || isSpectator)
                                                             ? 'bg-white/5 text-slate-200 border-white/5'
                                                             : 'bg-white/5 text-gray-500 border-white/5 line-through'
                                                 )}>

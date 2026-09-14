@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Shield, ArrowRight, Wallet, Smartphone, Copy, Check, Send, Info, AlertCircle, QrCode, Zap, CheckCircle2, MessageCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Shield, ArrowRight, Wallet, Smartphone, Copy, Check, Send, Info, AlertCircle, QrCode, Zap, CheckCircle2, MessageCircle, Trophy } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, serverTimestamp, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 export default function Deposit() {
@@ -20,6 +21,10 @@ export default function Deposit() {
     const [copiedPhone, setCopiedPhone] = useState(false);
     const [isSubmittingPochiAck, setIsSubmittingPochiAck] = useState(false);
     const [pochiAckSent, setPochiAckSent] = useState(false);
+
+    const location = useLocation();
+    const currentMember = members.find(m => m.id === activeUserId);
+    const isUpgrading = location.state?.upgradeMode || (currentMember as any)?.playMode === 'sidebets_only';
 
     const [paymentMode, setPaymentMode] = useState<'gw'|'month'|'custom'>('gw');
     const [customAmount, setCustomAmount] = useState<string>('');
@@ -73,6 +78,18 @@ export default function Deposit() {
                 type: 'pochi_deposit',
                 createdAt: serverTimestamp(),
             });
+
+            if (activeLeagueId && activeUserId && isUpgrading) {
+                try {
+                    await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', activeUserId), {
+                        playMode: 'pot',
+                        updatedAt: serverTimestamp()
+                    });
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+
             setPochiAckSent(true);
             toast.success('Transfer confirmed! Chairman will verify and credit your wallet.');
         } catch {
@@ -92,8 +109,21 @@ export default function Deposit() {
             if (!apiUrl) throw new Error('Payment server not configured. Contact chairman.');
             const userId = activeUserId || members.find(m => m.phone === memberPhone)?.id || 'guest';
             const data = await secureApiPost(`${apiUrl}/api/mpesa/stkpush`, { phoneNumber, amount: finalAmount, leagueId: activeLeagueId, userId });
-            if (data.success) toast.success(data.message || 'Check your phone for M-Pesa PIN prompt...');
-            else throw new Error(data.message || 'Payment initiation failed');
+            if (data.success) {
+                if (activeLeagueId && activeUserId && isUpgrading) {
+                    try {
+                        await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', activeUserId), {
+                            playMode: 'pot',
+                            updatedAt: serverTimestamp()
+                        });
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                }
+                toast.success(data.message || 'Check your phone for M-Pesa PIN prompt...');
+            } else {
+                throw new Error(data.message || 'Payment initiation failed');
+            }
         } catch (error: any) {
             toast.error(error.message || 'Failed to initiate M-Pesa push');
         } finally {
@@ -142,6 +172,18 @@ export default function Deposit() {
                     <h1 className="fc-hero-heading text-3xl md:text-4xl text-white mb-1">{leagueName}</h1>
                     <p className="text-gray-500 text-sm font-medium">Secure · Chairman-verified · Instant credit</p>
                 </div>
+
+                {isUpgrading && (
+                    <div className="bg-[#FBBF24]/10 border border-[#FBBF24]/30 rounded-2xl p-4 mb-6 text-left flex items-start gap-3 shadow-[0_0_25px_rgba(251,191,36,0.1)]">
+                        <Trophy className="w-5 h-5 text-[#FBBF24] shrink-0 mt-0.5" />
+                        <div>
+                            <h3 className="text-sm font-black text-[#FBBF24]">Upgrading to Weekly & Season Cash Pot</h3>
+                            <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">
+                                Fund your wallet with at least 1 Gameweek stake to activate cash pot eligibility. You will compete for weekly 1st-place payouts and the season vault jackpot!
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── AMOUNT SELECTOR ── */}
                 <div className="fc-card rounded-[1.5rem] p-5 mb-4 fc-slide-up" style={{ animationDelay: '0.05s' }}>

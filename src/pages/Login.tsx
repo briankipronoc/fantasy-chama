@@ -29,6 +29,7 @@ export default function Login() {
         userUid: string;
         currentGw: number;
         unlinkedTeams: any[];
+        invitedBy: string;
     } | null>(null);
     const [selectedTeamClaim, setSelectedTeamClaim] = useState<string>('custom');
     const [onboardManagerName, setOnboardManagerName] = useState('');
@@ -182,6 +183,11 @@ export default function Login() {
                     // fallback to detectedGw
                 }
 
+                const chairmanMember = allMembersSnap.docs
+                    .map(d => d.data())
+                    .find((m: any) => m.role === 'admin' || m.role === 'chairman');
+                const invitedBy = leagueData.data()?.chairmanName || chairmanMember?.displayName || 'The Chairman';
+
                 setOnboardData({
                     leagueId,
                     leagueName: leagueData.data()?.name || 'Fantasy Chama',
@@ -190,6 +196,7 @@ export default function Login() {
                     userUid,
                     currentGw: detectedGw,
                     unlinkedTeams: unlinked,
+                    invitedBy,
                 });
 
                 if (unlinked.length > 0) {
@@ -692,8 +699,11 @@ export default function Login() {
                             <h2 className="text-xl md:text-2xl font-black tracking-tight mb-1">
                                 Welcome to {onboardData.leagueName}!
                             </h2>
-                            <p className="text-xs text-gray-400">
-                                Joining via WhatsApp Invite Code <span className="text-emerald-400 font-mono font-bold">{code.join('')}</span>
+                            <p className="text-xs text-gray-300">
+                                Invited by <span className="text-[#FBBF24] font-bold">{onboardData.invitedBy}</span>
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                                WhatsApp Invite Code <span className="text-emerald-400 font-mono font-bold">{code.join('')}</span>
                             </p>
                         </div>
 

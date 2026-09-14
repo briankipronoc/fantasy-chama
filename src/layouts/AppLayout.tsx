@@ -112,11 +112,12 @@ export default function AppLayout() {
 
 
     // Navigation Items
-    const redZoneCount = members.filter((m) => m.role !== 'admin' && m.isActive !== false && !m.hasPaid).length;
+    const redZoneCount = members.filter((m) => m.role !== 'admin' && m.isActive !== false && (m as any).playMode !== 'sidebets_only' && !m.hasPaid).length;
     const adminFinanceBadge = redZoneCount + pendingApprovalCount;
     const activeUserMember = members.find(m => m.id === activeUserId);
-    // Member badge: only show if the current user personally hasn't paid (not all members)
-    const memberOwnUnpaid = activeUserMember && !activeUserMember.hasPaid ? 1 : 0;
+    // Member badge: only show if the current user personally hasn't paid and is playing in the pot
+    const isUserSpectator = (activeUserMember as any)?.playMode === 'sidebets_only';
+    const memberOwnUnpaid = activeUserMember && !isUserSpectator && !activeUserMember.hasPaid ? 1 : 0;
 
     const isCoChair = Boolean(coChairMemberId && activeUserId === coChairMemberId);
     const adminNavItems = [
@@ -131,8 +132,8 @@ export default function AppLayout() {
         { name: 'Member Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
         { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
-        // Only show badge if THIS member personally hasn't paid — not other members' debts
-        { name: 'Finances & Payouts', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: memberOwnUnpaid > 0 ? memberOwnUnpaid : undefined },
+        // Only show badge if THIS member personally hasn't paid in pot mode
+        { name: 'Finances & Payouts', shortName: 'Finances', path: '/finances', icon: memberOwnUnpaid > 0 ? AlertTriangle : BarChart3, badge: memberOwnUnpaid > 0 ? memberOwnUnpaid : undefined },
         { name: 'My Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 

@@ -449,15 +449,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     });
 
 
+        const isSpectator = (currentUser as any)?.playMode === 'sidebets_only';
         const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nowMs + 72 * 60 * 60 * 1000);
         const dueDate = new Date(dueTs);
-        const nextDueStatus = currentUser?.hasPaid ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue');
-        const nextDueLabel = nextDueStatus === 'on-time' ? 'On Time' : nextDueStatus === 'grace' ? 'Grace Window' : 'Overdue';
-        const nextDueTone = nextDueStatus === 'on-time'
-            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-            : nextDueStatus === 'grace'
-                ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                : 'border-red-500/30 bg-red-500/10 text-red-300';
+        const nextDueStatus = isSpectator ? 'spectator' : (currentUser?.hasPaid ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue'));
+        const nextDueLabel = isSpectator ? 'Spectator Mode' : (nextDueStatus === 'on-time' ? 'On Time' : nextDueStatus === 'grace' ? 'Grace Window' : 'Overdue');
+        const nextDueTone = isSpectator
+            ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+            : (nextDueStatus === 'on-time'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                : nextDueStatus === 'grace'
+                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                    : 'border-red-500/30 bg-red-500/10 text-red-300');
 
     const exportLedgerCSV = () => {
         const exportRows = (isAdmin ? transactions : myTransactions).map((tx: any) => {
@@ -814,16 +817,32 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
                     <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                        <article className="fc-card rounded-2xl p-6 border border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between shadow-md">
+                        <article className={clsx("fc-card rounded-2xl p-6 border flex flex-col justify-between shadow-md", isSpectator ? "border-cyan-500/25 bg-gradient-to-br from-cyan-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">Next Due</p>
-                                    <Clock3 className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
+                                    <p className={clsx("text-[10px] font-black uppercase tracking-widest", isSpectator ? "text-cyan-600 dark:text-cyan-300" : "text-emerald-600 dark:text-emerald-300")}>
+                                        {isSpectator ? "Pot Eligibility" : "Next Due"}
+                                    </p>
+                                    <Clock3 className={clsx("w-4 h-4", isSpectator ? "text-cyan-600 dark:text-cyan-300" : "text-emerald-600 dark:text-emerald-300")} />
                                 </div>
-                                <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">{Number(gameweekStake || 0).toLocaleString()} KES</p>
-                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">Deadline: {dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                                <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
+                                    {isSpectator ? "Spectator (0 KES)" : `${Number(gameweekStake || 0).toLocaleString()} KES`}
+                                </p>
+                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
+                                    {isSpectator ? "Playing Side Bets only · Free to view system" : `Deadline: ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                                </p>
                             </div>
-                            <span className={clsx('mt-4 inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border w-fit', nextDueTone)}>{nextDueLabel}</span>
+                            <div className="mt-4 flex items-center justify-between gap-2">
+                                <span className={clsx('inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border w-fit', nextDueTone)}>{nextDueLabel}</span>
+                                {isSpectator && (
+                                    <button
+                                        onClick={() => navigate('/deposit', { state: { upgradeMode: true } })}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+                                    >
+                                        Upgrade to Pot →
+                                    </button>
+                                )}
+                            </div>
                         </article>
 
                         <article className="fc-card fc-wallet-topup-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] shadow-md">

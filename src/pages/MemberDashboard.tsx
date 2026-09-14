@@ -439,7 +439,15 @@ export default function MemberDashboard() {
                 playMode: 'pot',
                 updatedAt: serverTimestamp()
             });
-            showToast("Upgraded to Weekly & Season Cash Pot! Top up your wallet to compete in the next round.", 'success');
+
+            if (walletBalance < gameweekStake) {
+                showToast(`Upgraded to Cash Pot! Fund at least KES ${(gameweekStake - walletBalance).toLocaleString()} to activate your Gameweek round. Opening deposit...`, 'info');
+                setTimeout(() => {
+                    navigate('/deposit', { state: { upgradeMode: true } });
+                }, 1200);
+            } else {
+                showToast("Upgraded to Weekly & Season Cash Pot! You are funded and eligible for this round.", 'success');
+            }
         } catch (err: any) {
             console.error("Failed to upgrade:", err);
             showToast("Failed to switch mode. Please try again.", 'error');
@@ -1170,9 +1178,10 @@ export default function MemberDashboard() {
                                     <button
                                         onClick={handleUpgradeToPot}
                                         disabled={isUpgradingToPot}
-                                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/10 disabled:opacity-50"
+                                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-black text-xs font-black transition-all flex items-center gap-1 disabled:opacity-50 shadow-md shadow-emerald-500/20 active:scale-95"
                                     >
-                                        {isUpgradingToPot ? "Upgrading..." : "Join Pot 🏆"}
+                                        <Trophy className="w-3.5 h-3.5" />
+                                        {walletBalance >= gameweekStake ? "Activate Pot" : "Fund & Join Pot 🏆"}
                                     </button>
                                 </div>
                             </div>
@@ -1489,10 +1498,14 @@ export default function MemberDashboard() {
                                     <button
                                         onClick={handleUpgradeToPot}
                                         disabled={isUpgradingToPot}
-                                        className="w-full px-4 py-2 rounded-xl font-semibold text-[11px] bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 hover:text-white transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-sm active:scale-[0.98]"
                                     >
-                                        <Trophy className="w-3.5 h-3.5 text-[#10B981]" />
-                                        {isUpgradingToPot ? "Activating..." : `Upgrade to Weekly & Season Pot (KES ${gameweekStake.toLocaleString()}/GW)`}
+                                        <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" />
+                                        {isUpgradingToPot
+                                            ? "Activating..."
+                                            : walletBalance >= gameweekStake
+                                                ? `Activate Cash Pot (Wallet Funded ✓)`
+                                                : `Fund Wallet to Upgrade (KES ${gameweekStake.toLocaleString()}/GW)`}
                                     </button>
                                 </div>
                             ) : !hasPaid && !isCurrentGwVoided ? (
