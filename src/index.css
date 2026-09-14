@@ -871,14 +871,8 @@
   }
   @media (max-width: 768px) {
     .fc-landing-shell {
-      scroll-snap-type: y proximity;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-    }
-    .fc-landing-section {
-      scroll-snap-align: start;
-      scroll-snap-stop: normal;
-      scroll-margin-top: 68px;
     }
   }
   .fc-landing-nav {

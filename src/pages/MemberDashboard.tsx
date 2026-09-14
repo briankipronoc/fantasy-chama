@@ -930,7 +930,7 @@ export default function MemberDashboard() {
                     isCurrentUserGwWinner
                         ? "border-amber-400/30 bg-gradient-to-br from-amber-400/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24]"
                         : isSpectator
-                            ? "border-cyan-500/25 bg-gradient-to-br from-cyan-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
+                            ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
                             : hasPaid
                                 ? "border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
                                 : "border-red-400/20 bg-gradient-to-br from-red-400/6 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
@@ -947,7 +947,7 @@ export default function MemberDashboard() {
                                 {greetingText},{' '}
                                 <span className={clsx(
                                     "bg-clip-text text-transparent bg-gradient-to-r",
-                                    isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : isSpectator ? "from-cyan-400 to-teal-300" : hasPaid ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
+                                    isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : isSpectator ? "from-indigo-400 to-purple-400" : hasPaid ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
                                 )}>
                                     {firstName}!
                                 </span>
@@ -1054,7 +1054,7 @@ export default function MemberDashboard() {
                             }}
                             className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
                         >
-                            🏆 Share Win Card
+                            🏆 Victory Card
                         </button>
                     </div>
                 ) : gwWinner && !currentFplEvent?.finished ? (
@@ -1156,11 +1156,11 @@ export default function MemberDashboard() {
 
                         {/* Spectator Mode Banner */}
                         {currentUser && isSpectator && (
-                            <div className="w-full rounded-2xl border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_20px_rgba(6,182,212,0.08)] animate-in slide-in-from-top-2 duration-300">
+                            <div className="w-full rounded-2xl border border-indigo-500/30 bg-indigo-950/20 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_20px_rgba(99,102,241,0.08)] animate-in slide-in-from-top-2 duration-300">
                                 <div className="flex items-center gap-3">
                                     <span className="text-xl flex-shrink-0">🛡️</span>
                                     <div>
-                                        <p className="font-extrabold text-sm text-cyan-300 leading-tight">
+                                        <p className="font-extrabold text-sm text-indigo-400 dark:text-indigo-300 leading-tight">
                                             Spectator & Side-Bets Mode Active
                                         </p>
                                         <p className="text-[11px] text-gray-400 mt-0.5">
@@ -1440,7 +1440,7 @@ export default function MemberDashboard() {
                             "lg:col-span-5 rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50 flex flex-col justify-between h-full",
                             isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
                                 (isCurrentGwVoided ? "bg-amber-500/5 border-amber-500/20" :
-                                    (isSpectator ? "bg-cyan-500/5 border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.08)]" :
+                                    (isSpectator ? "bg-indigo-500/5 border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.08)]" :
                                         (hasPaid ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")))
                         )}>
                             {isRecentWinner && (
@@ -1452,17 +1452,17 @@ export default function MemberDashboard() {
                                     "text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 mb-2",
                                     isRecentWinner ? "text-[#FBBF24]" :
                                         (isCurrentGwVoided ? "text-amber-400" :
-                                            (isSpectator ? "text-cyan-400" : (hasPaid ? "text-[#10B981]" : "text-red-400")))
+                                            (isSpectator ? "text-indigo-400" : (hasPaid ? "text-[#10B981]" : "text-red-400")))
                                 )}>
                                     <span className={clsx(
                                         "w-1.5 h-1.5 rounded-full animate-pulse",
                                         isRecentWinner ? "bg-[#FBBF24]" :
                                             (isCurrentGwVoided ? "bg-amber-400" :
-                                                (isSpectator ? "bg-cyan-400" : (hasPaid ? "bg-[#10B981]" : "bg-red-500")))
+                                                (isSpectator ? "bg-indigo-400" : (hasPaid ? "bg-[#10B981]" : "bg-red-500")))
                                     )} />
                                     {isSpectator ? "Spectator & Side-Bets Active" : "Your Gameweek Status"}
                                 </span>
-                                <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : (isSpectator ? "text-cyan-300" : "text-white"))}>
+                                <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : (isSpectator ? "text-indigo-300" : "text-white"))}>
                                     {isRecentWinner
                                         ? "Champion of the Week 🏆"
                                         : (isCurrentGwVoided

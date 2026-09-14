@@ -447,7 +447,7 @@ export default function ChampionFlexCardModal({
         {/* Modal Title */}
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-2">
-            <Sparkles className="w-3.5 h-3.5" /> WhatsApp Share Card
+            <Sparkles className="w-3.5 h-3.5" /> WhatsApp Victory Card
           </div>
           <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
             {isSideBet ? 'Share Your Duel Victory!' : 'Share Your Gameweek Victory!'}

@@ -895,13 +895,13 @@ export default function Profile() {
                                             className={clsx(
                                                 "p-3 rounded-xl border text-left transition-all cursor-pointer",
                                                 playMode === 'sidebets_only'
-                                                    ? "border-cyan-500/50 bg-cyan-500/10 text-white shadow-sm"
+                                                    ? "border-indigo-500/50 bg-indigo-500/15 text-white shadow-sm"
                                                     : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
                                             )}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs font-bold text-cyan-400">Spectator Mode</span>
-                                                {playMode === 'sidebets_only' && <CheckCircle2 className="w-4 h-4 text-cyan-400" />}
+                                                <span className="text-xs font-bold text-indigo-400">Spectator Mode</span>
+                                                {playMode === 'sidebets_only' && <CheckCircle2 className="w-4 h-4 text-indigo-400" />}
                                             </div>
                                             <p className="text-[10px] text-gray-400 leading-snug">
                                                 Free system visibility. Play 1v1 side bets. Not enrolled in cash pot dues or payouts.

@@ -475,7 +475,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         const nextDueStatus = isSpectator ? 'spectator' : (currentUser?.hasPaid ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue'));
         const nextDueLabel = isSpectator ? 'Spectator Mode' : (nextDueStatus === 'on-time' ? 'On Time' : nextDueStatus === 'grace' ? 'Grace Window' : 'Overdue');
         const nextDueTone = isSpectator
-            ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300'
+            ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300'
             : (nextDueStatus === 'on-time'
                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
                 : nextDueStatus === 'grace'
@@ -837,13 +837,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
                     <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                        <article className={clsx("fc-card rounded-2xl p-6 border flex flex-col justify-between shadow-md", isSpectator ? "border-cyan-500/25 bg-gradient-to-br from-cyan-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
+                        <article className={clsx("fc-card rounded-2xl p-6 border flex flex-col justify-between shadow-md", isSpectator ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className={clsx("text-[10px] font-black uppercase tracking-widest", isSpectator ? "text-cyan-600 dark:text-cyan-300" : "text-emerald-600 dark:text-emerald-300")}>
+                                    <p className={clsx("text-[10px] font-black uppercase tracking-widest", isSpectator ? "text-indigo-600 dark:text-indigo-300" : "text-emerald-600 dark:text-emerald-300")}>
                                         {isSpectator ? "Pot Eligibility" : "Next Due"}
                                     </p>
-                                    <Clock3 className={clsx("w-4 h-4", isSpectator ? "text-cyan-600 dark:text-cyan-300" : "text-emerald-600 dark:text-emerald-300")} />
+                                    <Clock3 className={clsx("w-4 h-4", isSpectator ? "text-indigo-600 dark:text-indigo-300" : "text-emerald-600 dark:text-emerald-300")} />
                                 </div>
                                 <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
                                     {isSpectator ? "Spectator (0 KES)" : `${Number(gameweekStake || 0).toLocaleString()} KES`}

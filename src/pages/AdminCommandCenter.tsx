@@ -119,6 +119,8 @@ export default function AdminCommandCenter() {
 
   // Phase 29: FPL GW Winner logic
   const [gwWinner, setGwWinner] = useState<any>(null);
+  const [rawFplStandings, setRawFplStandings] = useState<any[]>([]);
+  const [isFplStandingsLoading, setIsFplStandingsLoading] = useState(true);
   const [showChairmanFlexModal, setShowChairmanFlexModal] = useState(false);
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
@@ -558,8 +560,9 @@ export default function AdminCommandCenter() {
         }
       }
 
-      // Fetch Live GW Winner
+      // Fetch Live FPL Standings
       if (data.fplLeagueId) {
+        setIsFplStandingsLoading(true);
         fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
           .then(async (res) => {
             if (!res.ok) throw new Error(`FPL Standings failed with status: ${res.status}`);
@@ -568,37 +571,13 @@ export default function AdminCommandCenter() {
           .then((fplData) => {
             const results = fplData?.standings?.results;
             if (results && results.length > 0) {
-              const norm = (s: string) => String(s || "").toLowerCase().trim();
-              const stake = data.gameweekStake || 0;
-              const eligibleResults = results.filter((r: any) => {
-                const dbMember = members.find((m: any) => {
-                  if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
-                  if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
-                  const db = norm(m.displayName);
-                  return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
-                });
-                const isFunded = dbMember && (dbMember.hasPaid === true || (stake > 0 && (dbMember.walletBalance || 0) >= stake));
-                return dbMember && dbMember.isActive !== false && isFunded;
-              });
-
-              // Chama Rule: Minimum 2 funded managers required for a contestable pot
-              if (eligibleResults.length >= 2) {
-                const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-                const winner = sorted[0];
-                const runnerUp = sorted[1];
-                const leadMargin = Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0);
-                setGwWinner({
-                  ...winner,
-                  runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || '2nd Place',
-                  leadMargin: Math.max(0, leadMargin),
-                });
-              } else {
-                // 0 or 1 funded managers: Gameweek cannot be won by an unfunded manager
-                setGwWinner(null);
-              }
+              setRawFplStandings(results);
             }
           })
-          .catch((err) => console.warn("Could not fetch FPL winner:", err?.message || err));
+          .catch((err) => console.warn("Could not fetch FPL standings:", err?.message || err))
+          .finally(() => setIsFplStandingsLoading(false));
+      } else {
+        setIsFplStandingsLoading(false);
       }
 
       setIsLoading(false);
@@ -611,6 +590,59 @@ export default function AdminCommandCenter() {
 
     return () => unsubscribeLeague();
   }, [activeLeagueId, navigate, listenToLeagueMembers, tutorialSeenKey]);
+
+  // Reactive calculation of live GW Winner — rigorously filters for funded, active, non-spectator members
+  useEffect(() => {
+    if (!rawFplStandings || rawFplStandings.length === 0 || members.length === 0) {
+      if (rawFplStandings.length > 0 && members.length === 0) {
+        // Members are still hydrating from Firestore, keep gwWinner pending without flashing fallbacks
+        return;
+      }
+      setGwWinner(null);
+      return;
+    }
+
+    const norm = (s: string) => String(s || "").toLowerCase().trim();
+    const stake = gameweekStake || 0;
+
+    const eligibleResults = rawFplStandings.filter((r: any) => {
+      const dbMember = members.find((m: any) => {
+        if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+        if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+        const db = norm(m.displayName);
+        return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+      });
+      if (!dbMember) return false;
+      if (dbMember.isActive === false) return false;
+      // Spectators are excluded from cash pot contention
+      if ((dbMember as any).playMode === 'sidebets_only') return false;
+
+      // Must be funded (paid dues or sufficient wallet balance)
+      const isFunded = dbMember.hasPaid === true || (stake > 0 && (Number(dbMember.walletBalance || 0)) >= stake);
+      return isFunded;
+    });
+
+    if (eligibleResults.length >= 2) {
+      const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+      const winner = sorted[0];
+      const runnerUp = sorted[1];
+      const leadMargin = Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0);
+      setGwWinner({
+        ...winner,
+        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || '2nd Place',
+        leadMargin: Math.max(0, leadMargin),
+      });
+    } else if (eligibleResults.length === 1) {
+      const winner = eligibleResults[0];
+      setGwWinner({
+        ...winner,
+        runnerUpName: 'Awaiting Contender',
+        leadMargin: 0,
+      });
+    } else {
+      setGwWinner(null);
+    }
+  }, [rawFplStandings, members, gameweekStake]);
 
   // Auto-cleanup duplicate member docs in Firestore (e.g. chairman registered both as admin and member)
   useEffect(() => {
@@ -3054,14 +3086,14 @@ burstFrame();
                 (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
               );
               const isResolved = approvedForThisGw || awaitingForThisGw;
-              const leaderName = gwWinner?.player_name || (members[0]?.displayName || "Leading Manager");
-              const leaderTeam = gwWinner?.entry_name || (members[0]?.teamName || "Live XI");
-              const leaderPoints = gwWinner?.event_total !== undefined ? gwWinner.event_total : 62;
-              const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : 1;
-              const runnerUp = gwWinner?.runnerUpName || (members[1]?.displayName || "Runner-up");
+              const leaderName = gwWinner?.player_name || null;
+              const leaderTeam = gwWinner?.entry_name || null;
+              const leaderPoints = gwWinner?.event_total !== undefined ? gwWinner.event_total : null;
+              const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : null;
+              const runnerUp = gwWinner?.runnerUpName || null;
               const calculatedPot = Math.round(
-                members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)
-              ) || weeklyPot || 630;
+                members.filter((m) => m.hasPaid && m.isActive !== false && (m as any).playMode !== 'sidebets_only').length * gameweekStake * (rules.weekly / 100)
+              ) || weeklyPot || 0;
 
               return (
                 <div
@@ -3111,67 +3143,102 @@ burstFrame();
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
                     {/* Left: Leader Profile & Margins */}
                     <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
-                      <div className="relative shrink-0 mt-1 sm:mt-0">
-                        <div className="absolute inset-0 rounded-full bg-amber-500/20 dark:bg-[#FBBF24]/20 animate-ping" />
-                        <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-full bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-[0_0_25px_rgba(251,191,36,0.35)] flex items-center justify-center">
-                          <div className="w-full h-full bg-slate-900 rounded-2xl sm:rounded-full flex items-center justify-center">
-                            <Trophy className="w-6 h-6 text-amber-400" />
+                      {leaderName ? (
+                        <>
+                          <div className="relative shrink-0 mt-1 sm:mt-0">
+                            <div className="absolute inset-0 rounded-full bg-amber-500/20 dark:bg-[#FBBF24]/20 animate-ping" />
+                            <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-full bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-[0_0_25px_rgba(251,191,36,0.35)] flex items-center justify-center">
+                              <div className="w-full h-full bg-slate-900 rounded-2xl sm:rounded-full flex items-center justify-center">
+                                <Trophy className="w-6 h-6 text-amber-400" />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-700 dark:text-[#FBBF24]">
-                            <ShieldCheck className="w-3.5 h-3.5 fill-current" />
-                            {isCurrentEventFinished ? "POT CHAMPION" : "POT LEADER"}
-                          </p>
-                          <span
-                            className={clsx(
-                              "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                              isCurrentEventFinished
-                                ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
-                                : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
-                            )}
-                          >
-                            {isCurrentEventFinished ? `GW${currentGwNumber || ""} Final` : `GW${currentGwNumber || ""} Live`}
-                          </span>
-                        </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-700 dark:text-[#FBBF24]">
+                                <ShieldCheck className="w-3.5 h-3.5 fill-current" />
+                                {isCurrentEventFinished ? "POT CHAMPION" : "POT LEADER"}
+                              </p>
+                              <span
+                                className={clsx(
+                                  "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                                  isCurrentEventFinished
+                                    ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
+                                    : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                )}
+                              >
+                                {isCurrentEventFinished ? `GW${currentGwNumber || ""} Final` : `GW${currentGwNumber || ""} Live`}
+                              </span>
+                            </div>
 
-                        <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                          {leaderName}
-                        </h3>
+                            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                              {leaderName}
+                            </h3>
 
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs font-semibold text-slate-600 dark:text-gray-300 truncate max-w-[200px]">
-                            {leaderTeam}
-                          </span>
-                          <span className="inline-flex items-center gap-1 font-black px-2.5 py-0.5 rounded-full text-[11px] tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-[#10B981]/15 dark:border-[#10B981]/30 dark:text-emerald-300">
-                            {leaderPoints} pts
-                          </span>
-                        </div>
-
-                        {!isCurrentEventFinished && leadMargin !== undefined && (
-                          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              +{leadMargin} pts ahead of {runnerUp}
-                            </span>
-                            <span
-                              className={clsx(
-                                "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border",
-                                leadMargin >= 15
-                                  ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300"
-                                  : leadMargin >= 5
-                                  ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
-                                  : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:border-red-500/30 dark:text-red-300 animate-pulse"
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {leaderTeam && (
+                                <span className="text-xs font-semibold text-slate-600 dark:text-gray-300 truncate max-w-[200px]">
+                                  {leaderTeam}
+                                </span>
                               )}
-                            >
-                              {leadMargin >= 15 ? "Dominant Lead 🛡️" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
-                            </span>
+                              <span className="inline-flex items-center gap-1 font-black px-2.5 py-0.5 rounded-full text-[11px] tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-[#10B981]/15 dark:border-[#10B981]/30 dark:text-emerald-300">
+                                {leaderPoints} pts
+                              </span>
+                            </div>
+
+                            {!isCurrentEventFinished && leadMargin !== null && leadMargin !== undefined && (
+                              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  +{leadMargin} pts ahead of {runnerUp || 'Challenger'}
+                                </span>
+                                <span
+                                  className={clsx(
+                                    "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border",
+                                    leadMargin >= 15
+                                      ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300"
+                                      : leadMargin >= 5
+                                      ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
+                                      : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:border-red-500/30 dark:text-red-300 animate-pulse"
+                                  )}
+                                >
+                                  {leadMargin >= 15 ? "Dominant Lead 🛡️" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-3.5 py-2">
+                          <div className={clsx(
+                            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border",
+                            isFplStandingsLoading
+                              ? "bg-amber-500/10 border-amber-500/25 animate-pulse text-amber-400"
+                              : "bg-slate-500/10 border-slate-500/20 text-slate-400"
+                          )}>
+                            <Trophy className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              {isFplStandingsLoading && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />}
+                              <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-[#FBBF24]">
+                                {isFplStandingsLoading ? "Syncing FPL Matchday" : "Funded Pot Contenders"}
+                              </p>
+                            </div>
+                            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                              {isFplStandingsLoading
+                                ? `Syncing GW${currentGwNumber || ''} Standings...`
+                                : "Awaiting Funded Pot Contenders"}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                              {isFplStandingsLoading
+                                ? "Matching official FPL points with funded member wallets."
+                                : "Members must fund their wallet to qualify for the weekly cash pot."}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: Projected Pot + Action Buttons */}
@@ -3184,7 +3251,7 @@ burstFrame();
                           KES {isStealthMode ? "****" : calculatedPot.toLocaleString()}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
-                          {members.filter((m) => m.hasPaid && m.isActive !== false).length} active contributions
+                          {members.filter((m) => m.hasPaid && m.isActive !== false && (m as any).playMode !== 'sidebets_only').length} active contributions
                         </p>
                       </div>
 
@@ -3195,10 +3262,10 @@ burstFrame();
                             setShowChairmanFlexModal(true);
                           }}
                           className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer"
-                          title="Share Gameweek Leader Card on WhatsApp"
+                          title="Generate Champion Victory Card for WhatsApp"
                         >
                           <Share2 className="w-3.5 h-3.5" />
-                          <span>Share Card</span>
+                          <span>Victory Card</span>
                         </button>
 
                         <button
@@ -4356,7 +4423,7 @@ burstFrame();
                             onClick={() => handleToggleSpectator(row.id, (row as any).playMode)}
                             className={clsx(
                               "transition-colors",
-                              (row as any).playMode === "sidebets_only" ? "text-cyan-400 hover:text-cyan-300 font-bold" : "hover:text-cyan-400"
+                              (row as any).playMode === "sidebets_only" ? "text-indigo-400 hover:text-indigo-300 font-bold" : "hover:text-indigo-400"
                             )}
                             title={(row as any).playMode === "sidebets_only" ? "Switch member to Weekly & Season Cash Pot" : "Set member as Spectator (1v1 side bets only)"}
                           >
@@ -4380,8 +4447,8 @@ burstFrame();
                       {/* Status badge */}
                       <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
                         {(row as any).playMode === "sidebets_only" ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-bold" title="Spectator & 1v1 Side-Bets Only">
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold" title="Spectator & 1v1 Side-Bets Only">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                             <span>Spectator</span>
                           </span>
                         ) : memberHasFunding(row) ? (
@@ -5273,7 +5340,7 @@ burstFrame();
                         className={clsx(
                           "py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer",
                           editMemberPlayMode === 'sidebets_only'
-                            ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-300 shadow-sm"
+                            ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-300 shadow-sm"
                             : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
                         )}
                       >

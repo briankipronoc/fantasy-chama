@@ -964,22 +964,22 @@ export default function Login() {
                                         onClick={() => setOnboardPlayMode('sidebets_only')}
                                         className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
                                             onboardPlayMode === 'sidebets_only'
-                                                ? 'bg-cyan-500/10 border-cyan-500/60 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
+                                                ? 'bg-indigo-500/15 border-indigo-500/60 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
                                                 : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
                                         }`}
                                     >
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                <Swords className="w-4 h-4 text-cyan-400" /> Spectator & Bets
+                                                <Swords className="w-4 h-4 text-indigo-400" /> Spectator & Bets
                                             </span>
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                                                 Free Entry
                                             </span>
                                         </div>
                                         <p className="text-[10px] text-gray-400 leading-snug mb-2">
                                             Zero weekly pot dues. Challenge rivals to 1v1 M-Pesa cash side bets anytime!
                                         </p>
-                                        <span className="text-[9px] font-bold text-cyan-400 block">
+                                        <span className="text-[9px] font-bold text-indigo-400 block">
                                             ✓ 1v1 Side Bets · Test for Next Season
                                         </span>
                                     </div>

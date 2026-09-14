@@ -1,15 +1,23 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useEffect, useState } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp } from 'lucide-react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Award } from 'lucide-react';
 
-// ─── Dynamic Animating Ledger Demo ────────────────────────────────
-const initialDemoMembers = [
-    { id: '1', name: 'Brian K.', pts: 92, paid: true, balance: 4650 },
-    { id: '2', name: 'Raul G.', pts: 85, paid: true, balance: 1200 },
-    { id: '3', name: 'Emmanuel', pts: 78, paid: true, balance: 800 },
-    { id: '4', name: 'Akinyi M.', pts: 65, paid: true, balance: 600 },
-    { id: '5', name: 'Kamau J.', pts: 61, paid: false, balance: -350 },
+// ─── Dynamic Animating System-Accurate Ledger Demo ────────────────────────────────
+interface DemoMember {
+    id: string;
+    name: string;
+    team: string;
+    pts: number;
+    status: 'funded' | 'spectator' | 'pending';
+}
+
+const initialDemoMembers: DemoMember[] = [
+    { id: '1', name: 'Brian Kiprono', team: 'Live XI', pts: 74, status: 'funded' },
+    { id: '2', name: 'Raul Gonzalez', team: 'Galacticos', pts: 68, status: 'funded' },
+    { id: '3', name: 'Emmanuel S.', team: 'Simba FC', pts: 62, status: 'funded' },
+    { id: '4', name: 'Akinyi M.', team: 'Nairobi Queens', pts: 58, status: 'spectator' },
+    { id: '5', name: 'Kamau J.', team: 'Rift Strikers', pts: 51, status: 'pending' },
 ];
 
 function LedgerDemo() {
@@ -20,66 +28,132 @@ function LedgerDemo() {
         const interval = setInterval(() => {
             setMembers(current => {
                 const newMembers = [...current];
+                // Randomly award 2-6 live matchday points to a member
                 const randomIndex = Math.floor(Math.random() * (newMembers.length - 1));
                 
                 newMembers[randomIndex] = {
                     ...newMembers[randomIndex],
-                    pts: newMembers[randomIndex].pts + Math.floor(Math.random() * 12) + 3
+                    pts: newMembers[randomIndex].pts + Math.floor(Math.random() * 5) + 2
                 };
                 
                 setHighlightId(newMembers[randomIndex].id);
-                setTimeout(() => setHighlightId(null), 1000);
+                setTimeout(() => setHighlightId(null), 1200);
 
                 return newMembers.sort((a, b) => b.pts - a.pts);
             });
-        }, 3500);
+        }, 4000);
         return () => clearInterval(interval);
     }, []);
 
     return (
-        <div className="fc-landing-card fc-landing-standings w-full rounded-[2rem] bg-[#161d24] border border-white/5 overflow-hidden shadow-2xl relative">
-            <div className="fc-landing-card-chrome fc-landing-standings-chrome px-6 py-4 border-b border-white/5 flex items-center justify-between bg-[#161d24] z-20 relative">
-                <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Live FPL Standings</span>
-                <span className="flex items-center gap-2 text-xs font-medium text-emerald-400">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                    Live Sync Active
-                </span>
+        <div className="fc-landing-card w-full rounded-3xl bg-[#161d24] border border-white/10 overflow-hidden shadow-2xl shadow-black/60 relative">
+            {/* Real System Card Header */}
+            <div className="px-5 py-4 border-b border-white/5 bg-[#121920]/80 backdrop-blur-md flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        GW4 LIVE POT
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-gray-400">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Official FPL Sync
+                    </span>
+                </div>
+
+                <div className="flex items-baseline justify-between pt-1">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Escrow Pot</p>
+                        <p className="text-3xl sm:text-4xl font-black text-white tabular-nums tracking-tight">
+                            KES 2,800
+                        </p>
+                    </div>
+                    <div className="text-right">
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30">
+                            91/9 Model
+                        </span>
+                        <p className="text-[11px] text-gray-400 font-semibold mt-1">
+                            KES 1,960 Weekly · KES 840 Vault
+                        </p>
+                    </div>
+                </div>
             </div>
             
-            <div className="fc-landing-pane fc-landing-standings-pane relative h-[320px] w-full bg-[#0d1620]/50 z-10">
+            {/* Live Standings Table */}
+            <div className="p-3 sm:p-4 space-y-2 bg-[#0c1218]/60">
                 {members.map((m, index) => {
                     const isHighlighted = highlightId === m.id;
+                    const isLeader = index === 0;
+
                     return (
                         <div
                             key={m.id}
-                            className={`fc-landing-standings-row absolute left-0 right-0 px-6 flex items-center gap-4 transition-all duration-700 ease-in-out border-b border-white/[0.02] ${isHighlighted ? 'bg-emerald-500/10 z-20' : 'bg-transparent z-10'}`}
-                            style={{ 
-                                top: `${index * 64}px`, 
-                                height: '64px',
-                            }}
+                            className={`flex items-center justify-between p-2.5 sm:p-3 rounded-2xl transition-all duration-500 border ${
+                                isLeader
+                                    ? 'bg-amber-500/10 border-amber-500/30 shadow-[0_0_15px_rgba(251,191,36,0.08)]'
+                                    : isHighlighted
+                                        ? 'bg-emerald-500/15 border-emerald-500/40'
+                                        : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04]'
+                            }`}
                         >
-                            <div className={`w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors duration-500 ${isHighlighted ? 'bg-emerald-500 text-white' : m.paid ? 'bg-white/5 text-gray-600 dark:text-gray-400' : 'bg-red-500/10 text-red-400'}`}>
-                                {m.name[0]}
+                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl font-black text-xs flex items-center justify-center shrink-0 ${
+                                    isLeader
+                                        ? 'bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-md shadow-amber-500/20'
+                                        : 'bg-white/5 text-gray-400 border border-white/5'
+                                }`}>
+                                    {isLeader ? <Trophy className="w-3.5 h-3.5" /> : index + 1}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <p className="font-extrabold text-xs sm:text-sm text-white truncate">
+                                            {m.name}
+                                        </p>
+                                        {isLeader && (
+                                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                Leader
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] sm:text-[11px] text-gray-400 truncate">
+                                        {m.team}
+                                    </p>
+                                </div>
                             </div>
-                            <span className={`fc-landing-standings-name flex-1 text-base font-medium transition-colors ${isHighlighted ? 'text-white' : 'text-gray-200'}`}>{m.name}</span>
-                            <span className="fc-landing-standings-points text-sm text-gray-600 dark:text-gray-400 font-medium tabular-nums">{m.pts} pts</span>
-                            <span className={`text-xs font-medium px-3 py-1.5 rounded-full w-24 text-center transition-colors ${m.paid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                                {m.paid ? `KES ${m.balance}` : 'Red Zone'}
-                            </span>
+
+                            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                                <span className={`text-xs sm:text-sm font-black tabular-nums transition-colors ${
+                                    isHighlighted ? 'text-emerald-400' : isLeader ? 'text-amber-300' : 'text-gray-300'
+                                }`}>
+                                    {m.pts} pts
+                                </span>
+                                <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase ${
+                                    m.status === 'funded'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25'
+                                        : m.status === 'spectator'
+                                            ? 'bg-indigo-500/10 text-indigo-400 dark:text-indigo-300 border border-indigo-500/25'
+                                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/25'
+                                }`}>
+                                    {m.status === 'funded' ? 'Funded ✓' : m.status === 'spectator' ? 'Spectator 🛡️' : 'Pending ⏳'}
+                                </span>
+                            </div>
                         </div>
                     );
                 })}
             </div>
 
-            <div className="fc-landing-card-chrome fc-landing-standings-chrome px-6 py-4 bg-[#161d24] border-t border-white/5 flex items-center justify-between z-20 relative">
-                <span className="text-xs text-gray-500 font-medium tracking-wide">GW26 · Escrow Pot</span>
-                <span className="font-bold text-emerald-400 text-base">KES 1,680</span>
+            {/* Real System Card Chrome Footer */}
+            <div className="px-5 py-3.5 bg-[#121920]/80 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
+                <span className="flex items-center gap-1.5 font-medium">
+                    <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                    M-Pesa Escrow Verified
+                </span>
+                <span className="text-[11px] font-bold text-emerald-400">
+                    Auto-Disbursed at Final Whistle
+                </span>
             </div>
         </div>
     );
 }
-
-
 
 function TrustSlider() {
     const [numPlayers, setNumPlayers] = useState(10);
@@ -93,73 +167,91 @@ function TrustSlider() {
     const mpesaCut = potSize * 0.015;
 
     return (
-        <section className="fc-landing-section py-20 md:py-24 max-w-5xl mx-auto px-6 relative z-30">
-            <div className="fc-landing-panel bg-[#0b1014] border border-white/10 rounded-[3rem] p-8 md:p-12 shadow-[0_0_80px_rgba(16,185,129,0.05)] relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px]" />
+        <section className="fc-landing-section py-12 sm:py-16 md:py-20 max-w-5xl mx-auto px-4 sm:px-6 relative z-30">
+            <div className="fc-landing-panel bg-[#0b1014] border border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-[0_0_60px_rgba(16,185,129,0.06)] relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
                 
-                <div className="text-center mb-10">
-                    <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white mb-4">The Transparent 9% Engine.</h2>
-                    <p className="text-gray-600 dark:text-gray-400 font-medium max-w-2xl mx-auto">We take precisely 9% to run the entire backend intelligence, pay M-Pesa, and compensate the League Chairman. The Winner takes the absolute rest.</p>
+                <div className="text-center mb-8">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-2 block">
+                        Full Transparency Guarantee
+                    </span>
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white mb-3">
+                        The 91/9 Transparent Engine.
+                    </h2>
+                    <p className="text-gray-400 font-medium text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
+                        91% goes straight to the Gameweek & Season winners. Exactly 9% covers automated FPL intelligence, M-Pesa fees, and Chairman payout.
+                    </p>
                 </div>
 
-                <div className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                        <div>
-                            <div className="flex justify-between items-end mb-4">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Number of Players</span>
-                                <span className="text-2xl font-black text-emerald-400 tabular-nums tracking-tight">{numPlayers} players</span>
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-4">
+                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                            <div className="flex justify-between items-end mb-3">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Number of Players</span>
+                                <span className="text-xl font-black text-emerald-400 tabular-nums">{numPlayers} players</span>
                             </div>
                             <input 
                                 type="range" 
                                 min="2" 
-                                max="100" 
+                                max="50" 
                                 step="1" 
                                 value={numPlayers} 
                                 onChange={(e) => setNumPlayers(Number(e.target.value))}
-                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all"
                             />
-                            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
-                                <span>2</span><span>100</span>
+                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                                <span>2</span><span>50</span>
                             </div>
                         </div>
-                        <div>
-                            <div className="flex justify-between items-end mb-4">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Stake per GW</span>
-                                <span className="text-2xl font-black text-emerald-400 tabular-nums tracking-tight">KES {stakePerGw.toLocaleString()}</span>
+
+                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                            <div className="flex justify-between items-end mb-3">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stake per GW</span>
+                                <span className="text-xl font-black text-emerald-400 tabular-nums">KES {stakePerGw.toLocaleString()}</span>
                             </div>
                             <input 
                                 type="range" 
-                                min="20" 
+                                min="100" 
                                 max="5000" 
-                                step="10" 
+                                step="50" 
                                 value={stakePerGw} 
                                 onChange={(e) => setStakePerGw(Number(e.target.value))}
-                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all"
                             />
-                            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
-                                <span>KES 20</span><span>KES 5,000</span>
+                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                                <span>KES 100</span><span>KES 5,000</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-end mb-4 border-t border-white/10 pt-6">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Adjust Gameweek Pot</span>
-                        <span className="text-3xl font-black text-white tabular-nums tracking-tight">KES {potSize.toLocaleString()}</span>
+                    <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Gameweek Pot</span>
+                        <span className="text-2xl sm:text-3xl font-black text-white tabular-nums">KES {potSize.toLocaleString()}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div className="md:col-span-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 flex flex-col justify-center">
-                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5" /> Gameweek Winner (91%)</p>
-                            <p className="text-4xl md:text-5xl font-black text-emerald-400 tabular-nums">KES {winnerCut.toLocaleString()}</p>
-                            <p className="text-xs font-medium text-emerald-600 mt-2">Dispatched directly to winner's M-Pesa automatically.</p>
+                        <div className="md:col-span-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5 sm:p-6 flex flex-col justify-center">
+                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <Trophy className="w-3.5 h-3.5 text-emerald-400" /> Pot Winners (91%)
+                            </p>
+                            <p className="text-3xl sm:text-4xl font-black text-emerald-400 tabular-nums">
+                                KES {winnerCut.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-2 font-medium">
+                                Dispatched directly to winner's M-Pesa automatically via Pochi / Till.
+                            </p>
                         </div>
-                        <div className="md:col-span-4 bg-[#161d24] border border-white/5 rounded-2xl p-6 flex flex-col justify-center shadow-inner">
-                            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" /> Total Ops Fee (9%)</p>
-                            <p className="text-3xl font-black text-amber-500 tabular-nums">KES {adminCut.toLocaleString()}</p>
-                            <div className="space-y-1.5 mt-4">
-                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-600 dark:text-gray-400">Chairman (4%)</span> <span>KES {chairCut.toLocaleString()}</span></div>
-                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-600 dark:text-gray-400">Platform HQ (3.5%)</span> <span>KES {hqCut.toLocaleString()}</span></div>
-                                <div className="flex justify-between text-xs text-gray-500 font-bold"><span className="text-gray-600 dark:text-gray-400">Network Fee (1.5%)</span> <span>KES {mpesaCut.toLocaleString()}</span></div>
+                        <div className="md:col-span-4 bg-[#161d24] border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-center shadow-inner">
+                            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <Banknote className="w-3.5 h-3.5 text-amber-400" /> Ops & Chairman Fee (9%)
+                            </p>
+                            <p className="text-2xl font-black text-amber-400 tabular-nums">
+                                KES {adminCut.toLocaleString()}
+                            </p>
+                            <div className="space-y-1.5 mt-3 pt-3 border-t border-white/5 text-xs text-gray-400">
+                                <div className="flex justify-between font-medium"><span>Chairman (4%)</span> <span className="text-white font-bold">KES {chairCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between font-medium"><span>Platform HQ (3.5%)</span> <span className="text-white font-bold">KES {hqCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between font-medium"><span>M-Pesa Fee (1.5%)</span> <span className="text-white font-bold">KES {mpesaCut.toLocaleString()}</span></div>
                             </div>
                         </div>
                     </div>
@@ -185,8 +277,8 @@ export default function LandingPage() {
         <div className="fc-landing-shell bg-[#0a0e17] text-[#dfe2ef] min-h-screen font-sans selection:bg-emerald-500 selection:text-[#002113]">
             {/* TopNavBar */}
             <nav className="fc-landing-nav fixed top-0 w-full z-50 bg-[#0f131c]/80 backdrop-blur-xl border-b border-white/[0.05]">
-                <div className="flex justify-between items-center px-6 md:px-8 py-4 max-w-7xl mx-auto">
-                    <div className="fc-landing-brand flex items-center gap-2 text-xl md:text-2xl font-extrabold tracking-tighter text-[#DFE2EF]">
+                <div className="flex justify-between items-center px-4 sm:px-6 md:px-8 py-3.5 max-w-7xl mx-auto">
+                    <div className="fc-landing-brand flex items-center gap-2 text-lg sm:text-xl md:text-2xl font-extrabold tracking-tighter text-[#DFE2EF]">
                         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[1px] flex items-center justify-center shadow-lg shadow-emerald-500/20">
                             <div className="w-full h-full bg-[#0a0e17] rounded-[11px] flex items-center justify-center">
                                 <Trophy className="w-4 h-4 text-emerald-400" />
@@ -199,252 +291,264 @@ export default function LandingPage() {
                         <a href="#features" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Features</a>
                         <Link to="/terms" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Terms</Link>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link hidden sm:block text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-white transition-colors">
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-bold text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
                             Sign In
+                        </button>
+                        <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-3.5 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 active:scale-95">
+                            Start Free
                         </button>
                     </div>
                 </div>
             </nav>
 
             {/* Main Content */}
-            <main className="pt-24 md:pt-32 overflow-x-hidden">
+            <main className="pt-20 sm:pt-24 md:pt-28 overflow-x-hidden">
                 {/* Hero Section */}
-                <section className="fc-landing-section relative min-h-[85vh] sm:min-h-screen flex items-center px-6 md:px-8 max-w-7xl mx-auto py-12 md:py-20">
-                    <div className="absolute -top-24 -left-24 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-emerald-500/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none"></div>
-                    <div className="absolute top-1/2 -right-24 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-amber-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none"></div>
+                <section className="fc-landing-section relative px-4 sm:px-6 md:px-8 max-w-7xl mx-auto py-8 sm:py-14 md:py-20">
+                    <div className="absolute -top-24 -left-24 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-emerald-500/10 rounded-full blur-[100px] md:blur-[150px] pointer-events-none" />
+                    <div className="absolute top-1/2 -right-24 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-amber-500/5 rounded-full blur-[100px] md:blur-[150px] pointer-events-none" />
                     
-                    <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center w-full z-10">
+                    <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center w-full z-10">
                         {/* Left: Headline */}
-                        <div className="space-y-6 md:space-y-8">
-                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-center lg:text-left">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                                 <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-400">Kenya's Elite FPL Platform</span>
                             </div>
-                            <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tighter leading-[0.95] text-white">
-                                The Wealth <br />
-                                <span className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Vault</span> for <br />
+                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter leading-[1.02] text-white">
+                                The Wealth <br className="hidden sm:inline" />
+                                <span className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Vault</span> for <br className="hidden sm:inline" />
                                 <span className="text-amber-400 italic">FPL.</span>
                             </h1>
-                            <p className="max-w-md text-base md:text-lg text-gray-600 dark:text-gray-400 font-medium leading-relaxed">
-                                Set a stake per gameweek. Members pay via M-Pesa. The week's top scorer gets the pot — automatically calculated every GW.
+                            <p className="max-w-md mx-auto lg:mx-0 text-sm sm:text-base text-gray-400 font-medium leading-relaxed">
+                                Set a stake per gameweek. Members pay via M-Pesa. The week's top scorer gets the pot — automatically calculated every GW with zero spreadsheet drama.
                             </p>
-                            <div className="flex flex-col sm:flex-row gap-4 items-center pt-2">
-                                <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-8 py-4 rounded-xl font-extrabold text-lg flex items-center justify-center gap-2.5 transition-colors shadow-lg shadow-emerald-500/20 active:scale-95 group">
+                            <div className="flex flex-col sm:flex-row gap-3 items-center justify-center lg:justify-start pt-2">
+                                <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-7 py-3.5 rounded-xl font-extrabold text-base flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 group">
                                     <span>Start a League</span>
-                                    <span className="bg-[#002113] text-emerald-300 text-xs font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40 shadow-[0_0_12px_rgba(16,185,129,0.35)]">FREE</span>
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    <span className="bg-[#002113] text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40">FREE</span>
+                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </button>
-                                <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 bg-[#161d24] hover:bg-[#1f2937] border border-white/5 transition-colors active:scale-95 text-white">
+                                <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
                                     Join With Code
                                 </button>
                             </div>
                         </div>
 
-                        {/* Right: Glass Dashboard Mockup (Custom Component) */}
-                        <div className="relative pt-10 md:pt-0" style={{ perspective: '1000px' }}>
-                            <div className="absolute inset-0 bg-emerald-500/10 rounded-[3rem] blur-2xl transform rotateY(-10deg) rotateX(5deg) scale(0.9) pointer-events-none"></div>
-                            <div className="transition-transform duration-700 ease-out hover:rotate-0" style={{ transform: 'rotateY(-10deg) rotateX(5deg) scale(1.02)' }}>
-                                <LedgerDemo />
+                        {/* Right: Real System Live Ledger Preview */}
+                        <div className="lg:col-span-6 w-full max-w-md mx-auto lg:max-w-none">
+                            <LedgerDemo />
+                        </div>
+                    </div>
+                </section>
+
+                {/* Stats Bar */}
+                <section className="fc-landing-section py-10 sm:py-14 bg-white/[0.01] border-y border-white/[0.04] relative z-20">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+                            <div className="border-l-2 border-emerald-500/40 pl-4 sm:pl-6">
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Full Season</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-400 leading-none tracking-tighter">38</span>
+                                    <span className="text-xs font-bold text-white">GWs Tracked</span>
+                                </div>
+                            </div>
+                            <div className="border-l-2 border-amber-500/40 pl-4 sm:pl-6">
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Admin Overhead</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 leading-none tracking-tighter">KES 0</span>
+                                </div>
+                                <span className="text-xs font-bold text-gray-400">to run your league</span>
+                            </div>
+                            <div className="border-l-2 border-emerald-500/40 pl-4 sm:pl-6">
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Weekly Dues</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-400 leading-none tracking-tighter">2</span>
+                                    <span className="text-xs font-bold text-white">Taps on M-Pesa</span>
+                                </div>
+                            </div>
+                            <div className="border-l-2 border-amber-500/40 pl-4 sm:pl-6">
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Payout Precision</p>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 leading-none tracking-tighter">100%</span>
+                                </div>
+                                <span className="text-xs font-bold text-gray-400">Official FPL API Sync</span>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                {/* Stats Bar: Bloomberg Terminal Style */}
-                <section className="fc-landing-section fc-landing-band py-16 md:py-24 bg-[#0A0E17] border-y border-white/[0.02] relative z-20">
-                    <div className="max-w-7xl mx-auto px-6 md:px-8">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16">
-                            <div className="border-l-2 border-emerald-500/30 pl-8 relative group">
-                                <div className="absolute inset-0 bg-emerald-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Full Season</p>
-                                <div className="flex flex-wrap items-baseline gap-2 relative z-10">
-                                    <span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none tracking-tighter drop-shadow-md">38</span>
-                                    <span className="text-sm font-bold text-white tracking-tight">Gameweeks tracked</span>
-                                </div>
-                            </div>
-                            <div className="border-l-2 border-amber-500/30 pl-8 relative group">
-                                <div className="absolute inset-0 bg-amber-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Admin Overhead</p>
-                                <div className="flex flex-wrap items-baseline gap-2 relative z-10">
-                                    <span className="text-5xl md:text-6xl font-black text-amber-400 leading-none tracking-tighter drop-shadow-md">KES 0</span>
-                                </div>
-                                <span className="text-sm font-bold text-white tracking-tight">to run your league</span>
-                            </div>
-                            <div className="border-l-2 border-emerald-500/30 pl-8 relative group">
-                                <div className="absolute inset-0 bg-emerald-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">To pay each GW</p>
-                                <div className="flex flex-wrap items-baseline gap-2 relative z-10">
-                                    <span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none tracking-tighter drop-shadow-md">2</span>
-                                    <span className="text-sm font-bold text-white tracking-tight">Taps on M-Pesa</span>
-                                </div>
-                            </div>
-                            <div className="border-l-2 border-amber-500/30 pl-8 relative group">
-                                <div className="absolute inset-0 bg-amber-500 opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-2xl rounded-full" />
-                                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500 mb-2">Payout accuracy</p>
-                                <div className="flex flex-wrap items-baseline gap-2 relative z-10">
-                                    <span className="text-5xl md:text-6xl font-black text-amber-400 leading-none tracking-tighter drop-shadow-md">100%</span>
-                                </div>
-                                <span className="text-sm font-bold text-white tracking-tight">from FPL official API</span>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* ── Interactive Trust Slider ────────────────────────────────────── */}
+                {/* Interactive Trust Slider */}
                 <TrustSlider />
 
-                {/* ── The Ledger Lifecycle (How it Works) ────────────────────────────────────── */}
-                <section id="how-it-works" className="fc-landing-section fc-landing-band py-20 md:py-32 px-6 md:px-8 bg-[#0d1620]/30 border-t border-b border-white/[0.02]">
+                {/* The Ledger Lifecycle (How it Works) */}
+                <section id="how-it-works" className="fc-landing-section py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 bg-white/[0.01] border-t border-b border-white/[0.04]">
                     <div className="max-w-7xl mx-auto">
-                        <div className="text-center mb-20 md:mb-24">
-                            <span className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4 block">Simple 4-Step Process</span>
-                            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white mb-6">How It Works</h2>
-                            <div className="w-16 h-1 bg-gradient-to-r from-emerald-500 to-emerald-300 mx-auto rounded-full"></div>
+                        <div className="text-center mb-10 sm:mb-14">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-2 block">Simple 4-Step Process</span>
+                            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">How It Works</h2>
+                            <p className="text-xs sm:text-sm text-gray-400 max-w-md mx-auto">From Friday deadline to Sunday payouts, your league runs smoothly on autopilot.</p>
                         </div>
                         
-                        <div className="relative">
-                            {/* Horizontal Connector Line for Desktop */}
-                            <div className="hidden md:block absolute top-[36px] left-[12%] right-[12%] h-[1px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 relative z-10">
-                                {[
-                                    { step: '01', title: 'Chairman Creates League', desc: 'Set the weekly stake, link your FPL mini-league, and share a 6-character invite code with your group on WhatsApp.', icon: <Users className="w-6 h-6" />, color: 'emerald' },
-                                    { step: '02', title: 'Members Pay via M-Pesa', desc: 'Each member sends their weekly stake to the chairman via M-Pesa Pochi. The system tracks who has paid and who hasn\'t.', icon: <Smartphone className="w-6 h-6" />, color: 'amber' },
-                                    { step: '03', title: 'Live FPL Scoring', desc: 'Points are pulled directly from the official FPL API every gameweek. Standings update in real-time — no manual entry.', icon: <TrendingUp className="w-6 h-6" />, color: 'blue' },
-                                    { step: '04', title: 'Chairman Pays the Winner', desc: 'When the GW ends, the system tells the chairman exactly how much to pay and to whom. One confirmation, done.', icon: <Banknote className="w-6 h-6" />, color: 'emerald' },
-                                ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center text-center group">
-                                        <div className={`fc-landing-card w-20 h-20 rounded-[1.25rem] bg-[#161d24] border border-white/5 flex items-center justify-center mb-8 hover:-translate-y-2 transition-transform duration-500 shadow-xl relative overflow-hidden text-${item.color}-400`}>
-                                            <div className={`absolute inset-0 bg-${item.color}-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
-                                            <div className="relative z-10">{item.icon}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 relative z-10">
+                            {[
+                                { step: '01', title: 'Chairman Creates League', desc: 'Set your weekly stake, link your FPL mini-league, and share a 6-character invite code with your squad on WhatsApp.', icon: <Users className="w-5 h-5" />, tone: 'emerald' },
+                                { step: '02', title: 'Members Pay via M-Pesa', desc: 'Members send their weekly stake to the chairman via M-Pesa Pochi or Till. The ledger marks them funded with 1 tap.', icon: <Smartphone className="w-5 h-5" />, tone: 'amber' },
+                                { step: '03', title: 'Live Matchday Pulse', desc: 'Points sync directly from the official FPL API. Real-time standings update as matchday goals and bonus points roll in.', icon: <TrendingUp className="w-5 h-5" />, tone: 'indigo' },
+                                { step: '04', title: 'Chairman Pays the Winner', desc: 'When the GW finishes, the system shows the exact payout and recipient. Chairman confirms payout in seconds.', icon: <Banknote className="w-5 h-5" />, tone: 'emerald' },
+                            ].map((item, i) => (
+                                <div key={i} className="fc-landing-card bg-[#161d24] border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between hover:border-emerald-500/30 transition-all group shadow-md">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                                item.tone === 'emerald' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :
+                                                item.tone === 'amber' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' :
+                                                'bg-indigo-500/15 text-indigo-400 dark:text-indigo-300 border border-indigo-500/25'
+                                            }`}>
+                                                {item.icon}
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                                Step {item.step}
+                                            </span>
                                         </div>
-                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-4">Step {item.step}</div>
-                                        <h3 className="font-extrabold text-xl text-white mb-4 tracking-tight">{item.title}</h3>
-                                        <p className="text-gray-600 dark:text-gray-400 leading-relaxed font-medium text-sm md:text-base px-2">{item.desc}</p>
+                                        <h3 className="font-extrabold text-base sm:text-lg text-white mb-2 tracking-tight">
+                                            {item.title}
+                                        </h3>
+                                        <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                            {item.desc}
+                                        </p>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </section>
 
-                {/* ── Platform Capabilities: Bento Grid ─────────────────────────────────── */}
-                <section id="features" className="fc-landing-section py-20 md:py-32 max-w-7xl mx-auto px-6 md:px-8 relative z-20">
-                    <div className="mb-16 md:mb-20">
-                        <span className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-4 block">Everything Included</span>
-                        <h2 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white mb-6">What You Get</h2>
-                        <div className="w-16 h-1 bg-gradient-to-r from-amber-500 to-amber-300 rounded-full"></div>
+                {/* Platform Capabilities: Bento Grid */}
+                <section id="features" className="fc-landing-section py-12 sm:py-16 md:py-20 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative z-20">
+                    <div className="mb-10 sm:mb-14 text-center sm:text-left">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2 block">Built for Kenyan FPL Leagues</span>
+                        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">Platform Features</h2>
+                        <div className="w-12 h-1 bg-gradient-to-r from-amber-500 to-amber-300 rounded-full mx-auto sm:mx-0" />
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-min">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
                         {/* Large Feature: Automated Escrow */}
-                        <div className="fc-landing-card md:col-span-8 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-between border border-white/5 group hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[300px]">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none"></div>
-                            <div className="space-y-4 relative z-10 w-full md:w-3/4">
-                                <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-6">
-                                    <Lock className="w-6 h-6 text-emerald-400" />
+                        <div className="fc-landing-card md:col-span-8 bg-[#161d24] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
+                            <div className="space-y-3 relative z-10 w-full sm:w-4/5">
+                                <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
+                                    <Lock className="w-5 h-5 text-emerald-400" />
                                 </div>
-                                <h3 className="text-3xl lg:text-4xl font-extrabold text-white tracking-tight">Transparent Escrow Vaults</h3>
-                                <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
+                                <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Transparent Escrow Vaults</h3>
+                                <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
                                     Weekly stakes and season pots are locked and accounted for down to the last shilling. Payouts match official FPL scores without delays or disputes.
                                 </p>
                             </div>
                         </div>
 
                         {/* Small Feature: Live FPL Sync */}
-                        <div className="fc-landing-card md:col-span-4 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[300px]">
-                            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/10 rounded-full blur-[50px] pointer-events-none"></div>
-                            <div className="w-10 h-10 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center mb-5 relative z-10">
-                                <Zap className="w-5 h-5 text-blue-400" />
+                        <div className="fc-landing-card md:col-span-4 bg-[#161d24] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-indigo-500/30 transition-all relative overflow-hidden">
+                            <div className="w-10 h-10 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center mb-4">
+                                <Zap className="w-5 h-5 text-indigo-400" />
                             </div>
-                            <h3 className="text-2xl font-extrabold text-white mb-3 tracking-tight relative z-10">Live FPL Sync</h3>
-                            <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm lg:text-base relative z-10">
-                                Direct integration with Official FPL APIs. Real-time standings update as matchday goals and bonus points roll in.
-                            </p>
+                            <div>
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">Live FPL Sync</h3>
+                                <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                    Direct integration with Official FPL APIs. Standings update automatically without manual spreadsheet entry.
+                                </p>
+                            </div>
                         </div>
 
                         {/* Kickbacks / Chairman Incentive */}
-                        <div className="fc-landing-card md:col-span-6 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[300px]">
-                            <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-                            <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-6 relative z-10">
-                                <Trophy className="w-6 h-6 text-amber-400" />
+                        <div className="fc-landing-card md:col-span-6 bg-[#161d24] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-amber-500/30 transition-all relative overflow-hidden">
+                            <div className="w-10 h-10 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-4">
+                                <Trophy className="w-5 h-5 text-amber-400" />
                             </div>
-                            <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Chairman Commission</h3>
-                            <p className="max-w-md text-gray-600 dark:text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
-                                Stop running your league for free. The platform routes an automatic 4% commission to the Chairman's wallet upon every gameweek settlement.
-                            </p>
+                            <div>
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">Chairman Commission</h3>
+                                <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                    Stop running your league for free. The platform routes an automatic 4% commission to the Chairman's wallet upon every gameweek settlement.
+                                </p>
+                            </div>
                         </div>
 
                         {/* Co-Chair Approval */}
-                        <div className="fc-landing-card md:col-span-6 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[300px]">
-                            <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-[60px] pointer-events-none"></div>
-                            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-6 relative z-10">
-                                <Shield className="w-6 h-6 text-emerald-400" />
+                        <div className="fc-landing-card md:col-span-6 bg-[#161d24] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden">
+                            <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
+                                <Shield className="w-5 h-5 text-emerald-400" />
                             </div>
-                            <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Co-Chair Verification</h3>
-                            <p className="max-w-md text-gray-600 dark:text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
-                                Every payout and member status update requires approval from your designated Co-Chair. Double protection against accidental clicks or solo mistakes.
-                            </p>
-                        </div>
-
-                        {/* Medium Feature: Hybrid Cash Flow */}
-                        <div className="fc-landing-card md:col-span-12 bg-[#161d24] rounded-[2rem] p-8 md:p-12 flex flex-col md:flex-row md:items-center justify-between border border-white/5 hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[250px] lg:min-h-[300px]">
-                            <div className="absolute inset-y-0 right-0 w-full md:w-1/2 bg-gradient-to-l from-emerald-500/10 via-transparent to-transparent pointer-events-none"></div>
-                            <div className="z-10 relative md:w-2/3 lg:w-3/5">
-                                <div className="w-14 h-14 bg-[#0a0e17] border border-emerald-500/30 rounded-[1.25rem] flex items-center justify-center mb-6 shadow-xl shadow-emerald-500/10">
-                                    <Banknote className="w-7 h-7 text-emerald-400" />
-                                </div>
-                                <h3 className="text-3xl lg:text-4xl font-extrabold text-white mb-5 tracking-tight">Hybrid Cash Flow</h3>
-                                <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">
-                                    Pay winners directly via M-Pesa, or hand over cash while the platform automatically logs the payment and updates the ledger in real time.
+                            <div>
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">Co-Chair Verification</h3>
+                                <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                    Every payout and member status update requires approval from your designated Co-Chair. Double protection against accidental clicks.
                                 </p>
                             </div>
+                        </div>
+
+                        {/* 1v1 Side Bets & Spectators */}
+                        <div className="fc-landing-card md:col-span-12 bg-[#161d24] rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6 border border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden">
+                            <div className="space-y-3 sm:max-w-xl">
+                                <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-2">
+                                    <Award className="w-5 h-5 text-emerald-400" />
+                                </div>
+                                <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">1v1 Side Bets & Victory Cards</h3>
+                                <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
+                                    Spectators can follow the league for free and challenge friends to head-to-head cash side bets. Generate stunning branded Victory Cards to share in the WhatsApp group.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => navigate('/setup')}
+                                className="self-start sm:self-center px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#002113] font-extrabold text-sm transition-all shadow-md active:scale-95 shrink-0"
+                            >
+                                Start League Now →
+                            </button>
                         </div>
                     </div>
                 </section>
 
                 {/* Closing CTA */}
-                <section className="fc-landing-section min-h-[85vh] sm:min-h-screen flex items-center justify-center px-6 md:px-8 text-center relative overflow-hidden group">
-                    {/* Deep Immersive Ambient Glow */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[100px] group-hover:bg-emerald-500/30 group-hover:blur-[160px] group-hover:scale-150 transition-all duration-1000 ease-out pointer-events-none"></div>
+                <section className="fc-landing-section py-14 sm:py-20 px-4 sm:px-6 md:px-8 text-center relative overflow-hidden">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
                     
-                    <div className="relative z-10 max-w-4xl mx-auto space-y-10 transition-transform duration-1000 ease-out group-hover:scale-105 py-20">
-                        <div className="space-y-4">
-                            <h2 className="fc-landing-title-gradient text-6xl md:text-8xl lg:text-[10rem] font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40 leading-none">
-                                Your League <br/> Starts Here.
+                    <div className="relative z-10 max-w-3xl mx-auto space-y-6">
+                        <div className="space-y-3">
+                            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-tight">
+                                Your League <br />
+                                <span className="text-emerald-400">Starts Here.</span>
                             </h2>
-                            <p className="text-gray-400 text-xl md:text-2xl font-medium max-w-2xl mx-auto mt-8">
-                                Stop managing WhatsApp groups and spreadsheets. Set up your league in 5 minutes — every gameweek runs itself.
+                            <p className="text-gray-400 text-sm sm:text-base md:text-lg font-medium max-w-xl mx-auto">
+                                Stop managing WhatsApp chaos and spreadsheets. Set up your league in 3 minutes — every gameweek runs itself.
                             </p>
                         </div>
-                        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 pb-10">
-                            <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-10 py-5 rounded-xl font-extrabold text-lg shadow-[0_0_40px_rgba(16,185,129,0.25)] hover:scale-105 transition-all active:scale-95 flex items-center gap-2.5 group">
-                                <Trophy className="w-5 h-5" />
+
+                        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2">
+                            <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-8 py-4 rounded-xl font-extrabold text-base shadow-lg shadow-emerald-500/25 transition-all active:scale-95 flex items-center justify-center gap-2 group">
+                                <Trophy className="w-4 h-4" />
                                 <span>Start a League</span>
-                                <span className="bg-[#002113] text-emerald-300 text-xs font-black uppercase px-2.5 py-0.5 rounded-md tracking-wider border border-emerald-400/40 shadow-[0_0_15px_rgba(16,185,129,0.35)]">FREE</span>
+                                <span className="bg-[#002113] text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40">FREE</span>
                             </button>
-                            <button onClick={() => navigate('/access')} className="px-10 py-5 rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
-                                Join With Invite Code
+                            <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
+                                Join With Code
                             </button>
                         </div>
-                        <p className="text-gray-600 text-sm">No credit card needed. No monthly subscription. Chairman earns 4% of every pot.</p>
+                        <p className="text-gray-500 text-xs">No credit card needed · Free for all managers · Chairman earns 4% commission</p>
                     </div>
                 </section>
             </main>
 
             {/* Footer */}
-            <footer className="fc-landing-footer w-full bg-[#0a0e17]">
-                <div className="flex flex-col md:flex-row justify-center md:justify-between items-center px-6 md:px-12 py-10 w-full max-w-7xl mx-auto border-t border-white/5">
-                    <div className="flex flex-wrap justify-center gap-6 md:gap-10 mb-6 md:mb-0">
-                        <Link to="/privacy-policy" className="text-gray-500 hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Privacy</Link>
-                        <Link to="/terms" className="text-gray-500 hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Security</Link>
-                        <Link to="/faq" className="text-gray-500 hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">FAQ</Link>
-                        <a href="mailto:support@fantasychama.co.ke" className="text-gray-500 hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Support</a>
-                        <a href="https://x.com/FantasyChama" className="text-gray-500 hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Twitter</a>
+            <footer className="fc-landing-footer w-full bg-[#0a0e17] border-t border-white/5">
+                <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-6 md:px-12 py-8 max-w-7xl mx-auto gap-4">
+                    <div className="flex flex-wrap justify-center gap-5 sm:gap-8 text-xs font-medium text-gray-400">
+                        <Link to="/privacy-policy" className="hover:text-emerald-400 transition-colors">Privacy</Link>
+                        <Link to="/terms" className="hover:text-emerald-400 transition-colors">Terms</Link>
+                        <Link to="/faq" className="hover:text-emerald-400 transition-colors">FAQ</Link>
+                        <a href="mailto:support@fantasychama.co.ke" className="hover:text-emerald-400 transition-colors">Support</a>
                     </div>
-                    <div className="text-gray-600 text-xs font-semibold tracking-wide">
-                        © 2026 Fantasy Chama. Built for serious Kenyan FPL leagues.
+                    <div className="text-gray-500 text-xs font-semibold text-center sm:text-right">
+                        © 2026 Fantasy Chama. Built for Kenyan FPL leagues.
                     </div>
                 </div>
             </footer>

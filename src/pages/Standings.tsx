@@ -664,7 +664,7 @@ export default function Standings() {
                                                         <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30">Co</span>
                                                     )}
                                                     {isSpectator ? (
-                                                        <span className="bg-cyan-500/15 text-cyan-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-cyan-500/25">Spectator</span>
+                                                        <span className="bg-indigo-500/15 text-indigo-300 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-indigo-500/30">Spectator</span>
                                                     ) : !isFunded ? (
                                                         <span className="bg-red-500/15 text-red-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-red-500/25">Unfunded</span>
                                                     ) : (
@@ -699,8 +699,8 @@ export default function Standings() {
                                             </div>
                                             <div className="md:col-span-2 flex justify-end md:justify-end items-center w-28 md:w-auto">
                                                 {isSpectator ? (
-                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-cyan-400 border-cyan-500/25 bg-cyan-500/10 flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> Spectator
+                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-indigo-300 border-indigo-500/30 bg-indigo-500/15 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" /> Spectator
                                                     </span>
                                                 ) : !isFunded ? (
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
@@ -716,9 +716,9 @@ export default function Standings() {
                                                             gameweek: currentEvent || '',
                                                         })}
                                                         className="font-black text-[10px] md:text-xs tracking-tight border px-2.5 py-1 rounded-lg text-[#10B981] border-[#10B981]/40 bg-[#10B981]/15 hover:bg-[#10B981]/25 flex items-center gap-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all active:scale-95 cursor-pointer"
-                                                        title={hasFinalGwChampion ? "Share GW Champion on WhatsApp" : "Share Live Leader on WhatsApp"}
+                                                        title={hasFinalGwChampion ? "Share GW Champion Victory Card on WhatsApp" : "Share Live Leader Victory Card on WhatsApp"}
                                                     >
-                                                        <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Share Win
+                                                        <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Victory Card
                                                     </button>
                                                 ) : null}
                                             </div>

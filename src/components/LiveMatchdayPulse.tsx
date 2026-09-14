@@ -283,7 +283,7 @@ export default function LiveMatchdayPulse({
                                     className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-1.5 shrink-0"
                                 >
                                     <Share2 className="w-3.5 h-3.5" />
-                                    <span>Share Card</span>
+                                    <span>Victory Card</span>
                                 </button>
                             )}
                         </div>
