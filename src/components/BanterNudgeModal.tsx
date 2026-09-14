@@ -1,6 +1,6 @@
 // src/components/BanterNudgeModal.tsx
-import { useState } from 'react';
-import { X, Flame, Share2, Copy, Check, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Flame, Share2, Copy, Check, Users, Dices } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 
 interface BanterNudgeModalProps {
@@ -23,15 +23,15 @@ export default function BanterNudgeModal({
   gameweekStake,
 }: BanterNudgeModalProps) {
   const [selectedTone, setSelectedTone] = useState<'spicy' | 'polite' | 'urgent'>('spicy');
+  const [customMessage, setCustomMessage] = useState('');
+  const [isRollingDice, setIsRollingDice] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  if (!isOpen) return null;
 
   const gwLabel = nextGw ? `GW${nextGw}` : 'Next Gameweek';
   const unpaidCount = unpaidMembers.length;
   const appUrl = (typeof window !== 'undefined' && window.location.origin)
     ? window.location.origin
-    : (import.meta.env.VITE_APP_URL || 'https://fantasychama.vercel.app');
+    : (import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app');
 
   const templates = {
     spicy: {
@@ -78,20 +78,36 @@ export default function BanterNudgeModal({
     },
   };
 
-  const currentMessage = templates[selectedTone].text;
+  useEffect(() => {
+    setCustomMessage(templates[selectedTone].text);
+  }, [selectedTone, isOpen]);
+
+  const handleShuffleTone = () => {
+    setIsRollingDice(true);
+    haptics.selection();
+    setTimeout(() => {
+      const tones: Array<'spicy' | 'polite' | 'urgent'> = ['spicy', 'polite', 'urgent'];
+      const nextTone = tones[(tones.indexOf(selectedTone) + 1 + Math.floor(Math.random() * 2)) % tones.length];
+      setSelectedTone(nextTone);
+      setCustomMessage(templates[nextTone].text);
+      setIsRollingDice(false);
+    }, 280);
+  };
 
   const handleCopy = () => {
     haptics.selection();
-    navigator.clipboard.writeText(currentMessage);
+    navigator.clipboard.writeText(customMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShareWhatsApp = () => {
     haptics.success();
-    const encoded = encodeURIComponent(currentMessage);
+    const encoded = encodeURIComponent(customMessage);
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[120000] bg-black/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
@@ -118,27 +134,45 @@ export default function BanterNudgeModal({
         </div>
 
         {/* Unpaid managers summary */}
-        <div className="my-4 p-3 rounded-2xl bg-[#161d24] border border-white/5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-amber-400" />
-            <span className="text-xs font-bold text-gray-200">
-              {unpaidCount} manager{unpaidCount !== 1 ? 's' : ''} not yet funded
-            </span>
+        <div className="my-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+            <Users className="w-4 h-4" />
+            <span>{unpaidCount} Unfunded Manager{unpaidCount !== 1 ? 's' : ''}</span>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            KES {gameweekStake.toLocaleString()} / manager
+          <span className="text-[10px] font-bold text-amber-400/80 uppercase tracking-wider">
+            Stake: KES {gameweekStake.toLocaleString()}
           </span>
         </div>
 
-        {/* Tone Selector Pills */}
+        {/* Tone Selector Pills & Dice Shuffle */}
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <p className="text-[11px] font-bold text-gray-300 flex items-center gap-1">
+            Pick Style:
+          </p>
+          <button
+            type="button"
+            onClick={handleShuffleTone}
+            disabled={isRollingDice}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
+            title="Roll dice to shuffle tone"
+          >
+            <Dices className={`w-4 h-4 text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
+            <span>Shuffle 🎲</span>
+          </button>
+        </div>
+
         <div className="grid grid-cols-3 gap-2 mb-4">
           {(['spicy', 'polite', 'urgent'] as const).map((tone) => {
             const isSelected = selectedTone === tone;
             return (
               <button
                 key={tone}
-                onClick={() => { haptics.selection(); setSelectedTone(tone); }}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all border text-center ${
+                onClick={() => {
+                  haptics.selection();
+                  setSelectedTone(tone);
+                  setCustomMessage(templates[tone].text);
+                }}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
                   isSelected
                     ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
                     : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
@@ -154,33 +188,40 @@ export default function BanterNudgeModal({
         <div className="rounded-2xl border border-white/10 bg-[#070b0e] p-3.5 relative mb-5">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-              WhatsApp Message Preview
+              WhatsApp Message (Editable)
             </p>
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300"
+              className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <pre className="text-xs font-mono whitespace-pre-wrap text-gray-200 leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
-            {currentMessage}
-          </pre>
+          <textarea
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            rows={6}
+            className="w-full text-xs font-mono bg-transparent text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
+            placeholder="Edit your WhatsApp reminder here..."
+          />
+          <div className="text-[10px] text-gray-500 text-right mt-1">
+            {customMessage.length} chars
+          </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleShareWhatsApp}
-            className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
             Share to WhatsApp Group
           </button>
           <button
             onClick={handleCopy}
-            className="py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-xl font-bold text-xs transition-colors"
+            className="py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
           >
             {copied ? 'Copied' : 'Copy Text'}
           </button>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Header from "../components/Header";
 import ChampionFlexCardModal from "../components/ChampionFlexCardModal";
 import ConfirmModal from "../components/ConfirmModal";
@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Banknote,
   ChevronDown,
+  ChevronRight,
   CheckCircle2,
   Trophy,
   AlertTriangle,
@@ -26,6 +27,11 @@ import {
   Swords,
   Users,
   Clock,
+  Smartphone,
+  Wallet,
+  Coins,
+  Radio,
+  Flame,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import { db, auth } from "../firebase";
@@ -50,7 +56,6 @@ import clsx from "clsx";
 import confetti from "canvas-confetti";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
-import LiveMatchdayPulse from "../components/LiveMatchdayPulse";
 
 export default function AdminCommandCenter() {
   const navigate = useNavigate();
@@ -1184,19 +1189,9 @@ export default function AdminCommandCenter() {
 
   const shareInviteCode = () => {
     navigator.clipboard.writeText(inviteCode);
-    const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasychama.vercel.app");
-    const message = [
-      `🏆 *${leagueName} — Join the crew!*`,
-      ``,
-      `We play Fantasy Premier League as a group and the top scorer each week wins the pot. 💰`,
-      ``,
-      `• Stake: *KES ${gameweekStake || 0}* per gameweek`,
-      `• Highest FPL points = weekly pot winner`,
-      `• Season vault for top performers at the end`,
-      ``,
-      `👉 Sign up here and enter code *${inviteCode}*:`,
-      `${appUrl}`,
-    ].join("\n");
+    const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
+    const link = `${appUrl}/login?code=${inviteCode}`;
+    const message = `⚽ Join our FPL Chama (${leagueName || "Tentshakers FC"})!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
     showToast("Invite link copied & WhatsApp opened!");
   };
@@ -2935,8 +2930,181 @@ burstFrame();
                 : "hidden"
             }
           >
-            {/* Gameweek Live Matchday Pulse */}
-            <LiveMatchdayPulse className="mb-2" />
+            {/* Unified Comprehensive Live Leader & Matchday Pulse Board */}
+            {(() => {
+              const approvedForThisGw = pendingPayouts.some(
+                (p) => Number(p.gw) === currentGwNumber && p.status === 'approved'
+              );
+              const awaitingForThisGw = pendingPayouts.some(
+                (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
+              );
+              const isResolved = approvedForThisGw || awaitingForThisGw;
+              const leaderName = gwWinner?.player_name || (members[0]?.displayName || "Leading Manager");
+              const leaderTeam = gwWinner?.entry_name || (members[0]?.teamName || "Live XI");
+              const leaderPoints = gwWinner?.event_total !== undefined ? gwWinner.event_total : 62;
+              const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : 1;
+              const runnerUp = gwWinner?.runnerUpName || (members[1]?.displayName || "Runner-up");
+              const calculatedPot = Math.round(
+                members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)
+              ) || weeklyPot || 630;
+
+              return (
+                <div
+                  className={clsx(
+                    "fc-card relative overflow-hidden rounded-3xl sm:rounded-[2rem] border transition-all shadow-xl p-5 sm:p-6 mb-2",
+                    "bg-white dark:bg-gradient-to-r dark:from-[#181409] dark:via-[#161d24] dark:to-[#0f141a]",
+                    "border-amber-400/40 dark:border-[#FBBF24]/30",
+                    resolutionPulse && "fc-burst-success"
+                  )}
+                >
+                  {/* Subtle ambient glows for visual depth */}
+                  <div className="absolute top-0 right-0 w-80 h-32 bg-amber-500/10 dark:bg-[#FBBF24]/10 blur-[80px] pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-64 h-32 bg-emerald-500/10 blur-[80px] pointer-events-none" />
+
+                  {/* Top Header Row: Matchday Pulse + Live Status + Live Standings Link */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-200/80 dark:border-white/10 relative z-10">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-xs">
+                        <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                        Matchday Pulse • GW{currentGwNumber || 4} {isCurrentEventFinished ? "Finished" : "Live"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
+                        <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" /> High Score Active
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
+                        {isCurrentEventFinished ? "Official final standings locked in." : "Scores updating in real-time as fixtures progress."}
+                      </span>
+                    </div>
+
+                    <Link
+                      to="/standings"
+                      onClick={() => haptics.selection()}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:text-white dark:border-white/10 text-xs font-bold transition-all active:scale-95 shadow-xs"
+                      title="View complete live mini-league table"
+                    >
+                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Live Standings</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400" />
+                    </Link>
+                  </div>
+
+                  {/* Main Leader & Pot Row */}
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+                    {/* Left: Leader Profile & Margins */}
+                    <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                      <div className="relative shrink-0 mt-1 sm:mt-0">
+                        <div className="absolute inset-0 rounded-full bg-amber-500/20 dark:bg-[#FBBF24]/20 animate-ping" />
+                        <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-full bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-[0_0_25px_rgba(251,191,36,0.35)] flex items-center justify-center">
+                          <div className="w-full h-full bg-slate-900 rounded-2xl sm:rounded-full flex items-center justify-center">
+                            <Trophy className="w-6 h-6 text-amber-400" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-700 dark:text-[#FBBF24]">
+                            <ShieldCheck className="w-3.5 h-3.5 fill-current" />
+                            {isCurrentEventFinished ? "POT CHAMPION" : "POT LEADER"}
+                          </p>
+                          <span
+                            className={clsx(
+                              "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                              isCurrentEventFinished
+                                ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
+                                : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
+                            )}
+                          >
+                            {isCurrentEventFinished ? `GW${currentGwNumber || ""} Final` : `GW${currentGwNumber || ""} Live`}
+                          </span>
+                        </div>
+
+                        <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                          {leaderName}
+                        </h3>
+
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs font-semibold text-slate-600 dark:text-gray-300 truncate max-w-[200px]">
+                            {leaderTeam}
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-black px-2.5 py-0.5 rounded-full text-[11px] tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-[#10B981]/15 dark:border-[#10B981]/30 dark:text-emerald-300">
+                            {leaderPoints} pts
+                          </span>
+                        </div>
+
+                        {!isCurrentEventFinished && leadMargin !== undefined && (
+                          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              +{leadMargin} pts ahead of {runnerUp}
+                            </span>
+                            <span
+                              className={clsx(
+                                "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border",
+                                leadMargin >= 15
+                                  ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300"
+                                  : leadMargin >= 5
+                                  ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
+                                  : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:border-red-500/30 dark:text-red-300 animate-pulse"
+                              )}
+                            >
+                              {leadMargin >= 15 ? "Dominant Lead 🛡️" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Projected Pot + Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-200/80 dark:border-white/5">
+                      <div className="rounded-2xl px-5 py-3 border text-left sm:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5">
+                          Projected Cash Pot
+                        </p>
+                        <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
+                          KES {isStealthMode ? "****" : calculatedPot.toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                          {members.filter((m) => m.hasPaid && m.isActive !== false).length} active contributions
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => {
+                            haptics.celebrate();
+                            setShowChairmanFlexModal(true);
+                          }}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border dark:border-emerald-500/40 dark:text-emerald-300 text-xs font-black tracking-wider rounded-xl transition-all shadow-sm uppercase active:scale-95 cursor-pointer"
+                          title="Generate Champion Flex Card for WhatsApp"
+                        >
+                          <Share2 className="w-4 h-4" /> Flex Card
+                        </button>
+
+                        <button
+                          id="tour-resolve-gw"
+                          onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                          disabled={isResolved}
+                          className={clsx(
+                            "flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 text-xs font-black tracking-widest rounded-xl transition-all uppercase active:scale-95 cursor-pointer",
+                            isResolved
+                              ? "bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-gray-400 cursor-not-allowed"
+                              : "bg-[#FBBF24] hover:bg-amber-400 text-black shadow-[0_0_20px_rgba(251,191,36,0.25)]"
+                          )}
+                        >
+                          <Trophy className="w-4 h-4 hidden sm:block" />
+                          {isResolved ? "Resolved ✓" : "Resolve"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <section className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
               <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-4xl border border-amber-300/40 dark:border-[#FBBF24]/24 bg-gradient-to-br from-amber-100 via-white to-slate-100 dark:from-[#FBBF24]/12 dark:via-[#161d24] dark:to-[#161d24] p-5 md:p-7 shadow-xl">
@@ -3342,107 +3510,7 @@ burstFrame();
             </div>
           )}
 
-          {/* Champion Card: show during GW, hide once approved payout exists for this GW */}
-          {(() => {
-            const approvedForThisGw = pendingPayouts.some(
-              (p) => Number(p.gw) === currentGwNumber && p.status === 'approved'
-            );
-            const awaitingForThisGw = pendingPayouts.some(
-              (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
-            );
-            const shouldShowCard = gwWinner && activeTab !== 'finance' && !approvedForThisGw && !awaitingForThisGw;
-            return shouldShowCard;
-          })() && (
-            <div className={clsx("fc-highlight-card relative overflow-hidden rounded-[1.5rem] border border-[#FBBF24]/30 bg-gradient-to-r from-[#1c1a09] via-[#181409] to-[#0d1014] p-5 transition-all mt-2 flex flex-col md:flex-row items-center justify-between gap-4", resolutionPulse && "fc-burst-success")}>
-              {/* BG glow */}
-              <div className="absolute inset-0 bg-gradient-to-r from-[#FBBF24]/10 via-transparent to-transparent pointer-events-none" />
-              <div className="absolute top-0 left-0 w-32 h-32 bg-[#FBBF24] blur-[80px] opacity-15 pointer-events-none" />
 
-              <div className="flex items-center gap-4 relative z-10 w-full md:w-auto">
-                {/* Trophy */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-0 rounded-full bg-[#FBBF24]/20 animate-ping" />
-                  <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[2px] shadow-[0_0_30px_rgba(251,191,36,0.3)]">
-                    <div className="w-full h-full bg-[#0d1014] rounded-full flex items-center justify-center">
-                      <Trophy className="w-5 h-5 md:w-6 md:h-6 text-[#FBBF24]" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <p className="text-[9px] font-black text-[#FBBF24]/70 uppercase tracking-widest flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 fill-current" />
-                      {isCurrentEventFinished ? "Gameweek Winner" : "Live Leader"}
-                    </p>
-                    <span className={clsx(
-                      "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border",
-                      isCurrentEventFinished
-                        ? "border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]"
-                        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                    )}>
-                      {isCurrentEventFinished ? `GW${currentGwNumber || ''} Final` : `GW${currentGwNumber || ''} Live`}
-                    </span>
-                  </div>
-                  <h3 className="text-lg md:text-xl font-black text-white tracking-tight mb-0.5 truncate">
-                    {gwWinner.player_name}
-                  </h3>
-                  <p className="text-xs text-gray-400 font-medium flex items-center gap-2 truncate">
-                    <span className="truncate max-w-[150px]">{gwWinner.entry_name}</span>
-                    <span className="shrink-0 inline-flex items-center gap-1 text-[#10B981] font-black px-2 py-0.5 bg-[#10B981]/10 rounded-full border border-[#10B981]/20 tabular-nums text-[10px]">
-                      {gwWinner.event_total} pts
-                    </span>
-                  </p>
-                  {!isCurrentEventFinished && gwWinner.leadMargin !== undefined && (
-                    <div className="mt-2 flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        +{gwWinner.leadMargin} pts ahead of {gwWinner.runnerUpName}
-                      </span>
-                      <span className={clsx(
-                        "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border",
-                        gwWinner.leadMargin >= 15
-                          ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                          : gwWinner.leadMargin >= 5
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                          : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
-                      )}>
-                        {gwWinner.leadMargin >= 15 ? "Dominant Lead 🛡️" : gwWinner.leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 relative z-10 w-full md:w-auto">
-                <div className="flex-1 md:flex-none inline-flex flex-col items-start md:items-end bg-black/30 border border-white/10 rounded-xl px-4 py-2 text-left md:text-right">
-                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Projected Payout</p>
-                  <p className="text-lg font-black text-[#FBBF24] tabular-nums tracking-tight" data-sensitive="true">
-                    KES {(members.filter((m) => m.hasPaid && m.isActive !== false).length * gameweekStake * (rules.weekly / 100)).toLocaleString()}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    haptics.celebrate();
-                    setShowChairmanFlexModal(true);
-                  }}
-                  className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-3 md:py-4 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-black tracking-wider rounded-xl transition-all shadow-sm uppercase active:scale-95"
-                  title="Generate Champion Flex Card for WhatsApp"
-                >
-                  <Share2 className="w-4 h-4" /> Flex Card
-                </button>
-
-                <button
-                  id="tour-resolve-gw"
-                  onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                  className="shrink-0 flex items-center justify-center gap-2 px-5 py-3 md:py-4 bg-[#FBBF24] hover:bg-white text-black text-xs font-black tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(251,191,36,0.3)] uppercase active:scale-95"
-                >
-                  <Trophy className="w-4 h-4 hidden sm:block" /> Resolve
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Co-Chair: Pending Payout Approval Panel */}
 
@@ -3979,7 +4047,7 @@ burstFrame();
           }
         >
           {/* The Master Ledger Section */}
-          <div className="w-full max-w-6xl mx-auto space-y-6">
+          <div className="w-full space-y-6">
             {/* Quick Ledger Overview Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="fc-card rounded-2xl p-4 sm:p-5 border border-amber-300/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex items-center justify-between shadow-md">
@@ -4447,8 +4515,11 @@ burstFrame();
               leagueName={leagueName || "FantasyChama"}
             />
           )}
+          </div>
+        </div>
 
-          {showResolveModal && createPortal(
+        {/* Global Modals (accessible from all tabs) */}
+        {showResolveModal && createPortal(
             <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
               <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/25 w-full max-w-md rounded-2xl shadow-[0_0_60px_rgba(251,191,36,0.1)] overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
@@ -4690,35 +4761,75 @@ burstFrame();
                   </select>
                 </label>
 
-                <label className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Amount (KES)
+                <label className="space-y-2 md:col-span-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-amber-400" /> Amount (KES)
                   </span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={fundAmount}
-                    onChange={(e) => setFundAmount(e.target.value)}
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">KES</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={fundAmount}
+                      onChange={(e) => setFundAmount(e.target.value)}
+                      placeholder="e.g. 500"
+                      className="fc-prefund-input w-full rounded-xl border pl-14 pr-4 py-3 text-base font-bold text-white focus:border-emerald-500"
+                    />
+                  </div>
                 </label>
 
-                <label className="space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Funding Method
+                <div className="space-y-2 md:col-span-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-emerald-400" /> Funding Method
                   </span>
-                  <select
-                    value={fundMethod}
-                    onChange={(e) => {
-                      setFundMethod(e.target.value as "mpesa" | "cash");
-                      setFundPromptSent(false);
-                    }}
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  >
-                    <option value="mpesa">M-Pesa Prompt</option>
-                    <option value="cash">Cash Handoff</option>
-                  </select>
-                </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFundMethod("mpesa");
+                        setFundPromptSent(false);
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3.5 cursor-pointer ${
+                        fundMethod === "mpesa"
+                          ? "bg-emerald-500/15 border-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        fundMethod === "mpesa" ? "bg-emerald-500 text-slate-950 font-black" : "bg-white/10 text-gray-400"
+                      }`}>
+                        <Smartphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white leading-tight">M-Pesa STK Prompt</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Send PIN prompt to phone</p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFundMethod("cash");
+                        setFundPromptSent(false);
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3.5 cursor-pointer ${
+                        fundMethod === "cash"
+                          ? "bg-amber-500/15 border-amber-500 text-white shadow-[0_0_20px_rgba(245,158,11,0.25)] ring-1 ring-amber-500"
+                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        fundMethod === "cash" ? "bg-amber-500 text-slate-950 font-black" : "bg-white/10 text-gray-400"
+                      }`}>
+                        <Banknote className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white leading-tight">Cash Handoff</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Record cash / Pochi transfer</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
 
                 {fundMethod === "mpesa" ? (
                   <label className="space-y-2 md:col-span-2">
@@ -5106,8 +5217,6 @@ burstFrame();
             isLoading={isDeletingMember}
           />
         </div>
-      </div>
-    </div>
   );
 }
 

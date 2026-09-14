@@ -1,6 +1,5 @@
-// src/components/ChampionFlexCardModal.tsx
-import { useState } from 'react';
-import { Trophy, X, Download, Share2, Copy, Check, Sparkles, Flame } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trophy, X, Download, Share2, Copy, Check, Sparkles, Flame, Dices, Edit3 } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 
 interface ChampionFlexCardModalProps {
@@ -17,6 +16,13 @@ interface ChampionFlexCardModalProps {
   defeatedOpponent?: string;
 }
 
+interface BanterItem {
+  id: string;
+  label: string;
+  title: string;
+  text: string;
+}
+
 export default function ChampionFlexCardModal({
   isOpen,
   onClose,
@@ -30,20 +36,22 @@ export default function ChampionFlexCardModal({
   betTitle,
   defeatedOpponent,
 }: ChampionFlexCardModalProps) {
-  const [selectedBanter, setSelectedBanter] = useState<'mirrors' | 'goat' | 'respect'>('mirrors');
+  const [editableWinnerName, setEditableWinnerName] = useState(winnerName);
+  const [activeBanterIndex, setActiveBanterIndex] = useState(0);
+  const [customMessage, setCustomMessage] = useState('');
+  const [isRollingDice, setIsRollingDice] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  if (!isOpen) return null;
-
   const appUrl = (typeof window !== 'undefined' && window.location.origin)
     ? window.location.origin
-    : (import.meta.env.VITE_APP_URL || 'https://fantasychama.vercel.app');
+    : (import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app');
 
   const isSideBet = winType === 'sidebet';
 
-  const banterCaptions = isSideBet ? {
-    mirrors: {
+  const getSideBetBanters = (name: string): BanterItem[] => [
+    {
+      id: 'mapema',
       label: '🏎️ Nilisema Mapema',
       title: 'Confidence Banter',
       text: [
@@ -58,7 +66,8 @@ export default function ChampionFlexCardModal({
         `👉 ${appUrl}`,
       ].join('\n'),
     },
-    goat: {
+    {
+      id: 'goat',
       label: '🐐 Humbled Huyu Ndugu',
       title: 'Class is Permanent',
       text: [
@@ -67,14 +76,15 @@ export default function ChampionFlexCardModal({
         `Pole sana ndugu yangu *${defeatedOpponent || 'Rival'}* 🤝😂`,
         `Ulikuja na story nyingi lakini scoreboard haidanganyi!`,
         ``,
-        `Winner: *${winnerName}* 🥇`,
+        `Winner: *${name}* 🥇`,
         `Cash Claimed: *KES ${amountWon.toLocaleString()}* 🎉`,
         ``,
         `Kama si FantasyChama ningekuwa nazungushwa kulipwa hadi May! Wallets auto-settled safi kabisa.`,
         `👉 ${appUrl}`,
       ].join('\n'),
     },
-    respect: {
+    {
+      id: 'respect',
       label: '☕ Chezeni Chini',
       title: 'Cool & Collected',
       text: [
@@ -87,9 +97,55 @@ export default function ChampionFlexCardModal({
         `👉 ${appUrl}`,
       ].join('\n'),
     },
-  } : {
-    mirrors: {
-      label: '🥷 Points Master',
+    {
+      id: 'silence',
+      label: '🤫 Kimya Kwa Group',
+      title: 'Silence in Court',
+      text: [
+        `⚔️ *${leagueName} — Duel Results Are In!*`,
+        ``,
+        `Mbona group imekuwa kimya ghafla vile *${name}* amechukua hii duel? 😂🤫`,
+        `Humbled: *${defeatedOpponent || 'Rival'}*`,
+        `Bounty Won: *KES ${amountWon.toLocaleString()}* 💸`,
+        ``,
+        `Wale walikuwa wanacheka juzi mko wapi? Kueni wapole! 🦁`,
+        `👉 ${appUrl}`,
+      ].join('\n'),
+    },
+    {
+      id: 'rematch',
+      label: '🔄 Rematch Inakubaliwa',
+      title: 'Rematch Policy',
+      text: [
+        `⚔️ *Head-to-Head Settled — ${leagueName}* 🤝`,
+        ``,
+        `Gg *${defeatedOpponent || 'Rival'}*, lakini pesa ni yangu rasmi! KES *${amountWon.toLocaleString()}* 💰`,
+        `Rematch inakubaliwa ukijipanga tena next gameweek.`,
+        ``,
+        `Weka stake kwa wallet tufanye tena kazi! 🔥⚽`,
+        `👉 ${appUrl}`,
+      ].join('\n'),
+    },
+    {
+      id: 'lunch',
+      label: '🥩 Asanteni kwa Nyama',
+      title: 'Nyama Choma Secured',
+      text: [
+        `⚔️ *Side Bet Cleared — ${leagueName}*`,
+        ``,
+        `Asante sana *${defeatedOpponent || 'Rival'}* kwa kunidhamini nyama choma na kinywaji leo! 😂🥩🍺`,
+        `KES *${amountWon.toLocaleString()}* imeland safi kwa Chama wallet.`,
+        ``,
+        `Next challenger aingie uwanjani! ⚔️🔥`,
+        `👉 ${appUrl}`,
+      ].join('\n'),
+    },
+  ];
+
+  const getGameweekBanters = (name: string): BanterItem[] => [
+    {
+      id: 'mwizi',
+      label: '🥷 Mwizi wa Points',
       title: 'Points Master',
       text: [
         `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
@@ -102,21 +158,23 @@ export default function ChampionFlexCardModal({
         `👉 ${appUrl}`,
       ].join('\n'),
     },
-    goat: {
+    {
+      id: 'goat',
       label: '🐐 GOAT Mode',
       title: 'Class is Permanent',
       text: [
         `🏆 *GW${gameweek} Winner — ${leagueName}*`,
         ``,
         `Mapema ndio best! Form is temporary, class is permanent. 🐐`,
-        `🥇 *${winnerName}* (${teamName || 'FPL Team'})`,
+        `🥇 *${name}* (${teamName || 'FPL Team'})`,
         `Points: *${points || 0} pts* | Payout: *KES ${amountWon.toLocaleString()}* 🎉`,
         ``,
         `Nani mwingine anataka kufunzwa FPL hapa? 😎`,
         `👉 ${appUrl}`,
       ].join('\n'),
     },
-    respect: {
+    {
+      id: 'respect',
       label: '☕ Respect & Chai',
       title: 'Cool & Collected',
       text: [
@@ -129,22 +187,88 @@ export default function ChampionFlexCardModal({
         `👉 ${appUrl}`,
       ].join('\n'),
     },
-  };
+    {
+      id: 'sakafuni',
+      label: '🏃‍♂️ Mbio za Sakafuni',
+      title: 'Mbio za Sakafuni',
+      text: [
+        `🏆 *${leagueName} — GW${gameweek} Champe!* 🏃‍♂️💨`,
+        ``,
+        `Mbio za sakafuni huishia ukingoni! 😂`,
+        `Mlipiga kelele wiki mzima lakini leo scoreboard inasema nani ni baba yao! 🥇`,
+        `Points: *${points || 0} pts* | Cash: *KES ${amountWon.toLocaleString()}* 💰`,
+        ``,
+        `Wacheni kulialia kwa VAR, game imeisha! 🏁`,
+        `👉 ${appUrl}`,
+      ].join('\n'),
+    },
+    {
+      id: 'pep',
+      label: '🧠 Tactical Masterclass',
+      title: 'Pep Guardiola wa Chama',
+      text: [
+        `🏆 *${leagueName} Tactical Masterclass — GW${gameweek}* 🧠⚽`,
+        ``,
+        `Mnaniita Pep Guardiola wa Chama kuanzia leo!`,
+        `Captain pick ilikuwa pure football genius! 🫡`,
+        `Champion: *${name}* (${points || 0} pts)`,
+        `Pot Won: *KES ${amountWon.toLocaleString()}* 💸`,
+        ``,
+        `Classes zinaanza Monday, admission ni free kwa table-trailers! 📚😂`,
+        `👉 ${appUrl}`,
+      ].join('\n'),
+    },
+    {
+      id: 'lunch',
+      label: '🥩 Asanteni kwa Lunch',
+      title: 'Pot ya Wiki',
+      text: [
+        `🏆 *${leagueName} — GW${gameweek} Settled!*`,
+        ``,
+        `Asanteni sana wadau kwa kunilipia lunch na fuel ya wiki mzima! 😂🥩`,
+        `Wager Pot Secured: *KES ${amountWon.toLocaleString()}* cleanly.`,
+        ``,
+        `Form yangu haishuki, jiandaeni kwa kichapo kingine next gameweek! 🔥`,
+        `👉 ${appUrl}`,
+      ].join('\n'),
+    },
+  ];
 
-  const currentMessage = banterCaptions[selectedBanter].text;
+  const banters = isSideBet ? getSideBetBanters(editableWinnerName || winnerName) : getGameweekBanters(editableWinnerName || winnerName);
+
+  useEffect(() => {
+    setEditableWinnerName(winnerName);
+    const initialBanters = isSideBet ? getSideBetBanters(winnerName) : getGameweekBanters(winnerName);
+    setCustomMessage(initialBanters[0]?.text || '');
+    setActiveBanterIndex(0);
+  }, [winnerName, isOpen, winType]);
+
+  const handleShuffleBanter = () => {
+    setIsRollingDice(true);
+    haptics.selection();
+    setTimeout(() => {
+      const currentList = isSideBet ? getSideBetBanters(editableWinnerName || winnerName) : getGameweekBanters(editableWinnerName || winnerName);
+      const nextIdx = (activeBanterIndex + 1 + Math.floor(Math.random() * (currentList.length - 1))) % currentList.length;
+      setActiveBanterIndex(nextIdx);
+      setCustomMessage(currentList[nextIdx]?.text || '');
+      setIsRollingDice(false);
+    }, 280);
+  };
 
   const handleCopyMessage = () => {
     haptics.selection();
-    navigator.clipboard.writeText(currentMessage);
+    navigator.clipboard.writeText(customMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShareWhatsApp = () => {
     haptics.success();
-    const encoded = encodeURIComponent(currentMessage);
+    const encoded = encodeURIComponent(customMessage);
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
   };
+
+  if (!isOpen) return null;
 
   // Generate crisp HTML5 Canvas Image and trigger download
   const handleDownloadImage = () => {
@@ -209,7 +333,7 @@ export default function ChampionFlexCardModal({
       // 6. Winner Name
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText(winnerName, 540, 430);
+      ctx.fillText((editableWinnerName || winnerName || 'Champion').trim(), 540, 430);
 
       // 7. Team Name / Duel Subtitle
       if (isSideBet) {
@@ -351,7 +475,21 @@ export default function ChampionFlexCardModal({
               </div>
             </div>
 
-            <h3 className="text-xl font-black text-white">{winnerName}</h3>
+            {/* Editable Champion Name */}
+            <div className="flex items-center justify-center gap-1.5 my-1.5">
+              <input
+                type="text"
+                value={editableWinnerName}
+                onChange={(e) => setEditableWinnerName(e.target.value)}
+                placeholder="Champion Name"
+                className="text-xl md:text-2xl font-black text-white text-center bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/15 focus:border-amber-400 rounded-xl px-3 py-1 outline-none transition-all max-w-[280px]"
+                title="Edit Champion name on card & banter"
+              />
+              <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
+                <Edit3 className="w-3 h-3" /> Edit
+              </span>
+            </div>
+
             {isSideBet ? (
               <p className="text-xs text-red-400 font-semibold mt-0.5">
                 Defeated {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
@@ -383,7 +521,7 @@ export default function ChampionFlexCardModal({
         <button
           onClick={handleDownloadImage}
           disabled={isExporting}
-          className="w-full mb-5 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+          className="w-full mb-5 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           <Download className="w-4 h-4" />
           {isExporting ? 'Generating High-Res Card...' : 'Download Flex Image (PNG for WhatsApp Status)'}
@@ -391,30 +529,58 @@ export default function ChampionFlexCardModal({
 
         {/* Banter Caption Selector */}
         <div className="border-t border-white/10 pt-4">
-          <p className="text-[11px] font-bold text-gray-300 mb-2.5 flex items-center gap-1.5">
-            <Flame className="w-3.5 h-3.5 text-amber-400" /> Pick Banter Caption for WhatsApp Group:
-          </p>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {(['mirrors', 'goat', 'respect'] as const).map((key) => {
-              const isSelected = selectedBanter === key;
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <p className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-amber-400" /> WhatsApp Banter:
+            </p>
+            <button
+              type="button"
+              onClick={handleShuffleBanter}
+              disabled={isRollingDice}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
+              title="Roll dice to shuffle banter"
+            >
+              <Dices className={`w-4 h-4 text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
+              <span>Shuffle Banter 🎲</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar mb-2.5">
+            {banters.map((item, idx) => {
+              const isSelected = activeBanterIndex === idx;
               return (
                 <button
-                  key={key}
-                  onClick={() => { haptics.selection(); setSelectedBanter(key); }}
-                  className={`py-2 px-1.5 rounded-xl text-xs font-bold transition-all border text-center ${
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    haptics.selection();
+                    setActiveBanterIndex(idx);
+                    setCustomMessage(item.text);
+                  }}
+                  className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 cursor-pointer ${
                     isSelected
                       ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
                       : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
                   }`}
                 >
-                  {banterCaptions[key].label}
+                  {item.label}
                 </button>
               );
             })}
           </div>
 
-          <div className="p-3 rounded-xl bg-[#080c10] border border-white/10 text-xs font-mono text-gray-300 whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto custom-scrollbar mb-4">
-            {currentMessage}
+          <div className="relative mb-3">
+            <textarea
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              rows={5}
+              className="w-full p-3.5 rounded-xl bg-[#080c10] border border-white/10 focus:border-amber-400/50 text-xs font-mono text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
+              placeholder="Edit your spicy banter here before sharing to WhatsApp..."
+            />
+            <div className="flex items-center justify-between text-[10px] text-gray-500 px-1 mt-1 font-medium">
+              <span>✏️ Tap inside to customize banter or add names</span>
+              <span>{customMessage.length} chars</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

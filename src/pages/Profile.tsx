@@ -408,17 +408,18 @@ export default function Profile() {
     };
 
     const handleShare = () => {
-        const origin = window.location.origin;
+        const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
         const link = `${origin}/login?code=${inviteCode}`;
-        const text = `🏆 Join our FPL Chama (${leagueName || 'FantasyChama'})! League Code: *${inviteCode}*\nJoin link: ${link}`;
+        const text = `⚽ Join our FPL Chama (${leagueName || 'Tentshakers FC'})!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleCopy = () => {
-        const origin = window.location.origin;
+        const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
         const link = `${origin}/login?code=${inviteCode}`;
-        navigator.clipboard.writeText(inviteCode ? `${inviteCode}` : link);
-        toast.success(`Invite Code ${inviteCode} copied to clipboard!`);
+        const text = `⚽ Join our FPL Chama (${leagueName || 'Tentshakers FC'})!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
+        navigator.clipboard.writeText(text);
+        toast.success(`Invite message copied to clipboard!`);
     };
 
     const handleToggleActive = async (memberId: string, currentStatus: boolean) => {

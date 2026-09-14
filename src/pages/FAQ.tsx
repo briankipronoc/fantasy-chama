@@ -6,33 +6,41 @@ export default function FAQ() {
         <DocLayout
             title="Frequently Asked Questions"
             icon={HelpCircle}
-            iconColor="text-blue-400"
-            iconBg="bg-blue-500/10"
-            iconBorder="border-blue-500/20"
-            kicker="Clarity is the ultimate security. Everything you need to know about the platform's mechanics."
+            iconColor="text-emerald-400"
+            iconBg="bg-emerald-500/10"
+            iconBorder="border-emerald-500/20"
+            kicker="Clear rules, zero confusion. Everything you need to know about how your Chama runs."
         >
-            <h2>How are funds deposited and secured?</h2>
+            <h2>How does the weekly pot work?</h2>
             <p>
-                When a league is created, the Chairman defines the stake amount per gameweek. Members receive an invitation code and can securely deposit their stakes into their platform wallet utilizing M-Pesa STK Push integration natively connected to Safaricom Daraja.
-            </p>
-            <p>
-                Your digital wallet balance is stored securely within the platform's vault until weekly deductions resolve your gameweek stakes. All transactions are mathematically transparent.
+                Every active member contributes their agreed stake per gameweek (e.g. KES 250). When the gameweek fixtures finish, official points are synced directly from the FPL API. The manager with the highest score that week takes the weekly pot.
             </p>
 
-            <h2>How fast is the FPL score sync?</h2>
+            <h2>What happens if someone joins late (e.g. Gameweek 10)?</h2>
             <p>
-                Fantasy Chama links directly to the Official Premier League data. As points accumulate on a matchday, your positional standings within your Chama league update in real time.
+                Late joiners only contribute to the pot from the week they join onwards. They are never back-charged for earlier gameweeks, and their contributions only go toward active gameweeks from GW10 through GW38.
             </p>
 
-            <h2>What happens if I miss a payment?</h2>
+            <h2>What happens if someone skips a gameweek or is in the Red Zone?</h2>
             <p>
-                If your wallet balance is insufficient for the gameweek stake, you are temporarily moved to the "Red Zone." While in the Red Zone, you are excluded from winning that gameweek's active pot until your wallet is funded.
+                If a member's wallet doesn't have enough funds for a gameweek, they are marked Red Zone for that week. They do not contribute to that week's pot, and they cannot win that week's payout — even if they score the highest points. Once they top up, they are immediately eligible for the next gameweek. No ghost arrears.
             </p>
 
-            <h2>Can the Chairman withdraw funds without permission?</h2>
+            <h2>How are funds deposited and paid out?</h2>
             <p>
-                No. Fantasy Chama uses a dual-approval Maker/Checker system. Any payout initiated by the Chairman must be verified and approved by the assigned Co-Chair before funds are disbursed.
+                Members fund their digital wallet directly via M-Pesa STK Push on their phones, or through the Chairman's Pochi La Biashara. When a gameweek is resolved, the winner's payout is sent directly to their registered M-Pesa number.
+            </p>
+
+            <h2>How does the Season Vault work?</h2>
+            <p>
+                If your Chairman enables a season split (e.g. 70% weekly / 30% season vault), the season portion accumulates every week into a secure prize pool. At Gameweek 38, the vault is shared among the top season managers according to the league's payout tiers.
+            </p>
+
+            <h2>Can a Chairman run off with the money?</h2>
+            <p>
+                No. Fantasy Chama uses a dual-confirmation system with an assigned Co-Chair. Before any payout or member status change executes, your designated Co-Chair must approve it. Plus, the full ledger and transactions are open and visible to every member in the league.
             </p>
         </DocLayout>
     );
 }
+

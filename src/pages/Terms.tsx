@@ -28,9 +28,9 @@ export default function Terms() {
                 League Chairmen define the stakes. Platform architecture natively redirects customizable administrative commissions directly to their personal wallets upon each successful gameweek resolution.
             </p>
 
-            <h2>3. Red Zone Enforcement</h2>
+            <h2>3. Red Zone & Gameweek Eligibility</h2>
             <p>
-                Users who fail to maintain sufficient wallet balances are automatically demoted to the "Red Zone". While in the Red Zone, managers are explicitly excluded from the active gameweek pot and are ineligible for any B2C payouts until their arrears are cleared.
+                Managers who do not fund their wallet for an upcoming gameweek are marked in the "Red Zone". While in the Red Zone, you do not contribute to that week's pot and are ineligible to win that week's payout. Late joiners (e.g. starting at GW10) and managers returning from a skipped week only contribute from their active week forward — no retroactive back-charges or phantom arrears.
             </p>
 
             <h2>4. Safaricom Integrations</h2>

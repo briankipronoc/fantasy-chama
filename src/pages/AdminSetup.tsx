@@ -515,12 +515,12 @@ export default function AdminSetup() {
     };
 
     const handleCopyCode = () => {
-        const fullShareList = [{ displayName: fullName + " (Chairman)", phone }, ...members]
-            .map(m => `• ${m.displayName}: ${m.phone}`)
-            .join("\n");
-
-        navigator.clipboard.writeText(`🏆 The Big League is Official! 🏆\n\nLeague Code: *${generatedCode}*\nMonthly Fee: KES ${monthlyFee}\n\nSeason Distribution:\nWeekly Pot: KES ${weeklyPrize}\nEnd-of-Season Vault: KES ${grandVault * 38}\n\nEnrolled Members (${members.length + 1}):\n${fullShareList}\n\nJoin at: https://fantasychama.co.ke`);
+        const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
+        const link = `${appUrl}/login?code=${generatedCode}`;
+        const message = `⚽ Join our FPL Chama (${leagueName || "Tentshakers FC"})!\nLeague Code: *${generatedCode}*\nUse your phone number and the code to join.\nJoin link: ${link}`;
+        navigator.clipboard.writeText(message);
         setCopied(true);
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
         setTimeout(() => setCopied(false), 2000);
     };
 

@@ -22,9 +22,10 @@ export default function InviteHub() {
         }
 
         const inviteLink = `${appUrl}/login${params}`;
-        const message = `Hey! I've just started a new Chama on Fantasy Chama. Join 'Elite Investors' using my exclusive link: ${inviteLink} (Code: ${inviteCode}). Let's grow our wealth together! 🚀`;
+        const message = `⚽ Join our FPL Chama (Tentshakers FC)!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: ${inviteLink}`;
         navigator.clipboard.writeText(message);
         setCopied(true);
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -126,8 +127,8 @@ export default function InviteHub() {
                         <FileText className="w-4 h-4 text-gray-500" />
                         <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Invitation Preview</span>
                     </div>
-                    <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 italic text-gray-600 dark:text-gray-400 text-sm leading-relaxed shadow-lg">
-                        "Hey! I've just started a new Chama on <strong className="text-[#10B981] not-italic">Fantasy Chama</strong>. Join 'Elite Investors' using my exclusive link: <strong className="text-[#FBBF24] not-italic">fantasy-chama.vercel.app/login?code={inviteCode}</strong> (Code: {inviteCode}). Let's grow our wealth together! 🚀"
+                    <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 text-gray-300 text-sm leading-relaxed shadow-lg font-mono whitespace-pre-wrap">
+                        {`⚽ Join our FPL Chama (Tentshakers FC)!\nLeague Code: *${inviteCode}*\nUse your phone number and the code to join.\nJoin link: https://fantasy-chama.vercel.app/login?code=${inviteCode}`}
                     </div>
                 </div>
 

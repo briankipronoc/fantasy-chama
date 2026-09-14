@@ -413,7 +413,7 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                             </span>
                                                         </div>
                                                         <p className={clsx(
-                                                            "text-xs leading-relaxed font-medium",
+                                                            "text-xs leading-relaxed font-medium break-words overflow-hidden [overflow-wrap:anywhere] [word-break:break-word]",
                                                             isRead
                                                                 ? "text-gray-300"
                                                                 : isFinancial
@@ -421,7 +421,7 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                                                                     : isWarning
                                                                         ? "text-red-200 font-semibold"
                                                                         : "text-emerald-100"
-                                                        )}>
+                                                        )} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                                                             {notif.message}
                                                         </p>
                                                     </div>
@@ -459,10 +459,10 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                 </div>
                     {/* Mobile Quick Sign Out */}
                     <button
-                        onClick={() => {
+                        onClick={async () => {
                             haptics.selection();
-                            try { logout(); } catch {}
-                            window.location.href = '/login';
+                            try { await logout(); } catch {}
+                            window.location.replace('/login');
                         }}
                         className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
                         title="Sign Out"

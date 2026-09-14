@@ -124,18 +124,31 @@ export default function SideBets() {
                 ? (currentUser.secondFplTeamId || currentUser.fplTeamId)
                 : currentUser.fplTeamId;
 
+            const challengerData: Record<string, any> = {
+                id: currentUser.id,
+                name: currentUser.displayName || 'Challenger',
+                signed: true,
+            };
+            if (currentUser.secondFplTeamId) {
+                challengerData.teamLabel = selectedTeam === 'secondary' ? 'Team 2' : 'Team 1';
+            }
+            if (challengerFplEntry) {
+                challengerData.fplEntryId = Number(challengerFplEntry);
+            }
+
             await addDoc(collection(db, 'leagues', activeLeagueId, 'side_bets'), {
                 title: betTitle.trim(),
-                description: betDescription.trim(),
-                challenger: {
-                    id: currentUser.id,
-                    name: currentUser.displayName,
-                    signed: true,
-                    teamLabel: currentUser.secondFplTeamId ? (selectedTeam === 'secondary' ? 'Team 2' : 'Team 1') : undefined,
-                    fplEntryId: challengerFplEntry || undefined,
+                description: betDescription.trim() || '',
+                challenger: challengerData,
+                opponent: {
+                    id: opponent.id,
+                    name: opponent.displayName || 'Opponent',
+                    signed: false
                 },
-                opponent: { id: opponent.id, name: opponent.displayName, signed: false },
+                challengerId: currentUser.id,
+                opponentId: opponent.id,
                 stake,
+                amount: stake,
                 status: 'pending_opponent',
                 winnerId: null,
                 winnerName: null,
@@ -148,18 +161,19 @@ export default function SideBets() {
             // Create notification for league
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `🎲 ${currentUser.displayName} challenged ${opponent.displayName} to a side bet: "${betTitle}" (KES ${stake.toLocaleString()})`,
+                message: `🎲 ${currentUser.displayName || 'A member'} challenged ${opponent.displayName || 'an opponent'} to a side bet: "${betTitle.trim()}" (KES ${stake.toLocaleString()})`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
 
-            toast.success(`Challenge sent to ${opponent.displayName}!`);
+            toast.success(`Challenge sent to ${opponent.displayName || 'Opponent'}!`);
             setShowCreate(false);
             setBetTitle('');
             setBetDescription('');
             setBetStake('');
             setOpponentId('');
         } catch (e: any) {
+            console.error('[side-bets] Failed to create bet:', e);
             toast.error('Failed to create bet: ' + (e?.message || 'Error'));
         } finally {
             setIsSubmitting(false);
@@ -389,15 +403,9 @@ export default function SideBets() {
                             <Swords className="w-8 h-8" />
                         </div>
                         <h3 className="fc-frosty-title text-xl md:text-2xl font-black mb-2">No Active Side Bets Yet</h3>
-                        <p className="fc-metallic-sub text-sm max-w-md mx-auto leading-relaxed text-gray-400 mb-6">
+                        <p className="fc-metallic-sub text-sm max-w-md mx-auto leading-relaxed text-gray-400">
                             Challenge any rival manager in this league to a winner-takes-all head-to-head duel. Wallets auto-settle upon completion.
                         </p>
-                        <button
-                            onClick={() => setShowCreate(true)}
-                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-95"
-                        >
-                            <Plus className="w-4 h-4" /> Challenge Someone
-                        </button>
                     </div>
                 )}
 

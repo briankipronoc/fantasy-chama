@@ -349,7 +349,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }, 0);
     const projectedSeasonCollectionsGross = Math.max(0, seasonCollectedSoFarGross + projectedRemainingCollectionsGross);
     const projectedSeasonVault = projectedSeasonCollectionsGross * (rules.vault / 100);
-    const activeMembersCount = members.filter((member) => member.isActive !== false).length;
+    const activeMembers = members.filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending);
+    const activeMembersCount = activeMembers.length;
     const configuredWinnersCount = Number(rules.seasonWinnersCount || 3);
     const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
     const seasonWinnersMode = String(rules.seasonWinnersMode || (configuredWinnersCount === 1 ? 'top1' : configuredWinnersCount === 5 ? 'top5' : 'top3'));
@@ -1050,9 +1051,19 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 </div>
                                 <div>
                                     {(() => {
-                                        const cleanStandings = standingsData.filter((entry, idx, arr) => 
+                                        const activeStandings = standingsData.filter((entry) => {
+                                            return activeMembers.some((m) =>
+                                                (m.fplTeamId && Number(m.fplTeamId) === Number(entry.entry)) ||
+                                                (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(entry.entry)) ||
+                                                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase()
+                                            );
+                                        });
+                                        const dedupedStandings = activeStandings.filter((entry, idx, arr) => 
                                             arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
                                         );
+                                        const cleanStandings = dedupedStandings.length > 0 
+                                            ? dedupedStandings 
+                                            : activeMembers.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad' }));
                                         const matchingLeader = cleanStandings[tier.place - 1];
                                         if (!matchingLeader) return null;
                                         return (
@@ -1435,9 +1446,19 @@ const handleRejectPendingPayout = async (payout: any) => {
                     leagueName={leagueName}
                     seasonVaultTotal={Math.round(totalPreviewPayout || projectedSeasonVault || 0)}
                     winners={(() => {
-                        const cleanStandings = standingsData.filter((entry, idx, arr) => 
+                        const activeStandings = standingsData.filter((entry) => {
+                            return activeMembers.some((m) =>
+                                (m.fplTeamId && Number(m.fplTeamId) === Number(entry.entry)) ||
+                                (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(entry.entry)) ||
+                                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase()
+                            );
+                        });
+                        const dedupedStandings = activeStandings.filter((entry, idx, arr) => 
                             arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
                         );
+                        const cleanStandings = dedupedStandings.length > 0 
+                            ? dedupedStandings 
+                            : activeMembers.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad', total: 0 }));
                         return seasonVaultPreview.map((tier: any) => {
                             const leader = cleanStandings[tier.place - 1];
                             return {

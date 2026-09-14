@@ -23,11 +23,12 @@ export default function DeadlineCountdown({
   const effectiveLeagueName = leagueName || league?.name || 'FantasyChama';
   const effectiveStake = (gameweekStake && gameweekStake > 0) ? gameweekStake : (league?.monthlyFee || 0);
 
+  const [liveEvent, setLiveEvent] = useState<{ id: number; name: string } | null>(null);
   const [nextEvent, setNextEvent] = useState<{ id: number; name: string; deadline_time: string } | null>(null);
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number; totalMs: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Fetch next FPL deadline
+  // Fetch next FPL deadline & live status
   useEffect(() => {
     let isMounted = true;
     fetch('/fpl-api/bootstrap-static/')
@@ -35,10 +36,20 @@ export default function DeadlineCountdown({
       .then((data) => {
         if (!isMounted || !data?.events) return;
         const events = data.events;
-        // Next event is either the current unfinished event or the next upcoming event
+
+        const current = events.find((e: any) => e.is_current);
+        const isLive = Boolean(current && !current.finished);
+
+        if (isLive) {
+          setLiveEvent({ id: current.id, name: current.name });
+        } else {
+          setLiveEvent(null);
+        }
+
+        // Next event is either the upcoming event with future deadline or next in sequence
         const upcoming = events.find((e: any) => !e.finished && new Date(e.deadline_time).getTime() > Date.now())
           || events.find((e: any) => e.is_next)
-          || events.find((e: any) => e.is_current);
+          || events.find((e: any) => !e.finished);
 
         if (upcoming?.deadline_time) {
           setNextEvent({
@@ -104,6 +115,49 @@ export default function DeadlineCountdown({
       return !isFunded && m.isActive !== false && m.role !== 'admin';
     });
   }, [members, effectiveStake]);
+
+  // If live event is ongoing, display "GW X is LIVE"
+  if (liveEvent) {
+    return (
+      <>
+        <button
+          onClick={() => {
+            haptics.selection();
+            setIsModalOpen(true);
+          }}
+          className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none active:scale-95 bg-emerald-500/15 border-emerald-500/35 text-emerald-300 hover:bg-emerald-500/25 shadow-[0_0_15px_rgba(16,185,129,0.2)] ${className}`}
+          title={`GW${liveEvent.id} is currently LIVE! Tap to send banter or check standings.`}
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+
+          <span className="flex items-center gap-1.5 font-mono tracking-tight text-[11px] sm:text-xs">
+            <strong className="text-white">GW{liveEvent.id}</strong>
+            <span className="font-sans font-black uppercase text-[10px] tracking-wider text-emerald-400">is LIVE</span>
+          </span>
+
+          {unpaidMembers.length > 0 && role === 'admin' && (
+            <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <Flame className="w-2.5 h-2.5" />
+              {unpaidMembers.length} unpaid
+            </span>
+          )}
+        </button>
+
+        <BanterNudgeModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          leagueName={effectiveLeagueName}
+          nextGw={liveEvent.id}
+          deadlineFormatted="Ongoing"
+          unpaidMembers={unpaidMembers}
+          gameweekStake={effectiveStake}
+        />
+      </>
+    );
+  }
 
   if (!nextEvent || !timeLeft) return null;
 

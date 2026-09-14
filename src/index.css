@@ -729,8 +729,11 @@
     backdrop-filter: blur(18px) saturate(125%);
     -webkit-backdrop-filter: blur(18px) saturate(125%);
     box-shadow: 0 22px 60px rgba(0, 0, 0, 0.3);
-    max-width: min(26rem, calc(100vw - 2rem));
+    max-width: min(28rem, calc(100vw - 2rem));
     animation: fc-toast-fade-in-out 3.6s ease-in-out both;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
   }
   .fc-inline-toast-success {
     background-color: rgba(16, 185, 129, 0.16);
@@ -746,6 +749,20 @@
     background-color: rgba(59, 130, 246, 0.16);
     color: #dbeafe;
     border: 1px solid rgba(59, 130, 246, 0.35);
+  }
+
+  /* Universal React-Hot-Toast & notification word-wrap guarantees */
+  div[data-toaster-container] div[role="status"],
+  div[data-toaster-container] div[role="alert"],
+  .react-hot-toast,
+  [data-theme="light"] div[data-toaster-container] div[role="status"],
+  [data-theme="light"] div[data-toaster-container] div[role="alert"] {
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+    line-height: 1.45 !important;
+    max-width: min(28rem, calc(100vw - 2rem)) !important;
+    box-sizing: border-box !important;
   }
 
   .fc-hq-shell {

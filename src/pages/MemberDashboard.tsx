@@ -881,7 +881,21 @@ export default function MemberDashboard() {
                     title={leagueName || 'The Big League'}
                     subtitle="Member Hub"
                 />
-                <LiveMatchdayPulse className="mt-1 mb-1" />
+                <LiveMatchdayPulse
+                    className="mt-1 mb-2"
+                    gw={currentFplEvent?.id}
+                    leaderName={gwWinner?.player_name}
+                    leaderTeam={gwWinner?.entry_name}
+                    leaderPoints={gwWinner?.event_total}
+                    leadMargin={gwWinner?.leadMargin}
+                    runnerUpName={gwWinner?.runnerUpName}
+                    isLive={!hasFinalGwChampion}
+                    isFinished={hasFinalGwChampion}
+                    potAmount={((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
+                    contributorCount={members.filter(m => m.hasPaid && m.isActive !== false).length}
+                    isCurrentUserLeader={isCurrentUserGwWinner}
+                    onFlex={isCurrentUserGwWinner ? () => setShowFlexModal(true) : undefined}
+                />
 
                 {/* ── GREETING CARD — First thing member sees ── */}
                 <section className={clsx(
@@ -905,7 +919,7 @@ export default function MemberDashboard() {
                                 <span className={clsx(
                                     "bg-clip-text text-transparent bg-gradient-to-r",
                                     isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : hasPaid ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
-                                )}>
+                                    )}>
                                     {firstName}!
                                 </span>
                             </p>
@@ -936,72 +950,6 @@ export default function MemberDashboard() {
                         )}
                     </div>
                 </section>
-
-                {/* ── POT LEADER / GAMEWEEK CHAMPION CARD — Positioned directly after Greeting ── */}
-                {!currentFplEvent?.isPreparingForNextGw && gwWinner && (
-                    <div className="fc-highlight-card bg-gradient-to-r from-amber-500/10 via-amber-100/40 to-white/90 dark:from-[#FBBF24]/10 dark:via-[#F59E0B]/5 dark:to-transparent border border-amber-400/40 dark:border-[#FBBF24]/30 rounded-[2rem] p-5 md:p-6 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-[0_4px_24px_rgba(245,158,11,0.08)] dark:shadow-[0_0_40px_rgba(251,191,36,0.1)] transition-all animate-in zoom-in-95 duration-500 mb-3">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-[#FBBF24] blur-[100px] opacity-10 pointer-events-none"></div>
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
-                        
-                        <div className="relative z-10 flex items-center gap-4 md:gap-5 w-full md:w-auto">
-                            <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-lg flex-shrink-0 animate-pulse">
-                                <div className="w-full h-full bg-amber-50 dark:bg-[#0b1014] rounded-2xl flex items-center justify-center border border-amber-300 dark:border-white/10">
-                                    <Trophy className="w-7 h-7 text-amber-500 dark:text-[#FBBF24]" />
-                                </div>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-black text-amber-600 dark:text-[#FBBF24] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                    <Star className="w-3 h-3 fill-current" /> {hasFinalGwChampion ? 'Gameweek Champion' : 'Live Pot Leader'}
-                                </p>
-                                <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight tracking-tight truncate">
-                                    {isCurrentUserGwWinner ? `${gwWinner.player_name} (You!)` : gwWinner.player_name}
-                                </h3>
-                                <p className="text-xs md:text-sm font-bold text-slate-600 dark:text-gray-400 mt-0.5 truncate">
-                                    {gwWinner.entry_name}{' '}
-                                    <span className="inline-block text-emerald-700 dark:text-[#10B981] ml-2 px-2 py-0.5 bg-emerald-500/15 rounded-lg border border-emerald-500/30 tabular-nums font-black">
-                                        {gwWinner.event_total} pts
-                                    </span>
-                                </p>
-                                {!hasFinalGwChampion && gwWinner.leadMargin !== undefined && (
-                                    <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
-                                            +{gwWinner.leadMargin} pts ahead of {gwWinner.runnerUpName}
-                                        </span>
-                                        <span className={clsx(
-                                            "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
-                                            gwWinner.leadMargin >= 15
-                                                ? "bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300"
-                                                : gwWinner.leadMargin >= 5
-                                                ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
-                                                : "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-300 animate-pulse"
-                                        )}>
-                                            {gwWinner.leadMargin >= 15 ? "Dominant Lead 🛡️" : gwWinner.leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="relative z-10 flex flex-row md:flex-col items-center flex-shrink-0 md:items-end justify-between w-full md:w-auto bg-white/80 dark:bg-[#0b1014]/60 p-3.5 md:p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 backdrop-blur-sm gap-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Projected Payout</p>
-                            <p className="text-xl md:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
-                                KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}
-                            </p>
-                            {isCurrentUserGwWinner && (
-                                <button
-                                    onClick={() => {
-                                        haptics.celebrate();
-                                        setShowFlexModal(true);
-                                    }}
-                                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-sm flex items-center gap-1.5"
-                                >
-                                    🏆 Flex on WhatsApp
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {showLeagueGuide && (
                     <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300">

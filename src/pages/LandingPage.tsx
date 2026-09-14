@@ -345,9 +345,9 @@ export default function LandingPage() {
                                 <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-6">
                                     <Lock className="w-6 h-6 text-emerald-400" />
                                 </div>
-                                <h3 className="text-3xl lg:text-4xl font-extrabold text-white tracking-tight">Automated Escrow</h3>
+                                <h3 className="text-3xl lg:text-4xl font-extrabold text-white tracking-tight">Transparent Escrow Vaults</h3>
                                 <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
-                                    Funds are locked in a programmatic vault at GW1. Automated distribution based on final API standings at GW38. Zero missing funds.
+                                    Weekly stakes and season pots are locked and accounted for down to the last shilling. Payouts match official FPL scores without delays or disputes.
                                 </p>
                             </div>
                         </div>
@@ -360,31 +360,31 @@ export default function LandingPage() {
                             </div>
                             <h3 className="text-2xl font-extrabold text-white mb-3 tracking-tight relative z-10">Live FPL Sync</h3>
                             <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm lg:text-base relative z-10">
-                                Direct integration with Official FPL APIs. Real-time stake valuation as points accumulate globally.
+                                Direct integration with Official FPL APIs. Real-time standings update as matchday goals and bonus points roll in.
                             </p>
                         </div>
 
-                        {/* Kickbacks / Yield Generation (NEW -> Obfuscated) */}
+                        {/* Kickbacks / Chairman Incentive */}
                         <div className="fc-landing-card md:col-span-6 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[300px]">
                             <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-amber-500/10 rounded-full blur-[60px] pointer-events-none"></div>
                             <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-6 relative z-10">
                                 <Trophy className="w-6 h-6 text-amber-400" />
                             </div>
-                            <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Automated Admin Incentives</h3>
+                            <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Chairman Commission</h3>
                             <p className="max-w-md text-gray-600 dark:text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
-                                Stop managing leagues for free. The platform can natively route a commission directly to the Chairman's wallet upon every gameweek settlement.
+                                Stop running your league for free. The platform routes an automatic 4% commission to the Chairman's wallet upon every gameweek settlement.
                             </p>
                         </div>
 
-                        {/* Red Zone Risk Management (NEW) */}
+                        {/* Co-Chair Approval */}
                         <div className="fc-landing-card md:col-span-6 bg-[#161d24] rounded-[2rem] p-8 md:p-10 flex flex-col justify-center border border-white/5 hover:bg-[#1f2937] transition-colors relative overflow-hidden min-h-[300px]">
                             <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 bg-emerald-500/10 rounded-full blur-[60px] pointer-events-none"></div>
                             <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center mb-6 relative z-10">
                                 <Shield className="w-6 h-6 text-emerald-400" />
                             </div>
-                            <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Maker/Checker Protocol</h3>
+                            <h3 className="text-3xl font-extrabold text-white mb-4 tracking-tight relative z-10">Co-Chair Verification</h3>
                             <p className="max-w-md text-gray-600 dark:text-gray-400 leading-relaxed text-base lg:text-lg relative z-10">
-                                Financial integrity verified through dual-authorization protocols by a required Co-Chair before a single B2C payout or Red Zone exclusion executes.
+                                Every payout and member status update requires approval from your designated Co-Chair. Double protection against accidental clicks or solo mistakes.
                             </p>
                         </div>
 
@@ -397,7 +397,7 @@ export default function LandingPage() {
                                 </div>
                                 <h3 className="text-3xl lg:text-4xl font-extrabold text-white mb-5 tracking-tight">Hybrid Cash Flow</h3>
                                 <p className="text-gray-600 dark:text-gray-400 leading-relaxed text-lg">
-                                    Execute payouts securely via Safaricom Daraja, or hand the winner physical cash while the system seamlessly reorganizes the digital ledger.
+                                    Pay winners directly via M-Pesa, or hand over cash while the platform automatically logs the payment and updates the ledger in real time.
                                 </p>
                             </div>
                         </div>
@@ -444,7 +444,7 @@ export default function LandingPage() {
                         <a href="https://x.com/FantasyChama" className="text-gray-500 hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Twitter</a>
                     </div>
                     <div className="text-gray-600 text-xs font-semibold tracking-wide">
-                        © 2026 Fantasy Chama. Institutional Grade.
+                        © 2026 Fantasy Chama. Built for serious Kenyan FPL leagues.
                     </div>
                 </div>
             </footer>

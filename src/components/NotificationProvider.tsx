@@ -130,7 +130,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         boxShadow: palette.boxShadow,
                         backdropFilter: 'blur(12px)',
                         WebkitBackdropFilter: 'blur(12px)',
-                        maxWidth: '24rem',
+                        maxWidth: '28rem',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                        lineHeight: '1.45',
                     },
                     iconTheme: {
                         primary: '#10B981',
@@ -214,7 +217,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         boxShadow: '0 22px 60px rgba(0,0,0,0.36)',
                         backdropFilter: 'blur(18px) saturate(125%)',
                         WebkitBackdropFilter: 'blur(18px) saturate(125%)',
-                        maxWidth: '24rem',
+                        maxWidth: '28rem',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                        lineHeight: '1.45',
+                        boxSizing: 'border-box',
                     },
                     success: {
                         iconTheme: { primary: '#10B981', secondary: '#0e1419' },
@@ -223,11 +230,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         style: {
                             color: '#fca5a5',
                             border: '1px solid rgba(239,68,68,0.22)',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                            lineHeight: '1.45',
                         },
                         iconTheme: { primary: '#ef4444', secondary: '#0e1419' },
                     }
                 }}
-                containerStyle={{ top: 92, right: 20, width: 'min(24rem, calc(100vw - 1.5rem))' }}
+                containerStyle={{ top: 92, right: 20, width: 'min(28rem, calc(100vw - 1.5rem))' }}
             />
         </NotificationContext.Provider>
     );

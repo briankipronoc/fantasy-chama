@@ -191,11 +191,14 @@ service cloud.firestore {
       }
 
       // ── Side Bets ─────────────────────────────────────────────
+      // Custom peer-to-peer wagers between league members.
+      // Create: any authenticated member can create a side bet challenge.
+      // Update: opponent can sign, members can endorse, admin can approve/reject/resolve.
       match /side_bets/{betId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated() &&
-          request.resource.data.keys().hasAll(['challengerId', 'opponentId', 'amount', 'gameweek', 'status']) &&
-          request.resource.data.status in ['pending', 'open'];
+          request.resource.data.keys().hasAll(['title', 'status', 'challenger', 'opponent']) &&
+          request.resource.data.status in ['pending_opponent', 'pending', 'open'];
         allow update: if isAuthenticated();
         allow delete: if isAdmin(leagueId);
       }

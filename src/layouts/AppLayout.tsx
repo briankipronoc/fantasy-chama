@@ -7,7 +7,6 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { useNotifications } from '../components/NotificationProvider';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
-import LeagueSwitcher from '../components/LeagueSwitcher';
 import { haptics } from '../utils/haptics';
 
 export default function AppLayout() {
@@ -158,14 +157,14 @@ export default function AppLayout() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [location.pathname]);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         haptics.selection();
         try {
-            logout();
+            await logout();
         } catch (err) {
             console.warn('[logout] catch error:', err);
         }
-        window.location.href = '/login';
+        window.location.replace('/login');
     };
 
     const shellBackgroundClass = useMemo(() => {
@@ -186,31 +185,23 @@ export default function AppLayout() {
                 <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/[0.12] bg-[#0c1219]/85 backdrop-blur-2xl p-5 flex flex-col relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.08)]">
                     <div className="fc-sidebar-glow absolute -top-24 -right-20 w-56 h-56 rounded-full bg-emerald-500/10 blur-[80px] pointer-events-none" />
 
-                    <div className={clsx('mb-6 relative z-10')}>
+                    <div className={clsx('mb-4 relative z-10')}>
                         {!isSidebarCollapsed ? (
-                            <div className="flex flex-col gap-3.5">
-                                {/* Top Utility Row: Brand Badge + Collapse Button */}
-                                <div className="flex items-center justify-between">
-                                    <div className="fc-sidebar-brand inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-                                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-md bg-emerald-500/20 border border-emerald-400/30">
-                                            <Trophy className="w-3 h-3 text-emerald-300" />
-                                        </span>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Fantasy Chama</span>
-                                    </div>
-
-                                    <button
-                                        onClick={() => setIsSidebarCollapsed(prev => !prev)}
-                                        className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors inline-flex items-center justify-center cursor-pointer active:scale-95"
-                                        title="Collapse sidebar"
-                                    >
-                                        <PanelLeftClose className="w-3.5 h-3.5" />
-                                    </button>
+                            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-500/15 border border-emerald-400/25 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+                                        <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+                                    </span>
+                                    <span className="text-xs font-black uppercase tracking-widest text-emerald-400">Navigation</span>
                                 </div>
 
-                                {/* Instant Multi-League Switcher */}
-                                <div className="w-full">
-                                    <LeagueSwitcher variant="sidebar" />
-                                </div>
+                                <button
+                                    onClick={() => setIsSidebarCollapsed(prev => !prev)}
+                                    className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors inline-flex items-center justify-center cursor-pointer active:scale-95"
+                                    title="Collapse sidebar"
+                                >
+                                    <PanelLeftClose className="w-3.5 h-3.5" />
+                                </button>
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-3">
@@ -225,13 +216,12 @@ export default function AppLayout() {
                                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl border border-emerald-400/30 bg-emerald-500/12 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
                                         <Trophy className="w-4 h-4 text-emerald-400" />
                                     </span>
-                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">FC</span>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="flex flex-col space-y-2 flex-1 relative z-10">
+                    <div className="flex flex-col space-y-2.5 flex-1 pt-2 relative z-10">
                         {navItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = location.pathname === item.path || (location.pathname === '/' && item.path === '/');

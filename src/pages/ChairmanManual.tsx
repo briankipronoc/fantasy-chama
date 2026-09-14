@@ -49,7 +49,7 @@ export default function ChairmanManual() {
       {/* 1 — League Setup */}
       <Section icon={Settings} color="text-amber-400" title="1. League Setup">
         <div className="space-y-4">
-          <Step n={1} title="Create your account" desc="Visit fantasychama.vercel.app → 'Start a League'. Enter your name, phone, email, and a strong password. Your phone is your login and payout destination." />
+          <Step n={1} title="Create your account" desc="Visit fantasy-chama.vercel.app → 'Start a League'. Enter your name, phone, email, and a strong password. Your phone is your login and payout destination." />
           <Step n={2} title="Enter your FPL League ID" desc="Find this in your FPL mini-league URL: fantasy.premierleague.com/leagues/XXXXXX/standings/c — paste the number. The app auto-fetches the league name and member standings." />
           <Step n={3} title="Set the economy" desc="Choose your GW stake, pot split (default 60% weekly / 40% season vault), and season winner distribution. Use the slider — it recalculates live." />
           <Step n={4} title="Enroll members" desc="Use 'Import from FPL' to bulk-add members from your FPL standings, or add them manually. You can also give members the 6-digit invite PIN to self-enroll via the invite link." />
@@ -128,7 +128,7 @@ export default function ChairmanManual() {
           </div>
           <div>
             <p className="text-sm font-bold text-white mb-1">WhatsApp link shows 404?</p>
-            <p className="text-sm text-gray-400">The correct domain is <strong>fantasychama.vercel.app</strong> (no dash). Share this URL directly: <code className="text-amber-400 bg-black/30 px-1.5 py-0.5 rounded">https://fantasychama.vercel.app/invite</code></p>
+            <p className="text-sm text-gray-400">The correct domain is <strong>fantasy-chama.vercel.app</strong>. Share this URL directly: <code className="text-amber-400 bg-black/30 px-1.5 py-0.5 rounded">https://fantasy-chama.vercel.app/invite</code></p>
           </div>
           <div>
             <p className="text-sm font-bold text-white mb-1">FPL winner not auto-detected?</p>

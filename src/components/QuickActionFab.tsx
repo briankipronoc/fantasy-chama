@@ -39,13 +39,13 @@ export default function QuickActionFab() {
     navigate(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     haptics.selection();
     setIsOpen(false);
     try {
-      logout();
+      await logout();
     } catch {}
-    window.location.href = '/login';
+    window.location.replace('/login');
   };
 
   const isAdmin = role === 'admin';

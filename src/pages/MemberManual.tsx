@@ -106,7 +106,7 @@ export default function MemberManual() {
           </div>
           <div>
             <p className="text-sm font-bold text-white mb-1">Shared link shows 404?</p>
-            <p className="text-sm text-gray-400">The correct app URL is <strong>fantasychama.vercel.app</strong>. Old links to fantasy-chama.vercel.app may redirect. Ask your Chairman for the latest invite link.</p>
+            <p className="text-sm text-gray-400">The correct app URL is <strong>fantasy-chama.vercel.app</strong>. Ask your Chairman for the latest invite link.</p>
           </div>
           <div>
             <p className="text-sm font-bold text-white mb-1">Can't see your payout banner?</p>
