@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, LogOut } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut } from 'lucide-react';
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
@@ -189,34 +189,35 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                     </button>
                 )}
 
-                {/* Theme Toggle — 3-way pill: Dark | System | Light */}
-                <div className="fc-theme-toggle-shell hidden sm:flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10">
+                {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
+                <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
                     {(['dark', 'system', 'light'] as const).map((mode) => (
                         <button
                             key={mode}
                             onClick={() => setTheme(mode)}
-                            className={`fc-theme-toggle-btn flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            className={`fc-theme-toggle-btn flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                 currentTheme === mode
-                                    ? mode === 'dark' ? 'bg-slate-800 text-white shadow-sm'
-                                    : mode === 'light' ? 'bg-amber-400/20 text-amber-600 dark:text-amber-300 shadow-sm'
-                                    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                                    ? mode === 'dark' 
+                                        ? 'bg-slate-800 text-white shadow-sm'
+                                        : mode === 'light' 
+                                            ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
+                                            : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
                             }`}
-                            title={mode === 'dark' ? 'Force dark mode' : mode === 'light' ? 'Force light mode' : 'Auto-match OS theme'}
+                            title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
+                            aria-label={`Set theme to ${mode}`}
                         >
-                            {mode === 'dark' ? <Moon className="w-3 h-3" /> : mode === 'light' ? <Sun className="w-3 h-3" /> : <span className="text-[9px]">OS</span>}
-                            {mode}
+                            {mode === 'dark' ? (
+                                <Moon className="w-3 h-3 text-indigo-400" />
+                            ) : mode === 'light' ? (
+                                <Sun className="w-3 h-3 text-amber-500" />
+                            ) : (
+                                <Laptop className="w-3 h-3 text-emerald-500" />
+                            )}
+                            <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
                         </button>
                     ))}
                 </div>
-                {/* Mobile compact cycle */}
-                <button
-                    onClick={() => setTheme(currentTheme === 'dark' ? 'system' : currentTheme === 'system' ? 'light' : 'dark')}
-                    className="fc-theme-toggle-mobile sm:hidden p-2 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
-                    title={`Theme: ${currentTheme} — tap to cycle`}
-                >
-                    {currentTheme === 'dark' ? <Moon className="w-4 h-4" /> : currentTheme === 'light' ? <Sun className="w-4 h-4 text-amber-500" /> : <span className="text-[9px] font-black text-emerald-500">OS</span>}
-                </button>
 
                 {/* Stealth Mode Toggle */}
                 <button

@@ -45,6 +45,14 @@ export default function Login() {
         totalMembers: number;
     } | null>(null);
 
+    const [loginTransition, setLoginTransition] = useState<{
+        leagueName: string;
+        memberName: string;
+        members: string[];
+        totalCount: number;
+        step: number;
+    } | null>(null);
+
     const filteredUnlinkedTeams = useMemo(() => {
         if (!onboardData?.unlinkedTeams) return [];
         if (!onboardSearch.trim()) return onboardData.unlinkedTeams;
@@ -289,10 +297,43 @@ export default function Login() {
                 // Clear sensitive login inputs from localStorage after success
                 localStorage.removeItem('fc-login-code');
                 localStorage.removeItem('fc-login-phone');
-                
-                setShowSelfOnboardModal(false);
-                setRole('member');
-                navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
+
+                // Extract active member names to show the user during the warm-up transition
+                const rawNames: string[] = [];
+                allMembersSnap.docs.forEach(docSnap => {
+                    const d = docSnap.data();
+                    const raw = (d.displayName || d.name || '').trim();
+                    if (raw && d.isActive !== false && d.role !== 'admin') {
+                        const first = raw.split(' ')[0];
+                        if (first && !rawNames.includes(first)) rawNames.push(first);
+                    }
+                });
+
+                const leagueDocData = leagueData.data();
+                const leagueDisplayName = leagueDocData?.name || 'FPL Chama';
+
+                setLoginTransition({
+                    leagueName: leagueDisplayName,
+                    memberName: memberData.displayName || 'Manager',
+                    members: rawNames,
+                    totalCount: allMembersSnap.docs.filter(d => d.data().isActive !== false && d.data().role !== 'admin').length,
+                    step: 1
+                });
+
+                setTimeout(() => {
+                    setLoginTransition(prev => prev ? { ...prev, step: 2 } : null);
+                }, 800);
+
+                setTimeout(() => {
+                    setLoginTransition(prev => prev ? { ...prev, step: 3 } : null);
+                }, 1600);
+
+                setTimeout(() => {
+                    setShowSelfOnboardModal(false);
+                    setRole('member');
+                    navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
+                }, 2400);
+
                 return;
             }
 
@@ -638,6 +679,65 @@ export default function Login() {
             <div className="fc-auth-card w-[90%] max-w-md bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/5 rounded-[2rem] p-6 md:p-10 z-10 shadow-2xl relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
 
+                {/* Staged Loading Overlay — reveals who has joined and preloads dashboard in background */}
+                {loginTransition && (
+                    <div className="absolute inset-0 z-30 bg-[#10171d]/95 backdrop-blur-2xl rounded-[2rem] p-6 md:p-8 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 border border-emerald-500/30 shadow-2xl">
+                        <div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-4">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
+                                Vault Connected
+                            </div>
+                            <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                                {loginTransition.leagueName}
+                            </h3>
+                            <p className="text-xs text-gray-400 mt-1 font-medium">
+                                Welcome back, <span className="text-white font-bold">{loginTransition.memberName}</span>
+                            </p>
+                        </div>
+
+                        {/* Member preview badges */}
+                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                Active Chama Managers ({loginTransition.totalCount})
+                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                {loginTransition.members.slice(0, 4).map((mName, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-300">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                        {mName}
+                                    </span>
+                                ))}
+                                {loginTransition.totalCount > 4 && (
+                                    <span className="text-[10px] font-bold text-gray-400 px-1">
+                                        +{loginTransition.totalCount - 4} others
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Dynamic Progress Steps */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between text-xs font-bold text-gray-300">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                    {loginTransition.step === 1 && "Connecting to Escrow Vault..."}
+                                    {loginTransition.step === 2 && "Syncing Managers & Standings..."}
+                                    {loginTransition.step === 3 && "Opening Live Dashboard..."}
+                                </span>
+                                <span className="text-emerald-400 font-mono">
+                                    {loginTransition.step === 1 ? '35%' : loginTransition.step === 2 ? '75%' : '100%'}
+                                </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
+                                    style={{ width: loginTransition.step === 1 ? '35%' : loginTransition.step === 2 ? '75%' : '100%' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="text-center mb-8 relative z-10">
                     <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">
                         {isAdminView ? "Chairman Sign In" : "Join Your League"}
@@ -703,33 +803,40 @@ export default function Login() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">6-Character Invite Code</label>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider">6-Character Invite Code</label>
+                                <span className="text-[10px] text-gray-500 font-mono tracking-wider">e.g. CHM789</span>
+                            </div>
                             <div className="flex justify-between gap-1.5 md:gap-2">
-                                {code.map((digit, index) => (
-                                    <input
-                                        key={index}
-                                        ref={(el) => inputRefs.current[index] = el}
-                                        type="text"
-                                        inputMode="text"
-                                        autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                                        maxLength={1}
-                                        value={digit}
-                                        onChange={(e) => handleCodeChange(index, e.target.value)}
-                                        onKeyDown={(e) => handleKeyDown(index, e)}
-                                        onPaste={handlePaste}
-                                        className="w-10 h-12 md:w-12 md:h-14 bg-[#161d24] border border-white/5 rounded-xl text-center text-xl md:text-2xl font-bold text-white focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all shadow-inner uppercase"
-                                    />
-                                ))}
+                                {code.map((digit, index) => {
+                                    const hintChar = ['C', 'H', 'M', '7', '8', '9'][index];
+                                    return (
+                                        <input
+                                            key={index}
+                                            ref={(el) => inputRefs.current[index] = el}
+                                            type="text"
+                                            inputMode="text"
+                                            autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                                            maxLength={1}
+                                            value={digit}
+                                            placeholder={hintChar}
+                                            onChange={(e) => handleCodeChange(index, e.target.value)}
+                                            onKeyDown={(e) => handleKeyDown(index, e)}
+                                            onPaste={handlePaste}
+                                            className="w-10 h-12 md:w-12 md:h-14 bg-[#161d24] border border-white/5 rounded-xl text-center text-xl md:text-2xl font-bold text-white placeholder:text-gray-700/50 focus:outline-none focus:border-[#10B981]/50 focus:ring-1 focus:ring-[#10B981]/50 transition-all shadow-inner uppercase"
+                                        />
+                                    );
+                                })}
                             </div>
                         </div>
 
                         <button
                             type="submit"
-                            disabled={isLoading || !phone || code.join('').length !== 6}
+                            disabled={isLoading || !phone || code.join('').length !== 6 || Boolean(loginTransition)}
                             className="w-full bg-[#22C55E] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isLoading ? (
-                                <><span className="w-5 h-5 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Opening your dashboard...</>
+                            {isLoading || loginTransition ? (
+                                <><span className="w-5 h-5 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Verifying & Connecting...</>
                             ) : (
                                 <>Enter League <ArrowRight className="w-5 h-5 md:w-6 md:h-6" /></>
                             )}

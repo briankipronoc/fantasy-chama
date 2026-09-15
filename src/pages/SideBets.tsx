@@ -5,7 +5,7 @@ import {
     updateDoc, doc, arrayUnion, increment, getDoc
 } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
-import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame } from 'lucide-react';
+import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import Header from '../components/Header';
@@ -60,6 +60,8 @@ export default function SideBets() {
     const [selectedTeam, setSelectedTeam] = useState<'primary' | 'secondary'>('primary');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showOpponentPicker, setShowOpponentPicker] = useState(false);
+    const [opponentSearch, setOpponentSearch] = useState('');
+    const [betFilterTab, setBetFilterTab] = useState<'active' | 'my' | 'past'>('active');
 
     // Resolve state
     const [resolvingBetId, setResolvingBetId] = useState<string | null>(null);
@@ -164,10 +166,19 @@ export default function SideBets() {
                 createdAt: serverTimestamp(),
             });
 
-            // Create notification for league
+            // 1. Personal direct challenge notification targeted to opponent exclusively
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: opponent.id,
+                message: `⚔️ Direct Challenge! ${challengerName} challenged you to a head-to-head wager: "${betTitle.trim()}" (KES ${stake.toLocaleString()}). Accept in Side Bets!`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+
+            // 2. Public announcement for other managers in the league
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `🎲 ${challengerName} challenged ${opponentName} to a side bet: "${betTitle.trim()}" (KES ${stake.toLocaleString()})`,
+                message: `🎲 Side Bet Challenge: ${challengerName} challenged ${opponentName} to "${betTitle.trim()}" for KES ${stake.toLocaleString()}`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -202,9 +213,19 @@ export default function SideBets() {
                 status: 'pending_chairman',
             });
 
+            // 1. Targeted personal notification for challenger
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `🎲 ${currentUser?.displayName} accepted the challenge for "${bet.title}". Awaiting Chairman approval.`,
+                targetMemberId: bet.challenger.id,
+                message: `⚔️ Challenge Accepted! ${currentUser?.displayName} signed your wager for "${bet.title}". Awaiting Chairman sign-off.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+
+            // 2. League activity notification
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                message: `🎲 Wager Locked: ${currentUser?.displayName} accepted challenge for "${bet.title}" (KES ${bet.stake.toLocaleString()}).`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -223,9 +244,9 @@ export default function SideBets() {
             await updateDoc(betRef, {
                 endorsers: arrayUnion(currentUser.id),
             });
-            toast.success('Added to your watchlist!');
+            toast.success('Wager endorsed!');
         } catch (_e) {
-            toast.error('Could not watch bet.');
+            toast.error('Failed to endorse.');
         }
     };
 
@@ -239,14 +260,23 @@ export default function SideBets() {
                 chairmanSeen: true,
             });
 
+            // Personal notifications to both participants
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
-                type: 'success',
-                message: `⚔️ Side bet "${bet.title}" is officially active! Chairman approved.`,
+                type: 'info',
+                targetMemberId: bet.challenger.id,
+                message: `🔒 Side Bet Approved! Chairman verified "${bet.title}". Wager is officially LIVE.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                targetMemberId: bet.opponent.id,
+                message: `🔒 Side Bet Approved! Chairman verified "${bet.title}". Wager is officially LIVE.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
 
-            toast.success('Side bet approved and live!');
+            toast.success('Side bet approved and marked active.');
         } catch (_e) {
             toast.error('Failed to approve bet.');
         }
@@ -260,9 +290,9 @@ export default function SideBets() {
                 status: 'cancelled',
                 chairmanSeen: true,
             });
-            toast.success('Bet cancelled.');
+            toast.success('Side bet rejected.');
         } catch (_e) {
-            toast.error('Failed to cancel bet.');
+            toast.error('Failed to reject bet.');
         }
     };
 
@@ -274,7 +304,9 @@ export default function SideBets() {
         }
         const isChallenger = resolveWinnerId === bet.challenger.id;
         const loserId = isChallenger ? bet.opponent.id : bet.challenger.id;
+        const loser = members.find(m => m.id === loserId);
         const winnerName = isChallenger ? bet.challenger.name : bet.opponent.name;
+        const loserName = loser?.displayName || (loser as any)?.name || 'Opponent';
 
         try {
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
@@ -282,6 +314,7 @@ export default function SideBets() {
                 status: 'resolved',
                 winnerId: resolveWinnerId,
                 winnerName,
+                resolvedAt: serverTimestamp(),
             });
 
             // Auto-deduct from loser wallet, credit winner wallet
@@ -297,10 +330,28 @@ export default function SideBets() {
                 await updateDoc(winnerRef, { walletBalance: increment(bet.stake) });
             }
 
-            // Create notification
+            // 1. Personal notification to winner
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
-                type: 'success',
-                message: `🎲 ${winnerName} won the side bet "${bet.title}" and claimed KES ${bet.stake.toLocaleString()}!`,
+                type: 'transactionSuccess',
+                targetMemberId: resolveWinnerId,
+                message: `🏆 Victory! You won the head-to-head wager "${bet.title}"! KES ${(bet.stake * 2).toLocaleString()} pot secured to your wallet!`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+
+            // 2. Personal notification to loser
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                targetMemberId: loserId,
+                message: `⚔️ Wager Settled: "${bet.title}" concluded. KES ${bet.stake.toLocaleString()} transferred to ${winnerName}. Better luck next gameweek!`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+
+            // 3. System notification for the league
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                message: `🏆 Side Bet Result: ${winnerName} defeated ${loserName} in "${bet.title}" (KES ${(bet.stake * 2).toLocaleString()} total pot)!`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -354,12 +405,23 @@ export default function SideBets() {
         }
     };
 
-    const myActiveBets = bets.filter(b =>
+    const activeBets = bets.filter(b => b.status !== 'resolved' && b.status !== 'cancelled');
+    const pastBets = bets.filter(b => b.status === 'resolved' || b.status === 'cancelled');
+    const myActiveBets = activeBets.filter(b =>
         b.challenger.id === activeUserId || b.opponent.id === activeUserId
     );
-    const otherBets = bets.filter(b =>
+    const otherBets = activeBets.filter(b =>
         b.challenger.id !== activeUserId && b.opponent.id !== activeUserId
     );
+
+    const filteredOpponentMembers = members.filter(m => {
+        if (m.id === activeUserId || m.isActive === false) return false;
+        if (!opponentSearch.trim()) return true;
+        const q = opponentSearch.toLowerCase();
+        const nameMatch = (m.displayName || '').toLowerCase().includes(q);
+        const teamMatch = (m.teamName || '').toLowerCase().includes(q);
+        return nameMatch || teamMatch;
+    });
 
     if (loading) {
         return (
@@ -402,6 +464,55 @@ export default function SideBets() {
                     </button>
                 </div>
 
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-2 border-b border-white/10 pb-3 flex-wrap">
+                    <button
+                        onClick={() => setBetFilterTab('active')}
+                        className={clsx(
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            betFilterTab === 'active'
+                                ? "bg-white/10 text-white shadow-sm font-black border border-white/20"
+                                : "text-gray-400 hover:text-white"
+                        )}
+                    >
+                        <Swords className="w-3.5 h-3.5 text-amber-400" />
+                        Live Duels
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-gray-300">
+                            {activeBets.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setBetFilterTab('my')}
+                        className={clsx(
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            betFilterTab === 'my'
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black"
+                                : "text-gray-400 hover:text-white"
+                        )}
+                    >
+                        <Flame className="w-3.5 h-3.5 text-amber-400" />
+                        My Wagers
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
+                            {myActiveBets.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setBetFilterTab('past')}
+                        className={clsx(
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            betFilterTab === 'past'
+                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black"
+                                : "text-gray-400 hover:text-white"
+                        )}
+                    >
+                        <History className="w-3.5 h-3.5 text-emerald-400" />
+                        Past Side Bets & Winners
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                            {pastBets.length}
+                        </span>
+                    </button>
+                </div>
+
                 {/* Empty State */}
                 {bets.length === 0 && (
                     <div className="fc-card bg-[#161d24]/60 border border-white/5 rounded-3xl p-10 md:p-14 text-center relative overflow-hidden my-6">
@@ -415,64 +526,153 @@ export default function SideBets() {
                     </div>
                 )}
 
-                {/* My Active Bets Section */}
-                {myActiveBets.length > 0 && (
+                {/* TAB: PAST BETS */}
+                {betFilterTab === 'past' && (
+                    <div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Trophy className="w-4 h-4 text-emerald-400" />
+                            <h3 className="font-bold text-sm uppercase tracking-widest text-emerald-400">Completed & Settled Duels</h3>
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                {pastBets.length}
+                            </span>
+                        </div>
+                        {pastBets.length === 0 ? (
+                            <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
+                                <Trophy className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm font-bold text-gray-400">No past side bets resolved yet</p>
+                                <p className="text-xs text-gray-500">Resolved duels and winners will appear here.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {pastBets.map(bet => (
+                                    <BetCard
+                                        key={bet.id}
+                                        bet={bet}
+                                        currentUserId={activeUserId || ''}
+                                        isAdmin={isAdmin}
+                                        onSign={() => handleSign(bet)}
+                                        onEndorse={() => handleEndorse(bet)}
+                                        onApprove={() => handleChairmanApprove(bet)}
+                                        onReject={() => handleChairmanReject(bet)}
+                                        onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
+                                        onShareWin={() => setSharingBet(bet)}
+                                        getStatusBadge={getStatusBadge}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* TAB: MY WAGERS */}
+                {betFilterTab === 'my' && (
                     <div>
                         <div className="flex items-center gap-2 mb-4">
                             <Flame className="w-4 h-4 text-amber-400" />
-                            <h3 className="font-bold text-sm uppercase tracking-widest text-amber-400">Your Wagers</h3>
+                            <h3 className="font-bold text-sm uppercase tracking-widest text-amber-400">Your Active & Pending Duels</h3>
                             <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                 {myActiveBets.length}
                             </span>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {myActiveBets.map(bet => (
-                                <BetCard
-                                    key={bet.id}
-                                    bet={bet}
-                                    currentUserId={activeUserId || ''}
-                                    isAdmin={isAdmin}
-                                    onSign={() => handleSign(bet)}
-                                    onEndorse={() => handleEndorse(bet)}
-                                    onApprove={() => handleChairmanApprove(bet)}
-                                    onReject={() => handleChairmanReject(bet)}
-                                    onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
-                                    onShareWin={() => setSharingBet(bet)}
-                                    getStatusBadge={getStatusBadge}
-                                />
-                            ))}
-                        </div>
+                        {myActiveBets.length === 0 ? (
+                            <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
+                                <Swords className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm font-bold text-gray-400">You don't have any active duels</p>
+                                <p className="text-xs text-gray-500">Tap "Challenge Someone" above to start a side bet!</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {myActiveBets.map(bet => (
+                                    <BetCard
+                                        key={bet.id}
+                                        bet={bet}
+                                        currentUserId={activeUserId || ''}
+                                        isAdmin={isAdmin}
+                                        onSign={() => handleSign(bet)}
+                                        onEndorse={() => handleEndorse(bet)}
+                                        onApprove={() => handleChairmanApprove(bet)}
+                                        onReject={() => handleChairmanReject(bet)}
+                                        onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
+                                        onShareWin={() => setSharingBet(bet)}
+                                        getStatusBadge={getStatusBadge}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* League Bets Section */}
-                {otherBets.length > 0 && (
-                    <div className="pt-4">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Trophy className="w-4 h-4 text-emerald-400" />
-                            <h3 className="font-bold text-sm uppercase tracking-widest text-emerald-400">League Battles</h3>
-                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                {otherBets.length}
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {otherBets.map(bet => (
-                                <BetCard
-                                    key={bet.id}
-                                    bet={bet}
-                                    currentUserId={activeUserId || ''}
-                                    isAdmin={isAdmin}
-                                    onSign={() => handleSign(bet)}
-                                    onEndorse={() => handleEndorse(bet)}
-                                    onApprove={() => handleChairmanApprove(bet)}
-                                    onReject={() => handleChairmanReject(bet)}
-                                    onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
-                                    onShareWin={() => setSharingBet(bet)}
-                                    getStatusBadge={getStatusBadge}
-                                />
-                            ))}
-                        </div>
-                    </div>
+                {/* TAB: ACTIVE WAGERS (ALL) */}
+                {betFilterTab === 'active' && (
+                    <>
+                        {/* My Active Bets Section */}
+                        {myActiveBets.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Flame className="w-4 h-4 text-amber-400" />
+                                    <h3 className="font-bold text-sm uppercase tracking-widest text-amber-400">Your Wagers</h3>
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        {myActiveBets.length}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {myActiveBets.map(bet => (
+                                        <BetCard
+                                            key={bet.id}
+                                            bet={bet}
+                                            currentUserId={activeUserId || ''}
+                                            isAdmin={isAdmin}
+                                            onSign={() => handleSign(bet)}
+                                            onEndorse={() => handleEndorse(bet)}
+                                            onApprove={() => handleChairmanApprove(bet)}
+                                            onReject={() => handleChairmanReject(bet)}
+                                            onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
+                                            onShareWin={() => setSharingBet(bet)}
+                                            getStatusBadge={getStatusBadge}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* League Bets Section */}
+                        {otherBets.length > 0 && (
+                            <div className="pt-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Trophy className="w-4 h-4 text-emerald-400" />
+                                    <h3 className="font-bold text-sm uppercase tracking-widest text-emerald-400">League Battles</h3>
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        {otherBets.length}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {otherBets.map(bet => (
+                                        <BetCard
+                                            key={bet.id}
+                                            bet={bet}
+                                            currentUserId={activeUserId || ''}
+                                            isAdmin={isAdmin}
+                                            onSign={() => handleSign(bet)}
+                                            onEndorse={() => handleEndorse(bet)}
+                                            onApprove={() => handleChairmanApprove(bet)}
+                                            onReject={() => handleChairmanReject(bet)}
+                                            onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
+                                            onShareWin={() => setSharingBet(bet)}
+                                            getStatusBadge={getStatusBadge}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {myActiveBets.length === 0 && otherBets.length === 0 && bets.length > 0 && (
+                            <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
+                                <Swords className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm font-bold text-gray-400">No live wagers currently running</p>
+                                <p className="text-xs text-gray-500">All recent duels have concluded. Check the "Past Side Bets" tab!</p>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -578,23 +778,43 @@ export default function SideBets() {
                                     <ChevronDown className="w-4 h-4 text-gray-500" />
                                 </button>
                                 {showOpponentPicker && (
-                                    <div className="mt-1 bg-[#161d24] border border-white/10 rounded-xl overflow-hidden max-h-48 overflow-y-auto shadow-2xl">
-                                        {members.filter(m => m.id !== activeUserId && m.isActive !== false).map(m => (
-                                            <button
-                                                key={m.id}
-                                                type="button"
-                                                onClick={() => { setOpponentId(m.id); setShowOpponentPicker(false); }}
-                                                className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 flex items-center justify-between transition-colors border-b border-white/5 last:border-0"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <UserAvatar name={m.displayName} size="xs" />
-                                                    <span className="font-bold">{m.displayName}</span>
-                                                </div>
-                                                <span className="text-[10px] font-bold text-gray-500">
-                                                    KES {(m.walletBalance || 0).toLocaleString()}
-                                                </span>
-                                            </button>
-                                        ))}
+                                    <div className="mt-1 bg-[#161d24] border border-white/10 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-2xl">
+                                        <div className="p-2 border-b border-white/10 sticky top-0 bg-[#161d24] z-10">
+                                            <div className="relative">
+                                                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                                <input
+                                                    type="text"
+                                                    value={opponentSearch}
+                                                    onChange={e => setOpponentSearch(e.target.value)}
+                                                    placeholder="Search manager or team..."
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-amber-500"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        </div>
+                                        {filteredOpponentMembers.length === 0 ? (
+                                            <div className="p-4 text-center text-xs text-gray-500">No managers found</div>
+                                        ) : (
+                                            filteredOpponentMembers.map(m => (
+                                                <button
+                                                    key={m.id}
+                                                    type="button"
+                                                    onClick={() => { setOpponentId(m.id); setShowOpponentPicker(false); setOpponentSearch(''); }}
+                                                    className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 flex items-center justify-between transition-colors border-b border-white/5 last:border-0"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <UserAvatar name={m.displayName} size="xs" />
+                                                        <div>
+                                                            <div className="font-bold text-xs">{m.displayName}</div>
+                                                            {m.teamName && <div className="text-[10px] text-gray-400">{m.teamName}</div>}
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-gray-500">
+                                                        KES {(m.walletBalance || 0).toLocaleString()}
+                                                    </span>
+                                                </button>
+                                            ))
+                                        )}
                                     </div>
                                 )}
                             </div>

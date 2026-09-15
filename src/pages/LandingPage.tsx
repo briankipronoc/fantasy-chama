@@ -1,7 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { useEffect, useState } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon, Laptop } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon, Laptop, ChevronDown } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 // ─── Dynamic Animating System-Accurate Ledger Demo ────────────────────────────────
@@ -100,7 +100,7 @@ function LedgerDemo() {
 
             {/* TAB 1: Live Interactive Ledger */}
             {activeTab === 'ledger' && (
-                <div className="animate-in fade-in duration-300">
+                <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
                     {/* Real System Card Header */}
                     <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex flex-col gap-3">
                         <div className="flex items-center justify-between">
@@ -133,7 +133,7 @@ function LedgerDemo() {
                     </div>
                     
                     {/* Live Standings Table */}
-                    <div className="p-3 sm:p-4 space-y-2 bg-slate-50/40 dark:bg-[#0c1218]/70">
+                    <div className="p-3 sm:p-4 space-y-2 bg-slate-50/40 dark:bg-[#0c1218]/70 flex-1">
                         {members.map((m, index) => {
                             const isHighlighted = highlightId === m.id;
                             const isLeader = index === 0;
@@ -211,43 +211,87 @@ function LedgerDemo() {
 
             {/* TAB 2: Official WhatsApp Victory Card Visual */}
             {activeTab === 'victory' && (
-                <div className="p-4 sm:p-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-400/40 shadow-lg max-w-sm w-full group bg-white dark:bg-black/40">
-                        <img 
-                            src={isDark ? "/victory-card-preview.jpg" : "/victory-card-preview-light.jpg"} 
-                            alt="Official WhatsApp Victory Card" 
-                            className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-4">
-                            <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-amber-500/20 border border-slate-200 dark:border-amber-500/40 backdrop-blur-md text-slate-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
-                                🏆 Branded Victory Card for WhatsApp Status
+                <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
+                    <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                            🏆 WhatsApp Flex Engine
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />
+                            Auto-Generated
+                        </span>
+                    </div>
+
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center text-center">
+                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-400/40 shadow-lg w-full max-w-sm group bg-white dark:bg-black/40">
+                            <img 
+                                src={isDark ? "/victory-card-preview.jpg" : "/victory-card-preview-light.jpg"} 
+                                alt="Official WhatsApp Victory Card" 
+                                className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-3">
+                                <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-amber-500/20 border border-slate-200 dark:border-amber-500/40 backdrop-blur-md text-slate-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                    WhatsApp Status Ready
+                                </div>
                             </div>
                         </div>
+                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-2.5 font-medium max-w-sm">
+                            Every gameweek winner gets a custom, verified Victory Card to flex in WhatsApp groups and challenge rivals.
+                        </p>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-xs">
-                        Every gameweek winner gets a custom, verified Victory Card to flex in WhatsApp groups and challenge rivals.
-                    </p>
+
+                    <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-gray-300">
+                            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                            Official Podium Card
+                        </span>
+                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                            One-Tap WhatsApp Share
+                        </span>
+                    </div>
                 </div>
             )}
 
             {/* TAB 3: Multi-Card System Mockup */}
             {activeTab === 'mockup' && (
-                <div className="p-4 sm:p-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-lg max-w-sm w-full group bg-white dark:bg-black/40">
-                        <img 
-                            src={isDark ? "/system-card-preview.jpg" : "/system-card-preview-light.jpg"} 
-                            alt="FantasyChama System Cards Showcase" 
-                            className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-4">
-                            <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-emerald-500/20 border border-slate-200 dark:border-emerald-500/40 backdrop-blur-md text-slate-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
-                                🔒 Automated 91/9 Settlement Engine
+                <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
+                    <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                            🔒 Transparent Escrow Architecture
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            91/9 Model
+                        </span>
+                    </div>
+
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center text-center">
+                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-lg w-full max-w-sm group bg-white dark:bg-black/40">
+                            <img 
+                                src={isDark ? "/system-card-preview-dark.jpg" : "/system-card-preview-light.jpg"} 
+                                alt="FantasyChama System Cards Showcase" 
+                                className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-3">
+                                <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-emerald-500/20 border border-slate-200 dark:border-emerald-500/40 backdrop-blur-md text-slate-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                    Automated 91/9 Settlement Engine
+                                </div>
                             </div>
                         </div>
+                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-2.5 font-medium max-w-sm">
+                            Three dedicated system cards: Live Matchday Pot, Automated M-Pesa Disbursal, and 38 Gameweeks Season Vault.
+                        </p>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-xs">
-                        Three dedicated system cards: Live Matchday Pot, Automated M-Pesa Disbursal, and 38 Gameweeks Season Vault.
-                    </p>
+
+                    <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-gray-300">
+                            <Lock className="w-3.5 h-3.5 text-emerald-500" />
+                            M-Pesa Escrow Verified
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                            Auto-Disbursed at Final Whistle
+                        </span>
+                    </div>
                 </div>
             )}
         </div>
@@ -360,10 +404,82 @@ function TrustSlider() {
     );
 }
 
+function ExpandingThemeSwitcher() {
+    const { theme, setTheme } = useTheme();
+    const [isExpanded, setIsExpanded] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setIsExpanded(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const modes = [
+        { key: 'dark', label: 'Dark', icon: <Moon className="w-3.5 h-3.5 text-indigo-400" /> },
+        { key: 'system', label: 'System', icon: <Laptop className="w-3.5 h-3.5 text-emerald-500" /> },
+        { key: 'light', label: 'Light', icon: <Sun className="w-3.5 h-3.5 text-amber-500" /> },
+    ] as const;
+
+    const currentMode = modes.find(m => m.key === theme) || modes[1];
+
+    return (
+        <div ref={containerRef} className="relative z-30">
+            <div
+                className={`flex items-center rounded-xl transition-all duration-300 ease-out border shadow-sm ${
+                    isExpanded
+                        ? 'p-1 bg-slate-100/95 dark:bg-[#101720] border-slate-300 dark:border-white/20 gap-1'
+                        : 'p-0.5 bg-slate-100/80 dark:bg-white/[0.06] border-slate-200 dark:border-white/10 hover:border-emerald-500/40'
+                }`}
+            >
+                {!isExpanded ? (
+                    <button
+                        type="button"
+                        onClick={() => setIsExpanded(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer active:scale-95"
+                        aria-label={`Current theme: ${theme}. Tap to expand`}
+                        title="Change Theme (System / Dark / Light)"
+                    >
+                        {currentMode.icon}
+                        <span className="text-[11px] font-black uppercase tracking-wider">{currentMode.label}</span>
+                        <ChevronDown className="w-3 h-3 text-slate-400 ml-0.5" />
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-1 animate-in fade-in duration-200">
+                        {modes.map((m) => (
+                            <button
+                                key={m.key}
+                                type="button"
+                                onClick={() => {
+                                    setTheme(m.key);
+                                    setIsExpanded(false);
+                                }}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                    theme === m.key
+                                        ? 'bg-emerald-500 text-[#002113] shadow-sm'
+                                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/5'
+                                }`}
+                                aria-label={`Select ${m.label} theme`}
+                            >
+                                {m.icon}
+                                <span>{m.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
-    const { theme, setTheme, cycle, isDark } = useTheme();
+    const { isDark } = useTheme();
 
     useEffect(() => {
         const leagueId = localStorage.getItem('activeLeagueId');
@@ -391,52 +507,12 @@ export default function LandingPage() {
                         <a href="#features" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Features</a>
                         <Link to="/terms" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Terms</Link>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        {/* Theme Switcher — 3-way toggle on desktop: Dark | System | Light */}
-                        <div className="hidden sm:flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10">
-                            {(['dark', 'system', 'light'] as const).map((mode) => (
-                                <button
-                                    key={mode}
-                                    type="button"
-                                    onClick={() => setTheme(mode)}
-                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
-                                        theme === mode
-                                            ? mode === 'dark'
-                                                ? 'bg-slate-800 text-white shadow-sm'
-                                                : mode === 'light'
-                                                    ? 'bg-amber-400/20 text-amber-600 dark:text-amber-300 shadow-sm'
-                                                    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                                    }`}
-                                    title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
-                                    aria-label={`Set theme to ${mode}`}
-                                >
-                                    {mode === 'dark' ? <Moon className="w-3 h-3 text-indigo-400" /> : mode === 'light' ? <Sun className="w-3 h-3 text-amber-500" /> : <Laptop className="w-3 h-3 text-emerald-500" />}
-                                    <span>{mode === 'system' ? 'System' : mode}</span>
-                                </button>
-                            ))}
-                        </div>
-                        {/* Mobile compact cycle button with System icon support */}
-                        <button
-                            type="button"
-                            onClick={cycle}
-                            className="sm:hidden p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.06] text-slate-700 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
-                            title={`Theme: ${theme === 'system' ? 'Default system settings' : theme === 'dark' ? 'Dark theme' : 'Light theme'} (tap to cycle)`}
-                            aria-label="Toggle theme"
-                        >
-                            {theme === 'dark' ? (
-                                <Moon className="w-4 h-4 text-indigo-400" />
-                            ) : theme === 'light' ? (
-                                <Sun className="w-4 h-4 text-amber-500" />
-                            ) : (
-                                <Laptop className="w-4 h-4 text-emerald-500" />
-                            )}
-                        </button>
-                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5">
+                    <div className="flex items-center gap-3">
+                        {/* Expanding & Contracting Theme Switcher */}
+                        <ExpandingThemeSwitcher />
+
+                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-extrabold text-slate-700 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 shadow-sm">
                             Sign In
-                        </button>
-                        <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-3.5 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 active:scale-95">
-                            Start Free
                         </button>
                     </div>
                 </div>
@@ -590,7 +666,7 @@ export default function LandingPage() {
                                 <div className="sm:col-span-5">
                                     <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-md group-hover:scale-105 transition-transform duration-500 bg-white dark:bg-black/20">
                                         <img 
-                                            src={isDark ? "/system-card-preview.jpg" : "/system-card-preview-light.jpg"} 
+                                            src={isDark ? "/system-card-preview-dark.jpg" : "/system-card-preview-light.jpg"} 
                                             alt="System Escrow Card" 
                                             className="w-full h-auto object-cover" 
                                         />
@@ -638,35 +714,35 @@ export default function LandingPage() {
                             </div>
                         </div>
 
-                        {/* 1v1 Side Bets & Spectators with WhatsApp Victory Card Image */}
-                        <div className="fc-landing-card md:col-span-12 bg-gradient-to-br from-amber-50/50 via-white to-slate-50 dark:from-[#1d1a12] dark:via-[#141b24] dark:to-[#0b1016] rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 border-2 border-amber-500/35 hover:border-amber-500/55 transition-all relative overflow-hidden group shadow-xl">
-                            <div className="space-y-4 md:max-w-xl relative z-10">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider">
-                                    <Trophy className="w-3.5 h-3.5" /> WhatsApp Flex Cards
+                        {/* 1v1 Side Bets & Victory Cards — Matching Design Language */}
+                        <div className="fc-landing-card md:col-span-12 bg-white dark:bg-gradient-to-br dark:from-[#1c221a] dark:to-[#0f1614] rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-amber-500/35 transition-all relative overflow-hidden group shadow-lg">
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-[90px] pointer-events-none" />
+                            <div className="grid sm:grid-cols-12 gap-8 items-center relative z-10">
+                                <div className="sm:col-span-7 space-y-4">
+                                    <div className="w-10 h-10 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-4">
+                                        <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">1v1 Side Bets & Victory Cards</h3>
+                                    <p className="text-slate-600 dark:text-gray-300 text-sm sm:text-base leading-relaxed">
+                                        Spectators can follow the league for free and challenge friends to head-to-head cash side bets. Generate stunning branded Victory Cards to post directly to your WhatsApp Status and banter the group.
+                                    </p>
+                                    <div className="pt-2">
+                                        <button
+                                            onClick={() => navigate('/setup')}
+                                            className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0e17] font-extrabold text-sm transition-all shadow-md shadow-amber-500/20 active:scale-95 inline-flex items-center gap-2"
+                                        >
+                                            <span>Start a League Now</span>
+                                            <ArrowRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">1v1 Side Bets & Victory Cards</h3>
-                                <p className="text-slate-600 dark:text-gray-300 text-sm sm:text-base leading-relaxed">
-                                    Spectators can follow the league for free and challenge friends to head-to-head cash side bets. Generate stunning branded Victory Cards to post directly to your WhatsApp Status and banter the group.
-                                </p>
-                                <div className="flex flex-wrap gap-3 pt-2">
-                                    <button
-                                        onClick={() => navigate('/setup')}
-                                        className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center gap-2"
-                                    >
-                                        <span>Start a League Now</span>
-                                        <ArrowRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="w-full md:w-80 shrink-0 relative z-10">
-                                <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-400/40 shadow-lg dark:shadow-[0_0_35px_rgba(251,191,36,0.25)] group-hover:scale-102 transition-transform duration-500 bg-white dark:bg-black/30">
-                                    <img 
-                                        src={isDark ? "/victory-card-preview.jpg" : "/victory-card-preview-light.jpg"} 
-                                        alt="Victory Card Showcase" 
-                                        className="w-full h-auto object-cover" 
-                                    />
-                                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-md border border-slate-200 dark:border-amber-400/50 text-[10px] font-black text-slate-800 dark:text-amber-300 uppercase tracking-wider shadow-sm">
-                                        WhatsApp Ready
+                                <div className="sm:col-span-5">
+                                    <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-500/30 shadow-md group-hover:scale-105 transition-transform duration-500 bg-white dark:bg-black/20">
+                                        <img 
+                                            src={isDark ? "/sidebets-card-preview-dark.jpg" : "/sidebets-card-preview-light.jpg"} 
+                                            alt="1v1 Side Bets Showcase" 
+                                            className="w-full h-auto object-cover" 
+                                        />
                                     </div>
                                 </div>
                             </div>

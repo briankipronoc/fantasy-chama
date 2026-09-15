@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -55,6 +55,7 @@ export default function MemberDashboard() {
     // Phase 29: FPL GW Winner + full standings
     const [gwWinner, setGwWinner] = useState<any>(null);
     const [fplStandings, setFplStandings] = useState<any[]>([]);
+    const [activeUserSideBets, setActiveUserSideBets] = useState<any[]>([]);
     const [currentFplEvent, setCurrentFplEvent] = useState<{
         id: number;
         name?: string;
@@ -308,27 +309,45 @@ export default function MemberDashboard() {
                 if (!response.ok) return;
                 const data = await response.json();
                 const events = data?.events || [];
-                const current = events.find((event: any) => event.is_current);
-                const next = events.find((event: any) => event.is_next);
+                const rawCurrent = events.find((event: any) => event.is_current);
+                const rawPrevious = events.find((event: any) => event.is_previous) || events.filter((e: any) => e.finished).pop();
+                const rawNext = events.find((event: any) => event.is_next);
 
-                if (current?.id) {
-                    let isGwFinished = current.finished === true;
-                    let gwFinishedTimestamp = 0;
+                if (!rawCurrent && !rawPrevious) return;
+
+                // Check if rawCurrent has kicked off yet
+                const isCurrentStarted = rawCurrent?.deadline_time 
+                    ? Date.now() >= new Date(rawCurrent.deadline_time).getTime() 
+                    : false;
+
+                // If rawCurrent is finished, evaluate rawCurrent.
+                // If rawCurrent hasn't started yet, evaluate rawPrevious (e.g. GW ended Tuesday night, next GW starts Friday).
+                const completedCandidate = rawCurrent?.finished 
+                    ? rawCurrent 
+                    : (!isCurrentStarted && rawPrevious ? rawPrevious : rawCurrent);
+
+                let isGwFinished = completedCandidate?.finished === true;
+                let gwFinishedTimestamp = 0;
+
+                if (completedCandidate?.id) {
                     try {
-                        const fixRes = await fetch(`/fpl-api/fixtures/?event=${current.id}`);
+                        const fixRes = await fetch(`/fpl-api/fixtures/?event=${completedCandidate.id}`);
                         if (fixRes.ok) {
                             const fixtures = await fixRes.json();
                             if (Array.isArray(fixtures) && fixtures.length > 0) {
+                                // Double gameweeks & postponed matches:
+                                // Postponed fixtures do not block gameweek completion
                                 const allDone = fixtures.every((f: any) =>
                                     f.finished === true ||
                                     f.finished_provisional === true ||
+                                    f.postponed === true ||
                                     (f.kickoff_time && (Date.now() - new Date(f.kickoff_time).getTime()) > 135 * 60 * 1000)
                                 );
                                 if (allDone) isGwFinished = true;
 
-                                // Extract the timestamp when the last match in the GW concluded
+                                // Timestamp of the final match whistle
                                 fixtures.forEach((f: any) => {
-                                    if (f.kickoff_time) {
+                                    if (f.kickoff_time && !f.postponed) {
                                         const end = new Date(f.kickoff_time).getTime() + (115 * 60 * 1000);
                                         if (end > gwFinishedTimestamp) gwFinishedTimestamp = end;
                                     }
@@ -338,51 +357,68 @@ export default function MemberDashboard() {
                     } catch (e) {
                         console.warn('[member-dashboard] fixtures check skipped:', e);
                     }
+                }
 
-                    let isPreparingForNext = false;
-                    if (isGwFinished) {
-                        // If fixtures didn't provide a timestamp, store/read from localStorage so 48h celebration persists
-                        const storedKey = `fc_gw_${current.id}_finished_at`;
-                        if (!gwFinishedTimestamp) {
-                            const storedVal = localStorage.getItem(storedKey);
-                            if (storedVal) {
-                                gwFinishedTimestamp = Number(storedVal);
-                            } else {
-                                gwFinishedTimestamp = Date.now();
-                                localStorage.setItem(storedKey, String(gwFinishedTimestamp));
-                            }
-                        } else {
-                            localStorage.setItem(storedKey, String(gwFinishedTimestamp));
-                        }
-
-                        const hoursSinceGwFinished = (Date.now() - gwFinishedTimestamp) / (1000 * 60 * 60);
-                        const nextDeadlineMs = next?.deadline_time ? new Date(next.deadline_time).getTime() : 0;
-                        const msUntilNextDeadline = nextDeadlineMs ? nextDeadlineMs - Date.now() : Infinity;
-
-                        // Maintain the GW winner card on all members' dashboards for 48 hours (1-2 days)
-                        // Only switch to next GW prep stage once 48h elapse, or if the next deadline is imminent (< 20 hours)
-                        if (hoursSinceGwFinished >= 48 || msUntilNextDeadline <= 20 * 3600 * 1000) {
-                            isPreparingForNext = true;
-                        }
+                const storedKey = `fc_gw_${completedCandidate?.id}_finished_at`;
+                if (isGwFinished) {
+                    if (!gwFinishedTimestamp) {
+                        const storedVal = localStorage.getItem(storedKey);
+                        gwFinishedTimestamp = storedVal ? Number(storedVal) : Date.now();
                     }
+                    localStorage.setItem(storedKey, String(gwFinishedTimestamp));
+                }
 
-                    setCurrentFplEvent({
-                        id: current.id,
-                        name: current.name || `Gameweek ${current.id}`,
-                        finished: isGwFinished,
-                        deadlineTime: current.deadline_time,
-                        nextId: next?.id || current.id + 1,
-                        nextName: next?.name || `Gameweek ${next?.id || current.id + 1}`,
-                        nextDeadlineTime: next?.deadline_time,
-                        isPreparingForNextGw: isPreparingForNext,
+                const hoursSinceGwFinished = gwFinishedTimestamp 
+                    ? (Date.now() - gwFinishedTimestamp) / (1000 * 60 * 60) 
+                    : Infinity;
+
+                // The upcoming gameweek deadline to measure reaction window against
+                const upcomingDeadlineTime = (!isCurrentStarted && rawPrevious && completedCandidate?.id === rawPrevious.id)
+                    ? rawCurrent?.deadline_time
+                    : rawNext?.deadline_time;
+
+                const nextDeadlineMs = upcomingDeadlineTime ? new Date(upcomingDeadlineTime).getTime() : 0;
+                const hoursUntilNextDeadline = nextDeadlineMs ? (nextDeadlineMs - Date.now()) / (1000 * 60 * 60) : Infinity;
+
+                // Celebration Rule:
+                // Winner card stays active for 48 hours (2 days) after GW ends,
+                // OR expires 48 hours (2 days) before the next gameweek deadline (e.g. ended Tue night, next GW starts Fri).
+                const isCelebrationWindowActive = isGwFinished && (hoursSinceGwFinished < 48) && (hoursUntilNextDeadline > 48);
+
+                let activeEventToDisplay: any;
+                let isPreparingForNext = false;
+
+                if (isCelebrationWindowActive && completedCandidate) {
+                    // Keep winner podium and WhatsApp card active
+                    activeEventToDisplay = completedCandidate;
+                    isPreparingForNext = false;
+                } else if (!isCurrentStarted && rawCurrent) {
+                    // Reaction window passed: switch to prep mode for next GW
+                    activeEventToDisplay = rawCurrent;
+                    isPreparingForNext = true;
+                    isGwFinished = false;
+                } else {
+                    activeEventToDisplay = rawCurrent || rawPrevious;
+                    isPreparingForNext = isGwFinished && (hoursSinceGwFinished >= 48 || hoursUntilNextDeadline <= 48);
+                }
+
+                setCurrentFplEvent({
+                    id: activeEventToDisplay.id,
+                    name: activeEventToDisplay.name || `Gameweek ${activeEventToDisplay.id}`,
+                    finished: isCelebrationWindowActive ? true : isGwFinished,
+                    deadlineTime: activeEventToDisplay.deadline_time,
+                    nextId: rawNext?.id || activeEventToDisplay.id + 1,
+                    nextName: rawNext?.name || `Gameweek ${rawNext?.id || activeEventToDisplay.id + 1}`,
+                    nextDeadlineTime: rawNext?.deadline_time || upcomingDeadlineTime,
+                    isPreparingForNextGw: isPreparingForNext,
+                });
+
+                // Auto-persist startGw if the league doesn't have it yet
+                const leagueRef2 = activeLeagueId ? (await import('firebase/firestore').then(({ doc, getDoc }) => getDoc(doc(db, 'leagues', activeLeagueId)))) : null;
+                if (leagueRef2 && activeLeagueId && leagueRef2.data()?.startGw == null) {
+                    import('firebase/firestore').then(({ doc, updateDoc }) => {
+                        updateDoc(doc(db, 'leagues', activeLeagueId), { startGw: activeEventToDisplay.id }).catch(() => {});
                     });
-                    // Auto-persist startGw if the league doesn't have it yet
-                    const leagueRef2 = activeLeagueId ? (await import('firebase/firestore').then(({ doc, getDoc }) => getDoc(doc(db, 'leagues', activeLeagueId)))) : null;
-                    if (leagueRef2 && activeLeagueId && leagueRef2.data()?.startGw == null) {
-                        import('firebase/firestore').then(({ doc, updateDoc }) => {
-                            updateDoc(doc(db, 'leagues', activeLeagueId), { startGw: current.id }).catch(() => {});
-                        });
-                    }
                 }
             } catch (err) {
                 console.warn('Could not fetch current FPL event', err);
@@ -431,6 +467,27 @@ export default function MemberDashboard() {
             }
         };
     }, [activeLeagueId, currentUser?.id, coAdminId]);
+
+    // Listen for Active/Pending 1v1 Side Bets for the logged-in member
+    useEffect(() => {
+        if (!activeLeagueId || !currentUser?.id) return;
+        const betsRef = collection(db, 'leagues', activeLeagueId, 'side_bets');
+        const unsub = onSnapshot(betsRef, (snap) => {
+            const myBets = snap.docs
+                .map(d => ({ id: d.id, ...d.data() } as any))
+                .filter(b => 
+                    (b.challenger?.id === currentUser.id || b.opponent?.id === currentUser.id) &&
+                    b.status !== 'resolved' &&
+                    b.status !== 'declined'
+                );
+            setActiveUserSideBets(myBets);
+        }, (err) => {
+            console.warn('[member-dashboard] side bets listener failed:', err?.message || err);
+        });
+        return () => {
+            try { unsub(); } catch {}
+        };
+    }, [activeLeagueId, currentUser?.id]);
 
     useEffect(() => {
         if (!memberPhone) return;
@@ -1066,6 +1123,54 @@ export default function MemberDashboard() {
                         )}
                     </div>
                 </section>
+
+                {/* ── Active / Upcoming 1v1 Side Bet Banner ── */}
+                {activeUserSideBets && activeUserSideBets.length > 0 && (() => {
+                    const bet = activeUserSideBets[0];
+                    const isChallenger = bet.challenger?.id === currentUser?.id;
+                    const rivalName = isChallenger ? bet.opponent?.displayName || 'Opponent' : bet.challenger?.displayName || 'Challenger';
+                    const isActionRequired = !isChallenger && !bet.opponent?.signed;
+                    
+                    return (
+                        <section className="mb-3 rounded-3xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-in fade-in duration-300">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0 shadow-sm">
+                                    <Swords className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                                            1v1 Side Bet Wager
+                                        </span>
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 uppercase">
+                                            KES {bet.stake?.toLocaleString()} Stake
+                                        </span>
+                                    </div>
+                                    <p className="font-extrabold text-sm md:text-base text-slate-900 dark:text-white truncate mt-0.5">
+                                        vs {rivalName}: "{bet.title}"
+                                    </p>
+                                    <p className="text-[11px] text-slate-600 dark:text-gray-300 truncate">
+                                        {bet.status === 'active'
+                                            ? `🔥 Wager Active! Winner takes KES ${(bet.stake * 2).toLocaleString()} at final whistle.`
+                                            : isActionRequired
+                                                ? '⚠️ You have been challenged! Review and accept before deadline.'
+                                                : '⏳ Awaiting Chairman approval / opponent signature.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                <button
+                                    onClick={() => navigate('/side-bets')}
+                                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0e17] font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-1.5"
+                                >
+                                    <span>{isActionRequired ? 'Review & Accept' : 'View Wagers'}</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </section>
+                    );
+                })()}
 
                 {showLeagueGuide && (
                     <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300">
@@ -1765,42 +1870,45 @@ export default function MemberDashboard() {
                 </div>
 
                 {/* === ROW 4: Live Escrow Feed === */}
-                <div className="fc-member-feed w-full bg-[#0d1117] border border-white/5 rounded-[1.5rem] overflow-hidden">
-                    <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-2">
-                        <Activity className="w-3.5 h-3.5 text-[#10B981]" />
-                        <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">League Activity</h4>
+                <div className="fc-member-feed w-full bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-white/5 rounded-[1.5rem] overflow-hidden shadow-sm">
+                    <div className="px-5 py-4 border-b border-slate-200 dark:border-white/[0.06] flex items-center gap-2">
+                        <Activity className="w-3.5 h-3.5 text-emerald-500" />
+                        <h4 className="text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest">League Activity</h4>
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse ml-1" />
-                        <span className="ml-auto font-mono text-[10px] text-gray-700">{leagueName}</span>
+                        <span className="ml-auto font-mono text-[10px] text-slate-500 dark:text-gray-500 font-bold">{leagueName}</span>
                         <button
                             onClick={() => setShowFeedPanelMobile(prev => !prev)}
-                            className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-white/10 text-gray-600 dark:text-gray-300"
+                            className="sm:hidden text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
                         >
                             {showFeedPanelMobile ? 'Hide' : 'Show'}
                         </button>
                     </div>
                     <div
-                        className={clsx('h-48 overflow-y-auto divide-y divide-white/[0.03] font-mono', !showFeedPanelMobile && 'hidden sm:block')}
-                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e2935 transparent' }}
+                        className={clsx('h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.03] font-mono', !showFeedPanelMobile && 'hidden sm:block')}
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#10B981 transparent' }}
                     >
                         {liveEvents.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-700">
+                            <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-gray-600">
                                 <Terminal className="w-6 h-6 mb-2 opacity-40" />
-                                <span className="text-[11px] tracking-widest uppercase">Standing by...</span>
+                                <span className="text-[11px] tracking-widest uppercase font-bold">Standing by for events...</span>
                             </div>
                         ) : liveEvents.map(ev => {
                             const ts = ev.timestamp?.toDate ? ev.timestamp.toDate() : new Date();
                             const timeStr = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            const tagColor = ev.eventType === 'payment' ? 'text-[#10B981] bg-[#10B981]/10' :
-                                ev.eventType === 'resolution' ? 'text-[#FBBF24] bg-[#FBBF24]/10' :
-                                    ev.eventType === 'rules' ? 'text-blue-400 bg-blue-400/10' : 'text-gray-600 dark:text-gray-400 bg-white/5';
+                            const eventTypeUpper = String(ev.eventType || '').toUpperCase();
+                            const tagColor = eventTypeUpper.includes('PAYMENT') || eventTypeUpper.includes('DEPOSIT') ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30' :
+                                eventTypeUpper.includes('RESOLUTION') || eventTypeUpper.includes('WINNER') ? 'text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30' :
+                                    eventTypeUpper.includes('FORFEIT') ? 'text-rose-700 dark:text-rose-400 bg-rose-500/15 border border-rose-500/30' :
+                                        eventTypeUpper.includes('OPERATION') ? 'text-indigo-700 dark:text-indigo-400 bg-indigo-500/15 border border-indigo-500/30' :
+                                            'text-slate-600 dark:text-gray-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10';
                             return (
-                                <div key={ev.id} className="px-5 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors animate-in fade-in duration-500">
-                                    <span className="text-gray-700 text-[10px] w-12 flex-shrink-0">{timeStr}</span>
+                                <div key={ev.id} className="px-5 py-2.5 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors animate-in fade-in duration-300">
+                                    <span className="text-slate-400 dark:text-gray-500 text-[10px] w-14 flex-shrink-0 font-bold">{timeStr}</span>
                                     <span className={clsx('text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex-shrink-0', tagColor)}>
-                                        {ev.eventType || 'SYS'}
+                                        {ev.eventType || 'OPERATIONS'}
                                     </span>
-                                    <span className="text-[11px] text-gray-600 dark:text-gray-400 truncate">{ev.message}</span>
-                                    {ev.actor && <span className="ml-auto text-[10px] text-gray-700 flex-shrink-0">@{ev.actor}</span>}
+                                    <span className="text-[11px] text-slate-700 dark:text-gray-300 truncate font-medium">{ev.message}</span>
+                                    {ev.actor && <span className="ml-auto text-[10px] text-slate-400 dark:text-gray-500 flex-shrink-0 font-bold">@{ev.actor}</span>}
                                 </div>
                             );
                         })}

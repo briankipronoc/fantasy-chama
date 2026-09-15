@@ -24,7 +24,7 @@ export function initializeTheme() {
 
     const hasExplicitUserTheme = localStorage.getItem(THEME_USER_SET_KEY) === '1';
     const savedTheme = (localStorage.getItem(THEME_KEY) as Theme | null);
-    const resolvedTheme: Theme = hasExplicitUserTheme && savedTheme ? savedTheme : 'dark';
+    const resolvedTheme: Theme = hasExplicitUserTheme && savedTheme ? savedTheme : 'system';
 
     if (resolvedTheme === 'system') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -39,13 +39,21 @@ export function initializeTheme() {
 
 export function useTheme() {
     const [theme, setTheme] = useState<Theme>(() => {
-        return (localStorage.getItem(THEME_KEY) as Theme) || 'dark';
+        const hasExplicitUserTheme = typeof window !== 'undefined' && localStorage.getItem(THEME_USER_SET_KEY) === '1';
+        const saved = typeof window !== 'undefined' ? (localStorage.getItem(THEME_KEY) as Theme) : null;
+        return (hasExplicitUserTheme && saved) ? saved : 'system';
+    });
+
+    const [isSystemDark, setIsSystemDark] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
     });
 
     useEffect(() => {
         if (theme === 'system') {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             applyTheme(isDark ? 'dark' : 'light');
+            setIsSystemDark(isDark);
         } else {
             applyTheme(theme);
         }
@@ -54,10 +62,13 @@ export function useTheme() {
 
     // Listen to OS changes when on system mode
     useEffect(() => {
-        if (theme !== 'system') return;
+        if (typeof window === 'undefined') return;
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
         const handler = (e: MediaQueryListEvent) => {
-            applyTheme(e.matches ? 'dark' : 'light');
+            setIsSystemDark(e.matches);
+            if (theme === 'system') {
+                applyTheme(e.matches ? 'dark' : 'light');
+            }
         };
         mq.addEventListener('change', handler);
         return () => mq.removeEventListener('change', handler);
@@ -73,5 +84,7 @@ export function useTheme() {
         setTheme(nextTheme);
     };
 
-    return { theme, setTheme: setThemePreference, cycle, isDark: theme === 'dark' };
+    const isDark = theme === 'system' ? isSystemDark : theme === 'dark';
+
+    return { theme, setTheme: setThemePreference, cycle, isDark };
 }
