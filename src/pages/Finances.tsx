@@ -1063,13 +1063,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-lg font-black text-white tabular-nums">{modeLabel}</p>
                             <p className="text-[11px] text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
                             <p className="text-[11px] text-amber-400 font-bold mt-1">Total distributed now: KES {Math.round(totalPreviewPayout).toLocaleString()}</p>
-                            <button
-                                onClick={() => setShowSeasonCeremony(true)}
-                                className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)]"
-                            >
-                                <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                                Launch Season Ceremony
-                            </button>
+                            {role === 'admin' && (
+                                <button
+                                    onClick={() => setShowSeasonCeremony(true)}
+                                    className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)]"
+                                >
+                                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                                    Launch Season Ceremony
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -1478,7 +1480,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     );
                 })()}
 
-            {showSeasonCeremony && (
+            {showSeasonCeremony && role === 'admin' && (
                 <SeasonCeremonyModal
                     isOpen={showSeasonCeremony}
                     onClose={() => setShowSeasonCeremony(false)}

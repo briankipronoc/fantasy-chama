@@ -103,6 +103,14 @@ const AuthGate = ({ children }: { children: React.ReactNode }) => {
     return <RouteLoader />;
   }
 
+  const activeLeagueId = localStorage.getItem('activeLeagueId');
+  const activeUserId = localStorage.getItem('activeUserId');
+  const isAuthenticated = Boolean(activeLeagueId && (role || activeUserId));
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <>{children}</>;
 };
 

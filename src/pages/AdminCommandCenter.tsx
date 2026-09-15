@@ -547,8 +547,27 @@ export default function AdminCommandCenter() {
             if (nextEvent?.deadline_time) {
               setNextDeadlineTime(nextEvent.deadline_time);
             }
-            setIsCurrentEventFinished(Boolean(current?.finished === true && current?.data_checked === true));
             const fetchedGwId = Number(current?.id || 0) || null;
+            let isEventFinished = Boolean(current?.finished === true && current?.data_checked === true);
+            if (!isEventFinished && fetchedGwId) {
+              try {
+                const fixRes = await fetch(`/fpl-api/fixtures/?event=${fetchedGwId}`);
+                if (fixRes.ok) {
+                  const fixtures = await fixRes.json();
+                  if (Array.isArray(fixtures) && fixtures.length > 0) {
+                    const allDone = fixtures.every((f: any) =>
+                      f.finished === true ||
+                      f.finished_provisional === true ||
+                      (f.kickoff_time && (Date.now() - new Date(f.kickoff_time).getTime()) > 135 * 60 * 1000)
+                    );
+                    if (allDone) isEventFinished = true;
+                  }
+                }
+              } catch (e) {
+                console.warn("[command-center] fixtures check skipped:", e);
+              }
+            }
+            setIsCurrentEventFinished(isEventFinished);
             setCurrentGwNumber(fetchedGwId);
             if (fetchedGwId && !data.startGw && activeLeagueId) {
               updateDoc(leagueRef, { startGw: fetchedGwId }).catch(() => {});

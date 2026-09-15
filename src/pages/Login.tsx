@@ -224,133 +224,150 @@ export default function Login() {
             const leagueData = leagueSnapshot.docs[0];
             const leagueId = leagueData.id;
 
-            // 2. Check if the user's phone number is on the Chairman's pre-approved list
-            const phoneVariants = getPhoneVariants(phone);
-
+            // 2. Check if the user is already on the Chairman's pre-approved / loaded member list
             const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
-            const qMember = query(membershipsRef, where("phone", "in", phoneVariants));
-            const memberSnapshot = await getDocs(qMember);
+            const allMembersSnap = await getDocs(membershipsRef);
 
-            if (memberSnapshot.empty) {
-                // If member's phone isn't pre-registered, launch Self-Onboarding wizard
-                console.log("Phone not found. Loading league details for self-onboarding wizard...");
-                const allMembersSnap = await getDocs(membershipsRef);
-                const unlinked = allMembersSnap.docs
-                    .map(d => ({ id: d.id, ...d.data() } as any))
-                    .filter(m => (!m.phone && !m.phoneNumber) || m.isPending === true);
+            const phoneVariants = getPhoneVariants(phone);
+            const normalizedInput = normalizeKenyanPhone(phone);
+            const cleanDigitsInput = phone.replace(/\D/g, '');
 
-                const leagueDocData = leagueData.data();
-                const leagueFplId = leagueDocData?.fplLeagueId;
+            const matchedMemberDoc = allMembersSnap.docs.find(d => {
+                const data = d.data();
+                const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
+                const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
+                const cleanP1 = String(data.phone || '').replace(/\D/g, '');
+                const cleanP2 = String(data.phoneNumber || '').replace(/\D/g, '');
 
-                // If Chairman set up an FPL league number, pull unclaimed squads strictly for THIS league
-                if (leagueFplId) {
-                    try {
-                        const existingClaimedIds = new Set(
-                            allMembersSnap.docs
-                                .map(d => d.data())
-                                .filter((m: any) => m.phone || m.phoneNumber || m.isPending === false)
-                                .map((m: any) => String(m.fplTeamId || m.entry || ''))
-                                .filter(Boolean)
-                        );
-                        const existingClaimedNames = new Set(
-                            allMembersSnap.docs
-                                .map(d => d.data())
-                                .filter((m: any) => m.phone || m.phoneNumber || m.isPending === false)
-                                .map((m: any) => (m.displayName || '').toLowerCase().trim())
-                                .filter(Boolean)
-                        );
+                const matchesVariant = phoneVariants.includes(data.phone) || phoneVariants.includes(data.phoneNumber);
+                const matchesNormalized = (p1 && p1 === normalizedInput) || (p2 && p2 === normalizedInput);
+                const matchesLast9 = cleanDigitsInput.length >= 9 && (
+                    (cleanP1.length >= 9 && cleanP1.endsWith(cleanDigitsInput.slice(-9))) ||
+                    (cleanP2.length >= 9 && cleanP2.endsWith(cleanDigitsInput.slice(-9)))
+                );
 
-                        const standingsRes = await fetch(`/fpl-api/leagues-classic/${leagueFplId}/standings/`);
-                        if (standingsRes.ok) {
-                            const standingsData = await standingsRes.json();
-                            const results = standingsData?.standings?.results || [];
+                return matchesVariant || matchesNormalized || matchesLast9;
+            });
 
-                            const fplUnlinked = results
-                                .filter((r: any) =>
-                                    !existingClaimedIds.has(String(r.entry)) &&
-                                    !existingClaimedNames.has((r.player_name || '').toLowerCase().trim()) &&
-                                    !unlinked.some((u: any) => String(u.fplTeamId || u.entry) === String(r.entry) || (u.displayName || '').toLowerCase().trim() === (r.player_name || '').toLowerCase().trim())
-                                )
-                                .map((r: any) => ({
-                                    id: `fpl_${r.entry}`,
-                                    isFplApiImport: true,
-                                    displayName: r.player_name,
-                                    fplTeamName: r.entry_name,
-                                    teamName: r.entry_name,
-                                    fplTeamId: r.entry,
-                                    entry: r.entry,
-                                    isPending: true,
-                                }));
+            if (matchedMemberDoc) {
+                // 3. User already exists: update member document with active authUid and sign in directly
+                const memberDocRef = matchedMemberDoc.ref;
+                await updateDoc(memberDocRef, { authUid: userUid });
 
-                            unlinked.push(...fplUnlinked);
-                        }
-                    } catch (fplErr) {
-                        console.warn("Could not fetch FPL standings for league self-onboarding:", fplErr);
-                    }
-                }
+                const memberData = matchedMemberDoc.data();
 
-                let detectedGw = leagueDocData?.currentGw || leagueDocData?.startGw || 1;
-                try {
-                    const res = await fetch('/fpl-api/bootstrap-static/');
-                    if (res.ok) {
-                        const boot = await res.json();
-                        const cur = boot.events?.find((ev: any) => ev.is_current) || boot.events?.find((ev: any) => ev.is_next);
-                        if (cur?.id) detectedGw = cur.id;
-                    }
-                } catch {
-                    // fallback to detectedGw
-                }
+                // Save session to localStorage
+                localStorage.setItem('activeLeagueId', leagueId);
+                localStorage.setItem('memberPhone', phone);
+                localStorage.setItem('activeUserId', memberDocRef.id);
 
-                const chairmanMember = allMembersSnap.docs
-                    .map(d => d.data())
-                    .find((m: any) => m.role === 'admin' || m.role === 'chairman');
-                const invitedBy = leagueDocData?.chairmanName || chairmanMember?.displayName || 'The Chairman';
-                const finalLeagueName = leagueDocData?.leagueName || leagueDocData?.name || 'Fantasy Chama';
-                const finalMonthlyFee = Number(leagueDocData?.monthlyFee || leagueDocData?.gameweekStake || 0);
-
-                setOnboardData({
-                    leagueId,
-                    leagueName: finalLeagueName,
-                    monthlyFee: finalMonthlyFee,
-                    phone,
-                    userUid,
-                    currentGw: detectedGw,
-                    unlinkedTeams: unlinked,
-                    invitedBy,
-                });
-
-                if (unlinked.length > 0) {
-                    setSelectedTeamClaim(unlinked[0].id);
-                    setOnboardManagerName(unlinked[0].displayName || '');
-                    setOnboardTeamName(unlinked[0].fplTeamName || unlinked[0].teamName || '');
-                } else {
-                    setSelectedTeamClaim('custom');
-                    setOnboardManagerName('');
-                    setOnboardTeamName('');
-                }
-
-                setShowSelfOnboardModal(true);
+                // Clear sensitive login inputs from localStorage after success
+                localStorage.removeItem('fc-login-code');
+                localStorage.removeItem('fc-login-phone');
+                
+                setShowSelfOnboardModal(false);
+                setRole('member');
+                navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
                 return;
             }
 
-            // 3. Update the member document with the active session UID to bypass Firestore Rules securely
-            const memberDocRef = memberSnapshot.docs[0].ref;
-            await updateDoc(memberDocRef, { authUid: userUid });
+            // User is not yet registered: launch Self-Onboarding wizard
+            console.log("Phone not found. Loading league details for self-onboarding wizard...");
+            const unlinked = allMembersSnap.docs
+                .map(d => ({ id: d.id, ...d.data() } as any))
+                .filter(m => (!m.phone && !m.phoneNumber) || m.isPending === true);
 
-            const memberData = memberSnapshot.docs[0].data();
+            const leagueDocData = leagueData.data();
+            const leagueFplId = leagueDocData?.fplLeagueId;
 
-            // Save session to localStorage
-            localStorage.setItem('activeLeagueId', leagueId);
-            localStorage.setItem('memberPhone', phone);
-            localStorage.setItem('activeUserId', memberDocRef.id);
+            // If Chairman set up an FPL league number, pull unclaimed squads strictly for THIS league
+            if (leagueFplId) {
+                try {
+                    const existingClaimedIds = new Set(
+                        allMembersSnap.docs
+                            .map(d => d.data())
+                            .filter((m: any) => m.phone || m.phoneNumber || m.isPending === false)
+                            .map((m: any) => String(m.fplTeamId || m.entry || ''))
+                            .filter(Boolean)
+                    );
+                    const existingClaimedNames = new Set(
+                        allMembersSnap.docs
+                            .map(d => d.data())
+                            .filter((m: any) => m.phone || m.phoneNumber || m.isPending === false)
+                            .map((m: any) => (m.displayName || '').toLowerCase().trim())
+                            .filter(Boolean)
+                    );
 
-            // Clear sensitive login inputs from localStorage after success
-            localStorage.removeItem('fc-login-code');
-            localStorage.removeItem('fc-login-phone');
-            
-            // strictly set role to member
-            setRole('member');
-            navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
+                    const standingsRes = await fetch(`/fpl-api/leagues-classic/${leagueFplId}/standings/`);
+                    if (standingsRes.ok) {
+                        const standingsData = await standingsRes.json();
+                        const results = standingsData?.standings?.results || [];
+
+                        const fplUnlinked = results
+                            .filter((r: any) =>
+                                !existingClaimedIds.has(String(r.entry)) &&
+                                !existingClaimedNames.has((r.player_name || '').toLowerCase().trim()) &&
+                                !unlinked.some((u: any) => String(u.fplTeamId || u.entry) === String(r.entry) || (u.displayName || '').toLowerCase().trim() === (r.player_name || '').toLowerCase().trim())
+                            )
+                            .map((r: any) => ({
+                                id: `fpl_${r.entry}`,
+                                isFplApiImport: true,
+                                displayName: r.player_name,
+                                fplTeamName: r.entry_name,
+                                teamName: r.entry_name,
+                                fplTeamId: r.entry,
+                                entry: r.entry,
+                                isPending: true,
+                            }));
+
+                        unlinked.push(...fplUnlinked);
+                    }
+                } catch (fplErr) {
+                    console.warn("Could not fetch FPL standings for league self-onboarding:", fplErr);
+                }
+            }
+
+            let detectedGw = leagueDocData?.currentGw || leagueDocData?.startGw || 1;
+            try {
+                const res = await fetch('/fpl-api/bootstrap-static/');
+                if (res.ok) {
+                    const boot = await res.json();
+                    const cur = boot.events?.find((ev: any) => ev.is_current) || boot.events?.find((ev: any) => ev.is_next);
+                    if (cur?.id) detectedGw = cur.id;
+                }
+            } catch {
+                // fallback to detectedGw
+            }
+
+            const chairmanMember = allMembersSnap.docs
+                .map(d => d.data())
+                .find((m: any) => m.role === 'admin' || m.role === 'chairman');
+            const invitedBy = leagueDocData?.chairmanName || chairmanMember?.displayName || 'The Chairman';
+            const finalLeagueName = leagueDocData?.leagueName || leagueDocData?.name || 'Fantasy Chama';
+            const finalMonthlyFee = Number(leagueDocData?.monthlyFee || leagueDocData?.gameweekStake || 0);
+
+            setOnboardData({
+                leagueId,
+                leagueName: finalLeagueName,
+                monthlyFee: finalMonthlyFee,
+                phone,
+                userUid,
+                currentGw: detectedGw,
+                unlinkedTeams: unlinked,
+                invitedBy,
+            });
+
+            if (unlinked.length > 0) {
+                setSelectedTeamClaim(unlinked[0].id);
+                setOnboardManagerName(unlinked[0].displayName || '');
+                setOnboardTeamName(unlinked[0].fplTeamName || unlinked[0].teamName || '');
+            } else {
+                setSelectedTeamClaim('custom');
+                setOnboardManagerName('');
+                setOnboardTeamName('');
+            }
+
+            setShowSelfOnboardModal(true);
 
         } catch (err) {
             console.error(err);

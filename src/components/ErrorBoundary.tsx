@@ -23,10 +23,17 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     componentDidCatch(error: Error, errorInfo: any) {
         console.error('[ErrorBoundary] Caught:', error, errorInfo);
+        if (typeof window !== 'undefined' && !localStorage.getItem('activeLeagueId')) {
+            window.location.replace('/login');
+        }
     }
 
     render() {
         if (this.state.hasError) {
+            if (typeof window !== 'undefined' && !localStorage.getItem('activeLeagueId')) {
+                window.location.replace('/login');
+                return null;
+            }
             return (
                 <div className="fc-error-boundary min-h-[220px] flex flex-col items-center justify-center gap-4 p-8 rounded-2xl text-center">
                     <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">

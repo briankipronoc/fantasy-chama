@@ -21,6 +21,8 @@ export default function GlobalPotBanner() {
                 setMonthlyContribution(data.gameweekStake || 0);
                 if (data.rules) setRules(data.rules);
             }
+        }, (error) => {
+            console.warn('[GlobalPotBanner] listener error:', error?.message || error);
         });
         return () => unsubscribe();
     }, [activeLeagueId]);

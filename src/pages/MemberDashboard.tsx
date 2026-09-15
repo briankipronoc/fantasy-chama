@@ -83,6 +83,8 @@ export default function MemberDashboard() {
     const [showLeagueGuide, setShowLeagueGuide] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isUpgradingToPot, setIsUpgradingToPot] = useState(false);
+    const [reactionMessage, setReactionMessage] = useState('');
+    const [activeReactionAnim, setActiveReactionAnim] = useState<string | null>(null);
 
     const members = useStore(state => state.members);
     const logout = useStore(state => state.logout);
@@ -310,8 +312,28 @@ export default function MemberDashboard() {
                 const next = events.find((event: any) => event.is_next);
 
                 if (current?.id) {
+                    let isGwFinished = current.finished === true;
+                    if (!isGwFinished) {
+                        try {
+                            const fixRes = await fetch(`/fpl-api/fixtures/?event=${current.id}`);
+                            if (fixRes.ok) {
+                                const fixtures = await fixRes.json();
+                                if (Array.isArray(fixtures) && fixtures.length > 0) {
+                                    const allDone = fixtures.every((f: any) =>
+                                        f.finished === true ||
+                                        f.finished_provisional === true ||
+                                        (f.kickoff_time && (Date.now() - new Date(f.kickoff_time).getTime()) > 135 * 60 * 1000)
+                                    );
+                                    if (allDone) isGwFinished = true;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[member-dashboard] fixtures check skipped:', e);
+                        }
+                    }
+
                     let isPreparingForNext = false;
-                    if (current.finished === true) {
+                    if (isGwFinished) {
                         const deadlineMs = current.deadline_time ? new Date(current.deadline_time).getTime() : 0;
                         const hoursSinceDeadline = deadlineMs ? (Date.now() - deadlineMs) / (1000 * 60 * 60) : 0;
                         // If it's been > 48 hours since the gameweek deadline or next GW deadline is within 5 days
@@ -323,7 +345,7 @@ export default function MemberDashboard() {
                     setCurrentFplEvent({
                         id: current.id,
                         name: current.name || `Gameweek ${current.id}`,
-                        finished: current.finished === true,
+                        finished: isGwFinished,
                         deadlineTime: current.deadline_time,
                         nextId: next?.id || current.id + 1,
                         nextName: next?.name || `Gameweek ${next?.id || current.id + 1}`,
@@ -689,6 +711,37 @@ export default function MemberDashboard() {
         }
     };
 
+    const handleSendReaction = async (emoji: string, customMsg: string) => {
+        if (!activeLeagueId || !gwWinner) return;
+        haptics.selection();
+        setActiveReactionAnim(emoji);
+        setTimeout(() => setActiveReactionAnim(null), 2500);
+
+        try {
+            const senderName = currentUser?.displayName || 'Member';
+            const msg = customMsg || `${senderName} reacted with ${emoji}`;
+            
+            const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
+            await addDoc(eventsRef, {
+                type: 'champion_reaction',
+                emoji,
+                message: msg,
+                fromName: senderName,
+                fromId: activeUserId,
+                toWinner: gwWinner.player_name,
+                gw: currentFplEvent?.id || null,
+                timestamp: serverTimestamp(),
+            });
+
+            showToast(`Sent ${emoji} props to ${gwWinner.player_name.split(' ')[0]}!`, 'success');
+            setReactionMessage('');
+        } catch (err) {
+            console.warn('[reaction] could not save:', err);
+            showToast(`Sent ${emoji}!`, 'success');
+            setReactionMessage('');
+        }
+    };
+
     // Module 4A: Listen for pending winner confirmations for this user
     useEffect(() => {
         if (!activeLeagueId || !currentUser?.id) return;
@@ -871,6 +924,15 @@ export default function MemberDashboard() {
                     <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#F59E0B] blur-[150px] opacity-[0.04]"></div>
                 </div>
             )}
+
+            {/* Quick Reaction Floating Animation Burst */}
+            {activeReactionAnim && (
+                <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center animate-in zoom-in-50 fade-in duration-200">
+                    <div className="text-7xl md:text-8xl animate-bounce drop-shadow-[0_0_35px_rgba(251,191,36,0.8)]">
+                        {activeReactionAnim}
+                    </div>
+                </div>
+            )}
             {/* Background Element */}
             <div className="fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none z-0">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
@@ -1021,42 +1083,116 @@ export default function MemberDashboard() {
                     </div>
                 )}
 
-                {/* Phase 30: Golden Winner Celebration OR Normal Action Banner */}
-                {isCurrentUserGwWinner ? (
-                    <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-80 h-80 bg-[#FBBF24] blur-[120px] opacity-10 pointer-events-none"></div>
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
-                        <div className="relative z-10 w-20 h-20 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[3px] shadow-[0_0_30px_rgba(251,191,36,0.3)] flex-shrink-0 animate-pulse">
-                            <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center">
-                                <Trophy className="w-9 h-9 text-[#FBBF24]" />
+                {/* Phase 30: Golden Winner Celebration OR Member Celebration with Reactions OR Normal Action Banner */}
+                {hasFinalGwChampion && gwWinner ? (
+                    isCurrentUserGwWinner ? (
+                        <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-[#FBBF24] blur-[120px] opacity-10 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
+                            <div className="relative z-10 w-20 h-20 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[3px] shadow-[0_0_30px_rgba(251,191,36,0.3)] flex-shrink-0 animate-pulse">
+                                <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center">
+                                    <Trophy className="w-9 h-9 text-[#FBBF24]" />
+                                </div>
+                            </div>
+                            <div className="relative z-10 text-center sm:text-left flex-1">
+                                <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5 justify-center sm:justify-start">
+                                    <Star className="w-3 h-3 fill-current" /> You Are This Gameweek's Champion!
+                                </p>
+                                <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
+                                    Congratulations, {firstName}!
+                                </h3>
+                                <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
+                                    You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
+                                </p>
+                            </div>
+                            <div className="fc-win-payout-card relative z-10 p-4 rounded-2xl text-center flex-shrink-0">
+                                <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
+                                <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                            </div>
+                            {/* Phase 8: Flex on WhatsApp */}
+                            <button
+                                onClick={() => {
+                                    haptics.celebrate();
+                                    setShowFlexModal(true);
+                                }}
+                                className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
+                            >
+                                🏆 Victory Card
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="w-full rounded-[2rem] border border-amber-500/30 bg-gradient-to-br from-[#1b170c] via-[#161d24] to-[#0c1218] p-5 md:p-6 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-80 h-40 bg-[#FBBF24]/10 blur-[100px] pointer-events-none" />
+                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center flex-shrink-0 shadow-[0_0_24px_rgba(251,191,36,0.2)]">
+                                        <Trophy className="w-7 h-7 md:w-8 md:h-8 text-[#FBBF24]" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FBBF24] flex items-center gap-1">
+                                                <Star className="w-3 h-3 fill-[#FBBF24]" /> GW {currentFplEvent?.id || ''} Champion Crowned
+                                            </span>
+                                        </div>
+                                        <h3 className="text-xl md:text-2xl font-black text-white leading-tight mt-0.5">
+                                            {gwWinner.player_name} <span className="text-sm font-bold text-gray-400">({gwWinner.entry_name || 'Champion'})</span>
+                                        </h3>
+                                        <p className="text-xs text-slate-300 mt-1">
+                                            Clinched the pot with <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span>
+                                            {gwWinner.leadMargin ? ` (+${gwWinner.leadMargin} pts ahead)` : ''} · Payout Yielded: <span className="text-[#FBBF24] font-black">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Quick Emoji & Banter Reactions to the Champion */}
+                                <div className="w-full lg:w-auto bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 flex-shrink-0">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
+                                        Send Props to {gwWinner.player_name.split(' ')[0]} 💬
+                                    </p>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => (
+                                            <button
+                                                key={emoji}
+                                                type="button"
+                                                onClick={() => handleSendReaction(emoji, '')}
+                                                className="w-9 h-9 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-400/40 flex items-center justify-center text-base transition-all active:scale-90"
+                                                title={`React with ${emoji}`}
+                                            >
+                                                {emoji}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <input
+                                            type="text"
+                                            value={reactionMessage}
+                                            onChange={(e) => setReactionMessage(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && reactionMessage.trim()) {
+                                                    handleSendReaction('💬', reactionMessage.trim());
+                                                }
+                                            }}
+                                            placeholder="Quick banter..."
+                                            maxLength={60}
+                                            className="w-36 md:w-44 bg-white/5 border border-white/10 rounded-xl px-2.5 py-1 text-[11px] text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400/50"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (reactionMessage.trim()) {
+                                                    handleSendReaction('💬', reactionMessage.trim());
+                                                }
+                                            }}
+                                            disabled={!reactionMessage.trim()}
+                                            className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30 transition-all disabled:opacity-30 active:scale-95 cursor-pointer"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div className="relative z-10 text-center sm:text-left flex-1">
-                            <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1 flex items-center gap-1.5 justify-center sm:justify-start">
-                                <Star className="w-3 h-3 fill-current" /> You Are This Gameweek's Champion!
-                            </p>
-                            <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
-                                Congratulations, {firstName}!
-                            </h3>
-                            <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
-                                You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
-                            </p>
-                        </div>
-                        <div className="fc-win-payout-card relative z-10 p-4 rounded-2xl text-center flex-shrink-0">
-                            <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
-                            <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
-                        </div>
-                        {/* Phase 8: Flex on WhatsApp */}
-                        <button
-                            onClick={() => {
-                                haptics.celebrate();
-                                setShowFlexModal(true);
-                            }}
-                            className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
-                        >
-                            🏆 Victory Card
-                        </button>
-                    </div>
+                    )
                 ) : gwWinner && !currentFplEvent?.finished ? (
                     <div className="fc-gw-live-banner w-full rounded-[2rem] border border-white/10 bg-[#161d24]/90 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-2xl shadow-black/30">
                         <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
