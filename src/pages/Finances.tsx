@@ -1129,9 +1129,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </details>
 
                     {isPreviewCapped && (
-                        <div className="mt-4 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Tier capped</p>
-                            <p className="text-sm text-amber-50/90 mt-1">
+                        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300">Tier capped</p>
+                            <p className="text-sm text-slate-800 dark:text-amber-50/90 mt-1 font-medium">
                                 This league currently has only {activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'}, so the vault preview stops at Top {eligibleWinnersCount}. The chairman's configured ladder will expand automatically once there are enough active players.
                             </p>
                         </div>

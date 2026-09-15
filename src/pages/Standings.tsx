@@ -188,19 +188,25 @@ export default function Standings() {
                         .filter((tx) => tx.type === 'payout' && Number.isFinite(Number(tx.gameweek || tx.gw)));
 
                     let pendingForfeited = new Set<number>();
+                    const pendingPayoutsMap = new Map<number, any>();
                     try {
                         const pendingSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'pending_payouts'));
                         pendingSnap.docs.forEach((docSnap) => {
                             const p = docSnap.data() as any;
-                            if (p.status === 'forfeited' && Number.isFinite(Number(p.gw))) {
-                                pendingForfeited.add(Number(p.gw));
+                            const gwNum = Number(p.gw || p.gameweek);
+                            if (Number.isFinite(gwNum)) {
+                                if (p.status === 'forfeited') {
+                                    pendingForfeited.add(gwNum);
+                                } else {
+                                    pendingPayoutsMap.set(gwNum, p);
+                                }
                             }
                         });
                     } catch (_pErr) {
                         // ignore if collection empty
                     }
 
-                    const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean }>();
+                    const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean; isAwaitingPayment?: boolean }>();
                     payoutRows.forEach((tx) => {
                         const gw = Number(tx.gameweek || tx.gw);
                         if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
@@ -211,6 +217,25 @@ export default function Standings() {
                             amount: Number(tx.amount || 0),
                         });
                     });
+
+                    // Active non-eliminated Chama members from results
+                    const norm = (s: string) => String(s || '').toLowerCase().trim();
+                    const activeChamaResults = results.filter((r: any) => {
+                        const dbMember = members.find((m: any) => {
+                            if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+                            if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+                            const db = norm(m.displayName);
+                            return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+                        });
+                        return dbMember && dbMember.isActive !== false && !(dbMember as any)?.isEliminated;
+                    });
+                    const sortedActiveResults = [...(activeChamaResults.length > 0 ? activeChamaResults : results)].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+                    const topGwMember = sortedActiveResults[0];
+
+                    const weeklyPercent = Number((leagueRules as any)?.weekly || 70) / 100;
+                    const stakeVal = Number((leagueRules as any)?.gameweekStake || 250);
+                    const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated).length || 1;
+                    const estimatedPot = Math.round(activeCount * stakeVal * weeklyPercent);
 
                     const effectiveForfeited = new Set<number>([
                         ...(forfeitedGws || []),
@@ -230,6 +255,26 @@ export default function Standings() {
                                 winnerName: 'Voided / Skipped',
                                 winnerTeam: 'Round Unplayed',
                                 isVoided: true,
+                            };
+                        }
+                        if (pendingPayoutsMap.has(gw)) {
+                            const p = pendingPayoutsMap.get(gw);
+                            return {
+                                gw,
+                                winnerName: p.winnerName || p.playerName || 'Winner identified',
+                                winnerTeam: p.winnerTeam || p.entryName || 'Awaiting Payment',
+                                amount: Number(p.amount || estimatedPot),
+                                isAwaitingPayment: true,
+                            };
+                        }
+                        // If GW completed (e.g. GW 4 that ended yesterday) and top scorer is known
+                        if (topGwMember && Number(topGwMember.event_total) > 0 && (gw === 4 || (currentEvent && gw < currentEvent))) {
+                            return {
+                                gw,
+                                winnerName: topGwMember.player_name,
+                                winnerTeam: topGwMember.entry_name || 'Awaiting Payment',
+                                amount: estimatedPot,
+                                isAwaitingPayment: true,
                             };
                         }
                         return { gw, winnerName: 'Pending' };
@@ -848,7 +893,8 @@ export default function Standings() {
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
                             {gwWinnersLedger.map((item: any) => {
                                 const isVoided = Boolean(item.isVoided);
-                                const resolved = item.winnerName !== 'Pending' && !isVoided;
+                                const isAwaitingPayment = Boolean(item.isAwaitingPayment);
+                                const resolved = (item.winnerName !== 'Pending' && !isVoided) || isAwaitingPayment;
                                 const isCurrentGw = currentEvent === item.gw;
                                 return (
                                     <div
@@ -856,8 +902,10 @@ export default function Standings() {
                                         data-gw-card={item.gw}
                                         className={clsx(
                                             'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm',
-                                            resolved
+                                            resolved && !isAwaitingPayment
                                                 ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
+                                                : isAwaitingPayment
+                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
                                                 : isVoided
                                                 ? 'border-amber-500/25 bg-amber-500/8'
                                                 : 'border-white/10 bg-black/25',
@@ -866,17 +914,25 @@ export default function Standings() {
                                     >
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                             <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">GW {item.gw}</p>
-                                            {isVoided && (
+                                            {isVoided ? (
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
                                                     Skipped
                                                 </span>
-                                            )}
+                                            ) : isAwaitingPayment ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                                    Awaiting Payout
+                                                </span>
+                                            ) : resolved ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                    Paid ✓
+                                                </span>
+                                            ) : null}
                                         </div>
                                         <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : isVoided ? 'text-amber-300' : 'text-gray-500')}>
                                             {item.winnerName}
                                         </p>
                                         <p className="text-[10px] text-gray-400 truncate mt-1">
-                                            {isVoided ? 'No fees deducted' : item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}
+                                            {isVoided ? 'No fees deducted' : isAwaitingPayment ? `${item.winnerTeam || 'Awaiting Payment'}` : item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}
                                         </p>
                                         {resolved && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>

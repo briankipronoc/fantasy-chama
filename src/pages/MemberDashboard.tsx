@@ -172,7 +172,7 @@ export default function MemberDashboard() {
                         .then(fplData => {
                             const results = fplData?.standings?.results;
                             if (results && results.length > 0) {
-                                // Chama Rule: Only active funded members can win the pot
+                                // Chama Rule: Only active non-eliminated members can be in standings and win
                                 const norm = (s: string) => String(s || '').toLowerCase().trim();
                                 const eligibleResults = results.filter((r: any) => {
                                     const dbMember = members.find((m: any) => {
@@ -181,16 +181,13 @@ export default function MemberDashboard() {
                                         const db = norm(m.displayName);
                                         return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
                                     });
-                                    const isFunded = dbMember && (
-                                        dbMember.hasPaid === true ||
-                                        (gameweekStake > 0 && (dbMember.walletBalance || 0) >= gameweekStake)
-                                    );
-                                    return dbMember && dbMember.isActive !== false && isFunded;
+                                    return dbMember && dbMember.isActive !== false && !(dbMember as any).isEliminated;
                                 });
 
-                                // Chama Rule: Minimum 1 funded manager required for a contestable pot
-                                if (eligibleResults.length >= 1) {
-                                    const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+                                const effectiveList = eligibleResults.length > 0 ? eligibleResults : results;
+                                const sorted = [...effectiveList].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+
+                                if (sorted.length >= 1 && Number(sorted[0]?.event_total || 0) > 0) {
                                     const winner = sorted[0];
                                     const runnerUp = sorted[1] || null;
                                     const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
@@ -200,12 +197,10 @@ export default function MemberDashboard() {
                                         leadMargin: Math.max(0, leadMargin),
                                     });
                                 } else {
-                                    // 0 funded managers: Gameweek is unplayable / void; no unfunded winner
                                     setGwWinner(null);
                                 }
-                                // Store full sorted standings for rank card
-                                const allSorted = [...results].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-                                setFplStandings(allSorted);
+                                // Store sorted active standings for rank card (strictly active members, no eliminated ones)
+                                setFplStandings(sorted);
 
                                 // Build league-wide GW average from all entries' history
                                 const fetchPerformances = async () => {
@@ -381,9 +376,12 @@ export default function MemberDashboard() {
                 const hoursUntilNextDeadline = nextDeadlineMs ? (nextDeadlineMs - Date.now()) / (1000 * 60 * 60) : Infinity;
 
                 // Celebration Rule:
-                // Winner card stays active for 48 hours (2 days) after GW ends,
-                // OR expires 48 hours (2 days) before the next gameweek deadline (e.g. ended Tue night, next GW starts Fri).
-                const isCelebrationWindowActive = isGwFinished && (hoursSinceGwFinished < 48) && (hoursUntilNextDeadline > 48);
+                // Keep the celebration active for 48 hours after GW ends, or until next GW matches actually kick off!
+                const isCelebrationWindowActive = Boolean(
+                    completedCandidate &&
+                    isGwFinished &&
+                    (hoursSinceGwFinished <= 48 || (hoursUntilNextDeadline > 0 && !isCurrentStarted))
+                );
 
                 let activeEventToDisplay: any;
                 let isPreparingForNext = false;
@@ -393,13 +391,12 @@ export default function MemberDashboard() {
                     activeEventToDisplay = completedCandidate;
                     isPreparingForNext = false;
                 } else if (!isCurrentStarted && rawCurrent) {
-                    // Reaction window passed: switch to prep mode for next GW
                     activeEventToDisplay = rawCurrent;
                     isPreparingForNext = true;
                     isGwFinished = false;
                 } else {
-                    activeEventToDisplay = rawCurrent || rawPrevious;
-                    isPreparingForNext = isGwFinished && (hoursSinceGwFinished >= 48 || hoursUntilNextDeadline <= 48);
+                    activeEventToDisplay = completedCandidate || rawCurrent || rawPrevious;
+                    isPreparingForNext = isGwFinished && hoursSinceGwFinished > 48;
                 }
 
                 setCurrentFplEvent({
@@ -854,8 +851,7 @@ export default function MemberDashboard() {
     // Dynamic Winner calculation from recent notification feed using the structured isWinnerEvent objects.
     // A gameweek is voided if marked as voided or if active funded members < 2
     const isCurrentGwVoided = Boolean(
-        notifications.some((n: any) => (n.eventType === 'gw_voided' || n.status === 'voided') && (Number(n.gw || n.gameweek) === Number(currentFplEvent?.id))) ||
-        (members.filter(m => m.hasPaid && m.isActive !== false).length < 1 && currentFplEvent?.finished)
+        notifications.some((n: any) => (n.eventType === 'gw_voided' || n.status === 'voided') && (Number(n.gw || n.gameweek) === Number(currentFplEvent?.id)))
     );
 
     const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';
@@ -868,12 +864,10 @@ export default function MemberDashboard() {
         setShowLeagueGuide(false);
     };
 
-    // Phase 30: Is the logged-in user the current GW Winner? (Suppressed if voided or once GW ends and preparation begins)
+    // Phase 30: Is the logged-in user the current GW Winner?
     const isCurrentUserGwWinner = Boolean(
         !isCurrentGwVoided &&
-        !currentFplEvent?.isPreparingForNextGw &&
         gwWinner &&
-        currentFplEvent?.finished &&
         Number(gwWinner.event_total) > 0 &&
         currentUser && (
             (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
@@ -882,7 +876,7 @@ export default function MemberDashboard() {
             gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
         )
     );
-    const hasFinalGwChampion = Boolean(!isCurrentGwVoided && !currentFplEvent?.isPreparingForNextGw && gwWinner && currentFplEvent?.finished && Number(gwWinner.event_total) > 0);
+    const hasFinalGwChampion = Boolean(!isCurrentGwVoided && gwWinner && Number(gwWinner.event_total) > 0);
     const isRecentWinner = isCurrentUserGwWinner;
 
     // Trigger celebratory confetti for the GW winner
@@ -1051,6 +1045,7 @@ export default function MemberDashboard() {
                     role="member"
                     title={leagueName || 'The Big League'}
                     subtitle="Member Hub"
+                    hideExtraControls={true}
                 />
                 <LiveMatchdayPulse
                     className="mt-1 mb-2"

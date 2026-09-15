@@ -15,8 +15,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import UserAvatar from './UserAvatar';
 import { haptics } from '../utils/haptics';
 
-export default function Header({ role, title, subtitle, hideCountdown }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean }) {
+export default function Header({ role, title, subtitle, hideCountdown, hideExtraControls }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean, hideExtraControls?: boolean }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
+    const shouldHideExtraControls = Boolean(hideExtraControls || role === 'member' || subtitle === 'Member Hub');
     const members = useStore(state => state.members);
     const logout = useStore(state => state.logout);
     const realActiveUser = members.find(m => m.id === activeUserId)?.id || members[0]?.id || activeUserId;
@@ -170,91 +171,129 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                     </div>
                 </div>
 
-                {/* League Switcher directly to the right of the League Title */}
-                <div className="shrink-0 flex items-center">
+                {/* League Switcher & Notifications Bell directly to the right of the League Title */}
+                <div className="shrink-0 flex items-center gap-2">
                     <LeagueSwitcher variant="header" />
+                    {shouldHideExtraControls && (
+                        <div className="relative">
+                            <button
+                                onClick={handleBellClick}
+                                className={clsx(
+                                    "p-2 sm:p-2.5 border rounded-xl transition-all active:scale-95 cursor-pointer",
+                                    isDropdownOpen
+                                        ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
+                                        : "bg-slate-100/80 dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                )}
+                            >
+                                <Bell className={clsx("w-4 h-4 sm:w-5 sm:h-5 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-500 dark:text-amber-400")} />
+                                {(unreadPersonalCount + unreadSystemCount) > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] bg-amber-500 rounded-full border-2 border-white dark:border-[#0b1014] flex items-center justify-center animate-pulse">
+                                        <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Row 2: Action Icons neatly right-aligned below the League Switcher */}
-            <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
-                {/* Join HQ Trigger */}
-                {isSuperAdmin && (
-                    <button
-                        onClick={() => navigate('/hq')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981]/80 transition-all font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)] active:scale-95"
-                        title="Access Super Admin HQ"
-                    >
-                        <Shield className="w-3.5 h-3.5" /> Join HQ
-                    </button>
-                )}
-
-                {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
-                <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
-                    {(['dark', 'system', 'light'] as const).map((mode) => (
+            {/* Row 2: Action Icons neatly right-aligned below the League Switcher (Admins only) */}
+            {!shouldHideExtraControls && (
+                <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
+                    {/* Join HQ Trigger */}
+                    {isSuperAdmin && (
                         <button
-                            key={mode}
-                            onClick={() => setTheme(mode)}
-                            className={`fc-theme-toggle-btn flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                                currentTheme === mode
-                                    ? mode === 'dark' 
-                                        ? 'bg-slate-800 text-white shadow-sm'
-                                        : mode === 'light' 
-                                            ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
-                                            : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
-                            }`}
-                            title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
-                            aria-label={`Set theme to ${mode}`}
+                            onClick={() => navigate('/hq')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981]/80 transition-all font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)] active:scale-95"
+                            title="Access Super Admin HQ"
                         >
-                            {mode === 'dark' ? (
-                                <Moon className="w-3 h-3 text-indigo-400" />
-                            ) : mode === 'light' ? (
-                                <Sun className="w-3 h-3 text-amber-500" />
-                            ) : (
-                                <Laptop className="w-3 h-3 text-emerald-500" />
-                            )}
-                            <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
+                            <Shield className="w-3.5 h-3.5" /> Join HQ
                         </button>
-                    ))}
-                </div>
+                    )}
 
-                {/* Stealth Mode Toggle */}
-                <button
-                    onClick={toggleStealthMode}
-                    className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
-                    title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
-                >
-                    {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
-                </button>
+                    {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
+                    <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
+                        {(['dark', 'system', 'light'] as const).map((mode) => (
+                            <button
+                                key={mode}
+                                onClick={() => setTheme(mode)}
+                                className={`fc-theme-toggle-btn flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                    currentTheme === mode
+                                        ? mode === 'dark' 
+                                            ? 'bg-slate-800 text-white shadow-sm'
+                                            : mode === 'light' 
+                                                ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
+                                                : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
+                                }`}
+                                title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
+                                aria-label={`Set theme to ${mode}`}
+                            >
+                                {mode === 'dark' ? (
+                                    <Moon className="w-3 h-3 text-indigo-400" />
+                                ) : mode === 'light' ? (
+                                    <Sun className="w-3 h-3 text-amber-500" />
+                                ) : (
+                                    <Laptop className="w-3 h-3 text-emerald-500" />
+                                )}
+                                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
+                            </button>
+                        ))}
+                    </div>
 
-                {/* Notifications Bell */}
-                <div className="relative">
+                    {/* Stealth Mode Toggle */}
                     <button
-                        onClick={handleBellClick}
-                        className={clsx(
-                            "p-2 sm:p-2.5 border rounded-xl transition-all active:scale-95",
-                            isDropdownOpen
-                                ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
-                                : "bg-slate-100/80 dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                        )}
+                        onClick={toggleStealthMode}
+                        className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
+                        title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                     >
-                        <Bell className={clsx("w-4 h-4 sm:w-5 sm:h-5 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-500 dark:text-amber-400")} />
-                        {(unreadPersonalCount + unreadSystemCount) > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] bg-amber-500 rounded-full border-2 border-white dark:border-[#0b1014] flex items-center justify-center animate-pulse">
-                                <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
-                            </span>
-                        )}
+                        {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
 
-                    {/* Dropdown */}
-                    {isDropdownOpen && typeof document !== 'undefined' && createPortal(
-                        <div className="fc-notif-backdrop-wrap fixed inset-0 z-[120]">
-                            <div
-                                className="fc-notif-backdrop absolute inset-y-0 right-0 bg-black/22 backdrop-blur-xl"
-                                style={{ left: 'var(--fc-sidebar-width, 0px)' }}
-                                onClick={() => setIsDropdownOpen(false)}
-                            />
+                    {/* Notifications Bell */}
+                    <div className="relative">
+                        <button
+                            onClick={handleBellClick}
+                            className={clsx(
+                                "p-2 sm:p-2.5 border rounded-xl transition-all active:scale-95",
+                                isDropdownOpen
+                                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
+                                    : "bg-slate-100/80 dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                            )}
+                        >
+                            <Bell className={clsx("w-4 h-4 sm:w-5 sm:h-5 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-500 dark:text-amber-400")} />
+                            {(unreadPersonalCount + unreadSystemCount) > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] bg-amber-500 rounded-full border-2 border-white dark:border-[#0b1014] flex items-center justify-center animate-pulse">
+                                    <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Mobile Quick Sign Out */}
+                    <button
+                        onClick={async () => {
+                            haptics.selection();
+                            try { await logout(); } catch {}
+                            window.location.replace('/login');
+                        }}
+                        className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
+                        title="Sign Out"
+                        aria-label="Sign Out"
+                    >
+                        <LogOut className="w-5 h-5" />
+                    </button>
+                </div>
+            )}
+
+            {/* Dropdown */}
+            {isDropdownOpen && typeof document !== 'undefined' && createPortal(
+                <div className="fc-notif-backdrop-wrap fixed inset-0 z-[120]">
+                    <div
+                        className="fc-notif-backdrop absolute inset-y-0 right-0 bg-black/22 backdrop-blur-xl"
+                        style={{ left: 'var(--fc-sidebar-width, 0px)' }}
+                        onClick={() => setIsDropdownOpen(false)}
+                    />
                             <div className="fc-notif-panel absolute top-3 right-3 md:top-4 md:right-4 w-[min(92vw,28rem)] bg-white/95 dark:bg-[#0e1419]/95 border border-slate-200 dark:border-white/10 rounded-[1.5rem] shadow-[0_24px_60px_rgba(0,0,0,0.15)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)] overflow-hidden animate-in zoom-in-95 fade-in slide-in-from-top-3 duration-300 origin-top-right fc-notif-dropdown fc-card">
                                 {/* Header row with Mark All Read */}
                                 <div className="fc-notif-header px-5 py-3.5 border-b border-slate-200 dark:border-white/5 flex justify-between items-center bg-slate-50/80 dark:bg-black/30 backdrop-blur-md">
@@ -457,28 +496,13 @@ export default function Header({ role, title, subtitle, hideCountdown }: { role:
                         </div>,
                         document.body
                     )}
-                </div>
-                    {/* Mobile Quick Sign Out */}
-                    <button
-                        onClick={async () => {
-                            haptics.selection();
-                            try { await logout(); } catch {}
-                            window.location.replace('/login');
-                        }}
-                        className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
-                        title="Sign Out"
-                        aria-label="Sign Out"
-                    >
-                        <LogOut className="w-5 h-5" />
-                    </button>
-                </div>
 
-                {/* GW Deadline Timer positioned neatly under action icons */}
-                {!hideCountdown && (
-                    <div className="flex items-center justify-end w-full">
-                        <DeadlineCountdown />
-                    </div>
-                )}
+            {/* GW Deadline Timer positioned neatly under action icons */}
+            {!hideCountdown && (
+                <div className="flex items-center justify-end w-full">
+                    <DeadlineCountdown />
+                </div>
+            )}
 
             {/* League Constitution Modal */}
             <LeagueRulesModal
