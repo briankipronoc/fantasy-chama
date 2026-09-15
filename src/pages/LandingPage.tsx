@@ -1,7 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useEffect, useState } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon } from 'lucide-react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon, Laptop } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 // ─── Dynamic Animating System-Accurate Ledger Demo ────────────────────────────────
@@ -363,7 +363,7 @@ function TrustSlider() {
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
-    const { cycle, isDark } = useTheme();
+    const { theme, setTheme, cycle, isDark } = useTheme();
 
     useEffect(() => {
         const leagueId = localStorage.getItem('activeLeagueId');
@@ -392,15 +392,45 @@ export default function LandingPage() {
                         <Link to="/terms" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Terms</Link>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3">
-                        {/* Theme Toggle Button */}
+                        {/* Theme Switcher — 3-way toggle on desktop: Dark | System | Light */}
+                        <div className="hidden sm:flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10">
+                            {(['dark', 'system', 'light'] as const).map((mode) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => setTheme(mode)}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                                        theme === mode
+                                            ? mode === 'dark'
+                                                ? 'bg-slate-800 text-white shadow-sm'
+                                                : mode === 'light'
+                                                    ? 'bg-amber-400/20 text-amber-600 dark:text-amber-300 shadow-sm'
+                                                    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                                    }`}
+                                    title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
+                                    aria-label={`Set theme to ${mode}`}
+                                >
+                                    {mode === 'dark' ? <Moon className="w-3 h-3 text-indigo-400" /> : mode === 'light' ? <Sun className="w-3 h-3 text-amber-500" /> : <Laptop className="w-3 h-3 text-emerald-500" />}
+                                    <span>{mode === 'system' ? 'System' : mode}</span>
+                                </button>
+                            ))}
+                        </div>
+                        {/* Mobile compact cycle button with System icon support */}
                         <button
                             type="button"
                             onClick={cycle}
-                            className="p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/5 text-slate-700 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-                            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                            className="sm:hidden p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/[0.06] text-slate-700 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                            title={`Theme: ${theme === 'system' ? 'Default system settings' : theme === 'dark' ? 'Dark theme' : 'Light theme'} (tap to cycle)`}
                             aria-label="Toggle theme"
                         >
-                            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+                            {theme === 'dark' ? (
+                                <Moon className="w-4 h-4 text-indigo-400" />
+                            ) : theme === 'light' ? (
+                                <Sun className="w-4 h-4 text-amber-500" />
+                            ) : (
+                                <Laptop className="w-4 h-4 text-emerald-500" />
+                            )}
                         </button>
                         <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5">
                             Sign In

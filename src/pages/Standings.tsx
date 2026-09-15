@@ -706,7 +706,7 @@ export default function Standings() {
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
                                                     </span>
-                                                ) : (isTop1Overall || isGwWinnerRow) && (role === 'admin' || isMe) ? (
+                                                ) : isGwWinnerRow && (role === 'admin' || isMe) ? (
                                                     <button
                                                         onClick={() => setFlexCardData({
                                                             winnerName: row.player_name,

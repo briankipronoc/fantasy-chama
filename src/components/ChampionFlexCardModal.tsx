@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trophy, X, Download, Share2, Copy, Check, Sparkles, Flame, Dices, Edit3 } from 'lucide-react';
+import { Trophy, X, Download, Share2, Copy, Check, Sparkles, Flame, Dices } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 
 interface ChampionFlexCardModalProps {
@@ -38,8 +38,6 @@ export default function ChampionFlexCardModal({
   defeatedOpponent,
   leagueCode,
 }: ChampionFlexCardModalProps) {
-  const [editableWinnerName, setEditableWinnerName] = useState(winnerName);
-  const [editablePoints, setEditablePoints] = useState<string | number>(points !== undefined ? points : 0);
   const [activeBanterIndex, setActiveBanterIndex] = useState(0);
   const [customMessage, setCustomMessage] = useState('');
   const [isRollingDice, setIsRollingDice] = useState(false);
@@ -222,13 +220,7 @@ export default function ChampionFlexCardModal({
     },
   ];
 
-  const banters = isSideBet
-    ? getSideBetBanters(editableWinnerName || winnerName)
-    : getGameweekBanters(editableWinnerName || winnerName, editablePoints);
-
   useEffect(() => {
-    setEditableWinnerName(winnerName);
-    setEditablePoints(points !== undefined ? points : 0);
     const initialBanters = isSideBet
       ? getSideBetBanters(winnerName)
       : getGameweekBanters(winnerName, points !== undefined ? points : 0);
@@ -236,22 +228,13 @@ export default function ChampionFlexCardModal({
     setActiveBanterIndex(0);
   }, [winnerName, points, isOpen, winType, leagueCode]);
 
-  const handleNameOrPointsChange = (newName: string, newPts: string | number) => {
-    setEditableWinnerName(newName);
-    setEditablePoints(newPts);
-    const updated = isSideBet
-      ? getSideBetBanters(newName)
-      : getGameweekBanters(newName, newPts);
-    setCustomMessage(updated[activeBanterIndex]?.text || updated[0]?.text || '');
-  };
-
   const handleShuffleBanter = () => {
     setIsRollingDice(true);
     haptics.selection();
     setTimeout(() => {
       const currentList = isSideBet
-        ? getSideBetBanters(editableWinnerName || winnerName)
-        : getGameweekBanters(editableWinnerName || winnerName, editablePoints);
+        ? getSideBetBanters(winnerName)
+        : getGameweekBanters(winnerName, points !== undefined ? points : 0);
       const nextIdx = (activeBanterIndex + 1 + Math.floor(Math.random() * (currentList.length - 1))) % currentList.length;
       setActiveBanterIndex(nextIdx);
       setCustomMessage(currentList[nextIdx]?.text || '');
@@ -327,7 +310,7 @@ export default function ChampionFlexCardModal({
       // 6. Winner Name
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '900 58px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText((editableWinnerName || winnerName || 'Champion').trim(), 540, 410);
+      ctx.fillText((winnerName || 'Champion').trim(), 540, 410);
 
       // 7. Team Name / Duel Subtitle
       if (isSideBet) {
@@ -374,7 +357,7 @@ export default function ChampionFlexCardModal({
 
         ctx.fillStyle = '#34D399';
         ctx.font = '900 70px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(`${editablePoints}`, 335, 685);
+        ctx.fillText(`${points !== undefined ? points : 0}`, 335, 685);
 
         ctx.fillStyle = '#10B981';
         ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
@@ -427,8 +410,8 @@ export default function ChampionFlexCardModal({
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = isSideBet
-        ? `${(editableWinnerName || winnerName).replace(/\s+/g, '_')}_won_duel.png`
-        : `${(editableWinnerName || winnerName).replace(/\s+/g, '_')}_GW${gameweek}_Champion.png`;
+        ? `${(winnerName || 'Champion').replace(/\s+/g, '_')}_won_duel.png`
+        : `${(winnerName || 'Champion').replace(/\s+/g, '_')}_GW${gameweek}_Champion.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -439,194 +422,142 @@ export default function ChampionFlexCardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[125000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-[#0e1419] border-2 border-amber-500/40 rounded-3xl p-5 md:p-6 shadow-2xl dark:shadow-[0_0_80px_rgba(245,158,11,0.25)] relative text-slate-900 dark:text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
-        {/* Close Button */}
-        <button
-          onClick={() => { haptics.selection(); onClose(); }}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer z-20"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Modal Title */}
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest mb-2">
-            <Sparkles className="w-3.5 h-3.5" /> WhatsApp Victory Card
+    <div className="fixed inset-0 z-[125000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-md bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-3xl p-5 md:p-6 shadow-2xl relative text-slate-900 dark:text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
+              <Trophy className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base md:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                {isSideBet ? 'Side Bet Victory Card' : 'Gameweek Victory Card'}
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">
+                Official Chama result ready for WhatsApp
+              </p>
+            </div>
           </div>
-          <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {isSideBet ? 'Share Your Duel Victory!' : 'Share Your Gameweek Victory!'}
-          </h2>
-          <p className="text-xs text-slate-600 dark:text-gray-400 mt-1">
-            {isSideBet
-              ? 'Share with the Chama WhatsApp group with an official sidebet victory card or friendly banter.'
-              : 'Share with the Chama WhatsApp group with an official victory card or friendly banter.'}
+          <button
+            onClick={() => { haptics.selection(); onClose(); }}
+            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Digital Flex Card Preview */}
+        <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#161d26] to-[#0d1218] p-4 text-center shadow-lg overflow-hidden mb-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400 mb-2 flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            {isSideBet ? `DUEL SETTLED • ${leagueName}` : `GW${gameweek} CHAMPION • ${leagueName}`}
           </p>
-        </div>
 
-        {/* Digital Flex Card Preview (Toned-down, tasteful luxury design) */}
-        <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#141a22] to-[#0b0f14] p-5 shadow-lg text-center overflow-hidden mb-5">
-          <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400/90 mb-1 flex items-center justify-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              {isSideBet ? `HEAD-TO-HEAD DUEL • ${leagueName}` : `GW${gameweek} CHAMPION • ${leagueName}`}
+          <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">
+            {winnerName || 'Champion'}
+          </h3>
+
+          {isSideBet ? (
+            <p className="text-xs text-red-400 font-bold mt-0.5">
+              Humbled {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
             </p>
+          ) : (
+            teamName && <p className="text-xs text-slate-400 font-medium mt-0.5">{teamName}</p>
+          )}
 
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-400/25 mx-auto my-2 flex items-center justify-center shadow-sm">
-              <Trophy className="w-6 h-6 text-amber-400" />
+          {leagueCode && (
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-medium text-gray-400 mt-1.5">
+              League Code: <span className="font-mono font-bold text-amber-300">{leagueCode}</span>
             </div>
+          )}
 
-            {/* Editable Champion Name and Points */}
-            <div className="flex flex-wrap items-center justify-center gap-2 my-2">
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={editableWinnerName}
-                  onChange={(e) => handleNameOrPointsChange(e.target.value, editablePoints)}
-                  placeholder="Champion Name"
-                  className="text-base md:text-lg font-black text-white text-center bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-amber-400/30 focus:border-amber-400 rounded-xl px-3 py-1 outline-none transition-all max-w-[210px]"
-                  title="Tap to edit Champion name"
-                />
-              </div>
-              {!isSideBet && (
-                <div className="flex items-center gap-1 bg-white/5 border border-amber-400/30 rounded-xl px-2.5 py-1">
-                  <input
-                    type="number"
-                    value={editablePoints}
-                    onChange={(e) => handleNameOrPointsChange(editableWinnerName, e.target.value)}
-                    className="w-12 text-emerald-400 font-black text-center bg-transparent outline-none text-base tabular-nums"
-                    title="Tap to edit score"
-                  />
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">pts</span>
-                </div>
-              )}
-              <span className="text-[9px] font-bold text-amber-400/80 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
-                <Edit3 className="w-2.5 h-2.5" /> Tap to Edit
-              </span>
-            </div>
-
-            {isSideBet ? (
-              <p className="text-xs text-red-400 font-bold mt-0.5">
-                Defeated {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
+          <div className="grid grid-cols-2 gap-2.5 mt-3 pt-3 border-t border-white/10">
+            <div className="bg-white/[0.04] rounded-xl p-2.5 border border-white/5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
+                {isSideBet ? 'Rival' : 'Gameweek Score'}
               </p>
-            ) : (
-              teamName && <p className="text-xs text-slate-400 font-medium">{teamName}</p>
-            )}
-
-            {leagueCode && (
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-semibold text-gray-400 mt-1">
-                League Code: <span className="font-mono font-bold text-amber-300">{leagueCode}</span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-white/10">
-              <div className="bg-white/[0.03] rounded-xl p-2.5 border border-white/10 flex flex-col justify-center items-center text-center h-[72px]">
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
-                  {isSideBet ? 'Humbled Rival' : 'Gameweek Score'}
-                </p>
-                <p className="text-xl font-black text-emerald-400 truncate">
-                  {isSideBet ? (defeatedOpponent || 'Rival') : `${editablePoints} pts`}
-                </p>
-              </div>
-              <div className="bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/25 flex flex-col justify-center items-center text-center h-[72px]">
-                <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
-                  {isSideBet ? 'Duel Pot Won' : 'Pot Secured'}
-                </p>
-                <p className="text-xl font-black text-amber-300 tabular-nums">
-                  KES {amountWon.toLocaleString()}
-                </p>
-              </div>
+              <p className="text-lg font-black text-emerald-400 truncate">
+                {isSideBet ? (defeatedOpponent || 'Rival') : `${points !== undefined ? points : 0} pts`}
+              </p>
             </div>
-
-            <div className="flex items-center justify-center gap-2 mt-3 pt-2 border-t border-white/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                Verified Chama Settlement • Official FPL Sync
+            <div className="bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/20">
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+                Pot Secured
+              </p>
+              <p className="text-lg font-black text-amber-300 tabular-nums">
+                KES {amountWon.toLocaleString()}
               </p>
             </div>
           </div>
+
+          <div className="flex items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-white/5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+              Verified Chama Settlement • Official FPL Sync
+            </p>
+          </div>
         </div>
 
-        {/* Card Export Trigger */}
-        <button
-          onClick={handleDownloadImage}
-          disabled={isExporting}
-          className="w-full mb-5 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-        >
-          <Download className="w-4 h-4" />
-          {isExporting ? 'Generating Victory Card...' : 'Download Victory Card (PNG for WhatsApp Status)'}
-        </button>
-
-        {/* Banter Caption Selector */}
-        <div className="border-t border-slate-200 dark:border-white/10 pt-4">
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            <p className="text-[11px] font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" /> WhatsApp Banter:
+        {/* Banter Caption Box */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="text-xs font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-amber-500" /> WhatsApp Banter
             </p>
             <button
               type="button"
               onClick={handleShuffleBanter}
               disabled={isRollingDice}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
-              title="Roll dice to shuffle banter"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Roll to switch banter message"
             >
-              <Dices className={`w-4 h-4 text-amber-500 dark:text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
+              <Dices className={`w-3.5 h-3.5 text-amber-500 ${isRollingDice ? 'animate-spin' : ''}`} />
               <span>Shuffle Banter 🎲</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar mb-2.5">
-            {banters.map((item, idx) => {
-              const isSelected = activeBanterIndex === idx;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    haptics.selection();
-                    setActiveBanterIndex(idx);
-                    setCustomMessage(item.text);
-                  }}
-                  className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 cursor-pointer ${
-                    isSelected
-                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                      : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="relative mb-3">
+          <div className="relative">
             <textarea
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
-              rows={5}
-              className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-[#080c10] border border-slate-200 dark:border-white/10 focus:border-amber-500/60 dark:focus:border-amber-400/50 text-xs font-mono text-slate-800 dark:text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
-              placeholder="Edit your spicy banter here before sharing to WhatsApp..."
+              rows={4}
+              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:border-amber-500/50 text-xs font-mono text-slate-800 dark:text-gray-200 leading-relaxed outline-none resize-none custom-scrollbar"
+              placeholder="Edit your banter message..."
             />
-            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-gray-500 px-1 mt-1 font-medium">
-              <span>✏️ Tap inside to customize banter or add names</span>
+            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 px-1 mt-1 font-medium">
+              <span>✏️ Tap inside to edit or personalize</span>
               <span>{customMessage.length} chars</span>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2">
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          <button
+            onClick={handleShareWhatsApp}
+            className="w-full py-3 px-4 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-lg shadow-[#25D366]/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+          >
+            <Share2 className="w-4 h-4" />
+            Share to WhatsApp Group
+          </button>
+
+          <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handleShareWhatsApp}
-              className="flex-1 py-3.5 px-4 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(37,211,102,0.35)] flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              onClick={handleDownloadImage}
+              disabled={isExporting}
+              className="py-2.5 px-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
             >
-              <Share2 className="w-4 h-4" />
-              Share to WhatsApp Group
+              <Download className="w-3.5 h-3.5" />
+              {isExporting ? 'Exporting...' : 'Download Image'}
             </button>
             <button
               onClick={handleCopyMessage}
-              className="py-3.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white rounded-xl font-bold text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied' : 'Copy Banter'}
             </button>
           </div>
         </div>

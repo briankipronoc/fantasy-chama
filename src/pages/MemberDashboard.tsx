@@ -187,19 +187,19 @@ export default function MemberDashboard() {
                                     return dbMember && dbMember.isActive !== false && isFunded;
                                 });
 
-                                // Chama Rule: Minimum 2 funded managers required for a contestable pot
-                                if (eligibleResults.length >= 2) {
+                                // Chama Rule: Minimum 1 funded manager required for a contestable pot
+                                if (eligibleResults.length >= 1) {
                                     const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
                                     const winner = sorted[0];
-                                    const runnerUp = sorted[1];
-                                    const leadMargin = Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0);
+                                    const runnerUp = sorted[1] || null;
+                                    const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
                                     setGwWinner({
                                         ...winner,
-                                        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || '2nd Place',
+                                        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || null,
                                         leadMargin: Math.max(0, leadMargin),
                                     });
                                 } else {
-                                    // 0 or 1 funded managers: Gameweek is unplayable / void; no unfunded winner
+                                    // 0 funded managers: Gameweek is unplayable / void; no unfunded winner
                                     setGwWinner(null);
                                 }
                                 // Store full sorted standings for rank card
@@ -313,31 +313,55 @@ export default function MemberDashboard() {
 
                 if (current?.id) {
                     let isGwFinished = current.finished === true;
-                    if (!isGwFinished) {
-                        try {
-                            const fixRes = await fetch(`/fpl-api/fixtures/?event=${current.id}`);
-                            if (fixRes.ok) {
-                                const fixtures = await fixRes.json();
-                                if (Array.isArray(fixtures) && fixtures.length > 0) {
-                                    const allDone = fixtures.every((f: any) =>
-                                        f.finished === true ||
-                                        f.finished_provisional === true ||
-                                        (f.kickoff_time && (Date.now() - new Date(f.kickoff_time).getTime()) > 135 * 60 * 1000)
-                                    );
-                                    if (allDone) isGwFinished = true;
-                                }
+                    let gwFinishedTimestamp = 0;
+                    try {
+                        const fixRes = await fetch(`/fpl-api/fixtures/?event=${current.id}`);
+                        if (fixRes.ok) {
+                            const fixtures = await fixRes.json();
+                            if (Array.isArray(fixtures) && fixtures.length > 0) {
+                                const allDone = fixtures.every((f: any) =>
+                                    f.finished === true ||
+                                    f.finished_provisional === true ||
+                                    (f.kickoff_time && (Date.now() - new Date(f.kickoff_time).getTime()) > 135 * 60 * 1000)
+                                );
+                                if (allDone) isGwFinished = true;
+
+                                // Extract the timestamp when the last match in the GW concluded
+                                fixtures.forEach((f: any) => {
+                                    if (f.kickoff_time) {
+                                        const end = new Date(f.kickoff_time).getTime() + (115 * 60 * 1000);
+                                        if (end > gwFinishedTimestamp) gwFinishedTimestamp = end;
+                                    }
+                                });
                             }
-                        } catch (e) {
-                            console.warn('[member-dashboard] fixtures check skipped:', e);
                         }
+                    } catch (e) {
+                        console.warn('[member-dashboard] fixtures check skipped:', e);
                     }
 
                     let isPreparingForNext = false;
                     if (isGwFinished) {
-                        const deadlineMs = current.deadline_time ? new Date(current.deadline_time).getTime() : 0;
-                        const hoursSinceDeadline = deadlineMs ? (Date.now() - deadlineMs) / (1000 * 60 * 60) : 0;
-                        // If it's been > 48 hours since the gameweek deadline or next GW deadline is within 5 days
-                        if (hoursSinceDeadline >= 48 || (next?.deadline_time && (new Date(next.deadline_time).getTime() - Date.now()) <= 5 * 24 * 3600 * 1000)) {
+                        // If fixtures didn't provide a timestamp, store/read from localStorage so 48h celebration persists
+                        const storedKey = `fc_gw_${current.id}_finished_at`;
+                        if (!gwFinishedTimestamp) {
+                            const storedVal = localStorage.getItem(storedKey);
+                            if (storedVal) {
+                                gwFinishedTimestamp = Number(storedVal);
+                            } else {
+                                gwFinishedTimestamp = Date.now();
+                                localStorage.setItem(storedKey, String(gwFinishedTimestamp));
+                            }
+                        } else {
+                            localStorage.setItem(storedKey, String(gwFinishedTimestamp));
+                        }
+
+                        const hoursSinceGwFinished = (Date.now() - gwFinishedTimestamp) / (1000 * 60 * 60);
+                        const nextDeadlineMs = next?.deadline_time ? new Date(next.deadline_time).getTime() : 0;
+                        const msUntilNextDeadline = nextDeadlineMs ? nextDeadlineMs - Date.now() : Infinity;
+
+                        // Maintain the GW winner card on all members' dashboards for 48 hours (1-2 days)
+                        // Only switch to next GW prep stage once 48h elapse, or if the next deadline is imminent (< 20 hours)
+                        if (hoursSinceGwFinished >= 48 || msUntilNextDeadline <= 20 * 3600 * 1000) {
                             isPreparingForNext = true;
                         }
                     }
@@ -774,7 +798,7 @@ export default function MemberDashboard() {
     // A gameweek is voided if marked as voided or if active funded members < 2
     const isCurrentGwVoided = Boolean(
         notifications.some((n: any) => (n.eventType === 'gw_voided' || n.status === 'voided') && (Number(n.gw || n.gameweek) === Number(currentFplEvent?.id))) ||
-        (members.filter(m => m.hasPaid && m.isActive !== false).length < 2 && currentFplEvent?.finished)
+        (members.filter(m => m.hasPaid && m.isActive !== false).length < 1 && currentFplEvent?.finished)
     );
 
     const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';

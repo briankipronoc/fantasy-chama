@@ -132,6 +132,15 @@ export default function Login() {
         }
     }, []);
 
+    // Pre-warm anonymous session on mount to eliminate cold-start auth latency
+    useEffect(() => {
+        if (!auth.currentUser) {
+            signInAnonymously(auth).catch(err => {
+                console.warn("[login] Pre-auth anonymous session deferred:", err);
+            });
+        }
+    }, []);
+
     // Social proof: preview who has already joined the league when 6-digit code is ready
     useEffect(() => {
         const fullCode = code.join('');
@@ -198,24 +207,34 @@ export default function Login() {
             // Ensure anonymous Firebase Auth session exists BEFORE querying leagues/memberships
             let currentAuthUser = auth.currentUser;
             if (!currentAuthUser) {
-                const userCredential = await signInAnonymously(auth);
-                currentAuthUser = userCredential.user;
+                try {
+                    const userCredential = await signInAnonymously(auth);
+                    currentAuthUser = userCredential.user;
+                } catch (authErr) {
+                    console.warn("[login] Auth sign-in retry:", authErr);
+                    const userCredential = await signInAnonymously(auth);
+                    currentAuthUser = userCredential.user;
+                }
             }
-            const userUid = currentAuthUser.uid;
+            const userUid = currentAuthUser?.uid || 'anon_' + Date.now();
 
-            // 1. Find the League by the 6-Digit Code
+            // 1. Find the League by the 6-Digit Code (with 25s timeout and automatic retry on cold start)
             const leaguesRef = collection(db, 'leagues');
             const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode));
 
-            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Database connection timeout. Ensure you are not blocking Firebase (e.g. Brave Shields, Adblocker).")), 10000));
-            const fetchPromise = getDocs(qLeague);
-
             console.log("2. Querying master ledger for invite code...");
-            const leagueSnapshot = await Promise.race([fetchPromise, timeoutPromise]) as any;
+            let leagueSnapshot: any;
+            try {
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Database connection timeout. Check your network.")), 25000));
+                leagueSnapshot = await Promise.race([getDocs(qLeague), timeoutPromise]);
+            } catch (queryErr) {
+                console.warn("First query attempt delayed, retrying immediately...", queryErr);
+                leagueSnapshot = await getDocs(qLeague);
+            }
 
-            console.log("3. Query returned snapshot size:", leagueSnapshot.size);
+            console.log("3. Query returned snapshot size:", leagueSnapshot?.size);
 
-            if (leagueSnapshot.empty) {
+            if (!leagueSnapshot || leagueSnapshot.empty) {
                 console.warn("Invalid Invite Code verified on DB.");
                 setError("Invalid Invite Code. Ask your Chairman.");
                 return;
@@ -241,18 +260,24 @@ export default function Login() {
 
                 const matchesVariant = phoneVariants.includes(data.phone) || phoneVariants.includes(data.phoneNumber);
                 const matchesNormalized = (p1 && p1 === normalizedInput) || (p2 && p2 === normalizedInput);
-                const matchesLast9 = cleanDigitsInput.length >= 9 && (
-                    (cleanP1.length >= 9 && cleanP1.endsWith(cleanDigitsInput.slice(-9))) ||
-                    (cleanP2.length >= 9 && cleanP2.endsWith(cleanDigitsInput.slice(-9)))
+                const matchesLast9 = cleanDigitsInput.length >= 8 && (
+                    (cleanP1.length >= 8 && cleanP1.endsWith(cleanDigitsInput.slice(-8))) ||
+                    (cleanP2.length >= 8 && cleanP2.endsWith(cleanDigitsInput.slice(-8))) ||
+                    (cleanDigitsInput.length >= 9 && cleanP1.endsWith(cleanDigitsInput.slice(-9))) ||
+                    (cleanDigitsInput.length >= 9 && cleanP2.endsWith(cleanDigitsInput.slice(-9)))
                 );
 
                 return matchesVariant || matchesNormalized || matchesLast9;
             });
 
             if (matchedMemberDoc) {
-                // 3. User already exists: update member document with active authUid and sign in directly
+                // 3. User already exists: update member document with active authUid (non-fatal) and sign in directly
                 const memberDocRef = matchedMemberDoc.ref;
-                await updateDoc(memberDocRef, { authUid: userUid });
+                try {
+                    await updateDoc(memberDocRef, { authUid: userUid });
+                } catch (updateErr) {
+                    console.warn("[login] Non-critical: could not update authUid on member document:", updateErr);
+                }
 
                 const memberData = matchedMemberDoc.data();
 
