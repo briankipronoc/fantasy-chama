@@ -4754,6 +4754,7 @@ burstFrame();
                   (rules.weekly / 100)
               )}
               leagueName={leagueName || "FantasyChama"}
+              leagueCode={(leagueSettings as any)?.code || ''}
             />
           )}
           </div>

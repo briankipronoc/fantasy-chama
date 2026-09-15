@@ -14,6 +14,7 @@ interface ChampionFlexCardModalProps {
   winType?: 'gameweek' | 'sidebet';
   betTitle?: string;
   defeatedOpponent?: string;
+  leagueCode?: string;
 }
 
 interface BanterItem {
@@ -35,8 +36,10 @@ export default function ChampionFlexCardModal({
   winType = 'gameweek',
   betTitle,
   defeatedOpponent,
+  leagueCode,
 }: ChampionFlexCardModalProps) {
   const [editableWinnerName, setEditableWinnerName] = useState(winnerName);
+  const [editablePoints, setEditablePoints] = useState<string | number>(points !== undefined ? points : 0);
   const [activeBanterIndex, setActiveBanterIndex] = useState(0);
   const [customMessage, setCustomMessage] = useState('');
   const [isRollingDice, setIsRollingDice] = useState(false);
@@ -47,6 +50,7 @@ export default function ChampionFlexCardModal({
     ? window.location.origin
     : (import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app');
 
+  const joinUrl = leagueCode ? `${appUrl}/access?code=${encodeURIComponent(leagueCode)}` : appUrl;
   const isSideBet = winType === 'sidebet';
 
   const getSideBetBanters = (name: string): BanterItem[] => [
@@ -58,12 +62,14 @@ export default function ChampionFlexCardModal({
         `⚔️ *${leagueName} — Side Bet Victory!*`,
         ``,
         `Nilisema mapema hii duel ni yangu 😂!`,
-        `Humbled: *${defeatedOpponent || 'Rival'}*`,
-        `Wager Won: *KES ${amountWon.toLocaleString()}* 💰`,
+        `🥇 Winner: *${name}*`,
+        `🥊 Humbled: *${defeatedOpponent || 'Rival'}*`,
+        `💰 Wager Claimed: *KES ${amountWon.toLocaleString()}* safi via Pochi!`,
         `Duel: "${betTitle || 'Head-to-Head Wager'}"`,
         ``,
-        `Pesa ishaingia kwa wallet cleanly! Walisema form is temporary lakini class ni permanent. 🐐🔥`,
-        `👉 ${appUrl}`,
+        `Form is temporary, class is permanent. 🐐🔥`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
@@ -74,13 +80,13 @@ export default function ChampionFlexCardModal({
         `⚔️ *Duel Settled — ${leagueName}*`,
         ``,
         `Pole sana ndugu yangu *${defeatedOpponent || 'Rival'}* 🤝😂`,
-        `Ulikuja na story nyingi lakini scoreboard haidanganyi!`,
+        `Scoreboard haidanganyi:`,
+        `🥇 Winner: *${name}*`,
+        `💰 Cash Claimed: *KES ${amountWon.toLocaleString()}*`,
         ``,
-        `Winner: *${name}* 🥇`,
-        `Cash Claimed: *KES ${amountWon.toLocaleString()}* 🎉`,
-        ``,
-        `Kama si FantasyChama ningekuwa nazungushwa kulipwa hadi May! Wallets auto-settled safi kabisa.`,
-        `👉 ${appUrl}`,
+        `Wallets auto-settled safi kabisa kwa Chama.`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
@@ -90,26 +96,13 @@ export default function ChampionFlexCardModal({
       text: [
         `⚔️ *${leagueName} — Head-to-Head Duel*`,
         ``,
+        `🥇 Winner: *${name}*`,
         `Cash secured: *KES ${amountWon.toLocaleString()}* ☕`,
-        `Nani mwingine anataka duel ya next gameweek? Line up hapa!`,
+        `Gg *${defeatedOpponent || 'Rival'}*, chezeni chini next time! 🤝⚽`,
         ``,
-        `Gg *${defeatedOpponent || 'Rival'}*, chezeni chini next time 🤝⚽`,
-        `👉 ${appUrl}`,
-      ].join('\n'),
-    },
-    {
-      id: 'silence',
-      label: '🤫 Kimya Kwa Group',
-      title: 'Silence in Court',
-      text: [
-        `⚔️ *${leagueName} — Duel Results Are In!*`,
-        ``,
-        `Mbona group imekuwa kimya ghafla vile *${name}* amechukua hii duel? 😂🤫`,
-        `Humbled: *${defeatedOpponent || 'Rival'}*`,
-        `Bounty Won: *KES ${amountWon.toLocaleString()}* 💸`,
-        ``,
-        `Wale walikuwa wanacheka juzi mko wapi? Kueni wapole! 🦁`,
-        `👉 ${appUrl}`,
+        `Nani mwingine anataka duel ya next gameweek?`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
@@ -119,30 +112,34 @@ export default function ChampionFlexCardModal({
       text: [
         `⚔️ *Head-to-Head Settled — ${leagueName}* 🤝`,
         ``,
-        `Gg *${defeatedOpponent || 'Rival'}*, lakini pesa ni yangu rasmi! KES *${amountWon.toLocaleString()}* 💰`,
-        `Rematch inakubaliwa ukijipanga tena next gameweek.`,
+        `Winner: *${name}* 🥇`,
+        `Bounty Won: *KES ${amountWon.toLocaleString()}* 💰`,
+        `Humbled: *${defeatedOpponent || 'Rival'}*`,
         ``,
-        `Weka stake kwa wallet tufanye tena kazi! 🔥⚽`,
-        `👉 ${appUrl}`,
-      ].join('\n'),
-    },
-    {
-      id: 'lunch',
-      label: '🥩 Asanteni kwa Nyama',
-      title: 'Nyama Choma Secured',
-      text: [
-        `⚔️ *Side Bet Cleared — ${leagueName}*`,
-        ``,
-        `Asante sana *${defeatedOpponent || 'Rival'}* kwa kunidhamini nyama choma na kinywaji leo! 😂🥩🍺`,
-        `KES *${amountWon.toLocaleString()}* imeland safi kwa Chama wallet.`,
-        ``,
-        `Next challenger aingie uwanjani! ⚔️🔥`,
-        `👉 ${appUrl}`,
+        `Rematch inakubaliwa ukijipanga next gameweek!`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
   ];
 
-  const getGameweekBanters = (name: string): BanterItem[] => [
+  const getGameweekBanters = (name: string, pts: string | number): BanterItem[] => [
+    {
+      id: 'official',
+      label: '🏆 Official Result',
+      title: 'Official Winner Announcement',
+      text: [
+        `🏆 *${leagueName} — GW${gameweek} Champion!*`,
+        ``,
+        `🥇 Champion: *${name}* ${teamName ? `(${teamName})` : ''}`,
+        `🎯 Gameweek Score: *${pts} pts*`,
+        `💰 Pot Secured: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`,
+        ``,
+        `Verified by FantasyChama official FPL sync.`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
+      ].join('\n'),
+    },
     {
       id: 'mwizi',
       label: '🥷 Mwizi wa Points',
@@ -150,27 +147,29 @@ export default function ChampionFlexCardModal({
       text: [
         `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
         ``,
-        `Hii wiki mimi ndiye mwizi wa points rasmi 😂!`,
-        `Score: *${points || 0} pts*`,
-        `Pot Secured: *KES ${amountWon.toLocaleString()}* 💰 safi via Pochi!`,
+        `Hii wiki *${name}* ndiye mwizi wa points rasmi 😂!`,
+        `🎯 Score: *${pts} pts* (Highest in the Chama)`,
+        `💰 Pot: *KES ${amountWon.toLocaleString()}* safi kwa wallet!`,
         ``,
-        `Poleni sana wazee kwa mshtuko wa moyo, chezeni chini next gameweek! 🏁🔥`,
-        `👉 ${appUrl}`,
+        `Poleni sana wazee kwa mshtuko wa moyo, chezeni chini next gameweek! 🏁`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
       id: 'goat',
-      label: '🐐 GOAT Mode',
+      label: '🐐 Mapema Ndio Best',
       title: 'Class is Permanent',
       text: [
-        `🏆 *GW${gameweek} Winner — ${leagueName}*`,
+        `🏆 *GW${gameweek} Champion — ${leagueName}*`,
         ``,
         `Mapema ndio best! Form is temporary, class is permanent. 🐐`,
-        `🥇 *${name}* (${teamName || 'FPL Team'})`,
-        `Points: *${points || 0} pts* | Payout: *KES ${amountWon.toLocaleString()}* 🎉`,
+        `🥇 *${name}* ${teamName ? `(${teamName})` : ''}`,
+        `Points: *${pts} pts* | Payout: *KES ${amountWon.toLocaleString()}* 🎉`,
         ``,
         `Nani mwingine anataka kufunzwa FPL hapa? 😎`,
-        `👉 ${appUrl}`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
@@ -180,26 +179,12 @@ export default function ChampionFlexCardModal({
       text: [
         `🏆 *${leagueName} — Gameweek ${gameweek}*`,
         ``,
-        `Nilikuwa nawangoja lakini hamkufika kwa podium leo. ☕`,
-        `KES *${amountWon.toLocaleString()}* secured safi kabisa na ${points || 0} points.`,
+        `Champion: *${name}* 🥇`,
+        `Score: *${pts} pts* | Pot: *KES ${amountWon.toLocaleString()}* ☕`,
         ``,
-        `Tutaonana next gameweek, msikate tamaa! 🤝⚽`,
-        `👉 ${appUrl}`,
-      ].join('\n'),
-    },
-    {
-      id: 'sakafuni',
-      label: '🏃‍♂️ Mbio za Sakafuni',
-      title: 'Mbio za Sakafuni',
-      text: [
-        `🏆 *${leagueName} — GW${gameweek} Champe!* 🏃‍♂️💨`,
-        ``,
-        `Mbio za sakafuni huishia ukingoni! 😂`,
-        `Mlipiga kelele wiki mzima lakini leo scoreboard inasema nani ni baba yao! 🥇`,
-        `Points: *${points || 0} pts* | Cash: *KES ${amountWon.toLocaleString()}* 💰`,
-        ``,
-        `Wacheni kulialia kwa VAR, game imeisha! 🏁`,
-        `👉 ${appUrl}`,
+        `Nilikuwa nawangoja lakini hamkufika kwa podium leo. Tutaonana next GW! 🤝⚽`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
@@ -210,12 +195,13 @@ export default function ChampionFlexCardModal({
         `🏆 *${leagueName} Tactical Masterclass — GW${gameweek}* 🧠⚽`,
         ``,
         `Mnaniita Pep Guardiola wa Chama kuanzia leo!`,
-        `Captain pick ilikuwa pure football genius! 🫡`,
-        `Champion: *${name}* (${points || 0} pts)`,
+        `Captain pick ilikuwa pure genius:`,
+        `Champion: *${name}* (*${pts} pts*)`,
         `Pot Won: *KES ${amountWon.toLocaleString()}* 💸`,
         ``,
         `Classes zinaanza Monday, admission ni free kwa table-trailers! 📚😂`,
-        `👉 ${appUrl}`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
     {
@@ -226,28 +212,46 @@ export default function ChampionFlexCardModal({
         `🏆 *${leagueName} — GW${gameweek} Settled!*`,
         ``,
         `Asanteni sana wadau kwa kunilipia lunch na fuel ya wiki mzima! 😂🥩`,
-        `Wager Pot Secured: *KES ${amountWon.toLocaleString()}* cleanly.`,
+        `Winner: *${name}* (*${pts} pts*)`,
+        `Pot Secured: *KES ${amountWon.toLocaleString()}*`,
         ``,
-        `Form yangu haishuki, jiandaeni kwa kichapo kingine next gameweek! 🔥`,
-        `👉 ${appUrl}`,
+        `Jiandaeni kwa kichapo kingine next gameweek! 🔥`,
+        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
+        `👉 ${joinUrl}`,
       ].join('\n'),
     },
   ];
 
-  const banters = isSideBet ? getSideBetBanters(editableWinnerName || winnerName) : getGameweekBanters(editableWinnerName || winnerName);
+  const banters = isSideBet
+    ? getSideBetBanters(editableWinnerName || winnerName)
+    : getGameweekBanters(editableWinnerName || winnerName, editablePoints);
 
   useEffect(() => {
     setEditableWinnerName(winnerName);
-    const initialBanters = isSideBet ? getSideBetBanters(winnerName) : getGameweekBanters(winnerName);
+    setEditablePoints(points !== undefined ? points : 0);
+    const initialBanters = isSideBet
+      ? getSideBetBanters(winnerName)
+      : getGameweekBanters(winnerName, points !== undefined ? points : 0);
     setCustomMessage(initialBanters[0]?.text || '');
     setActiveBanterIndex(0);
-  }, [winnerName, isOpen, winType]);
+  }, [winnerName, points, isOpen, winType, leagueCode]);
+
+  const handleNameOrPointsChange = (newName: string, newPts: string | number) => {
+    setEditableWinnerName(newName);
+    setEditablePoints(newPts);
+    const updated = isSideBet
+      ? getSideBetBanters(newName)
+      : getGameweekBanters(newName, newPts);
+    setCustomMessage(updated[activeBanterIndex]?.text || updated[0]?.text || '');
+  };
 
   const handleShuffleBanter = () => {
     setIsRollingDice(true);
     haptics.selection();
     setTimeout(() => {
-      const currentList = isSideBet ? getSideBetBanters(editableWinnerName || winnerName) : getGameweekBanters(editableWinnerName || winnerName);
+      const currentList = isSideBet
+        ? getSideBetBanters(editableWinnerName || winnerName)
+        : getGameweekBanters(editableWinnerName || winnerName, editablePoints);
       const nextIdx = (activeBanterIndex + 1 + Math.floor(Math.random() * (currentList.length - 1))) % currentList.length;
       setActiveBanterIndex(nextIdx);
       setCustomMessage(currentList[nextIdx]?.text || '');
@@ -282,148 +286,149 @@ export default function ChampionFlexCardModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // 1. Dark radial background
-      const bgGrad = ctx.createRadialGradient(540, 450, 100, 540, 540, 700);
-      bgGrad.addColorStop(0, '#1c1f26');
-      bgGrad.addColorStop(0.5, '#0e1419');
-      bgGrad.addColorStop(1, '#05070a');
+      // 1. Toned-down, elegant graphite background
+      const bgGrad = ctx.createRadialGradient(540, 540, 150, 540, 540, 750);
+      bgGrad.addColorStop(0, '#151b24');
+      bgGrad.addColorStop(0.6, '#0d1219');
+      bgGrad.addColorStop(1, '#070a0e');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, 1080, 1080);
 
-      // 2. Gold decorative border & accent lines
-      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.4)' : 'rgba(251, 191, 36, 0.35)';
-      ctx.lineWidth = 4;
-      ctx.strokeRect(40, 40, 1000, 1000);
+      // 2. Refined gold hairline borders
+      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.45)' : 'rgba(245, 158, 11, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(48, 48, 984, 984);
 
-      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.15)' : 'rgba(251, 191, 36, 0.15)';
+      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(55, 55, 970, 970);
+      ctx.strokeRect(60, 60, 960, 960);
 
-      // Accent banner
-      const accentGrad = ctx.createLinearGradient(100, 0, 980, 0);
-      if (isSideBet) {
-        accentGrad.addColorStop(0, '#EF4444');
-        accentGrad.addColorStop(0.5, '#F59E0B');
-        accentGrad.addColorStop(1, '#10B981');
-      } else {
-        accentGrad.addColorStop(0, '#F59E0B');
-        accentGrad.addColorStop(0.5, '#FDE68A');
-        accentGrad.addColorStop(1, '#D97706');
-      }
-      ctx.fillStyle = accentGrad;
-      ctx.fillRect(340, 65, 400, 6);
+      // Top accent bar
+      ctx.fillStyle = isSideBet ? '#EF4444' : '#F59E0B';
+      ctx.fillRect(440, 75, 200, 3);
 
-      // 3. Header text
+      // 3. Header
       ctx.fillStyle = isSideBet ? '#F87171' : '#FBBF24';
-      ctx.font = '900 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.font = '800 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textAlign = 'center';
-      ctx.letterSpacing = '6px';
-      ctx.fillText(isSideBet ? 'HEAD-TO-HEAD DUEL WINNER' : `GAMEWEEK ${gameweek} CHAMPION`, 540, 140);
+      ctx.letterSpacing = '5px';
+      ctx.fillText(isSideBet ? 'HEAD-TO-HEAD DUEL SETTLED' : `GAMEWEEK ${gameweek} CHAMPION`, 540, 140);
 
       // 4. League Name Subheader
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '600 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.letterSpacing = '2px';
       ctx.fillText(leagueName.toUpperCase(), 540, 185);
 
-      // 5. Large Emoji / Icon
-      ctx.font = '110px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-      ctx.fillText(isSideBet ? '⚔️' : '🏆', 540, 320);
+      // 5. Refined Trophy Icon
+      ctx.font = '80px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+      ctx.fillText(isSideBet ? '⚔️' : '🏆', 540, 305);
 
       // 6. Winner Name
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 64px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText((editableWinnerName || winnerName || 'Champion').trim(), 540, 430);
+      ctx.font = '900 58px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText((editableWinnerName || winnerName || 'Champion').trim(), 540, 410);
 
       // 7. Team Name / Duel Subtitle
       if (isSideBet) {
         ctx.fillStyle = '#F87171';
-        ctx.font = '700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(`Defeated ${defeatedOpponent || 'Rival'} in "${betTitle || 'Side Bet'}"`, 540, 480);
+        ctx.font = '600 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(`Defeated ${defeatedOpponent || 'Rival'} in "${betTitle || 'Side Bet'}"`, 540, 465);
       } else if (teamName) {
         ctx.fillStyle = '#94A3B8';
-        ctx.font = '600 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(teamName, 540, 480);
+        ctx.font = '600 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(teamName, 540, 465);
       }
 
-      // 8. Stats Badge Cards Container
+      // 8. Stats Cards Container (Toned-down, clean)
       if (isSideBet) {
         // Opponent Card
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.06)';
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.05)';
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect(140, 560, 360, 220, 24);
+        ctx.roundRect(160, 540, 350, 200, 20);
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = '#F87171';
-        ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText('HUMBLED RIVAL', 320, 620);
+        ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText('HUMBLED RIVAL', 335, 600);
 
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 44px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(`${defeatedOpponent || 'Opponent'}`, 320, 710);
-
-        ctx.fillStyle = '#EF4444';
-        ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText('LOST WAGER', 320, 755);
+        ctx.font = '800 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(`${defeatedOpponent || 'Opponent'}`, 335, 680);
       } else {
-        // Points Card
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 2;
+        // Score Card
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.roundRect(140, 560, 360, 220, 24);
+        ctx.roundRect(160, 540, 350, 200, 20);
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = '#94A3B8';
-        ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText('GAMEWEEK SCORE', 320, 620);
+        ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText('GAMEWEEK SCORE', 335, 600);
 
         ctx.fillStyle = '#34D399';
-        ctx.font = '900 78px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(`${points || 0}`, 320, 715);
+        ctx.font = '900 70px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(`${editablePoints}`, 335, 685);
 
         ctx.fillStyle = '#10B981';
-        ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText('POINTS', 320, 755);
+        ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText('POINTS', 335, 715);
       }
 
       // Pot Won Card
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.06)';
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.3)';
-      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(580, 560, 360, 220, 24);
+      ctx.roundRect(570, 540, 350, 200, 20);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#FBBF24';
-      ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText(isSideBet ? 'DUEL POT WON' : 'POT SECURED', 760, 620);
+      ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(isSideBet ? 'DUEL POT CLAIMED' : 'POT SECURED', 745, 600);
 
       ctx.fillStyle = '#FDE68A';
-      ctx.font = '900 58px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText(`KES ${amountWon.toLocaleString()}`, 760, 710);
+      ctx.font = '900 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(`KES ${amountWon.toLocaleString()}`, 745, 685);
 
       ctx.fillStyle = '#F59E0B';
-      ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText('AUTO-SETTLED WALLET', 760, 755);
+      ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('AUTO-DISBURSED M-PESA', 745, 715);
 
-      // 9. Bottom Footer / Chama Watermark
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      // 9. League Code Pill if available
+      if (leagueCode) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(390, 800, 300, 48, 24);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#E2E8F0';
+        ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(`LEAGUE CODE: ${leagueCode}`, 540, 832);
+      }
+
+      // 10. Bottom Footer / Verified Stamp
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.font = '600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.letterSpacing = '3px';
-      ctx.fillText('FANTASYCHAMA — KENYA\'S FPL POT ENGINE', 540, 960);
+      ctx.fillText('VERIFIED BY FANTASYCHAMA • OFFICIAL FPL SYNC', 540, 960);
 
       // Export as PNG download
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = isSideBet
-        ? `${winnerName.replace(/\s+/g, '_')}_won_duel.png`
-        : `${winnerName.replace(/\s+/g, '_')}_GW${gameweek}_Champion.png`;
+        ? `${(editableWinnerName || winnerName).replace(/\s+/g, '_')}_won_duel.png`
+        : `${(editableWinnerName || winnerName).replace(/\s+/g, '_')}_GW${gameweek}_Champion.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -459,38 +464,44 @@ export default function ChampionFlexCardModal({
           </p>
         </div>
 
-        {/* Digital Flex Card Preview */}
-        <div className="relative rounded-[2rem] border-2 border-amber-400/60 bg-gradient-to-b from-[#1f2530] via-[#121820] to-[#090d12] p-6 shadow-[0_0_50px_rgba(245,158,11,0.25)] text-center overflow-hidden mb-5 ring-1 ring-amber-300/30">
-          <div className="absolute top-0 right-0 w-56 h-56 bg-amber-500 blur-[100px] opacity-20 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-56 h-56 bg-emerald-500 blur-[100px] opacity-20 pointer-events-none" />
-
-          {/* Top Decorative Gold Line */}
-          <div className="w-24 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent mx-auto mb-3 rounded-full" />
-
+        {/* Digital Flex Card Preview (Toned-down, tasteful luxury design) */}
+        <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#141a22] to-[#0b0f14] p-5 shadow-lg text-center overflow-hidden mb-5">
           <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400 mb-1.5 flex items-center justify-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400/90 mb-1 flex items-center justify-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-amber-400" />
               {isSideBet ? `HEAD-TO-HEAD DUEL • ${leagueName}` : `GW${gameweek} CHAMPION • ${leagueName}`}
             </p>
 
-            <div className="w-18 h-18 rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 p-[3px] shadow-[0_0_30px_rgba(245,158,11,0.45)] mx-auto my-2.5 flex items-center justify-center animate-pulse">
-              <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center">
-                <Trophy className="w-8 h-8 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-              </div>
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-400/25 mx-auto my-2 flex items-center justify-center shadow-sm">
+              <Trophy className="w-6 h-6 text-amber-400" />
             </div>
 
-            {/* Editable Champion Name */}
-            <div className="flex items-center justify-center gap-2 my-2">
-              <input
-                type="text"
-                value={editableWinnerName}
-                onChange={(e) => setEditableWinnerName(e.target.value)}
-                placeholder="Champion Name"
-                className="text-xl md:text-2xl font-black text-white text-center bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-amber-400/40 focus:border-amber-400 rounded-xl px-3.5 py-1.5 outline-none transition-all max-w-[280px] shadow-inner"
-                title="Edit Champion name on card & banter"
-              />
-              <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 rounded-lg shadow-sm">
-                <Edit3 className="w-3 h-3" /> Edit
+            {/* Editable Champion Name and Points */}
+            <div className="flex flex-wrap items-center justify-center gap-2 my-2">
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={editableWinnerName}
+                  onChange={(e) => handleNameOrPointsChange(e.target.value, editablePoints)}
+                  placeholder="Champion Name"
+                  className="text-base md:text-lg font-black text-white text-center bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-amber-400/30 focus:border-amber-400 rounded-xl px-3 py-1 outline-none transition-all max-w-[210px]"
+                  title="Tap to edit Champion name"
+                />
+              </div>
+              {!isSideBet && (
+                <div className="flex items-center gap-1 bg-white/5 border border-amber-400/30 rounded-xl px-2.5 py-1">
+                  <input
+                    type="number"
+                    value={editablePoints}
+                    onChange={(e) => handleNameOrPointsChange(editableWinnerName, e.target.value)}
+                    className="w-12 text-emerald-400 font-black text-center bg-transparent outline-none text-base tabular-nums"
+                    title="Tap to edit score"
+                  />
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">pts</span>
+                </div>
+              )}
+              <span className="text-[9px] font-bold text-amber-400/80 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
+                <Edit3 className="w-2.5 h-2.5" /> Tap to Edit
               </span>
             </div>
 
@@ -499,31 +510,37 @@ export default function ChampionFlexCardModal({
                 Defeated {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
               </p>
             ) : (
-              teamName && <p className="text-xs text-slate-300 font-bold">{teamName}</p>
+              teamName && <p className="text-xs text-slate-400 font-medium">{teamName}</p>
             )}
 
-            <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/10">
-              <div className="bg-white/[0.04] backdrop-blur-md rounded-2xl p-3 border border-white/10 flex flex-col justify-center items-center text-center h-[82px] shadow-inner">
+            {leagueCode && (
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-semibold text-gray-400 mt-1">
+                League Code: <span className="font-mono font-bold text-amber-300">{leagueCode}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-white/10">
+              <div className="bg-white/[0.03] rounded-xl p-2.5 border border-white/10 flex flex-col justify-center items-center text-center h-[72px]">
                 <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
                   {isSideBet ? 'Humbled Rival' : 'Gameweek Score'}
                 </p>
-                <p className="text-2xl font-black text-emerald-400 truncate">
-                  {isSideBet ? (defeatedOpponent || 'Rival') : `${points || 0} pts`}
+                <p className="text-xl font-black text-emerald-400 truncate">
+                  {isSideBet ? (defeatedOpponent || 'Rival') : `${editablePoints} pts`}
                 </p>
               </div>
-              <div className="bg-amber-500/10 backdrop-blur-md rounded-2xl p-3 border border-amber-500/30 flex flex-col justify-center items-center text-center h-[82px] shadow-[0_0_15px_rgba(251,191,36,0.1)]">
+              <div className="bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/25 flex flex-col justify-center items-center text-center h-[72px]">
                 <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
                   {isSideBet ? 'Duel Pot Won' : 'Pot Secured'}
                 </p>
-                <p className="text-2xl font-black text-amber-300 tabular-nums">
+                <p className="text-xl font-black text-amber-300 tabular-nums">
                   KES {amountWon.toLocaleString()}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2 mt-3.5 pt-2 border-t border-white/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            <div className="flex items-center justify-center gap-2 mt-3 pt-2 border-t border-white/5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                 Verified Chama Settlement • Official FPL Sync
               </p>
             </div>
@@ -534,10 +551,10 @@ export default function ChampionFlexCardModal({
         <button
           onClick={handleDownloadImage}
           disabled={isExporting}
-          className="w-full mb-5 py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="w-full mb-5 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           <Download className="w-4 h-4" />
-          {isExporting ? 'Generating High-Res Victory Card...' : 'Download Victory Card (PNG for WhatsApp Status)'}
+          {isExporting ? 'Generating Victory Card...' : 'Download Victory Card (PNG for WhatsApp Status)'}
         </button>
 
         {/* Banter Caption Selector */}

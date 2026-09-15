@@ -899,6 +899,7 @@ export default function Standings() {
                         gameweek={flexCardData.gameweek}
                         amountWon={flexCardData.amountWon}
                         leagueName={leagueName || 'League'}
+                        leagueCode={(league as any)?.code || ''}
                     />
                 )}
             </div>

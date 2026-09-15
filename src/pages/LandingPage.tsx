@@ -14,17 +14,18 @@ interface DemoMember {
 }
 
 const initialDemoMembers: DemoMember[] = [
-    { id: '1', name: 'Brian Kiprono', team: 'Live XI', pts: 74, status: 'funded' },
-    { id: '2', name: 'Raul Gonzalez', team: 'Galacticos', pts: 68, status: 'funded' },
-    { id: '3', name: 'Emmanuel S.', team: 'Simba FC', pts: 62, status: 'funded' },
-    { id: '4', name: 'Akinyi M.', team: 'Nairobi Queens', pts: 58, status: 'spectator' },
-    { id: '5', name: 'Kamau J.', team: 'Rift Strikers', pts: 51, status: 'pending' },
+    { id: '1', name: 'Joel Sifuna', team: 'Sifuna Stars', pts: 78, status: 'funded' },
+    { id: '2', name: 'Kevin Otieno', team: 'Nairobi Kings', pts: 72, status: 'funded' },
+    { id: '3', name: 'Brian Mwangi', team: 'Safari Boys', pts: 65, status: 'funded' },
+    { id: '4', name: 'Faith Cherono', team: 'Rift Valley FC', pts: 61, status: 'spectator' },
+    { id: '5', name: 'David Ochieng', team: 'Lakeside XI', pts: 54, status: 'pending' },
 ];
 
 function LedgerDemo() {
     const [members, setMembers] = useState(initialDemoMembers);
     const [highlightId, setHighlightId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'ledger' | 'victory' | 'mockup'>('ledger');
+    const { isDark } = useTheme();
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -211,14 +212,14 @@ function LedgerDemo() {
             {/* TAB 2: Official WhatsApp Victory Card Visual */}
             {activeTab === 'victory' && (
                 <div className="p-4 sm:p-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-amber-400/40 shadow-xl max-w-sm w-full group">
+                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-400/40 shadow-lg max-w-sm w-full group bg-white dark:bg-black/40">
                         <img 
-                            src="/victory-card-preview.jpg" 
+                            src={isDark ? "/victory-card-preview.jpg" : "/victory-card-preview-light.jpg"} 
                             alt="Official WhatsApp Victory Card" 
                             className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
-                            <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 backdrop-blur-md text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-4">
+                            <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-amber-500/20 border border-slate-200 dark:border-amber-500/40 backdrop-blur-md text-slate-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
                                 🏆 Branded Victory Card for WhatsApp Status
                             </div>
                         </div>
@@ -232,14 +233,14 @@ function LedgerDemo() {
             {/* TAB 3: Multi-Card System Mockup */}
             {activeTab === 'mockup' && (
                 <div className="p-4 sm:p-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xl max-w-sm w-full group">
+                    <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-lg max-w-sm w-full group bg-white dark:bg-black/40">
                         <img 
-                            src="/system-card-preview.jpg" 
+                            src={isDark ? "/system-card-preview.jpg" : "/system-card-preview-light.jpg"} 
                             alt="FantasyChama System Cards Showcase" 
                             className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
-                            <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 backdrop-blur-md text-emerald-300 text-[10px] font-black uppercase tracking-wider">
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-4">
+                            <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-emerald-500/20 border border-slate-200 dark:border-emerald-500/40 backdrop-blur-md text-slate-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
                                 🔒 Automated 91/9 Settlement Engine
                             </div>
                         </div>
@@ -557,8 +558,12 @@ export default function LandingPage() {
                                     </p>
                                 </div>
                                 <div className="sm:col-span-5">
-                                    <div className="rounded-2xl overflow-hidden border border-emerald-500/30 shadow-md group-hover:scale-105 transition-transform duration-500">
-                                        <img src="/system-card-preview.jpg" alt="System Escrow Card" className="w-full h-auto object-cover" />
+                                    <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-md group-hover:scale-105 transition-transform duration-500 bg-white dark:bg-black/20">
+                                        <img 
+                                            src={isDark ? "/system-card-preview.jpg" : "/system-card-preview-light.jpg"} 
+                                            alt="System Escrow Card" 
+                                            className="w-full h-auto object-cover" 
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -624,13 +629,13 @@ export default function LandingPage() {
                                 </div>
                             </div>
                             <div className="w-full md:w-80 shrink-0 relative z-10">
-                                <div className="relative rounded-2xl overflow-hidden border-2 border-amber-400/40 shadow-[0_0_35px_rgba(251,191,36,0.25)] group-hover:scale-102 transition-transform duration-500">
+                                <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-400/40 shadow-lg dark:shadow-[0_0_35px_rgba(251,191,36,0.25)] group-hover:scale-102 transition-transform duration-500 bg-white dark:bg-black/30">
                                     <img 
-                                        src="/victory-card-preview.jpg" 
+                                        src={isDark ? "/victory-card-preview.jpg" : "/victory-card-preview-light.jpg"} 
                                         alt="Victory Card Showcase" 
                                         className="w-full h-auto object-cover" 
                                     />
-                                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-400/50 text-[10px] font-black text-amber-300 uppercase tracking-wider">
+                                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-md border border-slate-200 dark:border-amber-400/50 text-[10px] font-black text-slate-800 dark:text-amber-300 uppercase tracking-wider shadow-sm">
                                         WhatsApp Ready
                                     </div>
                                 </div>

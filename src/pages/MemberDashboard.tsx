@@ -870,12 +870,13 @@ export default function MemberDashboard() {
             <ChampionFlexCardModal
                 isOpen={showFlexModal}
                 onClose={() => setShowFlexModal(false)}
-                winnerName={currentUser?.displayName || firstName || 'Champion'}
+                winnerName={gwWinner?.player_name || currentUser?.displayName || firstName || 'Champion'}
                 teamName={gwWinner?.entry_name || (currentUser?.fplTeamId ? `Team ${currentUser.fplTeamId}` : undefined)}
                 points={gwWinner?.event_total || 0}
                 gameweek={gwWinner?.event || currentFplEvent?.id || ''}
                 amountWon={Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
                 leagueName={leagueName}
+                leagueCode={(leagueSettings as any)?.code || ''}
             />
 
             {/* Phase 40: HQ Suspension Lockout Overlay */}
