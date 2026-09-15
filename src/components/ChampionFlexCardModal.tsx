@@ -435,24 +435,24 @@ export default function ChampionFlexCardModal({
 
   return (
     <div className="fixed inset-0 z-[125000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
-      <div className="w-full max-w-lg bg-[#0e1419] border-2 border-amber-500/40 rounded-3xl p-5 md:p-6 shadow-[0_0_80px_rgba(245,158,11,0.25)] relative text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
+      <div className="w-full max-w-lg bg-white dark:bg-[#0e1419] border-2 border-amber-500/40 rounded-3xl p-5 md:p-6 shadow-2xl dark:shadow-[0_0_80px_rgba(245,158,11,0.25)] relative text-slate-900 dark:text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Close Button */}
         <button
           onClick={() => { haptics.selection(); onClose(); }}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer z-20"
+          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer z-20"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Title */}
         <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest mb-2">
             <Sparkles className="w-3.5 h-3.5" /> WhatsApp Victory Card
           </div>
-          <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
+          <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             {isSideBet ? 'Share Your Duel Victory!' : 'Share Your Gameweek Victory!'}
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-slate-600 dark:text-gray-400 mt-1">
             {isSideBet
               ? 'Share with the Chama WhatsApp group with an official sidebet victory card or friendly banter.'
               : 'Share with the Chama WhatsApp group with an official victory card or friendly banter.'}
@@ -541,19 +541,19 @@ export default function ChampionFlexCardModal({
         </button>
 
         {/* Banter Caption Selector */}
-        <div className="border-t border-white/10 pt-4">
+        <div className="border-t border-slate-200 dark:border-white/10 pt-4">
           <div className="flex items-center justify-between gap-2 mb-2.5">
-            <p className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-amber-400" /> WhatsApp Banter:
+            <p className="text-[11px] font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" /> WhatsApp Banter:
             </p>
             <button
               type="button"
               onClick={handleShuffleBanter}
               disabled={isRollingDice}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
               title="Roll dice to shuffle banter"
             >
-              <Dices className={`w-4 h-4 text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
+              <Dices className={`w-4 h-4 text-amber-500 dark:text-amber-400 ${isRollingDice ? 'animate-spin' : ''}`} />
               <span>Shuffle Banter 🎲</span>
             </button>
           </div>
@@ -572,8 +572,8 @@ export default function ChampionFlexCardModal({
                   }}
                   className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all border shrink-0 cursor-pointer ${
                     isSelected
-                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                      : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
+                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-700 dark:text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                      : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {item.label}
@@ -587,10 +587,10 @@ export default function ChampionFlexCardModal({
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               rows={5}
-              className="w-full p-3.5 rounded-xl bg-[#080c10] border border-white/10 focus:border-amber-400/50 text-xs font-mono text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
+              className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-[#080c10] border border-slate-200 dark:border-white/10 focus:border-amber-500/60 dark:focus:border-amber-400/50 text-xs font-mono text-slate-800 dark:text-gray-200 leading-relaxed outline-none resize-y custom-scrollbar"
               placeholder="Edit your spicy banter here before sharing to WhatsApp..."
             />
-            <div className="flex items-center justify-between text-[10px] text-gray-500 px-1 mt-1 font-medium">
+            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-gray-500 px-1 mt-1 font-medium">
               <span>✏️ Tap inside to customize banter or add names</span>
               <span>{customMessage.length} chars</span>
             </div>
@@ -606,9 +606,9 @@ export default function ChampionFlexCardModal({
             </button>
             <button
               onClick={handleCopyMessage}
-              className="py-3.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="py-3.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>

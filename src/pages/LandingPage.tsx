@@ -1,7 +1,8 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useEffect, useState } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../hooks/useTheme';
 
 // ─── Dynamic Animating System-Accurate Ledger Demo ────────────────────────────────
 interface DemoMember {
@@ -47,21 +48,21 @@ function LedgerDemo() {
     }, []);
 
     return (
-        <div className="fc-landing-card w-full rounded-[2rem] bg-gradient-to-b from-[#18222c]/90 via-[#101720]/95 to-[#0a0f15] border-2 border-emerald-500/25 overflow-hidden shadow-[0_0_60px_rgba(16,185,129,0.12)] relative">
+        <div className="fc-landing-card w-full rounded-[2rem] bg-white/95 dark:bg-gradient-to-b dark:from-[#18222c]/90 dark:via-[#101720]/95 dark:to-[#0a0f15] border-2 border-emerald-500/25 overflow-hidden shadow-xl dark:shadow-[0_0_60px_rgba(16,185,129,0.12)] relative">
             {/* Ambient Lighting Orbs */}
             <div className="absolute top-0 right-0 w-56 h-56 bg-emerald-500/15 rounded-full blur-[90px] pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-56 h-56 bg-amber-500/10 rounded-full blur-[90px] pointer-events-none" />
 
             {/* Interactive Card Mode Tabs */}
-            <div className="px-4 pt-3.5 pb-2.5 bg-[#0e151c]/90 border-b border-white/5 flex items-center justify-between gap-2 relative z-10">
-                <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/10 rounded-xl backdrop-blur-md">
+            <div className="px-4 pt-3.5 pb-2.5 bg-slate-50/90 dark:bg-[#0e151c]/90 border-b border-slate-200/80 dark:border-white/5 flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 dark:bg-black/40 border border-slate-300/60 dark:border-white/10 rounded-xl backdrop-blur-md">
                     <button
                         type="button"
                         onClick={() => setActiveTab('ledger')}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                             activeTab === 'ledger'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                : 'text-gray-400 hover:text-white'
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                     >
                         ⚡ Live Ledger
@@ -71,8 +72,8 @@ function LedgerDemo() {
                         onClick={() => setActiveTab('victory')}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                             activeTab === 'victory'
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(251,191,36,0.25)]'
-                                : 'text-gray-400 hover:text-white'
+                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(251,191,36,0.25)]'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                     >
                         🏆 Victory Card
@@ -82,16 +83,16 @@ function LedgerDemo() {
                         onClick={() => setActiveTab('mockup')}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                             activeTab === 'mockup'
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                : 'text-gray-400 hover:text-white'
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                     >
                         💳 System Cards
                     </button>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-gray-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/60 dark:border-white/10 text-[10px] font-bold text-slate-600 dark:text-gray-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     LIVE FPL SYNC
                 </div>
             </div>
@@ -100,30 +101,30 @@ function LedgerDemo() {
             {activeTab === 'ledger' && (
                 <div className="animate-in fade-in duration-300">
                     {/* Real System Card Header */}
-                    <div className="px-5 py-4 border-b border-white/5 bg-[#121920]/80 backdrop-blur-md flex flex-col gap-3">
+                    <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10B981]" />
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
                                 GW4 LIVE POT
                             </div>
-                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-gray-300">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-gray-300">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                                 Official FPL Sync
                             </span>
                         </div>
 
                         <div className="flex items-baseline justify-between pt-1">
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80">Total Escrow Pot</p>
-                                <p className="text-3xl sm:text-4xl font-black text-white tabular-nums tracking-tight">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400/80">Total Escrow Pot</p>
+                                <p className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
                                     KES 2,800
                                 </p>
                             </div>
                             <div className="text-right">
-                                <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30">
+                                <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30">
                                     91/9 Model
                                 </span>
-                                <p className="text-[11px] text-gray-300 font-semibold mt-1">
+                                <p className="text-[11px] text-slate-600 dark:text-gray-300 font-semibold mt-1">
                                     KES 1,960 Weekly · KES 840 Vault
                                 </p>
                             </div>
@@ -131,7 +132,7 @@ function LedgerDemo() {
                     </div>
                     
                     {/* Live Standings Table */}
-                    <div className="p-3 sm:p-4 space-y-2 bg-[#0c1218]/70">
+                    <div className="p-3 sm:p-4 space-y-2 bg-slate-50/40 dark:bg-[#0c1218]/70">
                         {members.map((m, index) => {
                             const isHighlighted = highlightId === m.id;
                             const isLeader = index === 0;
@@ -144,29 +145,29 @@ function LedgerDemo() {
                                             ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(251,191,36,0.12)]'
                                             : isHighlighted
                                                 ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                                                : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]'
+                                                : 'bg-white dark:bg-white/[0.03] border-slate-200/80 dark:border-white/[0.06] hover:bg-slate-100/80 dark:hover:bg-white/[0.06]'
                                     }`}
                                 >
                                     <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                                         <div className={`w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center shrink-0 ${
                                             isLeader
                                                 ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-500 text-black shadow-lg shadow-amber-500/30 ring-1 ring-amber-300'
-                                                : 'bg-white/5 text-gray-300 border border-white/10'
+                                                : 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10'
                                         }`}>
                                             {isLeader ? <Trophy className="w-4 h-4" /> : index + 1}
                                         </div>
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                                <p className="font-extrabold text-xs sm:text-sm text-white truncate">
+                                                <p className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                                                     {m.name}
                                                 </p>
                                                 {isLeader && (
-                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                                    <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
                                                         Leader 👑
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-[10px] sm:text-[11px] text-gray-400 truncate">
+                                            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-gray-400 truncate">
                                                 {m.team}
                                             </p>
                                         </div>
@@ -174,16 +175,16 @@ function LedgerDemo() {
 
                                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                                         <span className={`text-xs sm:text-sm font-black tabular-nums transition-colors ${
-                                            isHighlighted ? 'text-emerald-400 font-extrabold' : isLeader ? 'text-amber-300' : 'text-gray-200'
+                                            isHighlighted ? 'text-emerald-600 dark:text-emerald-400 font-extrabold' : isLeader ? 'text-amber-600 dark:text-amber-300' : 'text-slate-800 dark:text-gray-200'
                                         }`}>
                                             {m.pts} pts
                                         </span>
                                         <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase ${
                                             m.status === 'funded'
-                                                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/35 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35 shadow-sm'
                                                 : m.status === 'spectator'
-                                                    ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
-                                                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                                    ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30'
+                                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                                         }`}>
                                             {m.status === 'funded' ? 'Funded ✓' : m.status === 'spectator' ? 'Spectator 🛡️' : 'Pending ⏳'}
                                         </span>
@@ -194,13 +195,13 @@ function LedgerDemo() {
                     </div>
 
                     {/* Real System Card Chrome Footer */}
-                    <div className="px-5 py-3.5 bg-[#121920]/90 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
-                        <span className="flex items-center gap-1.5 font-semibold text-gray-300">
-                            <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-gray-300">
+                            <Lock className="w-3.5 h-3.5 text-emerald-500" />
                             M-Pesa Escrow Verified
                         </span>
-                        <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             Auto-Disbursed at Final Whistle
                         </span>
                     </div>
@@ -210,7 +211,7 @@ function LedgerDemo() {
             {/* TAB 2: Official WhatsApp Victory Card Visual */}
             {activeTab === 'victory' && (
                 <div className="p-4 sm:p-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-amber-400/40 shadow-[0_0_40px_rgba(251,191,36,0.2)] max-w-sm w-full group">
+                    <div className="relative rounded-2xl overflow-hidden border-2 border-amber-400/40 shadow-xl max-w-sm w-full group">
                         <img 
                             src="/victory-card-preview.jpg" 
                             alt="Official WhatsApp Victory Card" 
@@ -222,7 +223,7 @@ function LedgerDemo() {
                             </div>
                         </div>
                     </div>
-                    <p className="text-xs text-gray-300 mt-3 font-medium max-w-xs">
+                    <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-xs">
                         Every gameweek winner gets a custom, verified Victory Card to flex in WhatsApp groups and challenge rivals.
                     </p>
                 </div>
@@ -231,7 +232,7 @@ function LedgerDemo() {
             {/* TAB 3: Multi-Card System Mockup */}
             {activeTab === 'mockup' && (
                 <div className="p-4 sm:p-6 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300">
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.15)] max-w-sm w-full group">
+                    <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-xl max-w-sm w-full group">
                         <img 
                             src="/system-card-preview.jpg" 
                             alt="FantasyChama System Cards Showcase" 
@@ -243,7 +244,7 @@ function LedgerDemo() {
                             </div>
                         </div>
                     </div>
-                    <p className="text-xs text-gray-300 mt-3 font-medium max-w-xs">
+                    <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-xs">
                         Three dedicated system cards: Live Matchday Pot, Automated M-Pesa Disbursal, and 38 Gameweeks Season Vault.
                     </p>
                 </div>
@@ -265,27 +266,27 @@ function TrustSlider() {
 
     return (
         <section className="fc-landing-section py-12 sm:py-16 md:py-20 max-w-5xl mx-auto px-4 sm:px-6 relative z-30">
-            <div className="fc-landing-panel bg-[#0b1014] border border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-[0_0_60px_rgba(16,185,129,0.06)] relative overflow-hidden">
+            <div className="fc-landing-panel bg-white dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-3xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-10 shadow-xl dark:shadow-[0_0_60px_rgba(16,185,129,0.06)] relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
                 
                 <div className="text-center mb-8">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-2 block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2 block">
                         Full Transparency Guarantee
                     </span>
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white mb-3">
+                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-3">
                         The 91/9 Transparent Engine.
                     </h2>
-                    <p className="text-gray-400 font-medium text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
+                    <p className="text-slate-600 dark:text-gray-400 font-medium text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
                         91% goes straight to the Gameweek & Season winners. Exactly 9% covers automated FPL intelligence, M-Pesa fees, and Chairman payout.
                     </p>
                 </div>
 
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-4">
-                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4">
                             <div className="flex justify-between items-end mb-3">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Number of Players</span>
-                                <span className="text-xl font-black text-emerald-400 tabular-nums">{numPlayers} players</span>
+                                <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">Number of Players</span>
+                                <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{numPlayers} players</span>
                             </div>
                             <input 
                                 type="range" 
@@ -294,17 +295,17 @@ function TrustSlider() {
                                 step="1" 
                                 value={numPlayers} 
                                 onChange={(e) => setNumPlayers(Number(e.target.value))}
-                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all"
+                                className="fc-range w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full appearance-none cursor-pointer transition-all"
                             />
-                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                            <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-500 mt-1">
                                 <span>2</span><span>50</span>
                             </div>
                         </div>
 
-                        <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4">
                             <div className="flex justify-between items-end mb-3">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stake per GW</span>
-                                <span className="text-xl font-black text-emerald-400 tabular-nums">KES {stakePerGw.toLocaleString()}</span>
+                                <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">Stake per GW</span>
+                                <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">KES {stakePerGw.toLocaleString()}</span>
                             </div>
                             <input 
                                 type="range" 
@@ -313,42 +314,42 @@ function TrustSlider() {
                                 step="50" 
                                 value={stakePerGw} 
                                 onChange={(e) => setStakePerGw(Number(e.target.value))}
-                                className="fc-range w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer transition-all"
+                                className="fc-range w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full appearance-none cursor-pointer transition-all"
                             />
-                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                            <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-500 mt-1">
                                 <span>KES 100</span><span>KES 5,000</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-white/5 pt-4">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Gameweek Pot</span>
-                        <span className="text-2xl sm:text-3xl font-black text-white tabular-nums">KES {potSize.toLocaleString()}</span>
+                    <div className="flex items-center justify-between border-t border-slate-200 dark:border-white/5 pt-4">
+                        <span className="text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">Total Gameweek Pot</span>
+                        <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums">KES {potSize.toLocaleString()}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="md:col-span-8 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5 sm:p-6 flex flex-col justify-center">
-                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                <Trophy className="w-3.5 h-3.5 text-emerald-400" /> Pot Winners (91%)
+                            <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <Trophy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Pot Winners (91%)
                             </p>
-                            <p className="text-3xl sm:text-4xl font-black text-emerald-400 tabular-nums">
+                            <p className="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
                                 KES {winnerCut.toLocaleString()}
                             </p>
-                            <p className="text-xs text-gray-400 mt-2 font-medium">
+                            <p className="text-xs text-slate-600 dark:text-gray-400 mt-2 font-medium">
                                 Dispatched directly to winner's M-Pesa automatically via Pochi / Till.
                             </p>
                         </div>
-                        <div className="md:col-span-4 bg-[#161d24] border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-center shadow-inner">
-                            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                <Banknote className="w-3.5 h-3.5 text-amber-400" /> Ops & Chairman Fee (9%)
+                        <div className="md:col-span-4 bg-slate-50 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-center shadow-inner">
+                            <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <Banknote className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Ops & Chairman Fee (9%)
                             </p>
-                            <p className="text-2xl font-black text-amber-400 tabular-nums">
+                            <p className="text-2xl font-black text-amber-600 dark:text-amber-400 tabular-nums">
                                 KES {adminCut.toLocaleString()}
                             </p>
-                            <div className="space-y-1.5 mt-3 pt-3 border-t border-white/5 text-xs text-gray-400">
-                                <div className="flex justify-between font-medium"><span>Chairman (4%)</span> <span className="text-white font-bold">KES {chairCut.toLocaleString()}</span></div>
-                                <div className="flex justify-between font-medium"><span>Platform HQ (3.5%)</span> <span className="text-white font-bold">KES {hqCut.toLocaleString()}</span></div>
-                                <div className="flex justify-between font-medium"><span>M-Pesa Fee (1.5%)</span> <span className="text-white font-bold">KES {mpesaCut.toLocaleString()}</span></div>
+                            <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-200 dark:border-white/5 text-xs text-slate-600 dark:text-gray-400">
+                                <div className="flex justify-between font-medium"><span>Chairman (4%)</span> <span className="text-slate-900 dark:text-white font-bold">KES {chairCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between font-medium"><span>Platform HQ (3.5%)</span> <span className="text-slate-900 dark:text-white font-bold">KES {hqCut.toLocaleString()}</span></div>
+                                <div className="flex justify-between font-medium"><span>M-Pesa Fee (1.5%)</span> <span className="text-slate-900 dark:text-white font-bold">KES {mpesaCut.toLocaleString()}</span></div>
                             </div>
                         </div>
                     </div>
@@ -361,6 +362,7 @@ function TrustSlider() {
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
+    const { cycle, isDark } = useTheme();
 
     useEffect(() => {
         const leagueId = localStorage.getItem('activeLeagueId');
@@ -371,25 +373,35 @@ export default function LandingPage() {
     }, [role, navigate]);
 
     return (
-        <div className="fc-landing-shell bg-[#0a0e17] text-[#dfe2ef] min-h-screen font-sans selection:bg-emerald-500 selection:text-[#002113]">
+        <div className="fc-landing-shell bg-slate-50 dark:bg-[#0a0e17] text-slate-900 dark:text-[#dfe2ef] min-h-screen font-sans selection:bg-emerald-500 selection:text-[#002113]">
             {/* TopNavBar */}
-            <nav className="fc-landing-nav fixed top-0 w-full z-50 bg-[#0f131c]/80 backdrop-blur-xl border-b border-white/[0.05]">
+            <nav className="fc-landing-nav fixed top-0 w-full z-50 bg-white/85 dark:bg-[#0f131c]/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/[0.05]">
                 <div className="flex justify-between items-center px-4 sm:px-6 md:px-8 py-3.5 max-w-7xl mx-auto">
-                    <div className="fc-landing-brand flex items-center gap-2 text-lg sm:text-xl md:text-2xl font-extrabold tracking-tighter text-[#DFE2EF]">
+                    <div className="fc-landing-brand flex items-center gap-2 text-lg sm:text-xl md:text-2xl font-extrabold tracking-tighter text-slate-900 dark:text-[#DFE2EF]">
                         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[1px] flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                            <div className="w-full h-full bg-[#0a0e17] rounded-[11px] flex items-center justify-center">
+                            <div className="w-full h-full bg-slate-900 rounded-[11px] flex items-center justify-center">
                                 <Trophy className="w-4 h-4 text-emerald-400" />
                             </div>
                         </div>
-                        Fantasy <span className="text-emerald-400">Chama</span>
+                        Fantasy <span className="text-emerald-600 dark:text-emerald-400">Chama</span>
                     </div>
                     <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 space-x-10 items-center">
-                        <a href="#how-it-works" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">How It Works</a>
-                        <a href="#features" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Features</a>
-                        <Link to="/terms" className="fc-landing-nav-link text-[#DFE2EF] opacity-70 hover:opacity-100 transition-opacity text-sm font-medium tracking-wide">Terms</Link>
+                        <a href="#how-it-works" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">How It Works</a>
+                        <a href="#features" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Features</a>
+                        <Link to="/terms" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Terms</Link>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-bold text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        {/* Theme Toggle Button */}
+                        <button
+                            type="button"
+                            onClick={cycle}
+                            className="p-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/5 text-slate-700 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                            aria-label="Toggle theme"
+                        >
+                            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+                        </button>
+                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5">
                             Sign In
                         </button>
                         <button onClick={() => navigate('/setup')} className="bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-3.5 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm transition-all shadow-md shadow-emerald-500/20 active:scale-95">
@@ -409,16 +421,16 @@ export default function LandingPage() {
                     <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center w-full z-10">
                         {/* Left: Headline */}
                         <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-center lg:text-left">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-400">Kenya's Elite FPL Platform</span>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-600 dark:text-emerald-400">Kenya's Elite FPL Platform</span>
                             </div>
-                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter leading-[1.02] text-white">
+                            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter leading-[1.02] text-slate-900 dark:text-white">
                                 The Wealth <br className="hidden sm:inline" />
-                                <span className="text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Vault</span> for <br className="hidden sm:inline" />
-                                <span className="text-amber-400 italic">FPL.</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">Vault</span> for <br className="hidden sm:inline" />
+                                <span className="text-amber-600 dark:text-amber-400 italic">FPL.</span>
                             </h1>
-                            <p className="max-w-md mx-auto lg:mx-0 text-sm sm:text-base text-gray-400 font-medium leading-relaxed">
+                            <p className="max-w-md mx-auto lg:mx-0 text-sm sm:text-base text-slate-600 dark:text-gray-400 font-medium leading-relaxed">
                                 Set a stake per gameweek. Members pay via M-Pesa. The week's top scorer gets the pot — automatically calculated every GW with zero spreadsheet drama.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-3 items-center justify-center lg:justify-start pt-2">
@@ -427,7 +439,7 @@ export default function LandingPage() {
                                     <span className="bg-[#002113] text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40">FREE</span>
                                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </button>
-                                <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
+                                <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#161d24] dark:hover:bg-[#1f2937] border border-slate-200 dark:border-white/10 transition-colors active:scale-95 text-slate-900 dark:text-white">
                                     Join With Code
                                 </button>
                             </div>
@@ -441,36 +453,36 @@ export default function LandingPage() {
                 </section>
 
                 {/* Stats Bar */}
-                <section className="fc-landing-section py-10 sm:py-14 bg-white/[0.01] border-y border-white/[0.04] relative z-20">
+                <section className="fc-landing-section py-10 sm:py-14 bg-slate-100/60 dark:bg-white/[0.01] border-y border-slate-200 dark:border-white/[0.04] relative z-20">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
                             <div className="border-l-2 border-emerald-500/40 pl-4 sm:pl-6">
-                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Full Season</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-slate-500 dark:text-gray-500 mb-1">Full Season</p>
                                 <div className="flex items-baseline gap-1.5">
-                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-400 leading-none tracking-tighter">38</span>
-                                    <span className="text-xs font-bold text-white">GWs Tracked</span>
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-600 dark:text-emerald-400 leading-none tracking-tighter">38</span>
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white">GWs Tracked</span>
                                 </div>
                             </div>
                             <div className="border-l-2 border-amber-500/40 pl-4 sm:pl-6">
-                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Admin Overhead</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-slate-500 dark:text-gray-500 mb-1">Admin Overhead</p>
                                 <div className="flex items-baseline gap-1.5">
-                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 leading-none tracking-tighter">KES 0</span>
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-600 dark:text-amber-400 leading-none tracking-tighter">KES 0</span>
                                 </div>
-                                <span className="text-xs font-bold text-gray-400">to run your league</span>
+                                <span className="text-xs font-bold text-slate-600 dark:text-gray-400">to run your league</span>
                             </div>
                             <div className="border-l-2 border-emerald-500/40 pl-4 sm:pl-6">
-                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Weekly Dues</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-slate-500 dark:text-gray-500 mb-1">Weekly Dues</p>
                                 <div className="flex items-baseline gap-1.5">
-                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-400 leading-none tracking-tighter">2</span>
-                                    <span className="text-xs font-bold text-white">Taps on M-Pesa</span>
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-emerald-600 dark:text-emerald-400 leading-none tracking-tighter">2</span>
+                                    <span className="text-xs font-bold text-slate-900 dark:text-white">Taps on M-Pesa</span>
                                 </div>
                             </div>
                             <div className="border-l-2 border-amber-500/40 pl-4 sm:pl-6">
-                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-gray-500 mb-1">Payout Precision</p>
+                                <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-slate-500 dark:text-gray-500 mb-1">Payout Precision</p>
                                 <div className="flex items-baseline gap-1.5">
-                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-400 leading-none tracking-tighter">100%</span>
+                                    <span className="text-3xl sm:text-4xl md:text-5xl font-black text-amber-600 dark:text-amber-400 leading-none tracking-tighter">100%</span>
                                 </div>
-                                <span className="text-xs font-bold text-gray-400">Official FPL API Sync</span>
+                                <span className="text-xs font-bold text-slate-600 dark:text-gray-400">Official FPL API Sync</span>
                             </div>
                         </div>
                     </div>
@@ -480,12 +492,12 @@ export default function LandingPage() {
                 <TrustSlider />
 
                 {/* The Ledger Lifecycle (How it Works) */}
-                <section id="how-it-works" className="fc-landing-section py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 bg-white/[0.01] border-t border-b border-white/[0.04]">
+                <section id="how-it-works" className="fc-landing-section py-12 sm:py-16 md:py-20 px-4 sm:px-6 md:px-8 bg-slate-100/40 dark:bg-white/[0.01] border-t border-b border-slate-200 dark:border-white/[0.04]">
                     <div className="max-w-7xl mx-auto">
                         <div className="text-center mb-10 sm:mb-14">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-2 block">Simple 4-Step Process</span>
-                            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">How It Works</h2>
-                            <p className="text-xs sm:text-sm text-gray-400 max-w-md mx-auto">From Friday deadline to Sunday payouts, your league runs smoothly on autopilot.</p>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-2 block">Simple 4-Step Process</span>
+                            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-3">How It Works</h2>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-400 max-w-md mx-auto">From Friday deadline to Sunday payouts, your league runs smoothly on autopilot.</p>
                         </div>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 relative z-10">
@@ -495,24 +507,24 @@ export default function LandingPage() {
                                 { step: '03', title: 'Live Matchday Pulse', desc: 'Points sync directly from the official FPL API. Real-time standings update as matchday goals and bonus points roll in.', icon: <TrendingUp className="w-5 h-5" />, tone: 'indigo' },
                                 { step: '04', title: 'Chairman Pays the Winner', desc: 'When the GW finishes, the system shows the exact payout and recipient. Chairman confirms payout in seconds.', icon: <Banknote className="w-5 h-5" />, tone: 'emerald' },
                             ].map((item, i) => (
-                                <div key={i} className="fc-landing-card bg-gradient-to-b from-[#161f28]/90 to-[#0c1218]/95 border border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between hover:border-emerald-500/40 hover:shadow-[0_0_25px_rgba(16,185,129,0.12)] transition-all group shadow-lg">
+                                <div key={i} className="fc-landing-card bg-white dark:bg-gradient-to-b dark:from-[#161f28]/90 dark:to-[#0c1218]/95 border border-slate-200 dark:border-white/10 rounded-2xl p-5 sm:p-6 flex flex-col justify-between hover:border-emerald-500/40 hover:shadow-lg transition-all group shadow-md">
                                     <div>
                                         <div className="flex items-center justify-between mb-4">
                                             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 duration-300 ${
-                                                item.tone === 'emerald' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.2)]' :
-                                                item.tone === 'amber' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(251,191,36,0.2)]' :
-                                                'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+                                                item.tone === 'emerald' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' :
+                                                item.tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30' :
+                                                'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
                                             }`}>
                                                 {item.icon}
                                             </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                                                 Step {item.step}
                                             </span>
                                         </div>
-                                        <h3 className="font-extrabold text-base sm:text-lg text-white mb-2 tracking-tight group-hover:text-emerald-300 transition-colors">
+                                        <h3 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white mb-2 tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
                                             {item.title}
                                         </h3>
-                                        <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                        <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
                                             {item.desc}
                                         </p>
                                     </div>
@@ -525,27 +537,27 @@ export default function LandingPage() {
                 {/* Platform Capabilities: Bento Grid */}
                 <section id="features" className="fc-landing-section py-12 sm:py-16 md:py-20 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative z-20">
                     <div className="mb-10 sm:mb-14 text-center sm:text-left">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 mb-2 block">Built for Kenyan FPL Leagues</span>
-                        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">Platform Features</h2>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2 block">Built for Kenyan FPL Leagues</span>
+                        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-3">Platform Features</h2>
                         <div className="w-12 h-1 bg-gradient-to-r from-amber-500 to-amber-300 rounded-full mx-auto sm:mx-0" />
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
                         {/* Large Feature: Automated Escrow */}
-                        <div className="fc-landing-card md:col-span-8 bg-gradient-to-br from-[#16202a] to-[#0d141b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden group shadow-xl">
+                        <div className="fc-landing-card md:col-span-8 bg-white dark:bg-gradient-to-br dark:from-[#16202a] dark:to-[#0d141b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden group shadow-lg">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
                             <div className="grid sm:grid-cols-12 gap-6 items-center relative z-10">
                                 <div className="sm:col-span-7 space-y-3">
                                     <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
-                                        <Lock className="w-5 h-5 text-emerald-400" />
+                                        <Lock className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                     </div>
-                                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Transparent Escrow Vaults</h3>
-                                    <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
+                                    <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Transparent Escrow Vaults</h3>
+                                    <p className="text-slate-600 dark:text-gray-400 text-sm sm:text-base leading-relaxed">
                                         Weekly stakes and season pots are locked and accounted for down to the last shilling. Payouts match official FPL scores without delays or disputes.
                                     </p>
                                 </div>
                                 <div className="sm:col-span-5">
-                                    <div className="rounded-2xl overflow-hidden border border-emerald-500/30 shadow-xl group-hover:scale-105 transition-transform duration-500">
+                                    <div className="rounded-2xl overflow-hidden border border-emerald-500/30 shadow-md group-hover:scale-105 transition-transform duration-500">
                                         <img src="/system-card-preview.jpg" alt="System Escrow Card" className="w-full h-auto object-cover" />
                                     </div>
                                 </div>
@@ -553,52 +565,52 @@ export default function LandingPage() {
                         </div>
 
                         {/* Small Feature: Live FPL Sync */}
-                        <div className="fc-landing-card md:col-span-4 bg-gradient-to-br from-[#161c24] to-[#0f141a] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-indigo-500/30 transition-all relative overflow-hidden shadow-xl">
+                        <div className="fc-landing-card md:col-span-4 bg-white dark:bg-gradient-to-br dark:from-[#161c24] dark:to-[#0f141a] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-indigo-500/30 transition-all relative overflow-hidden shadow-lg">
                             <div className="w-10 h-10 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Zap className="w-5 h-5 text-indigo-400" />
+                                <Zap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                             </div>
                             <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">Live FPL Sync</h3>
-                                <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Live FPL Sync</h3>
+                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
                                     Direct integration with Official FPL APIs. Standings update automatically without manual spreadsheet entry.
                                 </p>
                             </div>
                         </div>
 
                         {/* Kickbacks / Chairman Incentive */}
-                        <div className="fc-landing-card md:col-span-6 bg-gradient-to-br from-[#191e24] to-[#10151b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-amber-500/30 transition-all relative overflow-hidden shadow-xl">
+                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#191e24] dark:to-[#10151b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-amber-500/30 transition-all relative overflow-hidden shadow-lg">
                             <div className="w-10 h-10 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Trophy className="w-5 h-5 text-amber-400" />
+                                <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">Chairman Commission</h3>
-                                <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Chairman Commission</h3>
+                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
                                     Stop running your league for free. The platform routes an automatic 4% commission to the Chairman's wallet upon every gameweek settlement.
                                 </p>
                             </div>
                         </div>
 
                         {/* Co-Chair Approval */}
-                        <div className="fc-landing-card md:col-span-6 bg-gradient-to-br from-[#161f26] to-[#0f151b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden shadow-xl">
+                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#161f26] dark:to-[#0f151b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden shadow-lg">
                             <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Shield className="w-5 h-5 text-emerald-400" />
+                                <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-white mb-2 tracking-tight">Co-Chair Verification</h3>
-                                <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Co-Chair Verification</h3>
+                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
                                     Every payout and member status update requires approval from your designated Co-Chair. Double protection against accidental clicks.
                                 </p>
                             </div>
                         </div>
 
                         {/* 1v1 Side Bets & Spectators with WhatsApp Victory Card Image */}
-                        <div className="fc-landing-card md:col-span-12 bg-gradient-to-br from-[#1d1a12] via-[#141b24] to-[#0b1016] rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 border-2 border-amber-500/35 hover:border-amber-500/55 transition-all relative overflow-hidden group shadow-2xl">
+                        <div className="fc-landing-card md:col-span-12 bg-gradient-to-br from-amber-50/50 via-white to-slate-50 dark:from-[#1d1a12] dark:via-[#141b24] dark:to-[#0b1016] rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 border-2 border-amber-500/35 hover:border-amber-500/55 transition-all relative overflow-hidden group shadow-xl">
                             <div className="space-y-4 md:max-w-xl relative z-10">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider">
                                     <Trophy className="w-3.5 h-3.5" /> WhatsApp Flex Cards
                                 </div>
-                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">1v1 Side Bets & Victory Cards</h3>
-                                <p className="text-gray-300 text-sm sm:text-base leading-relaxed">
+                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">1v1 Side Bets & Victory Cards</h3>
+                                <p className="text-slate-600 dark:text-gray-300 text-sm sm:text-base leading-relaxed">
                                     Spectators can follow the league for free and challenge friends to head-to-head cash side bets. Generate stunning branded Victory Cards to post directly to your WhatsApp Status and banter the group.
                                 </p>
                                 <div className="flex flex-wrap gap-3 pt-2">
@@ -633,11 +645,11 @@ export default function LandingPage() {
                     
                     <div className="relative z-10 max-w-3xl mx-auto space-y-6">
                         <div className="space-y-3">
-                            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-white leading-tight">
+                            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-slate-900 dark:text-white leading-tight">
                                 Your League <br />
-                                <span className="text-emerald-400">Starts Here.</span>
+                                <span className="text-emerald-600 dark:text-emerald-400">Starts Here.</span>
                             </h2>
-                            <p className="text-gray-400 text-sm sm:text-base md:text-lg font-medium max-w-xl mx-auto">
+                            <p className="text-slate-600 dark:text-gray-400 text-sm sm:text-base md:text-lg font-medium max-w-xl mx-auto">
                                 Stop managing WhatsApp chaos and spreadsheets. Set up your league in 3 minutes — every gameweek runs itself.
                             </p>
                         </div>
@@ -648,25 +660,25 @@ export default function LandingPage() {
                                 <span>Start a League</span>
                                 <span className="bg-[#002113] text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40">FREE</span>
                             </button>
-                            <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-[#161d24] hover:bg-[#1f2937] border border-white/10 transition-colors active:scale-95 text-white">
+                            <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#161d24] dark:hover:bg-[#1f2937] border border-slate-200 dark:border-white/10 transition-colors active:scale-95 text-slate-900 dark:text-white">
                                 Join With Code
                             </button>
                         </div>
-                        <p className="text-gray-500 text-xs">No credit card needed · Free for all managers · Chairman earns 4% commission</p>
+                        <p className="text-slate-500 dark:text-gray-500 text-xs">No credit card needed · Free for all managers · Chairman earns 4% commission</p>
                     </div>
                 </section>
             </main>
 
             {/* Footer */}
-            <footer className="fc-landing-footer w-full bg-[#0a0e17] border-t border-white/5">
+            <footer className="fc-landing-footer w-full bg-slate-100 dark:bg-[#0a0e17] border-t border-slate-200 dark:border-white/5">
                 <div className="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-6 md:px-12 py-8 max-w-7xl mx-auto gap-4">
-                    <div className="flex flex-wrap justify-center gap-5 sm:gap-8 text-xs font-medium text-gray-400">
-                        <Link to="/privacy-policy" className="hover:text-emerald-400 transition-colors">Privacy</Link>
-                        <Link to="/terms" className="hover:text-emerald-400 transition-colors">Terms</Link>
-                        <Link to="/faq" className="hover:text-emerald-400 transition-colors">FAQ</Link>
-                        <a href="mailto:support@fantasychama.co.ke" className="hover:text-emerald-400 transition-colors">Support</a>
+                    <div className="flex flex-wrap justify-center gap-5 sm:gap-8 text-xs font-medium text-slate-600 dark:text-gray-400">
+                        <Link to="/privacy-policy" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Privacy</Link>
+                        <Link to="/terms" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Terms</Link>
+                        <Link to="/faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">FAQ</Link>
+                        <a href="mailto:support@fantasychama.co.ke" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Support</a>
                     </div>
-                    <div className="text-gray-500 text-xs font-semibold text-center sm:text-right">
+                    <div className="text-slate-500 dark:text-gray-500 text-xs font-semibold text-center sm:text-right">
                         © 2026 Fantasy Chama. Built for Kenyan FPL leagues.
                     </div>
                 </div>
