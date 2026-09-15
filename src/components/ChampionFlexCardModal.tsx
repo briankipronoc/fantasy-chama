@@ -460,65 +460,73 @@ export default function ChampionFlexCardModal({
         </div>
 
         {/* Digital Flex Card Preview */}
-        <div className="relative rounded-2xl border-2 border-amber-400/40 bg-gradient-to-br from-[#1c1f26] via-[#10151d] to-[#080c10] p-5 shadow-xl text-center overflow-hidden mb-5">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500 blur-[100px] opacity-15 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500 blur-[100px] opacity-15 pointer-events-none" />
+        <div className="relative rounded-[2rem] border-2 border-amber-400/60 bg-gradient-to-b from-[#1f2530] via-[#121820] to-[#090d12] p-6 shadow-[0_0_50px_rgba(245,158,11,0.25)] text-center overflow-hidden mb-5 ring-1 ring-amber-300/30">
+          <div className="absolute top-0 right-0 w-56 h-56 bg-amber-500 blur-[100px] opacity-20 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-56 h-56 bg-emerald-500 blur-[100px] opacity-20 pointer-events-none" />
+
+          {/* Top Decorative Gold Line */}
+          <div className="w-24 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent mx-auto mb-3 rounded-full" />
 
           <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400 mb-1.5 flex items-center justify-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               {isSideBet ? `HEAD-TO-HEAD DUEL • ${leagueName}` : `GW${gameweek} CHAMPION • ${leagueName}`}
             </p>
 
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 p-[3px] shadow-[0_0_25px_rgba(245,158,11,0.4)] mx-auto my-2 flex items-center justify-center">
+            <div className="w-18 h-18 rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-yellow-600 p-[3px] shadow-[0_0_30px_rgba(245,158,11,0.45)] mx-auto my-2.5 flex items-center justify-center animate-pulse">
               <div className="w-full h-full bg-[#0b1014] rounded-full flex items-center justify-center">
-                <Trophy className="w-8 h-8 text-amber-400" />
+                <Trophy className="w-8 h-8 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
               </div>
             </div>
 
             {/* Editable Champion Name */}
-            <div className="flex items-center justify-center gap-1.5 my-1.5">
+            <div className="flex items-center justify-center gap-2 my-2">
               <input
                 type="text"
                 value={editableWinnerName}
                 onChange={(e) => setEditableWinnerName(e.target.value)}
                 placeholder="Champion Name"
-                className="text-xl md:text-2xl font-black text-white text-center bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-white/15 focus:border-amber-400 rounded-xl px-3 py-1 outline-none transition-all max-w-[280px]"
+                className="text-xl md:text-2xl font-black text-white text-center bg-white/5 hover:bg-white/10 focus:bg-white/10 border border-amber-400/40 focus:border-amber-400 rounded-xl px-3.5 py-1.5 outline-none transition-all max-w-[280px] shadow-inner"
                 title="Edit Champion name on card & banter"
               />
-              <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
+              <span className="text-[10px] font-bold text-amber-400 flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1.5 rounded-lg shadow-sm">
                 <Edit3 className="w-3 h-3" /> Edit
               </span>
             </div>
 
             {isSideBet ? (
-              <p className="text-xs text-red-400 font-semibold mt-0.5">
+              <p className="text-xs text-red-400 font-bold mt-0.5">
                 Defeated {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
               </p>
             ) : (
-              teamName && <p className="text-xs text-slate-400 font-semibold">{teamName}</p>
+              teamName && <p className="text-xs text-slate-300 font-bold">{teamName}</p>
             )}
 
             <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/10">
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 flex flex-col justify-center items-center text-center h-[76px]">
+              <div className="bg-white/[0.04] backdrop-blur-md rounded-2xl p-3 border border-white/10 flex flex-col justify-center items-center text-center h-[82px] shadow-inner">
                 <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
                   {isSideBet ? 'Humbled Rival' : 'Gameweek Score'}
                 </p>
-                <p className="text-xl font-black text-emerald-400 truncate">
+                <p className="text-2xl font-black text-emerald-400 truncate">
                   {isSideBet ? (defeatedOpponent || 'Rival') : `${points || 0} pts`}
                 </p>
               </div>
-              <div className="bg-amber-500/10 rounded-xl p-3 border border-amber-500/25 flex flex-col justify-center items-center text-center h-[76px]">
+              <div className="bg-amber-500/10 backdrop-blur-md rounded-2xl p-3 border border-amber-500/30 flex flex-col justify-center items-center text-center h-[82px] shadow-[0_0_15px_rgba(251,191,36,0.1)]">
                 <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
                   {isSideBet ? 'Duel Pot Won' : 'Pot Secured'}
                 </p>
-                <p className="text-xl font-black text-amber-300 tabular-nums">
+                <p className="text-2xl font-black text-amber-300 tabular-nums">
                   KES {amountWon.toLocaleString()}
                 </p>
               </div>
             </div>
-            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-3">
-              Verified Chama Settlement • Official FPL Sync
-            </p>
+
+            <div className="flex items-center justify-center gap-2 mt-3.5 pt-2 border-t border-white/5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Verified Chama Settlement • Official FPL Sync
+              </p>
+            </div>
           </div>
         </div>
 
