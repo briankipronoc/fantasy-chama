@@ -1724,7 +1724,7 @@ export default function MemberDashboard() {
                 </div>
 
                 {/* === ROW 1.5: Co-Chair Maker/Checker (Conditional) === */}
-                {currentUser?.id === coAdminId && pendingPayouts.length > 0 && (
+                {(currentUser?.id === coAdminId || currentUser?.authUid === coAdminId || currentUser?.role === 'co-chair') && pendingPayouts.length > 0 && (
                     <div className="mb-4 bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-[1.5rem] p-5 shadow-2xl overflow-hidden">
                         <div className="flex items-center gap-2 mb-4">
                             <AlertTriangle className="w-5 h-5 text-[#FBBF24] animate-pulse" />
@@ -2058,11 +2058,15 @@ export default function MemberDashboard() {
                             <div>
                                 <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Amount to Top Up</label>
                                 <input
-                                    type="number"
-                                    min="1"
-                                    max="300000"
-                                    value={topUpAmount}
-                                    onChange={(e) => setTopUpAmount(Math.max(1, Number(e.target.value || 0)))}
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={topUpAmount === 0 ? '' : topUpAmount}
+                                    placeholder="100"
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => {
+                                        const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                        setTopUpAmount(cleaned === '' ? 0 : Math.min(300000, parseInt(cleaned, 10)));
+                                    }}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
                                 />
                             </div>

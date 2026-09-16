@@ -25,6 +25,17 @@ const docCards = [
     to: '/manual/chairman',
   },
   {
+    icon: ShieldCheck,
+    color: 'text-emerald-400',
+    border: 'border-emerald-500/20',
+    bg: 'bg-emerald-500/5',
+    glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]',
+    title: 'Co-Chair Manual',
+    desc: 'Maker/Checker dual-signatory verification, approval queues, disbursement modes, and anti-fraud protocols.',
+    badge: '5 Sections',
+    to: '/manual/co-chair',
+  },
+  {
     icon: HelpCircle,
     color: 'text-blue-400',
     border: 'border-blue-500/20',

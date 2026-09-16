@@ -49,12 +49,12 @@ export default function ChairmanManual() {
       {/* 1 — League Setup */}
       <Section icon={Settings} color="text-amber-400" title="1. League Setup">
         <div className="space-y-4">
-          <Step n={1} title="Create your account" desc="Visit fantasy-chama.vercel.app → 'Start a League'. Enter your name, phone, email, and a strong password. Your phone is your login and payout destination." />
-          <Step n={2} title="Enter your FPL League ID" desc="Find this in your FPL mini-league URL: fantasy.premierleague.com/leagues/XXXXXX/standings/c — paste the number. The app auto-fetches the league name and member standings." />
-          <Step n={3} title="Set the economy" desc="Choose your GW stake, pot split (default 60% weekly / 40% season vault), and season winner distribution. Use the slider — it recalculates live." />
-          <Step n={4} title="Enroll members" desc="Use 'Import from FPL' to bulk-add members from your FPL standings, or add them manually. You can also give members the 6-digit invite PIN to self-enroll via the invite link." />
-          <Step n={5} title="Assign a Co-Chair" desc="On the Members step, tap any member and select 'Set as Co-Chair'. The Co-Chair approves all payouts — the Maker/Checker protocol prevents solo chairman fraud." />
-          <Tip>The invite PIN is shareable via WhatsApp. Members click the link, enter the PIN, and self-enroll. Their phone number becomes their login credential.</Tip>
+          <Step n={1} title="Create your account" desc="Visit fantasy-chama.vercel.app → 'Start a League'. Enter your name, phone, email, and password. Your phone is your login credential and payout remittance identifier." />
+          <Step n={2} title="Enter your FPL League ID or Standings Link" desc="Paste your FPL mini-league link or ID (e.g. fantasy.premierleague.com/leagues/XXXXXX/standings/c). The app automatically fetches your league name and imports manager squads." />
+          <Step n={3} title="Set the economy" desc="Set your Gameweek Stake (KES auto-deducted per round, e.g. KES 50), enter the Chairman's POCHI / M-PESA # for incoming funds, and adjust the Weekly Prize vs Grand Vault split ratio. In Pilot Phase, 98.5% is net to members (0% platform fee waived, 1.5% M-Pesa fee)." />
+          <Step n={4} title="Enroll members & self-onboarding" desc="Sync squads directly from FPL standings, or enter phone numbers. Managers without phone numbers can use the self-onboarding link or shareable 6-digit invite PIN." />
+          <Step n={5} title="Assign a Co-Chair (Dual Signatory)" desc="On the Members step, tap '+ Co-Chair' next to any trusted manager. The Co-Chair acts as the second signatory required to approve all prize payouts — the Maker/Checker protocol guarantees zero solo chairman tampering." />
+          <Tip>The invite link and WhatsApp share buttons let members join seamlessly. Their phone number becomes their verified wallet and login credential.</Tip>
         </div>
       </Section>
 

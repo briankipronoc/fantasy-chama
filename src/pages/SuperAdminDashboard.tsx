@@ -629,6 +629,7 @@ export default function SuperAdminDashboard() {
                                     min="0"
                                     max="100"
                                     value={platformSettings.mpesaCostPerTx}
+                                    onFocus={(e) => e.target.select()}
                                     onChange={(e) => setPlatformSettings(prev => ({ ...prev, mpesaCostPerTx: Math.max(0, Number(e.target.value)) }))}
                                     className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono focus:border-emerald-500 focus:outline-none"
                                     placeholder="15"
@@ -1086,6 +1087,7 @@ export default function SuperAdminDashboard() {
                                         min="1"
                                         max="38"
                                         value={resetTargetGw}
+                                        onFocus={(e) => e.target.select()}
                                         onChange={(e) => setResetTargetGw(Math.max(1, Math.min(38, Number(e.target.value || 1))))}
                                         className="w-24 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
                                     />

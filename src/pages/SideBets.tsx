@@ -757,11 +757,15 @@ export default function SideBets() {
                                     </span>
                                 </div>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     value={betStake}
-                                    onChange={e => setBetStake(e.target.value)}
-                                    placeholder="e.g. 500"
-                                    min="10"
+                                    onFocus={e => e.target.select()}
+                                    onChange={e => {
+                                        const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                                        setBetStake(cleaned);
+                                    }}
+                                    placeholder="500"
                                     className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"
                                 />
                             </div>

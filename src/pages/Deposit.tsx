@@ -225,9 +225,14 @@ export default function Deposit() {
                             <div className="flex items-center justify-center gap-2">
                                 <span className="text-lg font-bold text-gray-400">KES</span>
                                 <input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     value={customAmount}
-                                    onChange={e => setCustomAmount(e.target.value)}
+                                    onFocus={e => e.target.select()}
+                                    onChange={e => {
+                                        const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                                        setCustomAmount(cleaned);
+                                    }}
                                     placeholder="0"
                                     className="bg-transparent text-5xl font-black text-white tabular-nums w-36 border-b-2 border-[#10B981]/40 focus:border-[#10B981] outline-none text-center transition-colors"
                                     autoFocus

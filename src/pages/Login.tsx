@@ -1180,9 +1180,11 @@ export default function Login() {
                                                     <span className="text-[8px] text-gray-500 font-normal">from fantasy.premierleague.com</span>
                                                 </label>
                                                 <input
-                                                    type="number"
+                                                    type="text"
+                                                    inputMode="numeric"
                                                     value={customFplId}
-                                                    onChange={(e) => setCustomFplId(e.target.value)}
+                                                    onFocus={(e) => e.target.select()}
+                                                    onChange={(e) => setCustomFplId(e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, ''))}
                                                     placeholder="Numeric Team ID"
                                                     className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50 font-mono"
                                                 />

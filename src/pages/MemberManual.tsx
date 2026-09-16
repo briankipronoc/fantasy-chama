@@ -87,9 +87,9 @@ export default function MemberManual() {
           <Step n={1} title="Score the highest FPL points in your league" desc="The winner is the member with the highest GW total. If there's a tie, the FPL tiebreaker applies (bench boost etc)." />
           <Step n={2} title="Chairman resolves the GW" desc="After FPL marks the GW as finished, your Chairman clicks Resolve. The system triggers a Co-Chair approval and then dispatches your payout via M-Pesa." />
           <Step n={3} title="You receive M-Pesa confirmation" desc="Safaricom sends an SMS: 'You have received KES X from...' — your dashboard also shows a golden 'Champion of the Week' banner." />
-          <Step n={4} title="Confirm receipt" desc="Tap 'Confirm Receipt ✓' on the payout notification card in your dashboard. This closes the payout cycle and updates the ledger." />
+          <Step n={4} title="Confirm receipt" desc="Tap 'Confirm Receipt ✓' on the payout notification card in your dashboard. This closes the payout cycle and updates the public ledger." />
           <Step n={5} title="Request wallet credit instead" desc="If you prefer to keep the winnings inside your FantasyChama wallet (to cover future GWs), tap 'Request Wallet Credit' instead." />
-          <Tip>You win 91% of the total pot. The other 9% covers the Chairman's governance fee, FantasyChama platform fee, and M-Pesa network processing.</Tip>
+          <Tip>In Pilot Phase, 98.5% of the gross pot goes directly to members! The platform fee is 0% (waived), with only 1.5% network fee for M-Pesa. All payouts require Co-Chair dual confirmation before dispatch.</Tip>
         </div>
       </Section>
 

@@ -27,6 +27,7 @@ import {
   AlertCircle,
   Swords,
   Users,
+  Eye,
   Clock,
   Smartphone,
   Wallet,
@@ -326,7 +327,9 @@ export default function AdminCommandCenter() {
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberPhone, setNewMemberPhone] = useState("");
   const [newMemberTeam, setNewMemberTeam] = useState("");
+  const [newMemberFplId, setNewMemberFplId] = useState("");
   const [newMemberSecondTeam, setNewMemberSecondTeam] = useState("");
+  const [newMemberPlayMode, setNewMemberPlayMode] = useState<"pot" | "sidebets_only">("pot");
   const [isAddingMember, setIsAddingMember] = useState(false);
 
   // Pilot Pre-Fund Wallets State
@@ -1249,7 +1252,8 @@ export default function AdminCommandCenter() {
   const projectedRemainingGws = Math.max(0, 38 - (currentGwNumber || firestoreGw || 1));
   const projectedRemainingGross = projectedRemainingGws * Math.max(1, activeMembersCount) * (gameweekStake || 0);
   const projectedSeasonVault = Math.round((totalCollected + projectedRemainingGross) * (rules.vault / 100));
-  const isCoChairSession = !!coAdminId && coAdminId === activeUserId;
+  const currentMember = members.find((m) => m.id === activeUserId || m.authUid === activeUserId || (auth.currentUser?.uid && m.authUid === auth.currentUser.uid));
+  const isCoChairSession = (!!coAdminId && (coAdminId === activeUserId || (auth.currentUser?.uid && coAdminId === auth.currentUser.uid))) || (currentMember?.role === "co-chair");
   // highRiskTwoWeekMisses available via members.filter(...) if needed in future
   const sortedPendingPayouts = [...pendingPayouts]
     .filter((p: any) => p.status === "awaiting_approval")
@@ -1435,9 +1439,12 @@ export default function AdminCommandCenter() {
         fplTeamName: newMemberTeam,
         hasPaid: false,
         role: "member",
+        playMode: newMemberPlayMode,
         avatarSeed: Math.random().toString(36).substring(7),
         joinedAt: serverTimestamp(),
       };
+      if (newMemberFplId)
+        dataToSave.fplEntryId = Number(newMemberFplId);
       if (newMemberSecondTeam)
         dataToSave.secondFplTeamId = Number(newMemberSecondTeam);
 
@@ -1446,7 +1453,9 @@ export default function AdminCommandCenter() {
       setNewMemberName("");
       setNewMemberPhone("");
       setNewMemberTeam("");
+      setNewMemberFplId("");
       setNewMemberSecondTeam("");
+      setNewMemberPlayMode("pot");
 
       // Send Notification
       const notifsRef = collection(
@@ -2827,6 +2836,7 @@ burstFrame();
                 min="1"
                 max={Math.max(1, Number(pendingHQDebt || 1))}
                 value={hqPaymentAmount}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) =>
                   setHqPaymentAmount(Math.max(1, Number(e.target.value || 0)))
                 }
@@ -2915,6 +2925,7 @@ burstFrame();
                   min="1"
                   max={Math.max(1, Number(pendingHQDebt || 1))}
                   value={hqPaymentAmount}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) =>
                     setHqPaymentAmount(Math.max(1, Number(e.target.value || 0)))
                   }
@@ -3702,6 +3713,7 @@ burstFrame();
                     min="1"
                     max={Math.max(1, Number(pendingHQDebt || 1))}
                     value={hqPaymentAmount}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) =>
                       setHqPaymentAmount(
                         Math.max(1, Number(e.target.value || 0)),
@@ -3964,6 +3976,7 @@ burstFrame();
                               min="0"
                               max="100"
                               value={payoutCustomFee[payout.id] ?? payout.mpesaFee ?? (isPilotMode ? 15 : Math.round(Number(payout.grossPot || payout.amount || 0) * 0.015))}
+                              onFocus={(e) => e.target.select()}
                               onChange={(e) => setPayoutCustomFee(prev => ({ ...prev, [payout.id]: Math.max(0, Number(e.target.value)) }))}
                               className="w-16 bg-black/60 border border-white/10 rounded px-2 py-0.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
                               placeholder="15"
@@ -5024,16 +5037,18 @@ burstFrame();
                             KES
                           </span>
                           <input
-                            type="number"
-                            min="0"
+                            type="text"
+                            inputMode="numeric"
                             placeholder="0"
                             value={prefundData[m.id] || ""}
-                            onChange={(e) =>
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
                               setPrefundData((prev) => ({
                                 ...prev,
-                                [m.id]: e.target.value,
-                              }))
-                            }
+                                [m.id]: cleaned,
+                              }));
+                            }}
                             className="fc-prefund-input w-36 rounded-lg py-2 px-3 text-sm focus:border-[#FBBF24]/50 focus:outline-none transition-all tabular-nums text-right"
                           />
                         </div>
@@ -5133,10 +5148,14 @@ burstFrame();
                   <div className="relative">
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">KES</span>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
+                      inputMode="numeric"
                       value={fundAmount}
-                      onChange={(e) => setFundAmount(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                        setFundAmount(cleaned);
+                      }}
                       placeholder="e.g. 500"
                       className="fc-prefund-input w-full rounded-xl border pl-14 pr-4 py-3 text-base font-bold text-white focus:border-emerald-500"
                     />
@@ -5340,18 +5359,77 @@ burstFrame();
                       placeholder="e.g. 0712345678"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">
-                      FPL Team Name (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={newMemberTeam}
-                      onChange={(e) => setNewMemberTeam(e.target.value)}
-                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
-                      placeholder="e.g. Saka Potatoes"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                        FPL Team Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newMemberTeam}
+                        onChange={(e) => setNewMemberTeam(e.target.value)}
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                        placeholder="e.g. Saka Potatoes"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                        FPL Team ID (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={newMemberFplId}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setNewMemberFplId(e.target.value.replace(/[^0-9]/g, ""))}
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                        placeholder="e.g. 2205131"
+                      />
+                    </div>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                      Participation Mode
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setNewMemberPlayMode("pot")}
+                        className={clsx(
+                          "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                          newMemberPlayMode === "pot"
+                            ? "bg-[#10B981]/15 border-[#10B981]/50 text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                            : "bg-[#0b1014] border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                      >
+                        <p className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                          <Trophy className="w-3.5 h-3.5" /> Participate
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+                          Full cash pot player. Competes for weekly & season podium prizes.
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewMemberPlayMode("sidebets_only")}
+                        className={clsx(
+                          "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                          newMemberPlayMode === "sidebets_only"
+                            ? "bg-indigo-500/15 border-indigo-500/50 text-white shadow-[0_0_12px_rgba(99,102,241,0.15)]"
+                            : "bg-[#0b1014] border-white/10 text-gray-400 hover:border-white/20"
+                        )}
+                      >
+                        <p className="text-xs font-black text-indigo-400 flex items-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5" /> Spectate
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+                          Free viewer on standings & 1v1 wagers only. Excluded from pot fees.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">
                       2nd FPL Entry ID (Optional)
@@ -5541,6 +5619,7 @@ burstFrame();
                         min="1"
                         max="38"
                         value={cleanSlateTargetGw}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => setCleanSlateTargetGw(Math.max(1, Math.min(38, Number(e.target.value || 1))))}
                         className="w-24 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
                       />
@@ -5599,6 +5678,7 @@ burstFrame();
                     <input
                       type="number"
                       value={manualGwInput}
+                      onFocus={(e) => e.target.select()}
                       onChange={(e) => setManualGwInput(e.target.value)}
                       placeholder="e.g. 37"
                       className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"

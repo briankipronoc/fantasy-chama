@@ -8,6 +8,7 @@ import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPasswo
 import { normalizeKenyanPhone } from '../utils/phone';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import UserAvatar from '../components/UserAvatar';
 
 const STEPS = 5;
 
@@ -975,15 +976,16 @@ export default function AdminSetup() {
 
     const renderStep2 = () => (
         <div className={`space-y-6 ${stepAnimClass} w-full col-span-1 md:col-span-2`}>
-            <div className="text-center mb-8 relative z-10">
-                <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">Build Your League's Economy</h2>
+            <div className="text-center mb-4 relative z-10">
+                <h2 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight text-white">Build Your League's Economy</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Configure your chama rules, contributions, and prize distributions.</p>
             </div>
-            <div className="w-full max-w-5xl mx-auto space-y-6">
+            <div className="w-full max-w-5xl mx-auto space-y-4">
                 {/* Section 1: Core Configuration (Clean Top Card with 2-Column Responsive Inputs) */}
-                <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden">
-                    <div className="flex items-center gap-2 mb-4 text-white font-bold text-lg relative z-10">
-                        <Shield className="w-5 h-5 text-[#22c55e]" /> Core Configuration
+                <div className="bg-[#151c18] border border-white/5 p-4 sm:p-5 rounded-2xl shadow-lg relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-3 text-white font-black text-base md:text-lg relative z-10">
+                        <span className="size-6 rounded-full bg-[#22c55e] text-black text-xs font-black flex items-center justify-center shrink-0">1</span>
+                        <span>Core League Configuration</span>
                     </div>
                     <div className="space-y-4 relative z-10">
                         {/* FPL League Link / ID First for instant prefill */}
@@ -1171,42 +1173,28 @@ export default function AdminSetup() {
                 </div>
 
                 {/* Section 2: Side-by-Side Distribution Split (Left) and Pot Totals Live Preview (Right) with Matching Height */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-stretch">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
                     {/* Left Card: Distribution Split Logic */}
-                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex flex-col justify-between h-full">
+                    <div className="bg-[#151c18] border border-white/5 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col justify-between h-full">
                         <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2 text-white font-bold text-base md:text-lg">
-                                    <Trophy className="w-5 h-5 text-[#FBBF24]" /> Distribution Split Logic
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2 text-white font-black text-base md:text-lg">
+                                    <span className="size-6 rounded-full bg-[#22c55e] text-black text-xs font-black flex items-center justify-center shrink-0">2</span>
+                                    <span>Prize Distribution Split</span>
                                 </div>
                                 <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
                             </div>
 
-                            {/* Redesigned Percentage Split Cards & Slider with Equal Typography */}
-                            <div className="mb-4 space-y-3">
-                                <div className="grid grid-cols-2 gap-3">
-                                    {/* Weekly Prize Pill Card */}
-                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#22c55e]/30 flex flex-col items-center justify-between text-center relative overflow-hidden h-[120px]">
-                                        <div className="absolute top-2 right-2 flex gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => setWeeklyPrizePercent(Math.max(0, weeklyPrizePercent - 5))}
-                                                className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
-                                                title="Decrease 5%"
-                                            >
-                                                -
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setWeeklyPrizePercent(Math.min(100, weeklyPrizePercent + 5))}
-                                                className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
-                                                title="Increase 5%"
-                                            >
-                                                +
-                                            </button>
+                            {/* Redesigned Percentage Split Display (Unboxed Standout Hero) */}
+                            <div className="mb-5 space-y-4">
+                                <div className="py-5 px-4 sm:px-6 rounded-2xl bg-gradient-to-r from-[#22c55e]/10 via-black/40 to-[#FBBF24]/10 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-inner">
+                                    {/* Left: Weekly Prize Showcase */}
+                                    <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-left">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] animate-pulse" />
+                                            <span className="text-xs font-black uppercase tracking-widest text-[#22c55e]">Weekly Prize</span>
                                         </div>
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Weekly Prize</span>
-                                        <div className="flex items-baseline justify-center gap-1 my-0.5">
+                                        <div className="flex items-baseline gap-1 my-1">
                                             <input
                                                 type="text"
                                                 inputMode="numeric"
@@ -1217,23 +1205,60 @@ export default function AdminSetup() {
                                                     const cleaned = e.target.value.replace(/[^0-9]/g, '');
                                                     setWeeklyPrizePercent(cleaned === '' ? 0 : Math.min(100, parseInt(cleaned, 10)));
                                                 }}
-                                                className="text-3xl sm:text-4xl font-black font-mono text-[#22c55e] tabular-nums tracking-tight bg-transparent text-center w-20 outline-none border-b border-[#22c55e]/30 focus:border-[#22c55e] py-0.5"
+                                                className="text-4xl sm:text-5xl md:text-6xl font-black font-mono text-[#22c55e] tabular-nums tracking-tight bg-transparent text-center sm:text-left w-24 sm:w-28 outline-none border-b-2 border-[#22c55e]/40 focus:border-[#22c55e] transition-colors py-0.5"
                                             />
                                             <span className="text-2xl sm:text-3xl font-black font-mono text-[#22c55e]">%</span>
                                         </div>
-                                        <span className="text-[10px] font-bold text-gray-500">Top GW Score</span>
+                                        <div className="flex items-center gap-3 mt-1.5">
+                                            <span className="text-[11px] font-bold text-gray-400">Top GW Score</span>
+                                            <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-lg p-0.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWeeklyPrizePercent(Math.max(0, weeklyPrizePercent - 5))}
+                                                    className="w-6 h-6 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white text-xs font-black flex items-center justify-center transition-colors cursor-pointer"
+                                                    title="Decrease 5%"
+                                                >
+                                                    -5
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setWeeklyPrizePercent(Math.min(100, weeklyPrizePercent + 5))}
+                                                    className="w-6 h-6 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white text-xs font-black flex items-center justify-center transition-colors cursor-pointer"
+                                                    title="Increase 5%"
+                                                >
+                                                    +5
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* Grand Vault Pill Card */}
-                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#FBBF24]/30 flex flex-col items-center justify-between text-center h-[120px]">
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Grand Vault</span>
-                                        <div className="flex items-baseline justify-center gap-1 my-0.5">
-                                            <span className="text-3xl sm:text-4xl font-black font-mono text-[#FBBF24] tabular-nums tracking-tight py-0.5">
+                                    {/* Center Divider / Ratio Pill */}
+                                    <div className="shrink-0 flex flex-col items-center justify-center">
+                                        <div className="px-3.5 py-1.5 rounded-full bg-black/70 border border-white/15 shadow-xl text-center">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Split Ratio</span>
+                                            <div className="text-xs font-mono font-black text-white">
+                                                <span className="text-[#22c55e]">{weeklyPrizePercent}</span>
+                                                <span className="text-gray-500 mx-1">/</span>
+                                                <span className="text-[#FBBF24]">{100 - weeklyPrizePercent}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Grand Vault Showcase */}
+                                    <div className="flex-1 flex flex-col items-center sm:items-end text-center sm:text-right">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            <span className="text-xs font-black uppercase tracking-widest text-[#FBBF24]">Grand Vault</span>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-[#FBBF24] animate-pulse" />
+                                        </div>
+                                        <div className="flex items-baseline gap-1 my-1">
+                                            <span className="text-4xl sm:text-5xl md:text-6xl font-black font-mono text-[#FBBF24] tabular-nums tracking-tight py-0.5">
                                                 {100 - weeklyPrizePercent}
                                             </span>
                                             <span className="text-2xl sm:text-3xl font-black font-mono text-[#FBBF24]">%</span>
                                         </div>
-                                        <span className="text-[10px] font-bold text-gray-500">Season Podium</span>
+                                        <div className="mt-1.5">
+                                            <span className="text-[11px] font-bold text-gray-400">Season Podium</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1308,8 +1333,12 @@ export default function AdminSetup() {
                                                         min="1"
                                                         max={maxAllowedWinners}
                                                         value={normalizedCustomWinnerCount}
-                                                        onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
-                                                        className="mt-1 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2 text-sm font-bold text-white"
+                                                        onFocus={(e) => e.target.select()}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                            setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(val) || 1)));
+                                                        }}
+                                                        className="mt-1 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2 text-sm font-bold text-white focus:border-[#22c55e] outline-none"
                                                     />
                                                 </div>
                                             </div>
@@ -1322,12 +1351,13 @@ export default function AdminSetup() {
                                                             type="number"
                                                             min="0"
                                                             value={customWinnerRatios[idx] || '0'}
+                                                            onFocus={(e) => e.target.select()}
                                                             onChange={(e) => {
                                                                 const next = [...customWinnerRatios];
-                                                                next[idx] = e.target.value;
+                                                                next[idx] = e.target.value.replace(/^0+(?=\d)/, '');
                                                                 setCustomWinnerRatios(next);
                                                             }}
-                                                            className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
+                                                            className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:border-[#FBBF24] outline-none"
                                                         />
                                                         <span className="text-[10px] font-black text-gray-500">%</span>
                                                         <span className="w-14 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
@@ -1354,12 +1384,15 @@ export default function AdminSetup() {
                     </div>
 
                     {/* Right Card: Pot Totals Live Preview with Next Action */}
-                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex flex-col justify-between h-full">
+                    <div className="bg-[#151c18] border border-white/5 p-4 sm:p-5 rounded-2xl shadow-xl flex flex-col justify-between h-full">
                         <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <h3 className="font-extrabold text-white text-base md:text-lg">Pot Totals (Live Preview)</h3>
-                                    <p className="text-[11px] text-[#22c55e] font-bold mt-0.5">Projected for {estimatedMembers} members · KES {monthlyFee}/GW</p>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="size-6 rounded-full bg-[#22c55e] text-black text-xs font-black flex items-center justify-center shrink-0">3</span>
+                                    <div>
+                                        <h3 className="font-extrabold text-white text-base md:text-lg">Pot Totals (Live Preview)</h3>
+                                        <p className="text-[11px] text-[#22c55e] font-bold mt-0.5">Projected for {estimatedMembers} members · KES {monthlyFee}/GW</p>
+                                    </div>
                                 </div>
                                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
                                     Pilot Phase
@@ -1476,7 +1509,7 @@ export default function AdminSetup() {
                 </div>
                 <div>
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-sky-300">Co-Chair — What is it?</p>
-                    <p className="text-[11px] text-gray-300 mt-1">The Co-Chair acts as a <strong className="text-white">second signatory</strong>. Every payout requires their approval before M-Pesa fires — your built-in fraud check. Tap ⭐ on a member to assign them.</p>
+                    <p className="text-[11px] text-gray-300 mt-1">The Co-Chair acts as a <strong className="text-white">second signatory</strong>. Every payout requires their approval before M-Pesa fires — your built-in fraud check. Tap <strong className="text-amber-300">+ Co-Chair</strong> on any member to assign them.</p>
                 </div>
             </div>
 
@@ -1641,9 +1674,7 @@ export default function AdminSetup() {
                     {/* Chairman card — always pinned at top */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border bg-[#FBBF24]/10 border-[#FBBF24]/30 shadow-sm">
                         <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-xl flex items-center justify-center font-black text-sm border bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30 shrink-0">
-                                {fullName ? fullName.charAt(0).toUpperCase() : "C"}
-                            </div>
+                            <UserAvatar name={fullName || "Chairman"} size="sm" />
                             <div>
                                 <div className="flex items-center gap-2">
                                     <p className="font-bold text-sm text-white leading-tight">{fullName || "Chairman"}</p>
@@ -1673,14 +1704,7 @@ export default function AdminSetup() {
                             )}
                         >
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className={clsx(
-                                    "size-9 rounded-xl flex items-center justify-center font-bold text-sm border shrink-0",
-                                    coAdminIndex === i
-                                        ? "bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30"
-                                        : "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/25"
-                                )}>
-                                    {m.displayName ? m.displayName.charAt(0).toUpperCase() : "M"}
-                                </div>
+                                <UserAvatar name={m.displayName || m.fplTeamName} size="sm" />
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
                                         <p className="font-bold text-sm text-white truncate">
@@ -1696,6 +1720,11 @@ export default function AdminSetup() {
                                                 Dual
                                             </span>
                                         )}
+                                        {coAdminIndex === i && (
+                                            <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded tracking-wider uppercase shrink-0 flex items-center gap-1 shadow-sm">
+                                                <Shield className="w-2.5 h-2.5 text-amber-400" /> Co-Chair
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="text-[11px] text-gray-400 mt-0.5 truncate">
                                         Manager: <span className="text-gray-200">{m.displayName}</span>
@@ -1708,32 +1737,35 @@ export default function AdminSetup() {
                                 </div>
                             </div>
 
-                            {/* Direct Inline Phone Input & Controls */}
+                            {/* Direct Inline Controls */}
                             <div className="flex items-center gap-2 shrink-0">
-                                <div className="relative">
-                                    <input
-                                        type="tel"
-                                        placeholder={enrollmentMode === 'self' ? "07... (or leave for link)" : "07... (M-Pesa #)"}
-                                        value={m.phone}
-                                        onChange={e => {
-                                            const val = normalizeKenyanPhone(e.target.value);
-                                            setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
-                                        }}
-                                        className="w-44 sm:w-52 bg-[#0e141a] border border-white/10 focus:border-[#10B981]/50 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none transition-colors"
-                                    />
-                                </div>
+                                {enrollmentMode === 'manual' && (
+                                    <div className="relative">
+                                        <input
+                                            type="tel"
+                                            placeholder="07... (M-Pesa #)"
+                                            value={m.phone}
+                                            onChange={e => {
+                                                const val = normalizeKenyanPhone(e.target.value);
+                                                setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
+                                            }}
+                                            className="w-40 sm:w-48 bg-[#0e141a] border border-white/10 focus:border-[#10B981]/50 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none transition-colors"
+                                        />
+                                    </div>
+                                )}
                                 <button
                                     type="button"
-                                    title={coAdminIndex === i ? "Remove Co-Chair" : "Make Co-Chair (second payout signatory)"}
+                                    title={coAdminIndex === i ? "Remove Co-Chair (Dual Signatory)" : "Assign as Co-Chair (Second Signatory for Payout Approvals)"}
                                     onClick={() => setCoAdminIndex(coAdminIndex === i ? null : i)}
                                     className={clsx(
-                                        "w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 cursor-pointer",
+                                        "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all shrink-0 cursor-pointer border",
                                         coAdminIndex === i
-                                            ? "bg-[#FBBF24] text-black shadow-[0_0_10px_rgba(251,191,36,0.4)]"
-                                            : "bg-white/5 text-gray-500 hover:bg-white/10 hover:text-[#FBBF24] border border-white/10"
+                                            ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                                            : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-amber-300 border-white/10"
                                     )}
                                 >
-                                    ⭐
+                                    <Shield className={clsx("w-3.5 h-3.5", coAdminIndex === i ? "text-amber-400" : "text-gray-400")} />
+                                    <span>{coAdminIndex === i ? "Co-Chair" : "+ Co-Chair"}</span>
                                 </button>
                                 <button
                                     type="button"
@@ -1743,6 +1775,7 @@ export default function AdminSetup() {
                                         else if (coAdminIndex !== null && coAdminIndex > i) setCoAdminIndex(coAdminIndex - 1);
                                     }}
                                     className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all text-xs shrink-0 cursor-pointer"
+                                    title="Remove Manager"
                                 >
                                     ✕
                                 </button>
@@ -2155,13 +2188,8 @@ export default function AdminSetup() {
 
             <div className="w-full max-w-screen-xl relative mx-auto my-auto z-10 flex flex-col justify-center items-center h-auto min-h-max">
                 {step > 1 && step < STEPS && (
-                    <div className={clsx("w-full mx-auto relative group mt-8 mb-6 md:mb-8",
+                    <div className={clsx("w-full mx-auto relative group mt-6 mb-4 md:mb-6",
                         step === 2 ? "max-w-5xl" : step === 3 ? "max-w-4xl" : "max-w-3xl")}>
-                    <button onClick={prevStep} className="absolute -top-8 left-0 text-gray-500 hover:text-white flex items-center gap-1 transition-colors text-[11px] font-bold"
-                        style={{ textTransform: 'none', letterSpacing: 'normal' }}>
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </button>
-
                     {/* Labeled step progress indicator */}
                     <div className="flex gap-2 w-full">
                         {[

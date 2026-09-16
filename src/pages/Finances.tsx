@@ -873,11 +873,14 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                             <div className="space-y-2.5">
                                 <input
-                                    type="number"
-                                    min={1}
-                                    step={1}
+                                    type="text"
+                                    inputMode="numeric"
                                     value={cashTopUpAmount}
-                                    onChange={(e) => setCashTopUpAmount(e.target.value)}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => {
+                                        const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                                        setCashTopUpAmount(cleaned);
+                                    }}
                                     placeholder="Amount (KES)"
                                     className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
                                 />

@@ -1137,11 +1137,16 @@ export default function Profile() {
                                         </label>
                                     </div>
                                     <input
-                                        type="number"
-                                        min="100"
+                                        type="text"
+                                        inputMode="numeric"
                                         disabled={isFinancialsLocked}
-                                        value={gameweekStake}
-                                        onChange={(e) => setMonthlyContribution(Number(e.target.value))}
+                                        value={gameweekStake === 0 ? '' : gameweekStake}
+                                        placeholder="50"
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                            setMonthlyContribution(cleaned === '' ? 0 : parseInt(cleaned, 10));
+                                        }}
                                         className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
                                 </div>
@@ -1295,7 +1300,11 @@ export default function Profile() {
                                                         max={maxAllowedWinners}
                                                         disabled={isFinancialsLocked}
                                                         value={normalizedCustomWinnerCount}
-                                                        onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
+                                                        onFocus={(e) => e.target.select()}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                                            setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(val) || 1)));
+                                                        }}
                                                         className="fc-custom-winners-count mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                                                     />
                                                     <p className="fc-custom-winners-meta text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (cannot exceed active members).</p>
@@ -1310,9 +1319,10 @@ export default function Profile() {
                                                                 min="0"
                                                                 disabled={isFinancialsLocked}
                                                                 value={customWinnerRatios[idx] || '0'}
+                                                                onFocus={(e) => e.target.select()}
                                                                 onChange={(e) => {
                                                                     const next = [...customWinnerRatios];
-                                                                    next[idx] = e.target.value;
+                                                                    next[idx] = e.target.value.replace(/^0+(?=\d)/, '');
                                                                     setCustomWinnerRatios(next);
                                                                 }}
                                                                 className="fc-custom-winners-input flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
