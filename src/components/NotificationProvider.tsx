@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { db } from '../firebase';
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { toast, Toaster } from 'react-hot-toast';
 import { useStore } from '../store/useStore';
 
@@ -82,13 +82,32 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const notifRef = collection(db, 'leagues', activeLeagueId, 'notifications');
         const q = query(notifRef, orderBy('timestamp', 'desc'), limit(50));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+            let seasonResetTime: Date | null = null;
+            try {
+                const leagueDoc = await getDoc(doc(db, 'leagues', activeLeagueId));
+                if (leagueDoc.exists()) {
+                    const data = leagueDoc.data();
+                    if (data?.seasonResetAt?.toDate) {
+                        seasonResetTime = data.seasonResetAt.toDate();
+                    }
+                }
+            } catch {}
+
             const notifs = snapshot.docs.map(d => ({
                 id: d.id,
                 ...d.data()
             })) as Notification[];
 
-            setNotifications(notifs);
+            // Filter out notifications created prior to the last season archive/reset
+            const currentSeasonNotifs = seasonResetTime
+                ? notifs.filter(n => {
+                    const notifDate = n.timestamp?.toDate ? n.timestamp.toDate() : new Date(0);
+                    return notifDate >= seasonResetTime!;
+                })
+                : notifs;
+
+            setNotifications(currentSeasonNotifs);
 
             // Phase 10.5 Toast Rules:
             // - Only fire for 'transactionSuccess' type (financial confirmations)

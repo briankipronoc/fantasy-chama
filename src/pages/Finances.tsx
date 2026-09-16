@@ -1513,6 +1513,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                         });
                     })()}
                     chairmanName={leagueSettings?.chairmanName || 'Chairman'}
+                    leagueId={activeLeagueId || undefined}
+                    members={activeMembers}
                 />
             )}
 

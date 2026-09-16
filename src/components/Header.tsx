@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
@@ -85,9 +85,13 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
         markAllAsRead();
     };
 
-    const handleNotificationClick = async (notificationId: string, isRead: boolean) => {
+    const handleNotificationClick = async (notifOrId: any, isRead: boolean) => {
         if (isRead) return;
-        await markAsRead(notificationId);
+        if (typeof notifOrId === 'object' && Array.isArray(notifOrId.allIds)) {
+            await Promise.all(notifOrId.allIds.map((id: string) => markAsRead(id)));
+        } else if (typeof notifOrId === 'string') {
+            await markAsRead(notifOrId);
+        }
     };
 
     const notificationCategory = (notif: any): 'payout' | 'security' | 'updates' => {
@@ -99,8 +103,15 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
 
     const handleMarkVisibleAsRead = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        const targets = filteredNotifs.filter(n => !n.readBy?.includes(realActiveUser));
-        await Promise.all(targets.map(n => markAsRead(n.id)));
+        const allTargetIds: string[] = [];
+        filteredNotifs.forEach((n: any) => {
+            if (n.allIds && Array.isArray(n.allIds)) {
+                allTargetIds.push(...n.allIds);
+            } else if (!n.readBy?.includes(realActiveUser)) {
+                allTargetIds.push(n.id);
+            }
+        });
+        await Promise.all(Array.from(new Set(allTargetIds)).map(id => markAsRead(id)));
     };
 
     const formatMessageTime = (ts: any) => {
@@ -126,8 +137,80 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const systemNotifs = visibleNotifs.filter(n => !n.targetMemberId && n.type !== 'transactionSuccess');
 
     const displayNotifs = activeTab === 'personal' ? personalNotifs : systemNotifs;
-    const filteredNotifs = displayNotifs.filter((notif) => notifView === 'all' ? true : notificationCategory(notif) === notifView);
-    const unreadFilteredCount = filteredNotifs.filter(n => !n.readBy?.includes(realActiveUser)).length;
+    const rawFilteredNotifs = displayNotifs.filter((notif) => notifView === 'all' ? true : notificationCategory(notif) === notifView);
+
+    // Smart notification grouping: combine props or repetitive sync notifications for the same recipient & GW into a clean single item
+    const filteredNotifs = useMemo(() => {
+        const groupedMap = new Map<string, any>();
+        const result: any[] = [];
+
+        for (const notif of rawFilteredNotifs) {
+            const msg = String(notif?.message || '');
+            // Detect "sent <emoji> props to <Name> for GW<X>" pattern
+            const propsMatch = msg.match(/^(.+?)\s+sent\s+(.+?)\s+props\s+to\s+(.+?)\s+for\s+(GW\d+)/i);
+            
+            if (propsMatch) {
+                const [, sender, emoji, recipient, gw] = propsMatch;
+                const groupKey = `props_${recipient.trim().toLowerCase()}_${gw.trim().toLowerCase()}`;
+                
+                if (groupedMap.has(groupKey)) {
+                    const existing = groupedMap.get(groupKey);
+                    if (!existing.senders.includes(sender)) {
+                        existing.senders.push(sender);
+                    }
+                    if (!existing.emojis.includes(emoji)) {
+                        existing.emojis.push(emoji);
+                    }
+                    existing.allIds.push(notif.id);
+                    existing.count += 1;
+                    // If any in group is unread, group counts as unread
+                    if (!notif.readBy?.includes(realActiveUser)) {
+                        existing.isUnread = true;
+                    }
+                } else {
+                    const groupItem = {
+                        ...notif,
+                        isGroup: true,
+                        count: 1,
+                        senders: [sender],
+                        emojis: [emoji],
+                        recipient,
+                        gw,
+                        allIds: [notif.id],
+                        isUnread: !notif.readBy?.includes(realActiveUser),
+                        originalMessage: msg
+                    };
+                    groupedMap.set(groupKey, groupItem);
+                    result.push(groupItem);
+                }
+            } else {
+                result.push({
+                    ...notif,
+                    allIds: [notif.id],
+                    isUnread: !notif.readBy?.includes(realActiveUser)
+                });
+            }
+        }
+
+        // Format grouped props messages
+        return result.map(item => {
+            if (item.isGroup && item.count > 1) {
+                const sendersText = item.senders.length === 2 
+                    ? `${item.senders[0]} and ${item.senders[1]}`
+                    : item.senders.length > 2 
+                        ? `${item.senders[0]}, ${item.senders[1]} +${item.senders.length - 2} others`
+                        : item.senders[0];
+                const emojisJoined = item.emojis.join(' ');
+                return {
+                    ...item,
+                    message: `${sendersText} sent ${emojisJoined} props to ${item.recipient} for ${item.gw}! (${item.count} cheers)`
+                };
+            }
+            return item;
+        });
+    }, [rawFilteredNotifs, realActiveUser]);
+
+    const unreadFilteredCount = filteredNotifs.filter((n: any) => n.isUnread).length;
     const unreadPersonalCount = personalNotifs.filter(n => !n.readBy?.includes(realActiveUser)).length;
     const unreadSystemCount = systemNotifs.filter(n => !n.readBy?.includes(realActiveUser)).length;
 
@@ -375,7 +458,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     className="fc-dropdown-scroll max-h-[380px] overflow-y-auto"
                                 >
                                     <div className={clsx('fc-dropdown-scroll max-h-[380px] overflow-y-auto p-2 space-y-2 transition-all duration-300 ease-out', notifListMotion)}>
-                                        {filteredNotifs.length > 0 ? filteredNotifs.map((notif) => {
+                                        {filteredNotifs.length > 0 ? filteredNotifs.map((notif: any) => {
                                             const isRead = notif.readBy?.includes(realActiveUser);
                                             const isFinancial = notif.type === 'transactionSuccess' || notif.isWinnerEvent;
                                             const isWarning = notif.type === 'warning';
@@ -384,11 +467,11 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                     key={notif.id}
                                                     role="button"
                                                     tabIndex={0}
-                                                    onClick={() => handleNotificationClick(notif.id, isRead)}
+                                                    onClick={() => handleNotificationClick(notif, isRead)}
                                                     onKeyDown={(e) => {
                                                         if (e.key === 'Enter' || e.key === ' ') {
                                                             e.preventDefault();
-                                                            handleNotificationClick(notif.id, isRead);
+                                                            handleNotificationClick(notif, isRead);
                                                         }
                                                     }}
                                                     className={clsx(
@@ -455,7 +538,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                         aria-label={isRead ? 'Already read' : 'Mark notification as read'}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handleNotificationClick(notif.id, isRead);
+                                                            handleNotificationClick(notif, isRead);
                                                         }}
                                                         className={clsx(
                                                             "mt-1 flex-shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all",

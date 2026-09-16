@@ -4,6 +4,12 @@ import { Trophy, Download, Share2, Copy, Check, ShieldCheck, X } from 'lucide-re
 import confetti from 'canvas-confetti';
 import { haptics } from '../utils/haptics';
 
+import { AlertTriangle, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
+import type { Member } from '../store/useStore';
+
 export interface SeasonWinnerTier {
   rank: number;
   name: string;
@@ -20,6 +26,8 @@ interface SeasonCeremonyModalProps {
   seasonVaultTotal: number;
   winners: SeasonWinnerTier[];
   chairmanName?: string;
+  leagueId?: string;
+  members?: Member[];
 }
 
 export default function SeasonCeremonyModal({
@@ -29,10 +37,14 @@ export default function SeasonCeremonyModal({
   seasonVaultTotal,
   winners,
   chairmanName = 'Chairman',
+  leagueId,
+  members = [],
 }: SeasonCeremonyModalProps) {
-  const [activeTab, setActiveTab] = useState<'podium' | 'certificate'>('podium');
+  const [activeTab, setActiveTab] = useState<'podium' | 'certificate' | 'disbursement'>('podium');
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isDisbursing, setIsDisbursing] = useState(false);
+  const [confirmFinalReset, setConfirmFinalReset] = useState(false);
   const certRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -227,7 +239,7 @@ export default function SeasonCeremonyModal({
           </button>
         </div>
 
-        <div className="flex gap-2 p-1 bg-black/40 border border-white/5 rounded-2xl w-fit mb-6">
+        <div className="flex flex-wrap gap-2 p-1 bg-black/40 border border-white/5 rounded-2xl w-fit mb-6">
           <button
             onClick={() => { haptics.selection(); setActiveTab('podium'); }}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
@@ -248,6 +260,18 @@ export default function SeasonCeremonyModal({
           >
             📜 Digital Winner Certificate
           </button>
+          {leagueId && (
+            <button
+              onClick={() => { haptics.selection(); setActiveTab('disbursement'); }}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'disbursement'
+                  ? 'bg-emerald-500 text-black shadow-md'
+                  : 'text-emerald-400 hover:text-emerald-300'
+              }`}
+            >
+              💰 Disburse & Refund Wallets
+            </button>
+          )}
         </div>
 
         {activeTab === 'podium' ? (
@@ -372,7 +396,7 @@ export default function SeasonCeremonyModal({
               </button>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'certificate' ? (
           <div className="space-y-6">
             <div
               ref={certRef}
@@ -428,6 +452,161 @@ export default function SeasonCeremonyModal({
                 <Share2 className="w-4 h-4" />
                 Share Champion to WhatsApp
               </button>
+            </div>
+          </div>
+        ) : (
+          /* Season Disbursement & Balance Refund View */
+          <div className="space-y-6">
+            <div className="p-5 rounded-2xl bg-slate-900/70 border border-emerald-500/20 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-400 font-black text-sm uppercase tracking-wider">
+                <ArrowRightLeft className="w-4 h-4" />
+                <span>End-of-Season Disbursal & Refund Protocol</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                When a season concludes, winners are paid out from the Season Vault, and any extra funded member balances are returned back to their M-Pesa accounts. Wallets are cleanly zeroed out, and old notifications/records are archived so your next season starts completely fresh.
+              </p>
+            </div>
+
+            {/* Refundable Members Preview */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">
+                Member Wallet Balances to be Refunded / Settled
+              </h4>
+              <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+                {members.length === 0 ? (
+                  <p className="text-xs text-gray-500 py-3 text-center">No active members found.</p>
+                ) : (
+                  members.map((m) => {
+                    const balance = Number(m.walletBalance || 0);
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/5 text-xs"
+                      >
+                        <div>
+                          <p className="font-bold text-white">{m.displayName || 'Member'}</p>
+                          <p className="text-[11px] text-gray-400">{m.phone || 'No phone'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-mono font-bold ${balance > 0 ? 'text-emerald-400' : 'text-gray-400'}`}>
+                            KES {balance.toLocaleString()}
+                          </p>
+                          <span className="text-[10px] text-gray-500">
+                            {balance > 0 ? 'Refund to M-Pesa' : 'Settled (KES 0)'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Warning and Action Card */}
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-black text-amber-300 uppercase tracking-wider">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span>Confirm Final Settlement & Archive Season</span>
+              </div>
+              <p className="text-amber-200/80">
+                This will record all season vault prize payouts, issue wallet refund entries for members who overfunded, reset active wallet balances to KES 0, and archive previous season notifications.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+              {!confirmFinalReset ? (
+                <button
+                  onClick={() => setConfirmFinalReset(true)}
+                  className="w-full py-3.5 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/50 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <ArrowRightLeft className="w-4 h-4" />
+                  Proceed to Payout & Refund Wallets
+                </button>
+              ) : (
+                <div className="w-full flex flex-col sm:flex-row items-center gap-3">
+                  <button
+                    disabled={isDisbursing}
+                    onClick={async () => {
+                      if (!leagueId) return;
+                      setIsDisbursing(true);
+                      haptics.selection();
+                      try {
+                        const batch = writeBatch(db);
+
+                        // 1. Record season winner payouts
+                        winners.forEach((w) => {
+                          if (w.amount > 0) {
+                            const payoutRef = doc(collection(db, 'leagues', leagueId, 'transactions'));
+                            batch.set(payoutRef, {
+                              type: 'season_vault_payout',
+                              memberName: w.name,
+                              amount: w.amount,
+                              rank: w.rank,
+                              teamName: w.teamName,
+                              timestamp: serverTimestamp(),
+                              status: 'completed',
+                              description: `Season Vault Tier #${w.rank} Prize (${w.percent}%)`
+                            });
+                          }
+                        });
+
+                        // 2. Refund excess member wallets and reset to 0
+                        members.forEach((m) => {
+                          const bal = Number(m.walletBalance || 0);
+                          if (bal > 0) {
+                            const refundRef = doc(collection(db, 'leagues', leagueId, 'transactions'));
+                            batch.set(refundRef, {
+                              type: 'season_wallet_refund',
+                              memberId: m.id,
+                              memberName: m.displayName,
+                              phone: m.phone,
+                              amount: bal,
+                              timestamp: serverTimestamp(),
+                              status: 'completed',
+                              description: `End of Season Wallet Refund to M-Pesa`
+                            });
+                          }
+                          const memberRef = doc(db, 'leagues', leagueId, 'members', m.id);
+                          batch.update(memberRef, {
+                            walletBalance: 0,
+                            hasPaid: false
+                          });
+                        });
+
+                        // 3. Mark league season reset and archive notifications
+                        const leagueRef = doc(db, 'leagues', leagueId);
+                        batch.update(leagueRef, {
+                          seasonResetAt: serverTimestamp(),
+                          seasonVaultTotal: 0,
+                          lastCeremonyAt: serverTimestamp()
+                        });
+
+                        await batch.commit();
+
+                        toast.success('Season Vault distributed and member wallets refunded successfully!');
+                        haptics.success();
+                        onClose();
+                      } catch (err: any) {
+                        console.error('Failed to disburse season vault:', err);
+                        toast.error(err?.message || 'Failed to disburse vault and refund wallets.');
+                      } finally {
+                        setIsDisbursing(false);
+                      }
+                    }}
+                    className="w-full sm:flex-1 py-3.5 px-6 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isDisbursing ? 'animate-spin' : ''}`} />
+                    {isDisbursing ? 'Processing Refunds...' : 'Confirm Disbursal, Refund & Reset'}
+                  </button>
+                  <button
+                    disabled={isDisbursing}
+                    onClick={() => setConfirmFinalReset(false)}
+                    className="w-full sm:w-auto py-3.5 px-5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white font-black text-xs uppercase tracking-wider cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

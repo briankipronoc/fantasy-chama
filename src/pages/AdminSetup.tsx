@@ -153,10 +153,13 @@ export default function AdminSetup() {
         : getPresetDistribution(effectiveSeasonWinnersCount);
 
     const totalMonthlyPool = monthlyFee * normalizedEstimatedMembers;
-    const escrowFee = Math.round(totalMonthlyPool * 0.10);
-    const chairmanCut = Math.round(totalMonthlyPool * 0.035);
+    // Pilot phase calculation: Only M-Pesa transaction fees (1.5%) are deducted for payouts.
+    // Platform fee (5%) and Chairman kickback (3.5%) are configured but temporarily waived for pilot.
+    const isPilotPhase = true;
+    const chairmanCut = isPilotPhase ? 0 : Math.round(totalMonthlyPool * 0.035);
     const mpesaFee = Math.round(totalMonthlyPool * 0.015);
-    const platformCut = escrowFee - chairmanCut - mpesaFee;
+    const platformCut = isPilotPhase ? 0 : Math.round(totalMonthlyPool * 0.05);
+    const escrowFee = chairmanCut + mpesaFee + platformCut;
     const netPool = totalMonthlyPool - escrowFee;
 
     const weeklyPrize = Math.round(netPool * (weeklyPrizePercent / 100));
@@ -209,6 +212,18 @@ export default function AdminSetup() {
 
     const nextStep = async () => {
         if (step === 1) {
+            if (!fullName.trim()) {
+                toast.error('Please enter your full name.');
+                return;
+            }
+            if (!email.trim()) {
+                toast.error('Please enter your email address.');
+                return;
+            }
+            if (!phone.trim()) {
+                toast.error('Please enter your M-Pesa phone number.');
+                return;
+            }
             // If already authenticated as this chairman, proceed directly to Step 2
             if (auth.currentUser && auth.currentUser.email?.toLowerCase() === email.trim().toLowerCase()) {
                 setRole('admin');
@@ -275,9 +290,21 @@ export default function AdminSetup() {
             setRole('admin');
         }
         if (step === 2) {
+            if (!leagueName.trim()) {
+                toast.error('Please enter a league name or paste an FPL league link/ID.');
+                return;
+            }
+            if (!monthlyFee || monthlyFee < 50) {
+                toast.error('Please enter a Gameweek stake (minimum KES 50).');
+                return;
+            }
             setLeagueSettings({ name: leagueName, monthlyFee, inviteCode: generatedCode });
         }
         if (step === 3) {
+            if (members.length < 1) {
+                toast.error('Please add at least 1 member (or import via FPL) before proceeding.');
+                return;
+            }
             // Commit members globally
             members.forEach((m) => addMemberGlobal({ ...m, hasPaid: false, walletBalance: 0 }));
         }
@@ -286,7 +313,6 @@ export default function AdminSetup() {
             return;
         }
         if (step < STEPS) { setStepDirection('forward'); setStep(step + 1); }
-
     };
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -821,19 +847,11 @@ export default function AdminSetup() {
                             <Shield className="w-5 h-5 text-[#22c55e]" /> Core Configuration
                         </div>
                         <div className="space-y-4 relative z-10">
-                            <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                    League Name
-                                    {fplFetchStatus === 'success' && (
-                                        <span className="ml-2 text-[9px] text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20 normal-case tracking-normal">Auto-filled from FPL</span>
-                                    )}
-                                    <Tooltip text="Enter your FPL League ID below to auto-fill this, or type manually." />
-                                </label>
-                                <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. Nairobi Premier League" />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                    FPL League ID <span className="text-gray-600 font-medium normal-case tracking-normal">(Optional — speeds up setup)</span>
+                            {/* FPL League Link / ID First for instant prefill */}
+                            <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4">
+                                <label className="block text-[10px] md:text-xs font-black text-emerald-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
+                                    <span>Paste FPL League Link or ID (Recommended)</span>
+                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 normal-case font-bold">1-Click Auto-Fill</span>
                                 </label>
                                 <input type="text" value={fplLeagueId} onChange={e => {
                                     let val = e.target.value.trim();
@@ -868,26 +886,38 @@ export default function AdminSetup() {
                                     } else {
                                         setFplFetchStatus('idle');
                                     }
-                                }} className={inputClasses} placeholder="e.g. 123456 or paste your FPL Standings URL" />
-                                <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
-                                    <strong className="text-gray-400">Where to find it:</strong> Open Fantasy Premier League → My Leagues → click your mini-league → copy the number in the URL (e.g. fantasy.premierleague.com/leagues/<strong className="text-amber-400">123456</strong>/standings)
+                                }} className={inputClasses} placeholder="Paste your FPL League URL or 6-digit ID" />
+                                <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                                    Linking with your FPL link automatically pulls your <strong>League Name</strong> and <strong>FPL Managers</strong> so setup is instant and hassle-free.
                                 </p>
                                 {fplFetchStatus === 'loading' && (
-                                    <p className="text-[10px] text-[#FBBF24] mt-1.5 flex items-center gap-1 font-bold">
-                                        <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Fetching league from FPL...
+                                    <p className="text-[11px] text-[#FBBF24] mt-2 flex items-center gap-1.5 font-bold">
+                                        <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Connecting to Official FPL servers & auto-filling...
                                     </p>
                                 )}
                                 {fplFetchStatus === 'success' && (
-                                    <p className="text-[10px] text-[#22c55e] mt-1.5 flex items-center gap-1 font-bold">
-                                        <Check className="w-3 h-3" /> League found! Name and members auto-filled.
+                                    <p className="text-[11px] text-[#22c55e] mt-2 flex items-center gap-1.5 font-bold">
+                                        <Check className="w-3.5 h-3.5" /> League & {fplStandings.length} members detected! Verified and auto-filled below.
                                     </p>
                                 )}
                                 {fplFetchStatus === 'error' && (
-                                    <p className="text-[10px] text-red-400 mt-1.5 font-bold">
-                                        Could not find this league. Check the ID and try again.
+                                    <p className="text-[11px] text-red-400 mt-2 font-bold">
+                                        Could not auto-fetch league. Check the number or enter details manually below.
                                     </p>
                                 )}
                             </div>
+
+                            {/* League Name Input */}
+                            <div>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                                    League Name
+                                    {fplFetchStatus === 'success' && (
+                                        <span className="ml-2 text-[9px] text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20 normal-case tracking-normal font-bold">Auto-filled</span>
+                                    )}
+                                </label>
+                                <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. Nairobi Premier League" />
+                            </div>
+
                             {/* Dual Team Toggle */}
                             <div className="flex items-center justify-between bg-[#161d24] border border-white/5 rounded-xl px-4 py-3">
                                 <div>
@@ -908,12 +938,7 @@ export default function AdminSetup() {
                                     )} />
                                 </button>
                             </div>
-                            <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl px-4 py-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Onboarding Nudge</p>
-                                <p className="text-[11px] text-gray-300 mt-1 leading-relaxed">
-                                    If you run multiple leagues, keep names clearly distinct so members can switch context without confusion. If dual teams are enabled, announce whether second-team IDs must be added now or later in profile updates.
-                                </p>
-                            </div>
+
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
                                 <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
@@ -926,8 +951,9 @@ export default function AdminSetup() {
                                         className="w-full bg-transparent px-4 py-3.5 text-white font-medium focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
                                     />
                                 </div>
-                                <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">How much does each member pay per FPL Gameweek? This amount will be auto-deducted from their Wallet Balance.</p>
+                                <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">Amount auto-deducted per member per FPL Gameweek from their Wallet Balance.</p>
                             </div>
+
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Estimated Members</label>
                                 <input
@@ -939,10 +965,11 @@ export default function AdminSetup() {
                                     className={inputClasses}
                                     placeholder="e.g. 10"
                                 />
-                                <p className="text-[9px] text-gray-500 mt-1.5">Used purely for projection below. Max 20 members.</p>
+                                <p className="text-[9px] text-gray-500 mt-1.5">Live projection sizing (2-20 members).</p>
                             </div>
+
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Pochi Receiving Number</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Pochi / M-Pesa Receiving Number</label>
                                 <input
                                     type="tel"
                                     value={chairmanPayoutPhone}
@@ -953,21 +980,21 @@ export default function AdminSetup() {
                                     className={inputClasses}
                                     placeholder="e.g. 0712345678 or 254..."
                                 />
-                                <p className="text-[9px] text-gray-500 mt-1.5">This is the chairman payout destination used for Pochi/cash fallback references.</p>
+                                <p className="text-[9px] text-gray-500 mt-1.5">Destination for Chairman Pochi/cash fallback references.</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Distribution Split */}
                     <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative h-full flex flex-col flex-1">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2 text-white font-bold text-lg">
                                 <Trophy className="w-5 h-5 text-[#FBBF24]" /> Distribution Split Logic
                             </div>
                             <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
                         </div>
 
-                        <div className="mb-6 flex-1 flex flex-col justify-center">
+                        <div className="mb-4 flex-1 flex flex-col justify-center">
                             <div className="flex justify-between items-end mb-2">
                                 <div>
                                     <input
@@ -987,7 +1014,7 @@ export default function AdminSetup() {
                             </div>
 
                             {/* Interactive Range Slider */}
-                            <div className="mt-4 relative mb-2">
+                            <div className="mt-3 relative mb-2">
                                 <input
                                     type="range"
                                     min="0"
@@ -1005,20 +1032,14 @@ export default function AdminSetup() {
                                     <span>Adjust Split</span>
                                     <span>All Weekly</span>
                                 </div>
-                                {weeklyPrizePercent === 0 && (
-                                    <p className="text-[10px] text-[#eab308] border border-[#eab308]/20 bg-[#eab308]/10 p-2 rounded mt-2">
-                                        <Shield className="w-3 h-3 inline-block mr-1" />
-                                        <strong>Season-only payouts selected.</strong>
-                                        Tip: Weekly prizes help keep members engaged and prevent drop-offs.
-                                    </p>
-                                )}
                             </div>
+
                             {/* Season Winners Selector */}
-                            <div className="mt-8 mb-4">
-                                <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-3 uppercase tracking-wider">
+                            <div className="mt-4 mb-2">
+                                <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                                     <Users className="w-4 h-4 text-[#22c55e]" /> End of Season Winners
                                 </label>
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-4 gap-2">
                                     {[
                                         { key: 'top1', label: 'Top 1' },
                                         { key: 'top3', label: 'Top 3' },
@@ -1046,11 +1067,10 @@ export default function AdminSetup() {
                                         </button>
                                     ))}
                                 </div>
-                                <p className="text-[9px] text-gray-500 mt-2">Winners are capped at half the league size and at most 10.</p>
 
                                 {seasonWinnersMode === 'custom' && (
-                                    <div className="mt-4 space-y-3 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3.5">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <div>
                                                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
                                                 <input
@@ -1059,16 +1079,15 @@ export default function AdminSetup() {
                                                     max={maxAllowedWinners}
                                                     value={normalizedCustomWinnerCount}
                                                     onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
-                                                    className="mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white"
+                                                    className="mt-1 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2 text-sm font-bold text-white"
                                                 />
-                                                <p className="text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (half of {normalizedEstimatedMembers} members).</p>
                                             </div>
                                         </div>
 
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
                                                 <div key={`ratio-${idx}`} className="flex items-center gap-2">
-                                                    <span className="w-12 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
+                                                    <span className="w-10 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
                                                     <input
                                                         type="number"
                                                         min="0"
@@ -1078,128 +1097,117 @@ export default function AdminSetup() {
                                                             next[idx] = e.target.value;
                                                             setCustomWinnerRatios(next);
                                                         }}
-                                                        className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white"
+                                                        className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
                                                     />
                                                     <span className="text-[10px] font-black text-gray-500">%</span>
-                                                    <span className="w-16 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
+                                                    <span className="w-14 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
                                                 </div>
                                             ))}
                                         </div>
-                                        <p className="text-[9px] text-gray-500">Raw custom inputs are auto-normalized to total 100%.</p>
                                     </div>
                                 )}
-
-                                <p className="text-[9px] text-gray-600 dark:text-gray-400 mt-3">The Grand Vault will be split among top {effectiveSeasonWinnersCount} player{effectiveSeasonWinnersCount > 1 ? 's' : ''}.</p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-4 border-l-2 border-l-[#22c55e]">
-                                <p className="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mb-1">Weekly Payout</p>
-                                <h4 className="text-xl font-bold text-white mb-1 tabular-nums">KES {weeklyPrize.toLocaleString()}</h4>
-                                <p className="text-[10px] text-gray-500 leading-tight">Distributed weekly</p>
+                        <div className="grid grid-cols-2 gap-3 pt-2">
+                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-3 border-l-2 border-l-[#22c55e]">
+                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Weekly Payout</p>
+                                <h4 className="text-lg font-bold text-white tabular-nums">KES {weeklyPrize.toLocaleString()}</h4>
                             </div>
-                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-4 border-l-2 border-l-[#FBBF24]">
-                                <p className="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mb-1">Grand Vault</p>
-                                <h4 className="text-xl font-bold text-white mb-1 tabular-nums">KES {grandVault.toLocaleString()}</h4>
-                                <p className="text-[10px] text-gray-500 leading-tight">End-of-season rewards</p>
+                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-3 border-l-2 border-l-[#FBBF24]">
+                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Grand Vault</p>
+                                <h4 className="text-lg font-bold text-white tabular-nums">KES {grandVault.toLocaleString()}</h4>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Column 2: Pot Totals */}
+                {/* Column 2: Pot Totals (Compact, Responsive & Streamlined) */}
                 <div className="relative h-full flex flex-col justify-between space-y-4">
-                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex-1 flex flex-col">
-                        <h3 className="font-bold text-white mb-1">Pot Totals (Live Preview)</h3>
-                        <p className="text-[10px] md:text-xs text-[#22c55e] mb-6 font-medium">Real-time projection for {estimatedMembers} members</p>
-
-                        <div className="space-y-5 flex-1 flex flex-col justify-center">
-                            <div className="flex gap-4 items-center bg-[#161d24] p-4 rounded-xl border border-white/5">
-                                <div className="size-10 rounded-full bg-[#22c55e]/10 flex items-center justify-center flex-shrink-0">
-                                    <div className="w-4 h-4 border-l-2 border-r-2 border-[#22c55e]"></div>
-                                </div>
+                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex-1 flex flex-col justify-between">
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase text-gray-600 dark:text-gray-400 tracking-widest mb-0.5">Estimated Weekly Pot</p>
-                                    <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {weeklyPrize.toLocaleString()}</h4>
+                                    <h3 className="font-extrabold text-white text-base">Pot Totals (Live Preview)</h3>
+                                    <p className="text-[11px] text-[#22c55e] font-bold mt-0.5">Projected for {estimatedMembers} members · KES {monthlyFee}/GW</p>
+                                </div>
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                                    Pilot Phase
+                                </span>
+                            </div>
+
+                            {/* Pot Cards Grid (Compact 2-col to eliminate tall scrolling) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5">
+                                    <div className="w-9 h-9 rounded-xl bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center shrink-0">
+                                        <Trophy className="w-4 h-4 text-[#22c55e]" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Est. Weekly Pot</p>
+                                        <h4 className="text-lg font-black text-white tabular-nums tracking-tight">KES {weeklyPrize.toLocaleString()}</h4>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5">
+                                    <div className="w-9 h-9 rounded-xl bg-[#FBBF24]/15 border border-[#FBBF24]/30 flex items-center justify-center shrink-0">
+                                        <Shield className="w-4 h-4 text-[#FBBF24]" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Est. Season Vault</p>
+                                        <h4 className="text-lg font-black text-[#FBBF24] tabular-nums tracking-tight">KES {(grandVault * 38).toLocaleString()}</h4>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex gap-4 items-center bg-[#161d24] p-4 rounded-xl border border-white/5">
-                                <div className="size-10 rounded-full bg-[#FBBF24]/10 flex items-center justify-center flex-shrink-0">
-                                    <Trophy className="w-4 h-4 text-[#FBBF24]" />
+
+                            {/* Season Projections List */}
+                            <div className="pt-3 border-t border-white/5 space-y-2">
+                                <h4 className="text-[10px] uppercase tracking-widest font-black text-gray-400">Season Podium Allocations</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {effectiveSeasonDistribution.map((percent, idx) => (
+                                        <div key={idx} className="flex justify-between items-center bg-[#161d24]/60 px-3 py-2 rounded-xl border border-white/5 text-xs">
+                                            <span className="flex items-center gap-1.5 text-gray-300 font-bold">
+                                                <span className={clsx("min-w-[24px] text-center inline-block font-black px-1.5 py-0.5 rounded text-[10px]", idx === 0 ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-white/10 text-gray-400")}>#{idx + 1}</span>
+                                                {idx === 0 ? 'Champion' : `Tier ${idx + 1}`}
+                                            </span>
+                                            <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[9px] text-gray-400 font-normal">({percent}%)</span></span>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div>
-                                    <p className="text-[9px] font-bold uppercase text-gray-600 dark:text-gray-400 tracking-widest mb-0.5">Estimated Season Vault</p>
-                                    <h4 className="text-xl font-bold text-white tabular-nums tracking-tight">KES {(grandVault * 38).toLocaleString()}</h4>
-                                    <div className="text-[10px] text-[#22c55e] font-bold mt-1.5 flex items-center gap-1.5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></div> Based on 38 GWs
+                            </div>
+
+                            {/* Transparent Pilot Fee Breakdown (Only M-Pesa 1.5% active in pilot) */}
+                            <div className="mt-4 pt-3 border-t border-white/5 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[10px] uppercase tracking-widest font-black text-gray-400 flex items-center gap-1.5">
+                                        <Shield className="w-3 h-3 text-emerald-400" /> Transparent Fee Structure
+                                    </h4>
+                                    <span className="text-[9px] font-mono text-emerald-400 font-bold">Pilot: 98.5% Net to Members</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-center">
+                                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+                                        <p className="text-[9px] text-emerald-300 font-bold uppercase">Net Pot</p>
+                                        <p className="text-sm font-black text-emerald-400">98.5%</p>
+                                    </div>
+                                    <div className="p-2.5 rounded-xl bg-[#161d24] border border-white/5">
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase">M-Pesa API</p>
+                                        <p className="text-sm font-black text-white">1.5%</p>
+                                    </div>
+                                    <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                                        <p className="text-[9px] text-gray-500 font-bold uppercase">Chama/Platform</p>
+                                        <p className="text-sm font-black text-gray-400">0% (Waived)</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-gray-600 dark:text-gray-400 mb-2">Season Projections</h4>
-                            {effectiveSeasonDistribution.map((percent, idx) => (
-                                <div key={idx} className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                        <span className={clsx("min-w-[28px] text-center inline-block font-black opacity-80 backdrop-blur-sm bg-black/20 px-1.5 py-0.5 rounded border", idx === 0 ? "text-[#FBBF24] border-[#FBBF24]/30" : idx === 1 ? "text-slate-300 border-slate-300/30" : idx === 2 ? "text-amber-600 border-amber-600/30" : "text-gray-500 border-gray-500/30")}>#{idx + 1}</span> {idx === 0 ? 'Champion' : 'Prize Tier'}
-                                    </span>
-                                    <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[10px] text-gray-500 font-normal">({percent}%)</span></span>
-                                </div>
-                            ))}
+                        <div className="pt-5 mt-4 border-t border-white/5 shrink-0">
+                            <button
+                                type="button"
+                                onClick={nextStep}
+                                className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0a100a] font-black text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
+                            >
+                                Next: Add Members <ArrowRight className="w-5 h-5 ml-1" />
+                            </button>
                         </div>
-
-                        <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
-                            <h4 className="text-[10px] uppercase tracking-widest font-bold text-[#FBBF24] mb-2 flex items-center gap-2"><Shield className="w-3 h-3" /> Escrow Deductions (10%)</h4>
-                            <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">Your Chairman Cut (3.5%)</span>
-                                <span className="font-bold tabular-nums text-[#FBBF24]">KES {chairmanCut.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">Platform Revenue (5.0%)</span>
-                                <span className="font-bold tabular-nums text-gray-500">KES {platformCut.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">M-Pesa API Fees (1.5%)</span>
-                                <span className="font-bold tabular-nums text-gray-500">KES {mpesaFee.toLocaleString()}</span>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 pt-5 border-t border-white/5">
-                            <div className="flex justify-between items-center mb-4">
-                                <span className="text-[11px] md:text-xs font-semibold text-white">Gross Revenue Split</span>
-                                <span className="text-[9px] text-gray-500 uppercase tracking-widest font-bold">100% Transparent</span>
-                            </div>
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-[#22c55e]" /> Net Member Pot</span>
-                                    <span className="font-bold tabular-nums text-white">90.0%</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-blue-500" /> M-Pesa Gateway</span>
-                                    <span className="font-bold tabular-nums text-white">1.5%</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-red-500" /> Platform API</span>
-                                    <span className="font-bold tabular-nums text-white">5.0%</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[11px] md:text-sm">
-                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400"><span className="size-1.5 rounded-full bg-[#FBBF24]" /> Chairman Kickback</span>
-                                    <span className="font-bold tabular-nums text-white">3.5%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="pt-0 shrink-0">
-                        <button
-                            onClick={nextStep}
-                            disabled={!leagueName || monthlyFee < 100}
-                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0a100a] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(251,191,36,0.15)] disabled:opacity-50"
-                        >
-                            Next: Add Members <ArrowRight className="w-5 h-5 ml-1" />
-                        </button>
                     </div>
                 </div>
             </div>

@@ -287,15 +287,15 @@ export default function AppLayout() {
 
                                     {/* Sleek Floating Hover Tooltip in Collapsed Mode */}
                                     {isSidebarCollapsed && (
-                                        <div className="absolute left-[calc(100%+14px)] top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0c1219]/95 text-white text-xs font-bold rounded-xl border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-[100] whitespace-nowrap flex items-center gap-2">
-                                            <span>{item.name}</span>
+                                        <div className="absolute left-[calc(100%+14px)] top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0f172a]/95 dark:bg-[#07130c]/95 text-slate-100 dark:text-emerald-100 text-xs font-bold rounded-xl border border-emerald-500/30 dark:border-emerald-500/40 shadow-[0_12px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(16,185,129,0.15)] backdrop-blur-xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-[100] whitespace-nowrap flex items-center gap-2">
+                                            <span className="tracking-wide text-[12px] font-extrabold">{item.name}</span>
                                             {typeof item.badge === 'number' && item.badge > 0 && (
-                                                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                                                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500/25 text-amber-400 dark:text-amber-300 border border-amber-500/40">
                                                     {item.badge}
                                                 </span>
                                             )}
                                             {/* Little arrow pointing to icon */}
-                                            <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#0c1219] border-l border-b border-white/15 rotate-45 pointer-events-none"></div>
+                                            <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#0f172a] dark:bg-[#07130c] border-l border-b border-emerald-500/30 dark:border-emerald-500/40 rotate-45 pointer-events-none"></div>
                                         </div>
                                     )}
                                 </Link>
@@ -322,9 +322,9 @@ export default function AppLayout() {
 
                             {/* Floating Sign Out Tooltip in Collapsed Mode */}
                             {isSidebarCollapsed && (
-                                <div className="absolute left-[calc(100%+14px)] top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0c1219]/95 text-red-300 text-xs font-bold rounded-xl border border-red-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-[100] whitespace-nowrap flex items-center gap-1.5">
-                                    <span>Sign Out</span>
-                                    <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#0c1219] border-l border-b border-red-500/30 rotate-45 pointer-events-none"></div>
+                                <div className="absolute left-[calc(100%+14px)] top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0f172a]/95 dark:bg-[#180a0a]/95 text-red-400 dark:text-red-300 text-xs font-bold rounded-xl border border-red-500/30 dark:border-red-500/40 shadow-[0_12px_32px_rgba(0,0,0,0.4),0_0_20px_rgba(239,68,68,0.15)] backdrop-blur-xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-[100] whitespace-nowrap flex items-center gap-1.5">
+                                    <span className="tracking-wide text-[12px] font-extrabold">Sign Out</span>
+                                    <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#0f172a] dark:bg-[#180a0a] border-l border-b border-red-500/30 dark:border-red-500/40 rotate-45 pointer-events-none"></div>
                                 </div>
                             )}
                         </button>
