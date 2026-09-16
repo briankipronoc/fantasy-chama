@@ -1188,6 +1188,9 @@ export default function Login() {
                                                     placeholder="Numeric Team ID"
                                                     className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50 font-mono"
                                                 />
+                                                <p className="text-[10px] text-gray-400 mt-1 leading-tight">
+                                                    💡 <em>In FPL app/browser, open team URL: <span className="font-mono text-amber-300">fantasy.premierleague.com/entry/<strong>XXXXXX</strong></span> — the number is your Team ID.</em>
+                                                </p>
                                             </div>
                                         </div>
                                     )}

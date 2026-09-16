@@ -5373,8 +5373,9 @@ burstFrame();
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
-                        FPL Team ID (Optional)
+                      <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
+                        <span>FPL Team ID (Optional)</span>
+                        <span className="text-[10px] text-emerald-400 font-normal">from fantasy.premierleague.com</span>
                       </label>
                       <input
                         type="text"
@@ -5382,9 +5383,12 @@ burstFrame();
                         value={newMemberFplId}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setNewMemberFplId(e.target.value.replace(/[^0-9]/g, ""))}
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none font-mono"
                         placeholder="e.g. 2205131"
                       />
+                      <p className="text-[10px] text-gray-400 mt-1 leading-tight">
+                        💡 <em>In FPL app/browser, open team URL: <span className="font-mono text-amber-300">fantasy.premierleague.com/entry/<strong>XXXXXX</strong></span> — the number is their Team ID.</em>
+                      </p>
                     </div>
                   </div>
 

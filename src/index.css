@@ -1645,6 +1645,7 @@
     radial-gradient(ellipse 60% 45% at 15% 0%, rgba(16, 185, 129, 0.15), transparent 60%),
     radial-gradient(ellipse 55% 40% at 88% 55%, rgba(59, 130, 246, 0.14), transparent 62%),
     #f7fafc !important;
+  color: #0f172a !important;
 }
 [data-theme="light"] .fc-auth-card {
   background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
@@ -1655,15 +1656,39 @@
 [data-theme="light"] .fc-auth-shell .bg-\[\#151c18\],
 [data-theme="light"] .fc-auth-shell .bg-\[\#161d24\],
 [data-theme="light"] .fc-auth-shell .bg-\[\#0a100a\]\/50,
-[data-theme="light"] .fc-auth-shell .bg-\[\#0a100a\]\/60 {
-  background-color: rgba(255, 255, 255, 0.94) !important;
-  border-color: rgba(15, 23, 42, 0.1) !important;
+[data-theme="light"] .fc-auth-shell .bg-\[\#0a100a\]\/60,
+[data-theme="light"] .fc-auth-shell .bg-\[\#0f1923\],
+[data-theme="light"] .fc-auth-shell .bg-\[\#111820\]\/80,
+[data-theme="light"] .fc-auth-shell .bg-\[\#0b1014\] {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .fc-auth-shell .text-white {
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-auth-shell .text-gray-300,
+[data-theme="light"] .fc-auth-shell .text-gray-400 {
+  color: #334155 !important;
+}
+[data-theme="light"] .fc-auth-shell .text-gray-500 {
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-auth-shell .text-gray-600 {
+  color: #64748b !important;
 }
 [data-theme="light"] .fc-auth-shell input,
 [data-theme="light"] .fc-auth-shell textarea,
 [data-theme="light"] .fc-auth-shell select {
+  background-color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
   color: #0f172a !important;
+}
+[data-theme="light"] .fc-auth-shell .bg-black\/30,
+[data-theme="light"] .fc-auth-shell .bg-black\/40,
+[data-theme="light"] .fc-auth-shell .bg-black\/70 {
+  background-color: #f1f5f9 !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
 }
 [data-theme="light"] .fc-auth-shell .placeholder\:text-gray-600::placeholder {
   color: #64748b !important;
