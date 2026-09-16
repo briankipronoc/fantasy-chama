@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X, Share2, Sliders, Copy } from 'lucide-react';
+import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X, Share2, Sliders, Copy, RefreshCw } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion } from 'firebase/firestore';
@@ -90,6 +90,82 @@ export default function AdminSetup() {
     const [coAdminIndex, setCoAdminIndex] = useState<number | null>(null);
     const [enrollmentMode, setEnrollmentMode] = useState<'self' | 'manual'>('self');
     const [showAddManualMember, setShowAddManualMember] = useState(false);
+
+    // Multi-tier FPL league and standings fetcher with fallback proxies
+    const fetchFplLeagueData = async (inputStr: string) => {
+        if (!inputStr) return;
+        let numericId = inputStr.trim();
+        const match = numericId.match(/leagues\/(\d+)/) || numericId.match(/(\d{4,9})/);
+        if (match && match[1]) {
+            numericId = match[1];
+        } else {
+            numericId = numericId.replace(/[^0-9]/g, '');
+        }
+
+        if (numericId.length < 4) {
+            setFplFetchStatus('idle');
+            return;
+        }
+
+        setFplLeagueId(numericId);
+        setFplFetchStatus('loading');
+
+        const endpoints = [
+            `/fpl-api/leagues-classic/${numericId}/standings/`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${numericId}/standings/`)}`,
+            `https://corsproxy.io/?${encodeURIComponent(`https://fantasy.premierleague.com/api/leagues-classic/${numericId}/standings/`)}`
+        ];
+
+        let successData: any = null;
+        for (const url of endpoints) {
+            try {
+                const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.league?.name || data?.standings?.results) {
+                        successData = data;
+                        break;
+                    }
+                }
+            } catch (err) {
+                console.warn(`[fpl-fetch] Endpoint failed: ${url}`, err);
+            }
+        }
+
+        if (successData?.league?.name || successData?.standings?.results) {
+            if (successData.league?.name) {
+                setLeagueName(successData.league.name);
+            }
+            setFplFetchStatus('success');
+            if (successData.standings?.results) {
+                const results = successData.standings.results;
+                setFplStandings(results);
+                if (results.length >= 2) {
+                    setEstimatedMembers(Math.min(20, results.length));
+                }
+
+                const cleanFullName = (fullName || '').trim().toLowerCase();
+                const imported = results
+                    .filter((entry: any) => {
+                        const pName = (entry.player_name || '').trim().toLowerCase();
+                        return !cleanFullName || pName !== cleanFullName;
+                    })
+                    .map((entry: any) => ({
+                        displayName: entry.player_name || entry.entry_name || 'FPL Manager',
+                        phone: '',
+                        fplEntryId: entry.entry,
+                        fplTeamName: entry.entry_name,
+                    }));
+                if (imported.length > 0) {
+                    setMembers(imported.slice(0, 19));
+                }
+                toast.success(`Recovered ${results.length} squads from "${successData.league?.name || numericId}"!`);
+            }
+        } else {
+            setFplFetchStatus('error');
+            toast.error('Could not fetch FPL league. Check ID or paste full link.');
+        }
+    };
 
     // Step 4: Code
     const generatedCode = useMemo(() => {
@@ -370,6 +446,22 @@ export default function AdminSetup() {
         const savedEstimatedMembers = Number(localStorage.getItem('fc-setup-estimatedMembers'));
         if (!Number.isNaN(savedEstimatedMembers) && savedEstimatedMembers > 0) setEstimatedMembers(savedEstimatedMembers);
 
+        const savedMembersRaw = localStorage.getItem('fc-setup-members');
+        if (savedMembersRaw) {
+            try {
+                const parsed = JSON.parse(savedMembersRaw);
+                if (Array.isArray(parsed) && parsed.length > 0) setMembers(parsed);
+            } catch {}
+        }
+
+        const savedStandingsRaw = localStorage.getItem('fc-setup-fplStandings');
+        if (savedStandingsRaw) {
+            try {
+                const parsed = JSON.parse(savedStandingsRaw);
+                if (Array.isArray(parsed) && parsed.length > 0) setFplStandings(parsed);
+            } catch {}
+        }
+
         setAllowMultipleTeams(localStorage.getItem('fc-setup-allowMultipleTeams') === 'true');
     }, []);
 
@@ -387,6 +479,25 @@ export default function AdminSetup() {
     useEffect(() => { localStorage.setItem('fc-setup-customWinnerRatios', JSON.stringify(customWinnerRatios)); }, [customWinnerRatios]);
     useEffect(() => { localStorage.setItem('fc-setup-estimatedMembers', String(estimatedMembers)); }, [estimatedMembers]);
     useEffect(() => { localStorage.setItem('fc-setup-allowMultipleTeams', String(allowMultipleTeams)); }, [allowMultipleTeams]);
+
+    useEffect(() => {
+        if (members.length > 0) {
+            localStorage.setItem('fc-setup-members', JSON.stringify(members));
+        }
+    }, [members]);
+
+    useEffect(() => {
+        if (fplStandings.length > 0) {
+            localStorage.setItem('fc-setup-fplStandings', JSON.stringify(fplStandings));
+        }
+    }, [fplStandings]);
+
+    // Auto-sync FPL league if ID exists but members were not yet loaded
+    useEffect(() => {
+        if (fplLeagueId && fplLeagueId.length >= 4 && members.length === 0 && fplFetchStatus === 'idle') {
+            fetchFplLeagueData(fplLeagueId);
+        }
+    }, [fplLeagueId]);
 
     useEffect(() => {
         if (!chairmanPayoutPhone && phone) {
@@ -562,6 +673,7 @@ export default function AdminSetup() {
                 'fc-setup-monthlyFee', 'fc-setup-weeklyPrizePercent', 'fc-setup-seasonWinnersCount',
                 'fc-setup-seasonWinnersMode', 'fc-setup-customWinnerCount', 'fc-setup-customWinnerRatios',
                 'fc-setup-estimatedMembers', 'fc-setup-allowMultipleTeams',
+                'fc-setup-members', 'fc-setup-fplStandings',
             ].forEach(key => localStorage.removeItem(key));
 
             setStep(5);
@@ -875,78 +987,74 @@ export default function AdminSetup() {
                     </div>
                     <div className="space-y-4 relative z-10">
                         {/* FPL League Link / ID First for instant prefill */}
-                        <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4">
-                            <label className="block text-[10px] md:text-xs font-black text-emerald-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
-                                <span>Paste FPL League Link or ID (Recommended)</span>
-                                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 normal-case font-bold">1-Click Auto-Fill</span>
-                            </label>
-                            <input type="text" value={fplLeagueId} onChange={e => {
-                                let val = e.target.value.trim();
-                                // If they paste an FPL Standings link or URL, extract the numeric ID
-                                const match = val.match(/leagues\/(\d+)/);
-                                if (match && match[1]) {
-                                    val = match[1];
-                                }
-                                const numericId = val.replace(/[^0-9]/g, '');
-                                setFplLeagueId(numericId);
-
-                                // Auto-fetch league name and members when ID looks valid
-                                if (numericId.length >= 4) {
-                                    setFplFetchStatus('loading');
-                                    fetch(`/fpl-api/leagues-classic/${numericId}/standings/`)
-                                        .then(res => res.json())
-                                        .then(data => {
-                                            if (data?.league?.name) {
-                                                setLeagueName(data.league.name);
-                                                setFplFetchStatus('success');
-                                                // Store standings and auto-prefill members for Step 3
-                                                if (data?.standings?.results) {
-                                                    setFplStandings(data.standings.results);
-                                                    const memberCount = data.standings.results.length;
-                                                    if (memberCount >= 2) setEstimatedMembers(memberCount);
-                                                    
-                                                    const cleanFullName = (fullName || '').trim().toLowerCase();
-                                                    const imported = data.standings.results
-                                                        .filter((entry: any) => {
-                                                            const pName = (entry.player_name || '').trim().toLowerCase();
-                                                            return !cleanFullName || pName !== cleanFullName;
-                                                        })
-                                                        .map((entry: any) => ({
-                                                            displayName: entry.player_name,
-                                                            phone: '',
-                                                            fplEntryId: entry.entry,
-                                                            fplTeamName: entry.entry_name,
-                                                        }));
-                                                    if (imported.length > 0) {
-                                                        setMembers(imported.slice(0, 19));
-                                                    }
-                                                }
-                                            } else {
-                                                setFplFetchStatus('error');
-                                            }
-                                        })
-                                        .catch(() => setFplFetchStatus('error'));
-                                } else {
-                                    setFplFetchStatus('idle');
-                                }
-                            }} className={inputClasses} placeholder="Paste your FPL League URL or 6-digit ID" />
-                            <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                                Linking with your FPL link automatically pulls your <strong>League Name</strong> and <strong>FPL Managers</strong> so setup is instant and hassle-free.
+                        <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <label className="block text-[10px] md:text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>Paste FPL League Link or ID (Recommended)</span>
+                                </label>
+                                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">1-Click Auto-Fill</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={fplLeagueId}
+                                    onChange={e => {
+                                        let val = e.target.value.trim();
+                                        const match = val.match(/leagues\/(\d+)/) || val.match(/(\d{4,9})/);
+                                        if (match && match[1]) {
+                                            val = match[1];
+                                        }
+                                        setFplLeagueId(val);
+                                        if (val.replace(/[^0-9]/g, '').length >= 4) {
+                                            fetchFplLeagueData(val);
+                                        }
+                                    }}
+                                    onPaste={e => {
+                                        const pasted = e.clipboardData.getData('text');
+                                        if (pasted) {
+                                            setTimeout(() => fetchFplLeagueData(pasted), 50);
+                                        }
+                                    }}
+                                    className={clsx(inputClasses, "flex-1")}
+                                    placeholder="e.g. https://fantasy.premierleague.com/leagues/2205131/standings/c or 2205131"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => fetchFplLeagueData(fplLeagueId)}
+                                    disabled={fplFetchStatus === 'loading' || !fplLeagueId.trim()}
+                                    className="px-4 py-2.5 bg-[#22c55e] hover:bg-[#1fbb59] text-black font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 shrink-0 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
+                                    title="Connect to FPL and sync all manager squads"
+                                >
+                                    <RefreshCw className={clsx("w-3.5 h-3.5", fplFetchStatus === 'loading' && "animate-spin")} />
+                                    <span>{fplFetchStatus === 'loading' ? 'Syncing...' : 'Sync Teams'}</span>
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-gray-400 leading-relaxed">
+                                Linking your FPL league automatically pulls your <strong>League Name</strong> and <strong>All Manager Squads</strong> so setup is instant and verified.
                             </p>
                             {fplFetchStatus === 'loading' && (
-                                <p className="text-[11px] text-[#FBBF24] mt-2 flex items-center gap-1.5 font-bold">
-                                    <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Connecting to Official FPL servers & auto-filling...
+                                <p className="text-[11px] text-[#FBBF24] flex items-center gap-2 font-bold bg-[#FBBF24]/10 border border-[#FBBF24]/20 p-2.5 rounded-xl">
+                                    <span className="w-2.5 h-2.5 bg-[#FBBF24] rounded-full animate-ping shrink-0" />
+                                    <span>Connecting to Official Premier League servers & recovering teams...</span>
                                 </p>
                             )}
                             {fplFetchStatus === 'success' && (
-                                <p className="text-[11px] text-[#22c55e] mt-2 flex items-center gap-1.5 font-bold">
-                                    <Check className="w-3.5 h-3.5" /> League & {fplStandings.length} members detected! Verified and auto-filled below.
+                                <p className="text-[11px] text-[#22c55e] flex items-center gap-2 font-bold bg-[#22c55e]/10 border border-[#22c55e]/20 p-2.5 rounded-xl">
+                                    <Check className="w-4 h-4 shrink-0" />
+                                    <span>League "{leagueName}" & {fplStandings.length} squads detected and imported!</span>
                                 </p>
                             )}
                             {fplFetchStatus === 'error' && (
-                                <p className="text-[11px] text-red-400 mt-2 font-bold">
-                                    Could not auto-fetch league. Check the number or enter details manually below.
-                                </p>
+                                <div className="text-[11px] text-red-400 font-bold bg-red-500/10 border border-red-500/20 p-2.5 rounded-xl flex items-center justify-between">
+                                    <span>Could not fetch from FPL. Check ID ({fplLeagueId}) or paste full league URL.</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => fetchFplLeagueData(fplLeagueId)}
+                                        className="text-white underline hover:text-red-300 ml-2 cursor-pointer"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
                             )}
                         </div>
 
@@ -973,14 +1081,19 @@ export default function AdminSetup() {
                                     <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
                                         <span className="bg-[#11171a] px-3.5 flex items-center justify-center text-gray-400 font-bold border-r border-white/5 text-xs">KES</span>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="numeric"
                                             value={monthlyFee === 0 ? '' : monthlyFee}
+                                            placeholder="50"
                                             onFocus={e => e.target.select()}
-                                            onChange={e => setMonthlyFee(Number(e.target.value))}
+                                            onChange={e => {
+                                                const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                                setMonthlyFee(cleaned === '' ? 0 : parseInt(cleaned, 10));
+                                            }}
                                             className="w-full bg-transparent px-3.5 py-3 text-white font-medium text-sm focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
                                         />
                                     </div>
-                                    <p className="text-[9px] text-gray-500">Auto-deducted per member per GW (min KES 50)</p>
+                                    <p className="text-[9px] text-gray-500">Auto-deducted per member per Gameweek (e.g. KES 50)</p>
                                 </div>
 
                                 {/* 3. POCHI / M-PESA # */}
@@ -1007,13 +1120,19 @@ export default function AdminSetup() {
                                         Members Size (Est.)
                                     </label>
                                     <input
-                                        type="number"
-                                        min="2"
-                                        max="20"
-                                        value={estimatedMembers}
-                                        onChange={e => setEstimatedMembers(Math.min(20, Math.max(2, Number(e.target.value) || 2)))}
-                                        className={inputClasses}
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={estimatedMembers === 0 ? '' : estimatedMembers}
                                         placeholder="10"
+                                        onFocus={e => e.target.select()}
+                                        onChange={e => {
+                                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                            setEstimatedMembers(cleaned === '' ? 0 : parseInt(cleaned, 10));
+                                        }}
+                                        onBlur={() => {
+                                            setEstimatedMembers(prev => Math.min(20, Math.max(2, prev || 2)));
+                                        }}
+                                        className={inputClasses}
                                     />
                                     <p className="text-[9px] text-gray-500">Projections baseline for pot & prize modeling (2 - 20)</p>
                                 </div>
@@ -1063,11 +1182,11 @@ export default function AdminSetup() {
                                 <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
                             </div>
 
-                            {/* Redesigned Percentage Split Cards & Slider */}
+                            {/* Redesigned Percentage Split Cards & Slider with Equal Typography */}
                             <div className="mb-4 space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     {/* Weekly Prize Pill Card */}
-                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#22c55e]/30 flex flex-col items-center text-center relative overflow-hidden">
+                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#22c55e]/30 flex flex-col items-center justify-between text-center relative overflow-hidden h-[120px]">
                                         <div className="absolute top-2 right-2 flex gap-1">
                                             <button
                                                 type="button"
@@ -1086,41 +1205,44 @@ export default function AdminSetup() {
                                                 +
                                             </button>
                                         </div>
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Weekly Prize</span>
-                                        <div className="flex items-baseline gap-1 my-0.5">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Weekly Prize</span>
+                                        <div className="flex items-baseline justify-center gap-1 my-0.5">
                                             <input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                value={weeklyPrizePercent}
-                                                onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
-                                                className="text-2xl sm:text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent text-center w-16 outline-none focus:ring-1 focus:ring-[#22c55e]/50 rounded py-0.5"
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={weeklyPrizePercent === 0 ? '' : weeklyPrizePercent}
+                                                placeholder="0"
+                                                onFocus={e => e.target.select()}
+                                                onChange={e => {
+                                                    const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                                    setWeeklyPrizePercent(cleaned === '' ? 0 : Math.min(100, parseInt(cleaned, 10)));
+                                                }}
+                                                className="text-3xl sm:text-4xl font-black font-mono text-[#22c55e] tabular-nums tracking-tight bg-transparent text-center w-20 outline-none border-b border-[#22c55e]/30 focus:border-[#22c55e] py-0.5"
                                             />
-                                            <span className="text-xl sm:text-2xl font-black text-[#22c55e]">%</span>
+                                            <span className="text-2xl sm:text-3xl font-black font-mono text-[#22c55e]">%</span>
                                         </div>
-                                        <span className="text-[10px] font-bold text-gray-500 mt-0.5">Top GW Score</span>
+                                        <span className="text-[10px] font-bold text-gray-500">Top GW Score</span>
                                     </div>
 
                                     {/* Grand Vault Pill Card */}
-                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#FBBF24]/30 flex flex-col items-center text-center">
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Grand Vault</span>
-                                        <div className="flex items-baseline gap-1 my-0.5">
-                                            <span className="text-2xl sm:text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight py-0.5">
+                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#FBBF24]/30 flex flex-col items-center justify-between text-center h-[120px]">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Grand Vault</span>
+                                        <div className="flex items-baseline justify-center gap-1 my-0.5">
+                                            <span className="text-3xl sm:text-4xl font-black font-mono text-[#FBBF24] tabular-nums tracking-tight py-0.5">
                                                 {100 - weeklyPrizePercent}
                                             </span>
-                                            <span className="text-xl sm:text-2xl font-black text-[#FBBF24]">%</span>
+                                            <span className="text-2xl sm:text-3xl font-black font-mono text-[#FBBF24]">%</span>
                                         </div>
-                                        <span className="text-[10px] font-bold text-gray-500 mt-0.5">Season Podium</span>
+                                        <span className="text-[10px] font-bold text-gray-500">Season Podium</span>
                                     </div>
                                 </div>
 
-                                {/* Interactive Range Slider with explicit "Move slider to set" guidance */}
+                                {/* Interactive Range Slider with centered "Move slider to set" guidance */}
                                 <div className="p-3.5 rounded-xl bg-black/30 border border-white/5 space-y-2.5">
-                                    <div className="flex items-center justify-between text-[11px] font-bold">
-                                        <span className="text-[#10B981] flex items-center gap-1.5 uppercase tracking-wider">
+                                    <div className="flex items-center justify-center text-[11px] font-bold py-0.5">
+                                        <span className="text-[#10B981] flex items-center justify-center gap-1.5 uppercase tracking-wider text-center">
                                             <Sliders className="w-3.5 h-3.5" /> Move slider to set split
                                         </span>
-                                        <span className="text-[#FBBF24] font-mono text-xs">{weeklyPrizePercent}% Weekly · {100 - weeklyPrizePercent}% Vault</span>
                                     </div>
                                     <input
                                         type="range"
@@ -1307,12 +1429,19 @@ export default function AdminSetup() {
                             </div>
                         </div>
 
-                        {/* Next: Add Members Action Button inside Right Card bottom */}
-                        <div className="pt-4 mt-4 border-t border-white/5 shrink-0">
+                        {/* Step 2 Action Bar with Back & Next */}
+                        <div className="pt-4 mt-4 border-t border-white/5 shrink-0 flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={prevStep}
+                                className="px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                            >
+                                <ArrowLeft className="w-4 h-4" /> Back
+                            </button>
                             <button
                                 type="button"
                                 onClick={nextStep}
-                                className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0a100a] font-black text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
+                                className="flex-1 bg-[#FBBF24] hover:bg-[#eab308] text-[#0a100a] font-black text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
                             >
                                 Next: Add Members <ArrowRight className="w-5 h-5 ml-1" />
                             </button>
@@ -1622,21 +1751,54 @@ export default function AdminSetup() {
                     ))}
 
                     {members.length === 0 && (
-                        <div className="text-center py-10 border border-dashed border-white/10 rounded-xl space-y-3">
-                            <Users className="w-8 h-8 text-gray-500 mx-auto" />
+                        <div className="text-center py-8 px-4 border border-dashed border-white/15 bg-white/[0.02] rounded-2xl space-y-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                                <Users className="w-6 h-6" />
+                            </div>
                             <div>
-                                <p className="text-sm font-bold text-white">No members added yet</p>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                    Paste your FPL league link in Step 2 to recover all teams, or add members manually above.
+                                <p className="text-base font-bold text-white">
+                                    {fplLeagueId ? `Sync Squads from FPL League #${fplLeagueId}` : "No Members Added Yet"}
+                                </p>
+                                <p className="text-xs text-gray-400 max-w-md mx-auto mt-1">
+                                    {fplLeagueId
+                                        ? "Click below to immediately connect to Premier League servers and pull all manager squads into this circle."
+                                        : "Paste your FPL league link in Step 2, or add members manually using the button above."}
                                 </p>
                             </div>
+                            {fplLeagueId && (
+                                <button
+                                    type="button"
+                                    onClick={() => fetchFplLeagueData(fplLeagueId)}
+                                    disabled={fplFetchStatus === 'loading'}
+                                    className="px-6 py-3 rounded-xl bg-[#22c55e] hover:bg-[#1fbb59] text-black font-extrabold text-xs uppercase tracking-wider inline-flex items-center gap-2 shadow-lg hover:scale-105 transition-all cursor-pointer disabled:opacity-50"
+                                >
+                                    {fplFetchStatus === 'loading' ? (
+                                        <>
+                                            <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                            Fetching Official FPL Teams...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Shield className="w-4 h-4" /> Pull All Squads from FPL #{fplLeagueId}
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {/* Step 3 Footer Action Bar */}
                 <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <p className="text-xs text-gray-400 text-center sm:text-left">
+                    <button
+                        type="button"
+                        onClick={prevStep}
+                        className="w-full sm:w-auto px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> Back to Rules
+                    </button>
+
+                    <p className="text-xs text-gray-400 text-center sm:text-left flex-1 px-2">
                         {enrollmentMode === 'self' ? (
                             <span className="text-[#10B981] font-medium flex items-center gap-1.5 justify-center sm:justify-start">
                                 <Check className="w-4 h-4" /> Self-onboarding enabled: Share link on WhatsApp after clicking Next.
@@ -1645,6 +1807,7 @@ export default function AdminSetup() {
                             <span>{members.filter(m => m.phone).length} of {members.length} phone numbers tied directly.</span>
                         )}
                     </p>
+
                     <button
                         type="button"
                         onClick={nextStep}
@@ -1670,91 +1833,143 @@ export default function AdminSetup() {
 
     const renderStep4 = () => (
         <div className={`space-y-6 ${stepAnimClass} w-full`}>
-            <div className="text-center mb-8">
-                <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Final Verification</p>
+            <div className="text-center mb-6">
+                <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Final Verification · Step 4 of 4</p>
                 <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Confirm League Details</h2>
-                <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Review your economy and members before activating the league.</p>
+                <p className="text-gray-400 text-xs md:text-sm max-w-xl mx-auto">
+                    Review your Gameweek stake, pot prize economics, and squads before activating your circle and generating your invite link.
+                </p>
             </div>
 
-            <div className="bg-[#151c18] border border-white/5 rounded-2xl p-6 md:p-8 w-full max-w-3xl mx-auto shadow-xl relative overflow-hidden space-y-8">
+            <div className="bg-[#151c18] border border-white/5 rounded-3xl p-6 md:p-8 w-full max-w-4xl mx-auto shadow-2xl relative overflow-hidden space-y-6">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
 
-                <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 p-4 rounded-xl flex items-start gap-3 relative z-10 shadow-sm">
-                    <Check className="w-5 h-5 text-[#22c55e] shrink-0 mt-0.5" />
-                    <p className="text-xs text-[#22c55e] leading-relaxed">
-                        <strong className="block mb-1 text-sm tracking-tight text-white">Final Review</strong>
-                        Once you initialize your league, your Gameweek stake and pot rules are saved and locked for fairness. Please review the summary below before creating the league.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">League Name</p>
-                        <p className="text-white font-bold truncate">{leagueName || "N/A"}</p>
-                    </div>
-                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">FPL League ID</p>
-                        <p className="text-white font-bold truncate">{fplLeagueId || "N/A"}</p>
-                    </div>
-                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Monthly Fee</p>
-                        <p className="text-[#22c55e] font-bold tabular-nums">KES {monthlyFee}</p>
-                    </div>
-                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Total Members</p>
-                        <p className="text-white font-bold">{members.length + 1} <span className="text-xs text-gray-500 font-normal border border-gray-500/30 px-1 py-[1px] rounded inline-flex ml-1">inc. Chairman</span></p>
-                    </div>
-                    <div className="bg-[#161d24] rounded-xl p-4 border border-white/5">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Gross Pot</p>
-                        <p className="text-white font-bold tabular-nums">KES {totalMonthlyPool}</p>
+                {/* Final Review Notice */}
+                <div className="bg-[#22c55e]/10 border border-[#22c55e]/25 p-4 rounded-2xl flex items-start gap-3 relative z-10 shadow-sm">
+                    <Shield className="w-5 h-5 text-[#22c55e] shrink-0 mt-0.5" />
+                    <div className="text-xs leading-relaxed">
+                        <strong className="block mb-0.5 text-sm tracking-tight text-white">Immutable Economy Rules</strong>
+                        <p className="text-[#22c55e]">
+                            Once initialized, your Gameweek stake and payout split are locked in smart ledger for fair competition. Managers can self-onboard and claim their squads anytime via your Master Invite Link.
+                        </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <div className="flex items-center gap-2 mb-4 text-white font-bold">
-                            <Trophy className="w-4 h-4 text-[#FBBF24]" /> Distribution Summary
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
-                                <span className="text-gray-600 dark:text-gray-400">Weekly Prize ({weeklyPrizePercent}%)</span>
-                                <span className="font-bold text-white tabular-nums">KES {weeklyPrize}</span>
+                {/* Uniform 5-Column Metric Grid on Desktop */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="bg-[#161d24] rounded-2xl p-4 border border-white/5 flex flex-col justify-between">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1 truncate">League Name</p>
+                        <p className="text-white font-bold text-sm md:text-base truncate" title={leagueName}>{leagueName || "Premier League"}</p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-2xl p-4 border border-white/5 flex flex-col justify-between">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1 truncate">FPL League ID</p>
+                        <p className="text-white font-bold text-sm md:text-base truncate font-mono">#{fplLeagueId || "Manual"}</p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-2xl p-4 border border-white/5 flex flex-col justify-between">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1 truncate">Gameweek Stake</p>
+                        <p className="text-[#22c55e] font-black text-sm md:text-base tabular-nums">KES {monthlyFee} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-2xl p-4 border border-white/5 flex flex-col justify-between">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1 truncate">Registered Squads</p>
+                        <p className="text-white font-bold text-sm md:text-base">
+                            {members.length + 1} <span className="text-[10px] font-normal text-gray-400">({members.length} {enrollmentMode === 'self' ? 'pending link' : 'enrolled'})</span>
+                        </p>
+                    </div>
+                    <div className="bg-[#161d24] rounded-2xl p-4 border border-white/5 flex flex-col justify-between col-span-2 sm:col-span-1">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1 truncate">Est. GW Gross Pot</p>
+                        <p className="text-amber-400 font-black text-sm md:text-base tabular-nums">KES {totalMonthlyPool} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
+                    </div>
+                </div>
+
+                {/* Two-Column Split: Distribution Summary (Left) and Squads & Onboarding Snapshot (Right) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Left: Distribution Summary */}
+                    <div className="bg-[#111820]/80 border border-white/5 rounded-2xl p-4 md:p-5 flex flex-col justify-between space-y-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-3 text-white font-bold text-sm">
+                                <Trophy className="w-4 h-4 text-[#FBBF24]" /> Prize Distribution Breakdown
                             </div>
-                            <div className="flex justify-between items-center bg-[#0a100a]/50 p-3 rounded-xl border border-white/5 text-sm">
-                                <span className="text-gray-600 dark:text-gray-400 text-xs">Season Vault ({100 - weeklyPrizePercent}%)</span>
-                                <span className="font-bold text-[#FBBF24] tabular-nums text-sm">KES {grandVault * 38} <span className="text-[9px] text-gray-500 font-normal">/38GWs</span></span>
+                            <div className="space-y-2.5">
+                                <div className="flex justify-between items-center bg-[#161d24] p-3 rounded-xl border border-white/5 text-xs">
+                                    <span className="text-gray-300 font-medium">Weekly Prize ({weeklyPrizePercent}%)</span>
+                                    <span className="font-bold text-emerald-400 text-sm tabular-nums">KES {weeklyPrize} <span className="text-[10px] text-gray-400 font-normal">/GW</span></span>
+                                </div>
+                                <div className="flex justify-between items-center bg-[#161d24] p-3 rounded-xl border border-white/5 text-xs">
+                                    <span className="text-gray-300 font-medium">Grand Vault ({100 - weeklyPrizePercent}%)</span>
+                                    <span className="font-bold text-[#FBBF24] text-sm tabular-nums">KES {grandVault * 38} <span className="text-[10px] text-gray-400 font-normal">/38GWs</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Podium Split Pills */}
+                        <div className="pt-3 border-t border-white/5 space-y-1.5">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Podium Allocations</p>
+                            <div className="grid grid-cols-3 gap-1.5 text-center">
+                                {effectiveSeasonDistribution.slice(0, 3).map((pct, idx) => (
+                                    <div key={idx} className="bg-black/30 border border-white/5 rounded-lg py-1.5 px-1">
+                                        <p className="text-[9px] text-gray-400 font-bold">#{idx + 1} {idx === 0 ? 'Champ' : `Tier ${idx + 1}`}</p>
+                                        <p className="text-xs font-black text-white">{pct}%</p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
 
-                    <div>
-                        <div className="flex items-center gap-2 mb-4 text-white font-bold">
-                            <Users className="w-4 h-4 text-[#22c55e]" /> Enrolled Members Snapshot
+                    {/* Right: Squads & Onboarding Snapshot */}
+                    <div className="bg-[#111820]/80 border border-white/5 rounded-2xl p-4 md:p-5 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-white font-bold text-sm">
+                                <Users className="w-4 h-4 text-[#22c55e]" /> Squads & Claim Status
+                            </div>
+                            {enrollmentMode === 'self' ? (
+                                <span className="text-[9px] font-bold text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded-full border border-[#10B981]/30 flex items-center gap-1">
+                                    <Share2 className="w-2.5 h-2.5" /> Self-Onboard Link
+                                </span>
+                            ) : (
+                                <span className="text-[9px] font-bold text-sky-400 bg-sky-500/15 px-2 py-0.5 rounded-full border border-sky-500/30">
+                                    Manual Entry
+                                </span>
+                            )}
                         </div>
-                        <div className="space-y-2 max-h-[140px] overflow-y-auto pr-2">
+
+                        <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
                             {/* Chairman row */}
-                            <div className="flex justify-between items-center bg-[#22c55e]/10 p-2.5 rounded-lg border border-[#22c55e]/20 text-xs shadow-sm">
-                                <span className="font-bold text-white flex items-center gap-1.5"><Shield className="w-3 h-3 text-[#FBBF24]" /> {fullName}</span>
-                                <span className="text-[#22c55e] tabular-nums font-semibold">{phone}</span>
+                            <div className="flex justify-between items-center bg-[#22c55e]/10 p-2.5 rounded-xl border border-[#22c55e]/25 text-xs shadow-sm">
+                                <span className="font-bold text-white flex items-center gap-1.5 truncate max-w-[170px]">
+                                    <Shield className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
+                                    <span className="truncate">{fullName || "Chairman"}</span>
+                                    <span className="text-[9px] text-[#FBBF24] font-mono shrink-0">(Admin)</span>
+                                </span>
+                                <span className="text-[#22c55e] font-mono text-[11px] font-bold">{chairmanPayoutPhone || phone}</span>
                             </div>
 
-                            {/* Enrolled row */}
-                            {members.slice(0, 5).map((m, i) => (
-                                <div key={i} className="flex justify-between items-center bg-[#0a100a]/50 p-2.5 rounded-lg border border-white/5 text-xs">
-                                    <span className="font-medium text-gray-200 truncate max-w-[160px]">{m.fplTeamName || m.displayName}</span>
-                                    <span className="tabular-nums">
+                            {/* Squads preview */}
+                            {members.map((m, i) => (
+                                <div key={i} className="flex justify-between items-center bg-[#161d24] p-2.5 rounded-xl border border-white/5 text-xs">
+                                    <div className="min-w-0 pr-2">
+                                        <p className="font-bold text-white truncate max-w-[180px]">{m.fplTeamName || m.displayName}</p>
+                                        <p className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                                            {m.displayName && m.fplTeamName ? m.displayName : "FPL Squad"}
+                                            {m.fplEntryId ? ` · #${m.fplEntryId}` : ""}
+                                        </p>
+                                    </div>
+                                    <div className="shrink-0">
                                         {m.phone ? (
-                                            <span className="text-gray-300 font-mono">{m.phone}</span>
+                                            <span className="text-gray-300 font-mono text-[11px]">{m.phone}</span>
                                         ) : (
-                                            <span className="text-[#FBBF24] font-semibold text-[10px] bg-[#FBBF24]/10 px-1.5 py-0.5 rounded border border-[#FBBF24]/20">
-                                                Self-onboard link
+                                            <span className="text-[#FBBF24] font-bold text-[9px] bg-[#FBBF24]/10 px-2 py-0.5 rounded-md border border-[#FBBF24]/25">
+                                                Pending Invite Claim
                                             </span>
                                         )}
-                                    </span>
+                                    </div>
                                 </div>
                             ))}
-                            {members.length > 5 && (
-                                <div className="text-center text-[10px] text-gray-500 pt-1 font-bold tracking-widest uppercase">+ {members.length - 5} more members</div>
+
+                            {members.length === 0 && (
+                                <div className="text-center py-6 px-3 border border-dashed border-white/10 rounded-xl">
+                                    <p className="text-xs font-bold text-white">No external squads pre-linked</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">Managers will self-onboard and join using your Master Invite Link in Step 5.</p>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -1770,14 +1985,14 @@ export default function AdminSetup() {
                                     <button
                                         type="button"
                                         onClick={() => { setStep(1); setStep1Error('Enter your existing password to link this new league.'); setSubmitError(''); }}
-                                        className="flex-1 bg-[#22c55e] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#1fbb59] transition-all"
+                                        className="flex-1 bg-[#22c55e] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#1fbb59] transition-all cursor-pointer"
                                     >
                                         Enter Password in Step 1
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => navigate('/login', { state: { isAdminView: true } })}
-                                        className="flex-1 bg-[#FBBF24] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#eab308] transition-all"
+                                        className="flex-1 bg-[#FBBF24] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#eab308] transition-all cursor-pointer"
                                     >
                                         Log In as Chairman
                                     </button>
@@ -1789,16 +2004,26 @@ export default function AdminSetup() {
                     </div>
                 )}
 
-                <div className="pt-4 border-t border-white/10">
+                {/* Step 4 Action Bar with Prominent Back and Activate Buttons */}
+                <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center gap-3">
                     <button
+                        type="button"
+                        onClick={prevStep}
+                        disabled={isSubmitting}
+                        className="w-full sm:w-auto px-6 py-4 rounded-xl border border-white/15 hover:border-white/30 bg-white/5 hover:bg-white/10 text-white font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                        <ArrowLeft className="w-4 h-4" /> Back to Members
+                    </button>
+                    <button
+                        type="button"
                         onClick={handleConfirmLeague}
                         disabled={isSubmitting}
-                        className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] disabled:opacity-50 disabled:cursor-wait"
+                        className="flex-1 w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-black text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_25px_rgba(34,197,94,0.2)] disabled:opacity-50 disabled:cursor-wait cursor-pointer"
                     >
                         {isSubmitting ? (
                             <>
                                 <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
-                                Securing League & Generating Signatures...
+                                Activating League & Generating Signatures...
                             </>
                         ) : (
                             <>
@@ -1975,6 +2200,27 @@ export default function AdminSetup() {
                     </div>
                 </div>
             </div>
+
+            {/* Submitting Loading Overlay Modal */}
+            {isSubmitting && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="w-full max-w-sm bg-[#0c1219] border border-white/15 rounded-3xl p-7 shadow-[0_25px_60px_rgba(0,0,0,0.9)] relative text-center space-y-4">
+                        <div className="w-16 h-16 rounded-2xl bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center text-[#22c55e] mx-auto shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+                            <span className="w-8 h-8 border-3 border-[#22c55e]/30 border-t-[#22c55e] rounded-full animate-spin" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-black text-white tracking-tight">Initializing Chama Circle</h3>
+                            <p className="text-xs text-gray-300 mt-1.5 leading-relaxed">
+                                Writing ledger contracts, registering your Chairman identity, and locking your prize distribution...
+                            </p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 py-2.5 px-4 rounded-xl">
+                            <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse" />
+                            <span>Securing Gameweek Stake & Smart Ledger</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Exit Confirmation Modal */}
             {showExitModal && (
