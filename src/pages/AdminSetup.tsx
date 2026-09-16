@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info } from 'lucide-react';
+import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion } from 'firebase/firestore';
@@ -42,17 +42,30 @@ export default function AdminSetup() {
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
     const [step1Error, setStep1Error] = useState('');
     const [isExistingChairman, setIsExistingChairman] = useState(false);
+    const [showExitModal, setShowExitModal] = useState(false);
 
     useEffect(() => {
-        if (auth.currentUser) {
+        const storedRole = localStorage.getItem('fc-role') || localStorage.getItem('activeUserRole');
+        const activeLeagueId = localStorage.getItem('activeLeagueId');
+        const isAuthChairman = Boolean(auth.currentUser || (storedRole === 'admin' && activeLeagueId));
+
+        if (isAuthChairman) {
             setIsExistingChairman(true);
-            if (auth.currentUser.email && !email) setEmail(auth.currentUser.email);
-            if (auth.currentUser.displayName && !fullName) setFullName(auth.currentUser.displayName);
+            setRole('admin');
+            if (auth.currentUser?.email) setEmail(auth.currentUser.email);
+            if (auth.currentUser?.displayName) setFullName(auth.currentUser.displayName);
+            
+            const storedName = localStorage.getItem('activeUserName');
+            if (storedName && !auth.currentUser?.displayName) setFullName(storedName);
+
             const storedPhone = localStorage.getItem('memberPhone');
-            if (storedPhone && !phone) {
+            if (storedPhone) {
                 setPhone(storedPhone);
                 setChairmanPayoutPhone(storedPhone);
             }
+
+            // Immediately jump to step 2 (League Rules & Economy) so the Chairman never re-enters their personal details
+            setStep(2);
         }
     }, []);
 
@@ -538,7 +551,15 @@ export default function AdminSetup() {
     };
 
     const prevStep = () => {
-        if (step > 1 && !isSubmitting) { setStepDirection('back'); setStep(step - 1); }
+        if (isSubmitting) return;
+        if (isExistingChairman && step === 2) {
+            setShowExitModal(true);
+            return;
+        }
+        if (step > 1) {
+            setStepDirection('back');
+            setStep(step - 1);
+        }
     };
 
 
@@ -775,11 +796,13 @@ export default function AdminSetup() {
                     </div>
             </form>
 
-            <div className="mt-6 pt-5 border-t border-white/5 text-center relative z-10">
-                <p className="text-[11px] md:text-xs text-gray-600 dark:text-gray-400">
-                    Already a Chairman? <button onClick={() => navigate('/login', { state: { isAdminView: true } })} className="text-[#FBBF24] font-bold hover:underline">Log in here.</button>
-                </p>
-            </div>
+            {!isExistingChairman && (
+                <div className="mt-6 pt-5 border-t border-white/5 text-center relative z-10">
+                    <p className="text-[11px] md:text-xs text-gray-600 dark:text-gray-400">
+                        Already a Chairman? <button onClick={() => navigate('/login', { state: { isAdminView: true } })} className="text-[#FBBF24] font-bold hover:underline">Log in here.</button>
+                    </p>
+                </div>
+            )}
         </div>
     );
 
@@ -1638,9 +1661,21 @@ export default function AdminSetup() {
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 md:gap-2 text-gray-500 text-xs md:text-sm font-medium">
-                    <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#22c55e]" />
-                    <span>Step {step} of {STEPS - 1}</span>
+                <div className="flex items-center gap-3 md:gap-4">
+                    <div className="flex items-center gap-1.5 md:gap-2 text-gray-500 text-xs md:text-sm font-medium">
+                        <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#22c55e]" />
+                        <span>Step {step} of {STEPS - 1}</span>
+                    </div>
+                    {step < STEPS && (
+                        <button
+                            type="button"
+                            onClick={() => setShowExitModal(true)}
+                            className="px-3 py-1.5 rounded-xl border border-white/10 hover:border-red-500/40 bg-white/[0.04] hover:bg-red-500/10 text-gray-400 hover:text-red-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Exit</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1691,6 +1726,42 @@ export default function AdminSetup() {
                     </div>
                 </div>
             </div>
+
+            {/* Exit Confirmation Modal */}
+            {showExitModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-[#0c1219] border border-white/15 rounded-3xl p-6 md:p-7 shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative text-center">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto mb-4 shadow-[0_0_24px_rgba(245,158,11,0.2)]">
+                            <AlertTriangle className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-xl font-black text-white tracking-tight mb-2">
+                            Stop League Creation?
+                        </h3>
+                        <p className="text-sm text-gray-300 leading-relaxed mb-6">
+                            Are you sure you want to stop now? Any new league settings or custom rules you have configured will be discarded.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowExitModal(false)}
+                                className="flex-1 py-3 px-4 rounded-xl border border-white/10 hover:border-white/20 bg-white/[0.05] hover:bg-white/10 text-white font-bold text-sm transition-all"
+                            >
+                                Keep Editing
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowExitModal(false);
+                                    navigate('/dashboard', { replace: true });
+                                }}
+                                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-sm shadow-[0_4px_16px_rgba(225,29,72,0.3)] transition-all"
+                            >
+                                Exit to Dashboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="absolute bottom-6 w-full text-center z-10 px-4">
                 <p className="text-[8px] md:text-[10px] text-gray-600 font-bold uppercase tracking-widest">

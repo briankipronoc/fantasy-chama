@@ -228,7 +228,7 @@ export default function AppLayout() {
                         )}
                     </div>
 
-                    <div className="flex flex-col space-y-2.5 flex-1 pt-2 relative z-10">
+                    <div className="flex flex-col space-y-3 flex-1 pt-2 relative z-10">
                         {navItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = location.pathname === item.path || (location.pathname === '/' && item.path === '/');
@@ -245,34 +245,37 @@ export default function AppLayout() {
                                         window.scrollTo({ top: 0, behavior: 'smooth' });
                                     }}
                                     className={clsx(
-                                        'fc-sidebar-link group flex items-center w-full py-2.5 rounded-xl transition-all font-bold text-sm border relative',
-                                        isSidebarCollapsed ? 'fc-sidebar-link-collapsed px-0 justify-center' : 'px-3',
+                                        'fc-sidebar-link group flex items-center w-full transition-all font-bold text-sm border relative',
+                                        isSidebarCollapsed ? 'fc-sidebar-link-collapsed px-0 justify-center py-1 rounded-2xl' : 'px-3 py-2 rounded-2xl',
                                         isActive && !isSidebarCollapsed
                                             ? 'fc-sidebar-link-active text-emerald-100 border-emerald-500/35 bg-gradient-to-r from-emerald-500/20 to-emerald-500/05 shadow-[0_0_20px_rgba(16,185,129,0.14)]'
                                             : isActive && isSidebarCollapsed
                                                 ? 'text-emerald-300 border-transparent bg-transparent shadow-none'
                                                 : 'text-gray-400 hover:text-white border-transparent hover:bg-white/5'
                                     )}
-                                    title={isSidebarCollapsed ? item.name : undefined}
                                 >
                                     <span className={clsx(
-                                        'fc-sidebar-link-icon relative inline-flex items-center justify-center rounded-xl transition-colors shrink-0',
+                                        'fc-sidebar-link-icon relative inline-flex items-center justify-center rounded-2xl transition-colors shrink-0',
                                         isSidebarCollapsed
                                             ? (isActive
                                                 ? 'h-11 w-11 border border-emerald-500/40 bg-emerald-500/18 text-emerald-300'
                                                 : 'h-11 w-11 border border-white/12 bg-white/[0.02] text-gray-500 group-hover:text-white group-hover:bg-white/[0.05]')
-                                            : 'h-8 w-8 border',
-                                        !isSidebarCollapsed && isActive ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300' : '',
-                                        !isSidebarCollapsed && !isActive ? 'bg-white/[0.02] border-white/10 text-gray-500 group-hover:text-white' : ''
+                                            : (isActive
+                                                ? 'h-10 w-10 border border-emerald-400/40 bg-emerald-500/20 text-emerald-300'
+                                                : 'h-10 w-10 border border-white/10 bg-white/[0.02] text-gray-500 group-hover:text-white group-hover:bg-white/[0.05]')
                                     )}>
-                                        <Icon className={clsx(isSidebarCollapsed ? 'h-5.5 w-5.5' : 'h-4.5 w-4.5')} />
+                                        <Icon className={clsx(isSidebarCollapsed ? 'h-5.5 w-5.5' : 'h-5 w-5')} />
                                         {item.path === '/dashboard' && unreadCount > 0 && (
                                             <span className="fc-sidebar-notif-badge absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] rounded-full border flex items-center justify-center px-1">
                                                 <span className="text-[9px] font-black leading-none tabular-nums">{unreadCount > 9 ? '9+' : unreadCount}</span>
                                             </span>
                                         )}
                                     </span>
-                                    {!isSidebarCollapsed && <span className="tracking-wide text-center flex-1 ml-3">{item.name}</span>}
+                                    {!isSidebarCollapsed && (
+                                        <span className="tracking-wide text-left flex-1 ml-3.5 text-[13.5px] font-bold">
+                                            {item.name}
+                                        </span>
+                                    )}
                                     {!isSidebarCollapsed && typeof item.badge === 'number' && item.badge > 0 && (
                                         <span className={clsx(
                                             'ml-2 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-300 border border-amber-500/30',
@@ -280,6 +283,20 @@ export default function AppLayout() {
                                         )}>
                                             {item.badge > 99 ? '99+' : item.badge}
                                         </span>
+                                    )}
+
+                                    {/* Sleek Floating Hover Tooltip in Collapsed Mode */}
+                                    {isSidebarCollapsed && (
+                                        <div className="absolute left-[calc(100%+14px)] top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0c1219]/95 text-white text-xs font-bold rounded-xl border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-[100] whitespace-nowrap flex items-center gap-2">
+                                            <span>{item.name}</span>
+                                            {typeof item.badge === 'number' && item.badge > 0 && (
+                                                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                            {/* Little arrow pointing to icon */}
+                                            <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#0c1219] border-l border-b border-white/15 rotate-45 pointer-events-none"></div>
+                                        </div>
                                     )}
                                 </Link>
                             );
@@ -291,18 +308,25 @@ export default function AppLayout() {
                         <button
                             onClick={handleLogout}
                             className={clsx(
-                                'fc-sidebar-logout group w-full rounded-xl transition-all font-bold text-sm border border-transparent text-gray-400 hover:text-white focus:outline-none',
-                                isSidebarCollapsed ? 'h-14 flex items-center justify-center px-0' : 'flex items-center justify-center px-3 py-3'
+                                'fc-sidebar-logout group w-full transition-all font-bold text-sm border border-transparent text-gray-400 hover:text-white focus:outline-none relative',
+                                isSidebarCollapsed ? 'h-14 flex items-center justify-center px-0 rounded-2xl' : 'flex items-center px-3 py-2 rounded-2xl'
                             )}
-                            title={isSidebarCollapsed ? 'Sign Out' : undefined}
                         >
                             <span className={clsx(
-                                'fc-sidebar-logout-icon-base inline-flex items-center justify-center rounded-xl border border-red-500/35 bg-red-500/15 text-red-400 group-hover:bg-red-500/22 group-hover:text-red-300 transition-colors',
-                                isSidebarCollapsed ? 'h-11 w-11' : 'h-9 w-9'
+                                'fc-sidebar-logout-icon-base inline-flex items-center justify-center rounded-2xl border border-red-500/35 bg-red-500/15 text-red-400 group-hover:bg-red-500/22 group-hover:text-red-300 transition-colors',
+                                isSidebarCollapsed ? 'h-11 w-11' : 'h-10 w-10'
                             )}>
-                                <LogOut className="h-4.5 w-4.5" />
+                                <LogOut className="h-5 w-5" />
                             </span>
-                            {!isSidebarCollapsed && <span className="ml-3 text-center flex-1 tracking-wide">Sign Out</span>}
+                            {!isSidebarCollapsed && <span className="ml-3.5 text-left flex-1 tracking-wide text-[13.5px]">Sign Out</span>}
+
+                            {/* Floating Sign Out Tooltip in Collapsed Mode */}
+                            {isSidebarCollapsed && (
+                                <div className="absolute left-[calc(100%+14px)] top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#0c1219]/95 text-red-300 text-xs font-bold rounded-xl border border-red-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl opacity-0 translate-x-1 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 z-[100] whitespace-nowrap flex items-center gap-1.5">
+                                    <span>Sign Out</span>
+                                    <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-[#0c1219] border-l border-b border-red-500/30 rotate-45 pointer-events-none"></div>
+                                </div>
+                            )}
                         </button>
                     </div>
                 </div>
