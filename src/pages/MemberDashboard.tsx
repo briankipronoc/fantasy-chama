@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
 import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight } from 'lucide-react';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion } from 'firebase/firestore';
+import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl, secureApiPost } from '../utils/api';
 import { useNotifications } from '../components/NotificationProvider';
@@ -55,6 +55,7 @@ export default function MemberDashboard() {
     // Phase 29: FPL GW Winner + full standings
     const [gwWinner, setGwWinner] = useState<any>(null);
     const [fplStandings, setFplStandings] = useState<any[]>([]);
+    const [rawFplStandings, setRawFplStandings] = useState<any[]>([]);
     const [activeUserSideBets, setActiveUserSideBets] = useState<any[]>([]);
     const [currentFplEvent, setCurrentFplEvent] = useState<{
         id: number;
@@ -172,35 +173,7 @@ export default function MemberDashboard() {
                         .then(fplData => {
                             const results = fplData?.standings?.results;
                             if (results && results.length > 0) {
-                                // Chama Rule: Only active non-eliminated members can be in standings and win
-                                const norm = (s: string) => String(s || '').toLowerCase().trim();
-                                const eligibleResults = results.filter((r: any) => {
-                                    const dbMember = members.find((m: any) => {
-                                        if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
-                                        if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
-                                        const db = norm(m.displayName);
-                                        return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
-                                    });
-                                    return dbMember && dbMember.isActive !== false && !(dbMember as any).isEliminated;
-                                });
-
-                                const effectiveList = eligibleResults.length > 0 ? eligibleResults : results;
-                                const sorted = [...effectiveList].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-
-                                if (sorted.length >= 1 && Number(sorted[0]?.event_total || 0) > 0) {
-                                    const winner = sorted[0];
-                                    const runnerUp = sorted[1] || null;
-                                    const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
-                                    setGwWinner({
-                                        ...winner,
-                                        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || null,
-                                        leadMargin: Math.max(0, leadMargin),
-                                    });
-                                } else {
-                                    setGwWinner(null);
-                                }
-                                // Store sorted active standings for rank card (strictly active members, no eliminated ones)
-                                setFplStandings(sorted);
+                                setRawFplStandings(results);
 
                                 // Build league-wide GW average from all entries' history
                                 const fetchPerformances = async () => {
@@ -425,13 +398,84 @@ export default function MemberDashboard() {
         fetchCurrentEvent();
     }, []);
 
+    // Dynamically calculate active funded standings and GW winner from raw FPL results + Chama memberships
+    useEffect(() => {
+        if (!rawFplStandings || rawFplStandings.length === 0) {
+            setFplStandings([]);
+            setGwWinner(null);
+            return;
+        }
+
+        const norm = (s: string) => String(s || '').toLowerCase().trim();
+        const effectiveStake = Number(gameweekStake || 0);
+
+        // Chama Rule: Strictly active, funded, non-eliminated, non-spectator members
+        const eligibleResults = rawFplStandings.filter((r: any) => {
+            const dbMember = members.find((m: any) => {
+                if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+                if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+                const db = norm(m.displayName);
+                return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+            });
+            if (!dbMember) return false;
+            if (dbMember.isActive === false) return false;
+            if ((dbMember as any).isEliminated === true) return false;
+            if ((dbMember as any).playMode === 'sidebets_only') return false;
+
+            const isFunded = dbMember.hasPaid === true || (effectiveStake > 0 && (Number(dbMember.walletBalance || 0)) >= effectiveStake);
+            return isFunded;
+        });
+
+        const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+
+        if (sorted.length >= 1 && Number(sorted[0]?.event_total || 0) > 0) {
+            const winner = sorted[0];
+            const runnerUp = sorted[1] || null;
+            const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
+            setGwWinner({
+                ...winner,
+                runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || null,
+                leadMargin: Math.max(0, leadMargin),
+            });
+        } else {
+            setGwWinner(null);
+        }
+
+        setFplStandings(sorted);
+    }, [rawFplStandings, members, gameweekStake]);
+
     // Phase 10.5: Real-time Live Escrow Feed from league_events
     useEffect(() => {
         if (!activeLeagueId) return;
         const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
-        const q = query(eventsRef, orderBy('timestamp', 'desc'), limit(20));
+        const q = query(eventsRef, orderBy('timestamp', 'desc'), limit(30));
         const unsub = onSnapshot(q, snap => {
-            setLiveEvents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            const isStaleEvent = (ev: any) => {
+                const msg = String(ev.message || '');
+                const type = String(ev.eventType || '');
+                const combined = `${msg} ${type}`;
+                if (/last\s*season/i.test(combined)) return true;
+                const gwMatch = combined.match(/GW\s*(\d+)/i) || combined.match(/Gameweek\s*(\d+)/i);
+                const eventGw = ev.gw ? Number(ev.gw) : (gwMatch ? Number(gwMatch[1]) : null);
+                if (eventGw && eventGw >= 30) {
+                    const currentGw = currentFplEvent?.id || 4;
+                    if (currentGw < 25) return true;
+                }
+                return false;
+            };
+
+            const valid: any[] = [];
+            snap.docs.forEach(d => {
+                const ev = { id: d.id, ...d.data() };
+                if (isStaleEvent(ev)) {
+                    if (role === 'admin') {
+                        deleteDoc(d.ref).catch(() => {});
+                    }
+                } else {
+                    valid.push(ev);
+                }
+            });
+            setLiveEvents(valid);
         }, (error) => {
             console.warn('[member-dashboard] live events listener failed:', error?.message || error);
         });
@@ -442,7 +486,7 @@ export default function MemberDashboard() {
                 console.warn('[member-dashboard] live events unsubscribe failed:', error?.message || error);
             }
         };
-    }, [activeLeagueId]);
+    }, [activeLeagueId, role, currentFplEvent?.id]);
 
     // Co-Chair: Listen for Pending Payouts
     useEffect(() => {

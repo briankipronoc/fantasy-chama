@@ -218,7 +218,10 @@ export default function Standings() {
                         });
                     });
 
-                    // Active non-eliminated Chama members from results
+                    const weeklyPercent = Number((leagueRules as any)?.weekly || 70) / 100;
+                    const stakeVal = Number((leagueRules as any)?.gameweekStake || 250);
+
+                    // Active non-eliminated funded Chama members from results
                     const norm = (s: string) => String(s || '').toLowerCase().trim();
                     const activeChamaResults = results.filter((r: any) => {
                         const dbMember = members.find((m: any) => {
@@ -227,14 +230,17 @@ export default function Standings() {
                             const db = norm(m.displayName);
                             return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
                         });
-                        return dbMember && dbMember.isActive !== false && !(dbMember as any)?.isEliminated;
+                        if (!dbMember) return false;
+                        if (dbMember.isActive === false) return false;
+                        if ((dbMember as any)?.isEliminated === true) return false;
+                        if ((dbMember as any)?.playMode === 'sidebets_only') return false;
+                        const isFunded = dbMember.hasPaid === true || (stakeVal > 0 && (Number(dbMember.walletBalance || 0)) >= stakeVal);
+                        return isFunded;
                     });
-                    const sortedActiveResults = [...(activeChamaResults.length > 0 ? activeChamaResults : results)].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+                    const sortedActiveResults = [...activeChamaResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
                     const topGwMember = sortedActiveResults[0];
 
-                    const weeklyPercent = Number((leagueRules as any)?.weekly || 70) / 100;
-                    const stakeVal = Number((leagueRules as any)?.gameweekStake || 250);
-                    const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated).length || 1;
+                    const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated && (m as any)?.playMode !== 'sidebets_only' && (m.hasPaid || (stakeVal > 0 && (Number(m.walletBalance || 0)) >= stakeVal))).length || 1;
                     const estimatedPot = Math.round(activeCount * stakeVal * weeklyPercent);
 
                     const effectiveForfeited = new Set<number>([
@@ -387,6 +393,7 @@ export default function Standings() {
         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
         if (!matched) return false;
         if (matched.isActive === false) return false;
+        if ((matched as any).isEliminated === true) return false;
         if ((matched as any).playMode === 'sidebets_only') return false;
         const stake = Number((league as any)?.gameweekStake || (league as any)?.monthlyFee || 0);
         return matched.hasPaid === true || (stake > 0 && (matched.walletBalance || 0) >= stake);

@@ -51,6 +51,7 @@ import {
   limit,
   getDocs,
   writeBatch,
+  deleteDoc,
 } from "firebase/firestore";
 import { useStore } from "../store/useStore";
 import { getApiBaseUrl, secureApiPost } from "../utils/api";
@@ -779,14 +780,37 @@ export default function AdminCommandCenter() {
   useEffect(() => {
     if (!activeLeagueId) return;
     const eventsRef = collection(db, "leagues", activeLeagueId, "league_events");
-    const q = query(eventsRef, orderBy("timestamp", "desc"), limit(8));
+    const q = query(eventsRef, orderBy("timestamp", "desc"), limit(25));
     const unsub = onSnapshot(q, (snap) => {
-      setLiveOpsEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const isStaleEvent = (ev: any) => {
+        const msg = String(ev.message || '');
+        const type = String(ev.eventType || '');
+        const combined = `${msg} ${type}`;
+        if (/last\s*season/i.test(combined)) return true;
+        const gwMatch = combined.match(/GW\s*(\d+)/i) || combined.match(/Gameweek\s*(\d+)/i);
+        const eventGw = ev.gw ? Number(ev.gw) : (gwMatch ? Number(gwMatch[1]) : null);
+        if (eventGw && eventGw >= 30) {
+          const currentGw = currentGwNumber || firestoreGw || 4;
+          if (currentGw < 25) return true;
+        }
+        return false;
+      };
+
+      const valid: any[] = [];
+      snap.docs.forEach((d) => {
+        const ev = { id: d.id, ...d.data() };
+        if (isStaleEvent(ev)) {
+          deleteDoc(d.ref).catch(() => {});
+        } else {
+          valid.push(ev);
+        }
+      });
+      setLiveOpsEvents(valid.slice(0, 8));
     }, (err) => {
       console.warn("[ops-feed] league_events listener failed:", err?.message || err);
     });
     return () => unsub();
-  }, [activeLeagueId]);
+  }, [activeLeagueId, currentGwNumber, firestoreGw]);
 
   // Module 3B: Approve a dispute claim
   const handleApproveDispute = async (dispute: any) => {
