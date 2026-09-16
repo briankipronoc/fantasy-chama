@@ -13,8 +13,8 @@ import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DashboardSkeleton } from '../components/Skeleton';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
-import LiveMatchdayPulse from '../components/LiveMatchdayPulse';
 import { haptics } from '../utils/haptics';
+import confetti from 'canvas-confetti';
 
 export default function MemberDashboard() {
     const navigate = useNavigate();
@@ -85,7 +85,6 @@ export default function MemberDashboard() {
     const [showLeagueGuide, setShowLeagueGuide] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isUpgradingToPot, setIsUpgradingToPot] = useState(false);
-    const [reactionMessage, setReactionMessage] = useState('');
     const [activeReactionAnim, setActiveReactionAnim] = useState<string | null>(null);
 
     const members = useStore(state => state.members);
@@ -833,34 +832,56 @@ export default function MemberDashboard() {
         }
     };
 
-    const handleSendReaction = async (emoji: string, customMsg: string) => {
+    const handleSendReaction = async (emoji: string) => {
         if (!activeLeagueId || !gwWinner) return;
-        haptics.selection();
+        haptics.celebrate();
+        try {
+            confetti({
+                particleCount: 40,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#FBBF24', '#10B981', '#F59E0B', '#FFFFFF']
+            });
+        } catch (_c) {}
         setActiveReactionAnim(emoji);
         setTimeout(() => setActiveReactionAnim(null), 2500);
 
+        const winnerFirstName = (gwWinner.player_name || 'Champion').split(' ')[0];
+        const senderName = currentUser?.displayName || 'Member';
+
         try {
-            const senderName = currentUser?.displayName || 'Member';
-            const msg = customMsg || `${senderName} reacted with ${emoji}`;
-            
-            const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
-            await addDoc(eventsRef, {
+            const notifRef = collection(db, 'leagues', activeLeagueId, 'notifications');
+            await addDoc(notifRef, {
                 type: 'champion_reaction',
                 emoji,
-                message: msg,
+                message: `${senderName} sent ${emoji} props to ${winnerFirstName} for GW${currentFplEvent?.id || ''}!`,
                 fromName: senderName,
                 fromId: activeUserId,
                 toWinner: gwWinner.player_name,
+                winnerId: gwWinner.id || null,
                 gw: currentFplEvent?.id || null,
                 timestamp: serverTimestamp(),
+                readBy: [activeUserId],
             });
 
-            showToast(`Sent ${emoji} props to ${gwWinner.player_name.split(' ')[0]}!`, 'success');
-            setReactionMessage('');
+            if (role === 'admin') {
+                const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
+                addDoc(eventsRef, {
+                    type: 'champion_reaction',
+                    eventType: 'reaction',
+                    emoji,
+                    message: `${senderName} reacted with ${emoji} to ${winnerFirstName}`,
+                    actor: senderName,
+                    toWinner: gwWinner.player_name,
+                    gw: currentFplEvent?.id || null,
+                    timestamp: serverTimestamp(),
+                }).catch(() => {});
+            }
+
+            showToast(`Sent ${emoji} props to ${winnerFirstName}!`, 'success');
         } catch (err) {
             console.warn('[reaction] could not save:', err);
-            showToast(`Sent ${emoji}!`, 'success');
-            setReactionMessage('');
+            showToast(`Sent ${emoji} props to ${winnerFirstName}!`, 'success');
         }
     };
 
@@ -1047,9 +1068,17 @@ export default function MemberDashboard() {
 
             {/* Quick Reaction Floating Animation Burst */}
             {activeReactionAnim && (
-                <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center animate-in zoom-in-50 fade-in duration-200">
-                    <div className="text-7xl md:text-8xl animate-bounce drop-shadow-[0_0_35px_rgba(251,191,36,0.8)]">
-                        {activeReactionAnim}
+                <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden animate-in fade-in duration-200">
+                    <div className="relative flex flex-col items-center animate-in zoom-in-75 duration-300">
+                        <div className="text-8xl md:text-9xl animate-bounce drop-shadow-[0_0_50px_rgba(251,191,36,0.9)] select-none">
+                            {activeReactionAnim}
+                        </div>
+                        <div className="absolute -top-10 -left-10 text-4xl animate-ping opacity-75">{activeReactionAnim}</div>
+                        <div className="absolute -top-14 right-6 text-5xl animate-bounce opacity-85">{activeReactionAnim}</div>
+                        <div className="absolute top-14 -right-10 text-4xl animate-pulse opacity-75">{activeReactionAnim}</div>
+                        <div className="mt-4 px-4 py-1.5 rounded-full bg-black/85 border border-amber-400/50 backdrop-blur-md text-amber-300 text-xs font-black uppercase tracking-widest shadow-2xl animate-in fade-in slide-in-from-bottom-2">
+                            Props Sent! ✓
+                        </div>
                     </div>
                 </div>
             )}
@@ -1090,21 +1119,6 @@ export default function MemberDashboard() {
                     title={leagueName || 'The Big League'}
                     subtitle="Member Hub"
                     hideExtraControls={true}
-                />
-                <LiveMatchdayPulse
-                    className="mt-1 mb-2"
-                    gw={currentFplEvent?.id}
-                    leaderName={gwWinner?.player_name}
-                    leaderTeam={gwWinner?.entry_name}
-                    leaderPoints={gwWinner?.event_total}
-                    leadMargin={gwWinner?.leadMargin}
-                    runnerUpName={gwWinner?.runnerUpName}
-                    isLive={!hasFinalGwChampion}
-                    isFinished={hasFinalGwChampion}
-                    potAmount={((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
-                    contributorCount={members.filter(m => m.hasPaid && m.isActive !== false).length}
-                    isCurrentUserLeader={isCurrentUserGwWinner}
-                    onFlex={isCurrentUserGwWinner ? () => setShowFlexModal(true) : undefined}
                 />
 
                 {/* ── GREETING CARD — First thing member sees ── */}
@@ -1163,99 +1177,10 @@ export default function MemberDashboard() {
                     </div>
                 </section>
 
-                {/* ── Active / Upcoming 1v1 Side Bet Banner ── */}
-                {activeUserSideBets && activeUserSideBets.length > 0 && (() => {
-                    const bet = activeUserSideBets[0];
-                    const isChallenger = bet.challenger?.id === currentUser?.id;
-                    const rivalName = isChallenger ? bet.opponent?.displayName || 'Opponent' : bet.challenger?.displayName || 'Challenger';
-                    const isActionRequired = !isChallenger && !bet.opponent?.signed;
-                    
-                    return (
-                        <section className="mb-3 rounded-3xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-in fade-in duration-300">
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0 shadow-sm">
-                                    <Swords className="w-5 h-5" />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
-                                            1v1 Side Bet Wager
-                                        </span>
-                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 uppercase">
-                                            KES {bet.stake?.toLocaleString()} Stake
-                                        </span>
-                                    </div>
-                                    <p className="font-extrabold text-sm md:text-base text-slate-900 dark:text-white truncate mt-0.5">
-                                        vs {rivalName}: "{bet.title}"
-                                    </p>
-                                    <p className="text-[11px] text-slate-600 dark:text-gray-300 truncate">
-                                        {bet.status === 'active'
-                                            ? `🔥 Wager Active! Winner takes KES ${(bet.stake * 2).toLocaleString()} at final whistle.`
-                                            : isActionRequired
-                                                ? '⚠️ You have been challenged! Review and accept before deadline.'
-                                                : '⏳ Awaiting Chairman approval / opponent signature.'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                <button
-                                    onClick={() => navigate('/side-bets')}
-                                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0e17] font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-1.5"
-                                >
-                                    <span>{isActionRequired ? 'Review & Accept' : 'View Wagers'}</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </section>
-                    );
-                })()}
-
-                {showLeagueGuide && (
-                    <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300">
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                            <div className="flex items-center gap-2">
-                                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Two Teams Setup</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={dismissLeagueGuide}
-                                className="text-[10px] font-black uppercase tracking-widest text-[#10B981] hover:text-emerald-300"
-                            >
-                                Dismiss
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">League Context</p>
-                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
-                                    You are in <span className="font-black text-white">{userLeagueCount}</span> league{userLeagueCount > 1 ? 's' : ''}. Use the top switcher to choose which wallet and approvals you are viewing.
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Team Eligibility</p>
-                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
-                                    {hasDualTeam
-                                        ? 'Your second FPL team is active for this league, and both teams can independently win a gameweek.'
-                                        : 'Only one FPL team is attached to your profile here. Add a second team from profile if your chairman allows dual mode.'}
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Your Access</p>
-                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
-                                    Active role in this league: <span className="font-black text-[#FBBF24] capitalize">{activeLeagueRole}</span>.
-                                    {activeLeagueRole === 'admin' || activeLeagueRole === 'co-chair' ? ' You can approve governance actions tied to this circle.' : ' Governance actions stay read-only in member mode.'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Phase 30: Golden Winner Celebration OR Member Celebration with Reactions OR Normal Action Banner */}
+                {/* Phase 30: GW Champion Crowned Celebration (Right after Greeting) */}
                 {hasFinalGwChampion && gwWinner ? (
                     isCurrentUserGwWinner ? (
-                        <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden">
+                        <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden mb-3">
                             <div className="absolute top-0 right-0 w-80 h-80 bg-[#FBBF24] blur-[120px] opacity-10 pointer-events-none"></div>
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#F59E0B] blur-[80px] opacity-10 pointer-events-none"></div>
                             <div className="relative z-10 w-20 h-20 rounded-full bg-gradient-to-br from-[#FBBF24] to-[#B45309] p-[3px] shadow-[0_0_30px_rgba(251,191,36,0.3)] flex-shrink-0 animate-pulse">
@@ -1290,7 +1215,7 @@ export default function MemberDashboard() {
                             </button>
                         </div>
                     ) : (
-                        <div className="w-full rounded-[2rem] border border-amber-500/30 bg-gradient-to-br from-[#1b170c] via-[#161d24] to-[#0c1218] p-5 md:p-6 shadow-2xl relative overflow-hidden">
+                        <div className="w-full rounded-[2rem] border border-amber-500/30 bg-gradient-to-br from-[#1b170c] via-[#161d24] to-[#0c1218] p-5 md:p-6 shadow-2xl relative overflow-hidden mb-3">
                             <div className="absolute top-0 right-0 w-80 h-40 bg-[#FBBF24]/10 blur-[100px] pointer-events-none" />
                             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 relative z-10">
                                 <div className="flex items-center gap-4">
@@ -1313,117 +1238,138 @@ export default function MemberDashboard() {
                                     </div>
                                 </div>
 
-                                {/* Quick Emoji & Banter Reactions to the Champion */}
+                                {/* Quick Emoji Reactions to the Champion */}
                                 <div className="w-full lg:w-auto bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 flex-shrink-0">
                                     <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
                                         Send Props to {gwWinner.player_name.split(' ')[0]} 💬
                                     </p>
-                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => (
                                             <button
                                                 key={emoji}
                                                 type="button"
-                                                onClick={() => handleSendReaction(emoji, '')}
-                                                className="w-9 h-9 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-400/40 flex items-center justify-center text-base transition-all active:scale-90"
+                                                onClick={() => handleSendReaction(emoji)}
+                                                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/25 border border-white/10 hover:border-amber-400/50 flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-90 shadow-sm cursor-pointer"
                                                 title={`React with ${emoji}`}
                                             >
                                                 {emoji}
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <input
-                                            type="text"
-                                            value={reactionMessage}
-                                            onChange={(e) => setReactionMessage(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && reactionMessage.trim()) {
-                                                    handleSendReaction('💬', reactionMessage.trim());
-                                                }
-                                            }}
-                                            placeholder="Quick banter..."
-                                            maxLength={60}
-                                            className="w-36 md:w-44 bg-white/5 border border-white/10 rounded-xl px-2.5 py-1 text-[11px] text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400/50"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (reactionMessage.trim()) {
-                                                    handleSendReaction('💬', reactionMessage.trim());
-                                                }
-                                            }}
-                                            disabled={!reactionMessage.trim()}
-                                            className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30 transition-all disabled:opacity-30 active:scale-95 cursor-pointer"
-                                        >
-                                            Send
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     )
                 ) : gwWinner && !currentFplEvent?.finished ? (
-                    <div className="fc-gw-live-banner w-full rounded-[2rem] border border-white/10 bg-[#161d24]/90 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-2xl shadow-black/30">
+                    <div className="fc-gw-live-banner w-full rounded-[2rem] border border-white/10 bg-[#161d24]/90 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-2xl shadow-black/30 mb-3">
                         <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
                             <Trophy className="w-7 h-7 text-[#FBBF24]" />
                         </div>
                         <div className="flex-1">
-                            <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em] mb-1">Gameweek still live</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <p className="text-[10px] font-black text-[#FBBF24] uppercase tracking-[0.2em]">Gameweek still live</p>
+                                <span className={clsx(
+                                    "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                                    gwWinner.leadMargin >= 15
+                                        ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                                        : gwWinner.leadMargin >= 5
+                                        ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                        : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
+                                )}>
+                                    {gwWinner.leadMargin >= 15 ? "Dominant 🛡️" : gwWinner.leadMargin >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
+                                </span>
+                            </div>
                             <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Current standings are still moving, so the dashboard waits for the final whistle before naming a winner.</p>
                         </div>
-                        {(() => {
-                            const myRankEntry = fplStandings.findIndex((e: any) =>
-                                (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
-                                (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
-                                currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
-                            );
-                            const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
-                            const isMeLeader = myEntry && myEntry.entry === gwWinner.entry;
-
-                            return (
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                                    <div className={clsx(
-                                        "fc-gw-live-leader rounded-2xl border px-4 py-3 text-center flex-shrink-0",
-                                        isMeLeader ? "border-[#FBBF24]/50 bg-[#FBBF24]/10 shadow-[0_0_20px_rgba(251,191,36,0.15)]" : "border-white/10 bg-black/20"
-                                    )}>
-                                        <p className={clsx("text-[10px] font-black uppercase tracking-widest", isMeLeader ? "text-[#FBBF24]" : "text-gray-500")}>
-                                            {isMeLeader ? "You're the Live Leader! 🚀" : "Live leader"}
-                                        </p>
-                                        <p className="text-lg font-black text-white tabular-nums">{isMeLeader ? firstName : gwWinner.player_name}</p>
-                                        <p className="text-[11px] text-[#FBBF24] font-bold tabular-nums">{Number(gwWinner.event_total || 0).toLocaleString()} pts</p>
-                                        {gwWinner.leadMargin !== undefined && (
-                                            <div className="mt-1.5 flex flex-col items-center gap-1">
-                                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                                    +{gwWinner.leadMargin} pts ahead
-                                                </span>
-                                                <span className={clsx(
-                                                    "text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border",
-                                                    gwWinner.leadMargin >= 15
-                                                        ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                                                        : gwWinner.leadMargin >= 5
-                                                        ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                                                        : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
-                                                )}>
-                                                    {gwWinner.leadMargin >= 15 ? "Dominant 🛡️" : gwWinner.leadMargin >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    {!isMeLeader && myEntry && (
-                                        <div className="fc-gw-live-leader rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-center flex-shrink-0">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Your Points</p>
-                                            <p className="text-lg font-black text-white tabular-nums">{firstName}</p>
-                                            <p className="text-[11px] text-emerald-400 font-bold tabular-nums">{Number(myEntry.event_total || 0).toLocaleString()} pts</p>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })()}
                     </div>
-                ) : (
-                    <>
+                ) : null}
+
+                {/* ── Active / Upcoming 1v1 Side Bet Banner (Below GW Champion) ── */}
+                {activeUserSideBets && activeUserSideBets.length > 0 && (() => {
+                    const bet = activeUserSideBets[0];
+                    const isChallenger = bet.challenger?.id === currentUser?.id;
+                    const rivalName = isChallenger ? bet.opponent?.displayName || 'Opponent' : bet.challenger?.displayName || 'Challenger';
+                    const isActionRequired = !isChallenger && !bet.opponent?.signed;
+                    
+                    return (
+                        <section className="mb-3 rounded-3xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-in fade-in duration-300">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0 shadow-sm">
+                                    <Swords className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">1v1 Side Bet Wager</span>
+                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30">KES {bet.stake?.toLocaleString() || '500'} STAKE</span>
+                                    </div>
+                                    <h4 className="text-sm md:text-base font-black text-white truncate">
+                                        vs {rivalName}: "{bet.terms?.title || bet.terms?.description || 'Custom Wager'}"
+                                    </h4>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        {bet.status === 'active'
+                                            ? '🔥 Match is live! Highest score takes the bag.'
+                                            : isActionRequired
+                                                ? '⚠️ You have been challenged! Review and accept before deadline.'
+                                                : '⏳ Awaiting Chairman approval / opponent signature.'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                <button
+                                    onClick={() => navigate('/sidebets')}
+                                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0e17] font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <span>{isActionRequired ? 'Review & Accept' : 'View Wagers'}</span>
+                                    <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </section>
+                    );
+                })()}
+
+                {showLeagueGuide && (
+                    <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300 mb-3">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Two Teams Setup</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={dismissLeagueGuide}
+                                className="text-[10px] font-black uppercase tracking-widest text-[#10B981] hover:text-emerald-300 cursor-pointer"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">League Context</p>
+                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                                    You are in <span className="font-black text-white">{userLeagueCount}</span> league{userLeagueCount > 1 ? 's' : ''}. Use the top switcher to choose which wallet and approvals you are viewing.
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Team Eligibility</p>
+                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                                    {hasDualTeam
+                                        ? 'Your second FPL team is active for this league, and both teams can independently win a gameweek.'
+                                        : 'Only one FPL team is attached to your profile here. Add a second team from profile if your chairman allows dual mode.'}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Your Access</p>
+                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                                    Active role in this league: <span className="font-black text-[#FBBF24] capitalize">{activeLeagueRole}</span>.
+                                    {activeLeagueRole === 'admin' || activeLeagueRole === 'co-chair' ? ' You can approve governance actions tied to this circle.' : ' Governance actions stay read-only in member mode.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                         {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
                         {(currentUser && (winnerConfirmation || (!hasPaid && !isSpectator))) && (
                             <div className={clsx(
@@ -1578,8 +1524,6 @@ export default function MemberDashboard() {
                                 </span>
                             </div>
                         )}
-                    </>
-                )}
             </div>
 
             {/* Main Content — Dense Grid Layout */}

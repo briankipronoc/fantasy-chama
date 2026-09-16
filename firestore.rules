@@ -128,7 +128,8 @@ service cloud.firestore {
       // ── League Events (Ledger feed) ───────────────────────────
       match /league_events/{eventId} {
         allow read: if isAuthenticated();
-        allow create, update, delete: if isAdmin(leagueId);
+        allow create: if isAdmin(leagueId) || (isAuthenticated() && request.resource.data.type == 'champion_reaction');
+        allow update, delete: if isAdmin(leagueId);
       }
 
       // ── Disputes ──────────────────────────────────────────────
