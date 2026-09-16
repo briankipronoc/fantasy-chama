@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
@@ -85,7 +85,7 @@ export default function MemberDashboard() {
     const [showLeagueGuide, setShowLeagueGuide] = useState(false);
     const [showRulesModal, setShowRulesModal] = useState(false);
     const [isUpgradingToPot, setIsUpgradingToPot] = useState(false);
-    const [activeReactionAnim, setActiveReactionAnim] = useState<string | null>(null);
+    const [activeReactionAnim, setActiveReactionAnim] = useState<{ emoji: string; isExiting: boolean } | null>(null);
 
     const members = useStore(state => state.members);
     const logout = useStore(state => state.logout);
@@ -843,8 +843,13 @@ export default function MemberDashboard() {
                 colors: ['#FBBF24', '#10B981', '#F59E0B', '#FFFFFF']
             });
         } catch (_c) {}
-        setActiveReactionAnim(emoji);
-        setTimeout(() => setActiveReactionAnim(null), 2500);
+        setActiveReactionAnim({ emoji, isExiting: false });
+        setTimeout(() => {
+            setActiveReactionAnim(prev => prev ? { ...prev, isExiting: true } : null);
+        }, 1600);
+        setTimeout(() => {
+            setActiveReactionAnim(null);
+        }, 2200);
 
         const winnerFirstName = (gwWinner.player_name || 'Champion').split(' ')[0];
         const senderName = currentUser?.displayName || 'Member';
@@ -913,10 +918,12 @@ export default function MemberDashboard() {
     const totalLeagueGws = Math.max(1, 38 - leagueStartGw + 1);
     const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * (rules.vault / 100);
 
-    // Dynamic Winner calculation from recent notification feed using the structured isWinnerEvent objects.
-    // A gameweek is voided if marked as voided or if active funded members < 2
+    // Dynamic Winner calculation:
+    // A gameweek is only voided if active funded participants < 2 AND voided in governance
+    const fundedMembersCount = members.filter(m => (m.hasPaid || (Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated).length;
     const isCurrentGwVoided = Boolean(
-        notifications.some((n: any) => (n.eventType === 'gw_voided' || n.status === 'voided') && (Number(n.gw || n.gameweek) === Number(currentFplEvent?.id)))
+        fundedMembersCount < 2 &&
+        notifications.some((n: any) => n.eventType === 'gw_voided' && Number(n.gw || n.gameweek) === Number(currentFplEvent?.id))
     );
 
     const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';
@@ -943,6 +950,42 @@ export default function MemberDashboard() {
     );
     const hasFinalGwChampion = Boolean(!isCurrentGwVoided && gwWinner && Number(gwWinner.event_total) > 0);
     const isRecentWinner = isCurrentUserGwWinner;
+
+    // Aggregate real-time reactions for this GW champion (WhatsApp/iMessage style)
+    interface ChampionReactionSummary {
+        emoji: string;
+        count: number;
+        senders: string[];
+        hasReacted: boolean;
+    }
+
+    const gwChampionReactions = useMemo<ChampionReactionSummary[]>(() => {
+        const targetGw = Number(currentFplEvent?.id);
+        const reactions = notifications.filter((n: any) => 
+            (n.type === 'champion_reaction' || n.eventType === 'reaction') && 
+            (!n.gw || Number(n.gw) === targetGw)
+        );
+
+        const map = new Map<string, { count: number; senders: string[]; hasReacted: boolean }>();
+        reactions.forEach((r: any) => {
+            const emoji = r.emoji;
+            if (!emoji) return;
+            const entry = map.get(emoji) || { count: 0, senders: [], hasReacted: false };
+            entry.count += 1;
+            if (r.fromName && !entry.senders.includes(r.fromName)) {
+                entry.senders.push(r.fromName);
+            }
+            if (r.fromId === activeUserId || (currentUser?.displayName && r.fromName === currentUser.displayName)) {
+                entry.hasReacted = true;
+            }
+            map.set(emoji, entry);
+        });
+
+        return Array.from(map.entries()).map(([emoji, data]) => ({
+            emoji,
+            ...data
+        })).sort((a, b) => b.count - a.count);
+    }, [notifications, currentFplEvent?.id, activeUserId, currentUser?.displayName]);
 
     // Trigger celebratory confetti for the GW winner
     useEffect(() => {
@@ -1068,15 +1111,18 @@ export default function MemberDashboard() {
 
             {/* Quick Reaction Floating Animation Burst */}
             {activeReactionAnim && (
-                <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden animate-in fade-in duration-200">
+                <div className={clsx(
+                    "fixed inset-0 pointer-events-none z-[100] flex items-center justify-center overflow-hidden transition-all duration-500 ease-out",
+                    activeReactionAnim.isExiting ? "opacity-0 -translate-y-16 scale-125" : "opacity-100 translate-y-0 scale-100"
+                )}>
                     <div className="relative flex flex-col items-center animate-in zoom-in-75 duration-300">
                         <div className="text-8xl md:text-9xl animate-bounce drop-shadow-[0_0_50px_rgba(251,191,36,0.9)] select-none">
-                            {activeReactionAnim}
+                            {activeReactionAnim.emoji}
                         </div>
-                        <div className="absolute -top-10 -left-10 text-4xl animate-ping opacity-75">{activeReactionAnim}</div>
-                        <div className="absolute -top-14 right-6 text-5xl animate-bounce opacity-85">{activeReactionAnim}</div>
-                        <div className="absolute top-14 -right-10 text-4xl animate-pulse opacity-75">{activeReactionAnim}</div>
-                        <div className="mt-4 px-4 py-1.5 rounded-full bg-black/85 border border-amber-400/50 backdrop-blur-md text-amber-300 text-xs font-black uppercase tracking-widest shadow-2xl animate-in fade-in slide-in-from-bottom-2">
+                        <div className="absolute -top-10 -left-10 text-4xl animate-ping opacity-75">{activeReactionAnim.emoji}</div>
+                        <div className="absolute -top-14 right-6 text-5xl animate-bounce opacity-85">{activeReactionAnim.emoji}</div>
+                        <div className="absolute top-14 -right-10 text-4xl animate-pulse opacity-75">{activeReactionAnim.emoji}</div>
+                        <div className="mt-4 px-4 py-1.5 rounded-full bg-black/85 border border-amber-400/50 backdrop-blur-md text-amber-300 text-xs font-black uppercase tracking-widest shadow-2xl">
                             Props Sent! ✓
                         </div>
                     </div>
@@ -1198,6 +1244,22 @@ export default function MemberDashboard() {
                                 <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
                                     You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
                                 </p>
+                                {/* WhatsApp/iMessage Received Reaction Badges for Winner */}
+                                {gwChampionReactions.length > 0 && (
+                                    <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mr-1">Props Received:</span>
+                                        {gwChampionReactions.map(({ emoji, count, senders }) => (
+                                            <span
+                                                key={emoji}
+                                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 border border-amber-400/50 text-amber-200 shadow-sm"
+                                                title={`Sent by: ${senders.join(', ')}`}
+                                            >
+                                                <span className="text-sm leading-none">{emoji}</span>
+                                                <span className="text-[11px] font-black tabular-nums">{count}</span>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <div className="fc-win-payout-card relative z-10 p-4 rounded-2xl text-center flex-shrink-0">
                                 <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
@@ -1235,6 +1297,26 @@ export default function MemberDashboard() {
                                             Clinched the pot with <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span>
                                             {gwWinner.leadMargin ? ` (+${gwWinner.leadMargin} pts ahead)` : ''} · Payout Yielded: <span className="text-[#FBBF24] font-black">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</span>
                                         </p>
+                                        {/* WhatsApp / iMessage Style Reaction Badges */}
+                                        {gwChampionReactions.length > 0 && (
+                                            <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                                                {gwChampionReactions.map(({ emoji, count, senders, hasReacted }) => (
+                                                    <span
+                                                        key={emoji}
+                                                        className={clsx(
+                                                            "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold transition-all shadow-sm select-none",
+                                                            hasReacted
+                                                                ? "bg-amber-500/30 border border-amber-400 text-amber-200 ring-1 ring-amber-400/50 scale-105"
+                                                                : "bg-white/10 border border-white/10 text-gray-200"
+                                                        )}
+                                                        title={`Reacted by: ${senders.join(', ')}`}
+                                                    >
+                                                        <span className="text-sm leading-none">{emoji}</span>
+                                                        <span className="text-[11px] font-black tabular-nums">{count}</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1244,17 +1326,26 @@ export default function MemberDashboard() {
                                         Send Props to {gwWinner.player_name.split(' ')[0]} 💬
                                     </p>
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => (
-                                            <button
-                                                key={emoji}
-                                                type="button"
-                                                onClick={() => handleSendReaction(emoji)}
-                                                className="w-10 h-10 rounded-xl bg-white/5 hover:bg-amber-500/25 border border-white/10 hover:border-amber-400/50 flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-90 shadow-sm cursor-pointer"
-                                                title={`React with ${emoji}`}
-                                            >
-                                                {emoji}
-                                            </button>
-                                        ))}
+                                        {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => {
+                                            const myReaction = gwChampionReactions.find(r => r.emoji === emoji && r.hasReacted);
+                                            const isSelected = Boolean(myReaction);
+                                            return (
+                                                <button
+                                                    key={emoji}
+                                                    type="button"
+                                                    onClick={() => handleSendReaction(emoji)}
+                                                    className={clsx(
+                                                        "w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-90 shadow-sm cursor-pointer",
+                                                        isSelected
+                                                            ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 scale-105"
+                                                            : "bg-white/5 hover:bg-amber-500/25 border-white/10 hover:border-amber-400/50"
+                                                    )}
+                                                    title={isSelected ? `You sent ${emoji}` : `React with ${emoji}`}
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>

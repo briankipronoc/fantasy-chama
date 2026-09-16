@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import clsx from 'clsx';
 import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
@@ -38,6 +39,7 @@ export default function Login() {
     const [onboardSearch, setOnboardSearch] = useState('');
     const [onboardPlayMode, setOnboardPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
     const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
+    const [onboardStep, setOnboardStep] = useState<1 | 2 | 3>(1);
     const [onboardError, setOnboardError] = useState('');
     const [previewLeague, setPreviewLeague] = useState<{
         name: string;
@@ -433,6 +435,7 @@ export default function Login() {
                 setOnboardTeamName('');
             }
 
+            setOnboardStep(1);
             setShowSelfOnboardModal(true);
 
         } catch (err) {
@@ -1018,6 +1021,40 @@ export default function Login() {
                             </div>
                         </div>
 
+                        {/* Progressive Stepper Header */}
+                        <div className="flex items-center justify-between gap-1.5 mb-5 px-1">
+                            {[
+                                { step: 1, label: '1. Squad', icon: Shield },
+                                { step: 2, label: '2. Tier', icon: Trophy },
+                                { step: 3, label: '3. Confirm', icon: CheckCircle2 }
+                            ].map((s) => {
+                                const isCurrent = onboardStep === s.step;
+                                const isPast = onboardStep > s.step;
+                                const Icon = s.icon;
+                                return (
+                                    <button
+                                        key={s.step}
+                                        type="button"
+                                        onClick={() => {
+                                            if (s.step < onboardStep) setOnboardStep(s.step as any);
+                                            else if (s.step === 2 && (onboardManagerName.trim() || selectedTeamClaim !== 'custom')) setOnboardStep(2);
+                                        }}
+                                        className={clsx(
+                                            "flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all",
+                                            isCurrent
+                                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm"
+                                                : isPast
+                                                    ? "bg-white/5 text-gray-300 border border-white/10 hover:border-emerald-500/30 cursor-pointer"
+                                                    : "bg-white/[0.02] text-gray-600 border border-white/5 cursor-not-allowed"
+                                        )}
+                                    >
+                                        <Icon className={clsx("w-3 h-3", isCurrent ? "text-emerald-400" : isPast ? "text-emerald-500" : "text-gray-600")} />
+                                        <span className="truncate">{s.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
                         {onboardError && (
                             <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium p-3 rounded-xl mb-4 flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -1026,210 +1063,310 @@ export default function Login() {
                         )}
 
                         <form onSubmit={handleCompleteOnboarding} className="space-y-4">
-                            {/* Step 1: Claim FPL Team or Enter */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                    1. Link Your FPL Team
-                                </label>
-
-                                {onboardData.unlinkedTeams.length > 0 && (
-                                    <div className="space-y-2 mb-3">
-                                        <div className="relative">
-                                            <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                                            <input
-                                                type="text"
-                                                value={onboardSearch}
-                                                onChange={(e) => setOnboardSearch(e.target.value)}
-                                                placeholder="Search your name or FPL team..."
-                                                className="w-full bg-[#12181f] border border-white/10 rounded-xl py-2 pl-9 pr-7 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50"
-                                            />
-                                            {onboardSearch && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOnboardSearch('')}
-                                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        <select
-                                            value={selectedTeamClaim}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setSelectedTeamClaim(val);
-                                                if (val !== 'custom') {
-                                                    const matched = onboardData.unlinkedTeams.find(t => t.id === val);
-                                                    if (matched) {
-                                                        setOnboardManagerName(matched.displayName || '');
-                                                        setOnboardTeamName(matched.fplTeamName || matched.teamName || '');
-                                                    }
-                                                }
-                                            }}
-                                            className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50"
-                                        >
-                                            <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"}>
-                                                {filteredUnlinkedTeams.map((t) => (
-                                                    <option key={t.id} value={t.id}>
-                                                        {t.displayName} — {t.fplTeamName || t.teamName || 'FPL Squad'}
-                                                    </option>
-                                                ))}
-                                            </optgroup>
-                                            <option value="custom">➕ Not in list / Enter manually</option>
-                                        </select>
+                            {/* STEP 1: Link FPL Team & Name */}
+                            {onboardStep === 1 && (
+                                <div className="space-y-3 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                            Link Your FPL Team & Profile
+                                        </label>
+                                        <span className="text-[10px] text-emerald-400 font-bold">Step 1 of 3</span>
                                     </div>
-                                )}
 
-                                {selectedTeamClaim !== 'custom' ? (
-                                    <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-2.5 flex items-center justify-between text-xs mb-3">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                                                <Check className="w-3 h-3" />
+                                    {onboardData.unlinkedTeams.length > 0 && (
+                                        <div className="space-y-2 mb-2">
+                                            <div className="relative">
+                                                <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={onboardSearch}
+                                                    onChange={(e) => setOnboardSearch(e.target.value)}
+                                                    placeholder="Search your name or FPL team..."
+                                                    className="w-full bg-[#12181f] border border-white/10 rounded-xl py-2 pl-9 pr-7 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50"
+                                                />
+                                                {onboardSearch && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setOnboardSearch('')}
+                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                )}
                                             </div>
-                                            <div className="min-w-0">
-                                                <span className="text-[11px] font-bold text-white block truncate">
-                                                    {onboardTeamName || 'Selected FPL Squad'}
-                                                </span>
-                                                <span className="text-[10px] text-emerald-400 truncate block">
-                                                    Manager: {onboardManagerName || 'Verified'}
-                                                </span>
+
+                                            <select
+                                                value={selectedTeamClaim}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setSelectedTeamClaim(val);
+                                                    if (val !== 'custom') {
+                                                        const matched = onboardData.unlinkedTeams.find(t => t.id === val);
+                                                        if (matched) {
+                                                            setOnboardManagerName(matched.displayName || '');
+                                                            setOnboardTeamName(matched.fplTeamName || matched.teamName || '');
+                                                        }
+                                                    }
+                                                }}
+                                                className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50"
+                                            >
+                                                <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"}>
+                                                    {filteredUnlinkedTeams.map((t) => (
+                                                        <option key={t.id} value={t.id}>
+                                                            {t.displayName} — {t.fplTeamName || t.teamName || 'FPL Squad'}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                                <option value="custom">➕ Not in list / Enter manually</option>
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {selectedTeamClaim !== 'custom' ? (
+                                        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 flex items-center justify-between text-xs mb-2">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                                                    <Check className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <span className="text-xs font-bold text-white block truncate">
+                                                        {onboardTeamName || 'Selected FPL Squad'}
+                                                    </span>
+                                                    <span className="text-[11px] text-emerald-400 truncate block">
+                                                        Manager: {onboardManagerName || 'Verified'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedTeamClaim('custom')}
+                                                className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline shrink-0 ml-2"
+                                            >
+                                                Change
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2.5 mb-2">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                                <div>
+                                                    <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                                        Your Name (Manager) *
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        required
+                                                        value={onboardManagerName}
+                                                        onChange={(e) => setOnboardManagerName(e.target.value)}
+                                                        placeholder="Your Full Name"
+                                                        className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                                        FPL Team Name
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={onboardTeamName}
+                                                        onChange={(e) => setOnboardTeamName(e.target.value)}
+                                                        placeholder="Team Name"
+                                                        className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                                                    <span>FPL Team ID (Optional)</span>
+                                                    <span className="text-[8px] text-gray-500 font-normal">from fantasy.premierleague.com</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={customFplId}
+                                                    onChange={(e) => setCustomFplId(e.target.value)}
+                                                    placeholder="Numeric Team ID"
+                                                    className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50 font-mono"
+                                                />
                                             </div>
                                         </div>
+                                    )}
+
+                                    {/* Verified Phone Indicator */}
+                                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl text-[11px] text-gray-400">
+                                        <span>Payout Phone (M-Pesa):</span>
+                                        <span className="text-white font-mono font-bold flex items-center gap-1.5">
+                                            <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                                            {onboardData.phone}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            let name = onboardManagerName.trim();
+                                            if (selectedTeamClaim !== 'custom') {
+                                                const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
+                                                if (matched) name = name || matched.displayName;
+                                            }
+                                            if (!name) {
+                                                setOnboardError('Please enter or select your Manager Name to proceed.');
+                                                return;
+                                            }
+                                            setOnboardError('');
+                                            setOnboardStep(2);
+                                        }}
+                                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-[#0A0E17] font-black text-xs uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer mt-2"
+                                    >
+                                        <span>Next: Choose Participation Tier</span>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* STEP 2: Choose Participation Tier */}
+                            {onboardStep === 2 && (
+                                <div className="space-y-3 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                            Choose Your Participation Tier
+                                        </label>
+                                        <span className="text-[10px] text-emerald-400 font-bold">Step 2 of 3</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {/* Option 1: Cash Pot */}
+                                        <div
+                                            onClick={() => setOnboardPlayMode('pot')}
+                                            className={`cursor-pointer rounded-2xl p-4 border transition-all relative ${
+                                                onboardPlayMode === 'pot'
+                                                    ? 'bg-emerald-500/15 border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/40'
+                                                    : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs font-black flex items-center gap-1.5 text-white">
+                                                    <Trophy className="w-4 h-4 text-[#FBBF24]" /> Cash Pot
+                                                </span>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20">
+                                                    KES {onboardData.monthlyFee.toLocaleString()}/GW
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-gray-300 leading-snug mb-2.5">
+                                                Compete for weekly 1st place payouts and the season vault jackpot.
+                                            </p>
+                                            <span className="text-[10px] font-bold text-emerald-400 block">
+                                                ✓ Weekly & Season Vault Prize Eligible
+                                            </span>
+                                        </div>
+
+                                        {/* Option 2: Spectator & Side-Bets Only */}
+                                        <div
+                                            onClick={() => setOnboardPlayMode('sidebets_only')}
+                                            className={`cursor-pointer rounded-2xl p-4 border transition-all relative ${
+                                                onboardPlayMode === 'sidebets_only'
+                                                    ? 'bg-indigo-500/15 border-indigo-500/60 shadow-[0_0_20px_rgba(99,102,241,0.2)] ring-1 ring-indigo-500/40'
+                                                    : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs font-black flex items-center gap-1.5 text-white">
+                                                    <Swords className="w-4 h-4 text-indigo-400" /> Spectator & Bets
+                                                </span>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                                    Free Entry
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-gray-300 leading-snug mb-2.5">
+                                                Zero weekly pot dues. Challenge rivals to 1v1 M-Pesa cash side bets anytime!
+                                            </p>
+                                            <span className="text-[10px] font-bold text-indigo-400 block">
+                                                ✓ 1v1 Side Bets · Test for Next Season
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2.5 pt-2">
                                         <button
                                             type="button"
-                                            onClick={() => setSelectedTeamClaim('custom')}
-                                            className="text-[10px] text-gray-400 hover:text-white underline shrink-0 ml-2"
+                                            onClick={() => setOnboardStep(1)}
+                                            className="px-4 py-3 rounded-xl border border-white/10 hover:border-white/20 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all"
                                         >
-                                            Edit manual
+                                            ← Back
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setOnboardStep(3)}
+                                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-[#0A0E17] font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+                                        >
+                                            <span>Next: Review & Confirm</span>
+                                            <ArrowRight className="w-4 h-4" />
                                         </button>
                                     </div>
-                                ) : (
-                                    <div className="space-y-2.5 mb-2">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                            <div>
-                                                <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                                                    Your Name (Manager) *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    value={onboardManagerName}
-                                                    onChange={(e) => setOnboardManagerName(e.target.value)}
-                                                    placeholder="Your Full Name"
-                                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                                                    FPL Team Name
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={onboardTeamName}
-                                                    onChange={(e) => setOnboardTeamName(e.target.value)}
-                                                    placeholder="Team Name"
-                                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                                                <span>FPL Team ID (Optional)</span>
-                                                <span className="text-[8px] text-gray-600 font-normal">from fantasy.premierleague.com</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={customFplId}
-                                                onChange={(e) => setCustomFplId(e.target.value)}
-                                                placeholder="Numeric Team ID"
-                                                className="w-full bg-[#161d24] border border-white/5 rounded-xl py-2 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50 font-mono"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Verified Phone Indicator */}
-                                <div className="flex items-center justify-between px-3 py-2 bg-white/[0.03] border border-white/5 rounded-xl text-[11px] text-gray-400">
-                                    <span>Payout Phone (M-Pesa):</span>
-                                    <span className="text-white font-mono font-bold flex items-center gap-1.5">
-                                        <Phone className="w-3 h-3 text-emerald-400" />
-                                        {onboardData.phone}
-                                    </span>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Step 2: Choose Mode */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                    2. Choose Your Participation Tier
-                                </label>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {/* Option 1: Cash Pot */}
-                                    <div
-                                        onClick={() => setOnboardPlayMode('pot')}
-                                        className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
-                                            onboardPlayMode === 'pot'
-                                                ? 'bg-emerald-500/10 border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                                                : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                <Trophy className="w-4 h-4 text-[#FBBF24]" /> Cash Pot
-                                            </span>
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20">
-                                                KES {onboardData.monthlyFee.toLocaleString()}/GW
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 leading-snug mb-2">
-                                            Compete for weekly 1st place payouts and season vault jackpot.
-                                        </p>
-                                        <span className="text-[9px] font-bold text-emerald-400 block">
-                                            ✓ Weekly & Season Vault Eligible
-                                        </span>
+                            {/* STEP 3: Review & Confirm */}
+                            {onboardStep === 3 && (
+                                <div className="space-y-3 animate-in fade-in duration-200">
+                                    <div className="flex items-center justify-between">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                            Review Your Profile & Join
+                                        </label>
+                                        <span className="text-[10px] text-emerald-400 font-bold">Step 3 of 3</span>
                                     </div>
 
-                                    {/* Option 2: Spectator & Side-Bets Only */}
-                                    <div
-                                        onClick={() => setOnboardPlayMode('sidebets_only')}
-                                        className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
-                                            onboardPlayMode === 'sidebets_only'
-                                                ? 'bg-indigo-500/15 border-indigo-500/60 shadow-[0_0_15px_rgba(99,102,241,0.15)]'
-                                                : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
-                                        }`}
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                <Swords className="w-4 h-4 text-indigo-400" /> Spectator & Bets
-                                            </span>
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-                                                Free Entry
+                                    {/* Summary Card */}
+                                    <div className="rounded-2xl border border-emerald-500/30 bg-[#121920] p-4 space-y-2.5 shadow-inner">
+                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                            <span className="text-[11px] text-gray-400">League:</span>
+                                            <span className="text-xs font-black text-white">{onboardData.leagueName}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                            <span className="text-[11px] text-gray-400">Manager:</span>
+                                            <span className="text-xs font-black text-emerald-400">{onboardManagerName || 'Manager'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                            <span className="text-[11px] text-gray-400">FPL Squad:</span>
+                                            <span className="text-xs font-bold text-white truncate max-w-[180px]">{onboardTeamName || 'FPL Squad'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                                            <span className="text-[11px] text-gray-400">Selected Tier:</span>
+                                            <span className={clsx(
+                                                "text-xs font-black px-2 py-0.5 rounded-lg border",
+                                                onboardPlayMode === 'pot'
+                                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                                    : "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
+                                            )}>
+                                                {onboardPlayMode === 'pot' ? `🏆 Cash Pot (KES ${onboardData.monthlyFee}/GW)` : '🛡️ Spectator & Bets (Free)'}
                                             </span>
                                         </div>
-                                        <p className="text-[10px] text-gray-400 leading-snug mb-2">
-                                            Zero weekly pot dues. Challenge rivals to 1v1 M-Pesa cash side bets anytime!
-                                        </p>
-                                        <span className="text-[9px] font-bold text-indigo-400 block">
-                                            ✓ 1v1 Side Bets · Test for Next Season
-                                        </span>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[11px] text-gray-400">Payout Phone:</span>
+                                            <span className="text-xs font-mono font-bold text-white">{onboardData.phone}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2.5 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setOnboardStep(2)}
+                                            className="px-4 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all"
+                                        >
+                                            ← Back
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isOnboardingSubmitting}
+                                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-[#0A0E17] font-black text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-95 disabled:opacity-50 cursor-pointer"
+                                        >
+                                            {isOnboardingSubmitting ? (
+                                                <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Activating Profile...</>
+                                            ) : (
+                                                <>Complete Onboarding & Enter League <ArrowRight className="w-4 h-4" /></>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Submit */}
-                            <button
-                                type="submit"
-                                disabled={isOnboardingSubmitting}
-                                className="w-full bg-[#22C55E] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-sm md:text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_20px_rgba(34,197,94,0.2)] mt-2 disabled:opacity-50"
-                            >
-                                {isOnboardingSubmitting ? (
-                                    <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Activating Profile...</>
-                                ) : (
-                                    <>Complete Onboarding & Enter League <ArrowRight className="w-4 h-4" /></>
-                                )}
-                            </button>
+                            )}
                         </form>
                     </div>
                 </div>
