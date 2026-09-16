@@ -4,7 +4,7 @@ import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding,
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { normalizeKenyanPhone } from '../utils/phone';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -46,18 +46,18 @@ export default function AdminSetup() {
     const [showExitModal, setShowExitModal] = useState(false);
 
     useEffect(() => {
-        const storedRole = localStorage.getItem('fc-role') || localStorage.getItem('activeUserRole');
-        const activeLeagueId = localStorage.getItem('activeLeagueId');
-        const isAuthChairman = Boolean(auth.currentUser || (storedRole === 'admin' && activeLeagueId));
+        // Never auto-advance for anonymous Firebase users (anonymous users have null email)
+        const currentAuthUser = auth.currentUser;
+        const hasValidAuth = Boolean(currentAuthUser && !currentAuthUser.isAnonymous && currentAuthUser.email);
 
-        if (isAuthChairman) {
+        if (hasValidAuth) {
             setIsExistingChairman(true);
             setRole('admin');
-            if (auth.currentUser?.email) setEmail(auth.currentUser.email);
-            if (auth.currentUser?.displayName) setFullName(auth.currentUser.displayName);
+            if (currentAuthUser?.email) setEmail(currentAuthUser.email);
+            if (currentAuthUser?.displayName) setFullName(currentAuthUser.displayName);
             
             const storedName = localStorage.getItem('activeUserName');
-            if (storedName && !auth.currentUser?.displayName) setFullName(storedName);
+            if (storedName && !currentAuthUser?.displayName) setFullName(storedName);
 
             const storedPhone = localStorage.getItem('memberPhone');
             if (storedPhone) {
@@ -65,8 +65,19 @@ export default function AdminSetup() {
                 setChairmanPayoutPhone(storedPhone);
             }
 
-            // Immediately jump to step 2 (League Rules & Economy) so the Chairman never re-enters their personal details
+            // Immediately jump to step 2 (League Rules & Economy) so the authenticated Chairman never re-enters personal details
             setStep(2);
+        } else {
+            // Restore any draft fields from localStorage if available
+            const savedName = localStorage.getItem('fc-setup-fullName');
+            if (savedName) setFullName(savedName);
+            const savedEmail = localStorage.getItem('fc-setup-email');
+            if (savedEmail) setEmail(savedEmail);
+            const savedPhone = localStorage.getItem('fc-setup-phone');
+            if (savedPhone) {
+                setPhone(savedPhone);
+                setChairmanPayoutPhone(savedPhone);
+            }
         }
     }, []);
 
@@ -88,10 +99,23 @@ export default function AdminSetup() {
     const [newMemberName, setNewMemberName] = useState('');
     const [newMemberPhone, setNewMemberPhone] = useState('');
     const [newMemberSecondTeam, setNewMemberSecondTeam] = useState(''); // second FPL team ID input
-    const [coAdminIndex, setCoAdminIndex] = useState<number | null>(null);
+    const [coAdminIndices, setCoAdminIndices] = useState<number[]>([]);
     const [enrollmentMode, setEnrollmentMode] = useState<'self' | 'manual'>('self');
     const [showAddManualMember, setShowAddManualMember] = useState(false);
     const [chairmanFplSquad, setChairmanFplSquad] = useState<{ entry: number; entryName: string; playerName: string } | null>(null);
+
+    const toggleCoChair = (index: number) => {
+        setCoAdminIndices(prev => {
+            if (prev.includes(index)) {
+                return prev.filter(i => i !== index);
+            }
+            if (prev.length >= 2) {
+                toast.error('Maximum 2 Co-Chairs allowed per league constitution.');
+                return prev;
+            }
+            return [...prev, index];
+        });
+    };
 
     // Multi-tier FPL league and standings fetcher with fallback proxies
     const fetchFplLeagueData = async (inputStr: string) => {
@@ -155,22 +179,24 @@ export default function AdminSetup() {
                     : null;
 
                 if (matchedChairman) {
-                    setChairmanFplSquad({
-                        entry: matchedChairman.entry,
+                    const squadObj = {
+                        entry: Number(matchedChairman.entry),
                         entryName: matchedChairman.entry_name || 'My Squad',
                         playerName: matchedChairman.player_name || fullName,
-                    });
+                    };
+                    setChairmanFplSquad(squadObj);
+                    localStorage.setItem('fc-setup-chairmanFplSquad', JSON.stringify(squadObj));
                 }
 
                 const imported = results
                     .filter((entry: any) => {
-                        if (matchedChairman && entry.entry === matchedChairman.entry) return false;
+                        if (matchedChairman && Number(entry.entry) === Number(matchedChairman.entry)) return false;
                         return true;
                     })
                     .map((entry: any) => ({
                         displayName: entry.player_name || entry.entry_name || 'FPL Manager',
                         phone: '',
-                        fplEntryId: entry.entry,
+                        fplEntryId: Number(entry.entry),
                         fplTeamName: entry.entry_name,
                     }));
                 if (imported.length > 0) {
@@ -479,8 +505,26 @@ export default function AdminSetup() {
             } catch {}
         }
 
+        const savedChairmanSquad = localStorage.getItem('fc-setup-chairmanFplSquad');
+        if (savedChairmanSquad) {
+            try {
+                const parsed = JSON.parse(savedChairmanSquad);
+                if (parsed?.entry) {
+                    setChairmanFplSquad(parsed);
+                }
+            } catch {}
+        }
+
         setAllowMultipleTeams(localStorage.getItem('fc-setup-allowMultipleTeams') === 'true');
     }, []);
+
+    useEffect(() => {
+        if (chairmanFplSquad) {
+            localStorage.setItem('fc-setup-chairmanFplSquad', JSON.stringify(chairmanFplSquad));
+        } else {
+            localStorage.removeItem('fc-setup-chairmanFplSquad');
+        }
+    }, [chairmanFplSquad]);
 
     useEffect(() => { localStorage.setItem('fc-setup-fullName', fullName); }, [fullName]);
     useEffect(() => { localStorage.setItem('fc-setup-email', email); }, [email]);
@@ -527,16 +571,38 @@ export default function AdminSetup() {
         setSubmitError('');
 
         try {
+            const cleanEmail = email.trim();
+            if (!cleanEmail || !cleanEmail.includes('@')) {
+                setSubmitError('Chairman login email is required. Please return to Step 1 to enter your account email and password.');
+                setIsSubmitting(false);
+                return;
+            }
+
             // Write 1: Create Admin User or reuse existing Chairman session
             let chairmanUser = auth.currentUser;
-            if (!chairmanUser || chairmanUser.email?.toLowerCase() !== email.trim().toLowerCase()) {
+            if (chairmanUser?.isAnonymous) {
+                await signOut(auth);
+                chairmanUser = null;
+            }
+
+            if (!chairmanUser || chairmanUser.email?.toLowerCase() !== cleanEmail.toLowerCase()) {
                 try {
-                    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+                    const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
                     chairmanUser = userCredential.user;
                 } catch (authErr: any) {
                     if (authErr.code === 'auth/email-already-in-use') {
-                        const signInRes = await signInWithEmailAndPassword(auth, email.trim(), password);
-                        chairmanUser = signInRes.user;
+                        if (password) {
+                            const signInRes = await signInWithEmailAndPassword(auth, cleanEmail, password);
+                            chairmanUser = signInRes.user;
+                        } else {
+                            setSubmitError('EMAIL_ALREADY_IN_USE');
+                            setIsSubmitting(false);
+                            return;
+                        }
+                    } else if (authErr.code === 'auth/invalid-email') {
+                        setSubmitError('Please enter a valid email address in Step 1.');
+                        setIsSubmitting(false);
+                        return;
                     } else {
                         throw authErr;
                     }
@@ -560,7 +626,7 @@ export default function AdminSetup() {
                 gameweekStake: monthlyFee,
                 chairmanId: chairmanUid,
                 chairmanPhone: chairmanPayoutPhone || phone,
-                chairmanEmail: email.trim(),
+                chairmanEmail: cleanEmail,
                 allowMultipleTeams,
                 startGw: null, // Will be set once we know current GW from FPL (auto-populated on first load)
                 rules: {
@@ -608,7 +674,7 @@ export default function AdminSetup() {
             const cleanPhone = (phone || '').replace(/\D/g, '');
             const cleanFullName = (fullName || '').trim().toLowerCase();
             const uniqueMembers = members.filter(member => {
-                if (chairmanFplSquad && member.fplEntryId === chairmanFplSquad.entry) return false;
+                if (chairmanFplSquad && Number(member.fplEntryId) === Number(chairmanFplSquad.entry)) return false;
                 const mPhone = (member.phone || '').replace(/\D/g, '');
                 const mName = (member.displayName || '').trim().toLowerCase();
                 const isSamePhone = cleanPhone && mPhone && (cleanPhone.slice(-9) === mPhone.slice(-9));
@@ -617,13 +683,13 @@ export default function AdminSetup() {
             });
 
             // Enroll Other Members
-            let coAdminDocId = null;
+            const coAdminDocIds: string[] = [];
             uniqueMembers.forEach((member, index) => {
                 const memberRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
-                const isCoAdmin = index === coAdminIndex;
+                const isCoAdmin = coAdminIndices.includes(index);
 
                 if (isCoAdmin) {
-                    coAdminDocId = memberRef.id;
+                    coAdminDocIds.push(memberRef.id);
                 }
 
                 const memberData: any = {
@@ -644,15 +710,20 @@ export default function AdminSetup() {
                 batch.set(memberRef, memberData);
             });
 
-            // If a co-chair was selected, explicitly link them to the root league document
-            if (coAdminDocId) {
+            // If co-chairs were selected, explicitly link them to the root league document
+            if (coAdminDocIds.length > 0) {
                 const leagueUpdateRef = doc(db, 'leagues', leagueId);
                 batch.update(leagueUpdateRef, {
-                    coAdminId: coAdminDocId
+                    coAdminId: coAdminDocIds[0],
+                    coAdminIds: coAdminDocIds
                 });
             }
 
             await batch.commit();
+
+            const finalMemberCount = fplStandings.length > 0
+                ? fplStandings.length
+                : (uniqueMembers.length + (chairmanFplSquad ? 1 : 0));
 
             await Promise.all([
                 addDoc(collection(db, 'leagues', leagueId, 'notifications'), {
@@ -665,7 +736,7 @@ export default function AdminSetup() {
                 addDoc(collection(db, 'leagues', leagueId, 'league_events'), {
                     eventType: 'operations',
                     title: 'League setup completed',
-                    message: `${fullName} created ${leagueName} with ${members.length + 1} members.`,
+                    message: `${fullName} created ${leagueName} with ${finalMemberCount} members.`,
                     actorId: chairmanUid,
                     timestamp: serverTimestamp(),
                 }),
@@ -703,7 +774,7 @@ export default function AdminSetup() {
                 'fc-setup-monthlyFee', 'fc-setup-weeklyPrizePercent', 'fc-setup-seasonWinnersCount',
                 'fc-setup-seasonWinnersMode', 'fc-setup-customWinnerCount', 'fc-setup-customWinnerRatios',
                 'fc-setup-estimatedMembers', 'fc-setup-allowMultipleTeams',
-                'fc-setup-members', 'fc-setup-fplStandings',
+                'fc-setup-members', 'fc-setup-fplStandings', 'fc-setup-chairmanFplSquad',
             ].forEach(key => localStorage.removeItem(key));
 
             setStep(5);
@@ -713,6 +784,8 @@ export default function AdminSetup() {
             console.error('Error creating league or enrolling members:', error);
             if (error.code === 'auth/email-already-in-use') {
                 setSubmitError('EMAIL_ALREADY_IN_USE');
+            } else if (error.code === 'auth/invalid-email') {
+                setSubmitError('Invalid email format. Please return to Step 1 and provide a valid Chairman email.');
             } else if (error.code === 'auth/weak-password') {
                 setSubmitError('Password is too weak. Please use at least 6 characters.');
             } else if (error.code === 'auth/network-request-failed') {
@@ -743,13 +816,13 @@ export default function AdminSetup() {
         if (fplStandings.length === 0) return;
         const imported = fplStandings
             .filter(e => {
-                if (chairmanFplSquad && e.entry === chairmanFplSquad.entry) return false;
+                if (chairmanFplSquad && Number(e.entry) === Number(chairmanFplSquad.entry)) return false;
                 return true;
             })
             .map(e => ({
                 displayName: e.player_name || e.entry_name || 'FPL Manager',
                 phone: '',
-                fplEntryId: e.entry,
+                fplEntryId: Number(e.entry),
                 fplTeamName: e.entry_name, // store FPL team name
             }));
         setMembers(imported.slice(0, 19));
@@ -758,11 +831,12 @@ export default function AdminSetup() {
     const handleSelectChairmanSquad = (selectedEntryId: number | null) => {
         if (!selectedEntryId) {
             setChairmanFplSquad(null);
+            localStorage.removeItem('fc-setup-chairmanFplSquad');
             if (fplStandings.length > 0) {
                 const allImported = fplStandings.map(e => ({
                     displayName: e.player_name || e.entry_name || 'FPL Manager',
                     phone: '',
-                    fplEntryId: e.entry,
+                    fplEntryId: Number(e.entry),
                     fplTeamName: e.entry_name,
                 }));
                 setMembers(allImported.slice(0, 19));
@@ -770,15 +844,17 @@ export default function AdminSetup() {
             toast.success('Switched to Non-Playing Chairman (pure admin mode)');
             return;
         }
-        const matched = fplStandings.find(e => e.entry === selectedEntryId);
+        const matched = fplStandings.find(e => Number(e.entry) === Number(selectedEntryId));
         if (matched) {
-            setChairmanFplSquad({
-                entry: matched.entry,
+            const squadObj = {
+                entry: Number(matched.entry),
                 entryName: matched.entry_name || 'My Squad',
                 playerName: matched.player_name || fullName,
-            });
-            // Remove this squad from the remaining members list
-            setMembers(prev => prev.filter(m => m.fplEntryId !== selectedEntryId));
+            };
+            setChairmanFplSquad(squadObj);
+            localStorage.setItem('fc-setup-chairmanFplSquad', JSON.stringify(squadObj));
+            // Remove this squad from the remaining members list using strict Number conversion
+            setMembers(prev => prev.filter(m => Number(m.fplEntryId) !== Number(selectedEntryId)));
             toast.success(`Linked your Chairman profile to "${matched.entry_name}"!`);
         }
     };
@@ -1559,68 +1635,98 @@ export default function AdminSetup() {
             </div>
 
             {/* 1. Chairman Squad Identification & Treasury Signatory */}
-            <div className="max-w-4xl mx-auto bg-[#151c18] border border-white/5 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+            <div className="max-w-4xl mx-auto bg-[#151c18] border border-white/5 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3.5">
                 <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
                     <div className="flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center justify-center shrink-0">1</span>
-                        <h3 className="text-sm font-black uppercase tracking-wider text-white">Chairman Squad Identification</h3>
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Chairman Squad Claim & Account</h3>
                     </div>
-                    <span className="text-[10px] text-[#FBBF24] font-bold bg-[#FBBF24]/10 border border-[#FBBF24]/20 px-2.5 py-1 rounded-lg">
-                        👑 Primary Signatory
-                    </span>
+                    {chairmanFplSquad ? (
+                        <span className="text-[10px] text-[#10B981] font-semibold bg-[#10B981]/15 border border-[#10B981]/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                            <Check className="w-3 h-3 text-[#10B981]" /> Squad Linked
+                        </span>
+                    ) : (
+                        <span className="text-[10px] text-[#FBBF24] font-semibold bg-[#FBBF24]/15 border border-[#FBBF24]/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                            ⚠️ Select Your Squad
+                        </span>
+                    )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border bg-[#FBBF24]/10 border-[#FBBF24]/30 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <UserAvatar name={fullName || "Chairman"} size="sm" />
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <p className="font-bold text-sm text-white leading-tight">{fullName || "Chairman"}</p>
-                                <span className="text-[9px] font-black text-[#FBBF24] uppercase tracking-widest px-2 py-0.5 bg-[#FBBF24]/20 border border-[#FBBF24]/30 rounded">
-                                    Admin
-                                </span>
-                            </div>
-                            <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                                {phone || "Phone on file"} · Payout Remittance Phone Locked
-                            </p>
-                            {chairmanFplSquad && (
-                                <p className="text-xs text-[#10B981] font-bold mt-1 flex items-center gap-1.5">
-                                    <Trophy className="w-3.5 h-3.5 shrink-0" />
-                                    <span>Linked Squad: <strong>{chairmanFplSquad.entryName}</strong> (#{chairmanFplSquad.entry})</span>
+                {/* Highly Visible Prompt Callout */}
+                <div className={clsx(
+                    "p-3.5 sm:p-4 rounded-xl border transition-all space-y-3",
+                    chairmanFplSquad
+                        ? "bg-[#10B981]/10 border-[#10B981]/30"
+                        : "bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                )}>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <UserAvatar name={fullName || "Chairman"} size="sm" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-semibold text-sm text-white leading-tight">{fullName || "Chairman"}</p>
+                                    <span className="text-[9px] font-semibold text-[#FBBF24] uppercase tracking-wider px-2 py-0.5 bg-[#FBBF24]/20 border border-[#FBBF24]/30 rounded">
+                                        👑 Chairman
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-gray-400 font-mono mt-0.5">
+                                    {phone || "Phone on file"} · Payout Remittance Phone Locked
                                 </p>
-                            )}
+                            </div>
+                        </div>
+
+                        {/* Prominent Selector Dropdown */}
+                        <div className="w-full md:w-80 shrink-0 space-y-1">
+                            <label className="block text-[11px] font-semibold text-amber-300 uppercase tracking-wider">
+                                {chairmanFplSquad ? "Your Linked FPL Squad" : "👉 Which of these squads is yours?"}
+                            </label>
+                            <select
+                                value={chairmanFplSquad?.entry || ''}
+                                onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
+                                className={clsx(
+                                    "w-full rounded-xl py-2.5 px-3 text-xs focus:outline-none cursor-pointer font-medium border transition-all",
+                                    chairmanFplSquad
+                                        ? "bg-[#0e141a] border-[#10B981]/50 text-white focus:border-[#10B981]"
+                                        : "bg-[#0e141a] border-[#FBBF24] text-white focus:border-[#FBBF24] ring-2 ring-[#FBBF24]/20"
+                                )}
+                            >
+                                <option value="">🛡️ Non-Playing Chairman (pure admin, no team)</option>
+                                {fplStandings.map((s) => (
+                                    <option key={s.entry} value={s.entry}>
+                                        ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
-                    {/* Squad selector dropdown for Chairman */}
-                    <div className="w-full sm:w-auto shrink-0 space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                            Which squad is yours?
-                        </label>
-                        <select
-                            value={chairmanFplSquad?.entry || ''}
-                            onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
-                            className="w-full sm:w-64 bg-[#161d24] border border-white/15 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-[#FBBF24]/50 cursor-pointer font-medium"
-                        >
-                            <option value="">🛡️ Non-Playing Chairman (Admin Only)</option>
-                            {fplStandings.map((s) => (
-                                <option key={s.entry} value={s.entry}>
-                                    ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {chairmanFplSquad ? (
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
+                            <p className="text-[#10B981] font-semibold flex items-center gap-1.5">
+                                <Trophy className="w-3.5 h-3.5 shrink-0" />
+                                <span>Linked to <strong>{chairmanFplSquad.entryName}</strong> (#{chairmanFplSquad.entry}) — GW scores link to your profile</span>
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => handleSelectChairmanSquad(null)}
+                                className="text-[11px] text-gray-400 hover:text-amber-300 underline cursor-pointer"
+                            >
+                                Switch to Non-Playing
+                            </button>
+                        </div>
+                    ) : (
+                        <p className="text-[11px] text-gray-300 leading-tight">
+                            💡 <strong>Chairman Team Selection:</strong> If you are managing one of the imported squads, select it above so your gameweek points and payouts are tracked automatically. If you only administer the league without a team, leave it as <em>Non-Playing Chairman</em>.
+                        </p>
+                    )}
                 </div>
-                <p className="text-[10px] text-gray-400 leading-tight">
-                    💡 <em>Linking your team prevents creating duplicate squads in the league and ties your M-Pesa phone number to your FPL points. If you only administer the league, choose "Non-Playing Chairman".</em>
-                </p>
             </div>
 
             {/* 2. Member Enrollment Strategy */}
             <div className="max-w-4xl mx-auto space-y-2">
                 <div className="flex items-center gap-2 mb-1">
                     <span className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <h3 className="text-sm font-black uppercase tracking-wider text-white">Enrollment Strategy</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Enrollment Strategy</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -1635,45 +1741,42 @@ export default function AdminSetup() {
                         )}
                     >
                         <div className={clsx(
-                            "size-9 rounded-xl flex items-center justify-center shrink-0 font-bold",
-                            enrollmentMode === 'self' ? "bg-[#10B981] text-black" : "bg-white/10 text-gray-400"
+                            "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                            enrollmentMode === 'self' ? "border-[#10B981] bg-[#10B981]" : "border-gray-500"
                         )}>
-                            <Share2 className="w-4 h-4" />
+                            {enrollmentMode === 'self' && <div className="w-2 h-2 rounded-full bg-black" />}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-bold text-white">Self-Onboarding Mode</p>
-                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/30">Recommended</span>
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-white text-xs sm:text-sm">Self-Onboarding (Recommended)</span>
+                                <span className="text-[9px] bg-[#10B981]/20 text-[#10B981] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Fastest</span>
                             </div>
-                            <p className="text-[10px] text-gray-300 mt-0.5 leading-snug">
-                                Skip entering phone numbers! Members claim their team & enter their own M-Pesa number via your WhatsApp invite link.
+                            <p className="text-[11px] text-gray-400 leading-relaxed">
+                                Share a 1-click WhatsApp link. Members enter their own M-Pesa phone number when claiming their squad.
                             </p>
                         </div>
                     </div>
 
-                    {/* Mode 2: Chairman Manual Entry */}
+                    {/* Mode 2: Direct Phone Entry */}
                     <div
                         onClick={() => setEnrollmentMode('manual')}
                         className={clsx(
                             "p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 relative overflow-hidden",
                             enrollmentMode === 'manual'
-                                ? "bg-[#FBBF24]/15 border-[#FBBF24] shadow-[0_0_25px_rgba(251,191,36,0.15)]"
+                                ? "bg-[#10B981]/15 border-[#10B981] shadow-[0_0_25px_rgba(16,185,129,0.15)]"
                                 : "bg-[#161d24] border-white/10 hover:border-white/20 opacity-80"
                         )}
                     >
                         <div className={clsx(
-                            "size-9 rounded-xl flex items-center justify-center shrink-0 font-bold",
-                            enrollmentMode === 'manual' ? "bg-[#FBBF24] text-black" : "bg-white/10 text-gray-400"
+                            "w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                            enrollmentMode === 'manual' ? "border-[#10B981] bg-[#10B981]" : "border-gray-500"
                         )}>
-                            <Smartphone className="w-4 h-4" />
+                            {enrollmentMode === 'manual' && <div className="w-2 h-2 rounded-full bg-black" />}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-bold text-white">Chairman Manual Entry</p>
-                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10">Optional</span>
-                            </div>
-                            <p className="text-[10px] text-gray-300 mt-0.5 leading-snug">
-                                Directly enter M-Pesa numbers for each recovered FPL squad below before completing setup.
+                        <div className="space-y-1">
+                            <span className="font-semibold text-white text-xs sm:text-sm">Direct Phone Entry</span>
+                            <p className="text-[11px] text-gray-400 leading-relaxed">
+                                Manually type each member's M-Pesa number right now so they are immediately enrolled.
                             </p>
                         </div>
                     </div>
@@ -1684,36 +1787,45 @@ export default function AdminSetup() {
             <div className="max-w-4xl mx-auto bg-[#151c18] border border-white/5 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <span className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-black flex items-center justify-center shrink-0">3</span>
-                            <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">
                                 {members.length > 0 ? "Recovered Squads Roster" : "League Members"}
                             </h3>
-                            <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 text-xs font-bold px-2 py-0.5 rounded">
-                                {members.length + (chairmanFplSquad ? 1 : 0)} Total Circle
+                            <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 text-xs font-medium px-2 py-0.5 rounded">
+                                {fplStandings.length > 0 ? fplStandings.length : (members.length + (chairmanFplSquad ? 1 : 0))} Registered Squads
+                            </span>
+                            <span className={clsx(
+                                "text-xs font-medium px-2.5 py-0.5 rounded-lg border flex items-center gap-1",
+                                coAdminIndices.length === 2
+                                    ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                    : "bg-white/5 text-gray-300 border-white/10"
+                            )}>
+                                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                                Co-Chairs: {coAdminIndices.length}/2 Assigned
                             </span>
                         </div>
-                        <p className="text-[11px] text-gray-400 mt-0.5">
+                        <p className="text-[11px] text-gray-400 mt-1">
                             {enrollmentMode === 'self'
-                                ? "Phone numbers are omitted here for faster setup. Members link their M-Pesa phone number when claiming their team."
-                                : "Enter M-Pesa phone numbers below for direct enrollment."}
+                                ? "Members claim their squad via invite link. You can assign up to 2 Co-Chairs as dual signatories for payout approvals."
+                                : "Enter M-Pesa phone numbers below. You can assign up to 2 Co-Chairs as dual signatories for payout approvals."}
                         </p>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                        {fplStandings.length > 0 && members.length < fplStandings.length && (
+                        {fplStandings.length > 0 && (
                             <button
                                 type="button"
                                 onClick={handleImportFromFPL}
-                                className="px-3 py-1.5 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981] hover:bg-[#10B981]/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                                className="px-3 py-1.5 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981] hover:bg-[#10B981]/20 text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
                             >
-                                <ArrowRight className="w-3 h-3" /> Re-import ({fplStandings.length})
+                                <RefreshCw className="w-3 h-3" /> Reset Squads ({fplStandings.length})
                             </button>
                         )}
                         <button
                             type="button"
                             onClick={() => setShowAddManualMember(!showAddManualMember)}
-                            className="px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
                             title="Optional: Only needed if adding a member whose squad is not in the FPL mini-league yet."
                         >
                             <UserPlus className="w-3.5 h-3.5 text-[#22c55e]" />
@@ -1800,95 +1912,115 @@ export default function AdminSetup() {
                 <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
 
                     {/* Recovered FPL Teams & Members */}
-                    {members.map((m, i) => (
-                        <div
-                            key={i}
-                            className={clsx(
-                                "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all",
-                                coAdminIndex === i
-                                    ? "border-[#FBBF24]/40 bg-[#FBBF24]/8"
-                                    : "border-white/10 bg-[#161d24]/70 hover:border-white/20"
-                            )}
-                        >
-                            <div className="flex items-center gap-3 min-w-0">
-                                <UserAvatar name={m.displayName || m.fplTeamName} size="sm" />
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-bold text-sm text-white truncate">
-                                            {m.fplTeamName || m.displayName}
+                    {members.map((m, i) => {
+                        const isCoAdmin = coAdminIndices.includes(i);
+                        const isCoAdminLimitReached = coAdminIndices.length >= 2 && !isCoAdmin;
+
+                        return (
+                            <div
+                                key={i}
+                                className={clsx(
+                                    "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all",
+                                    isCoAdmin
+                                        ? "border-amber-500/40 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                                        : "border-white/10 bg-[#161d24]/70 hover:border-white/20"
+                                )}
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <UserAvatar name={m.displayName || m.fplTeamName} size="sm" />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-semibold text-sm text-white truncate">
+                                                {m.fplTeamName || m.displayName}
+                                            </p>
+                                            {m.fplEntryId && (
+                                                <span className="text-[9px] font-mono font-bold text-[#10B981] bg-[#10B981]/15 px-1.5 py-0.5 rounded border border-[#10B981]/25 shrink-0">
+                                                    #{m.fplEntryId}
+                                                </span>
+                                            )}
+                                            {m.secondFplTeamId && (
+                                                <span className="text-[9px] font-bold text-[#10B981] border border-[#10B981]/30 bg-[#10B981]/10 px-1.5 py-0.5 rounded tracking-widest uppercase shrink-0">
+                                                    Dual
+                                                </span>
+                                            )}
+                                            {isCoAdmin && (
+                                                <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded tracking-wider uppercase shrink-0 flex items-center gap-1 shadow-sm">
+                                                    <Shield className="w-2.5 h-2.5 text-amber-400" /> Co-Chair
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                                            Manager: <span className="text-gray-200">{m.displayName}</span>
+                                            {m.phone ? (
+                                                <span className="text-[#10B981] ml-2 font-mono font-medium">· {m.phone}</span>
+                                            ) : (
+                                                <span className="text-amber-400/80 ml-2 italic text-[10px]">· Self-onboarding link</span>
+                                            )}
                                         </p>
-                                        {m.fplEntryId && (
-                                            <span className="text-[9px] font-mono font-bold text-[#10B981] bg-[#10B981]/15 px-1.5 py-0.5 rounded border border-[#10B981]/25 shrink-0">
-                                                #{m.fplEntryId}
-                                            </span>
-                                        )}
-                                        {m.secondFplTeamId && (
-                                            <span className="text-[9px] font-black text-[#10B981] border border-[#10B981]/30 bg-[#10B981]/10 px-1.5 py-0.5 rounded tracking-widest uppercase shrink-0">
-                                                Dual
-                                            </span>
-                                        )}
-                                        {coAdminIndex === i && (
-                                            <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded tracking-wider uppercase shrink-0 flex items-center gap-1 shadow-sm">
-                                                <Shield className="w-2.5 h-2.5 text-amber-400" /> Co-Chair
-                                            </span>
-                                        )}
                                     </div>
-                                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                                        Manager: <span className="text-gray-200">{m.displayName}</span>
-                                        {m.phone ? (
-                                            <span className="text-[#10B981] ml-2 font-mono font-medium">· {m.phone}</span>
-                                        ) : (
-                                            <span className="text-amber-400/80 ml-2 italic text-[10px]">· Self-onboarding link</span>
+                                </div>
+
+                                {/* Direct Inline Controls */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {enrollmentMode === 'manual' && (
+                                        <div className="relative">
+                                            <input
+                                                type="tel"
+                                                placeholder="07... (M-Pesa #)"
+                                                value={m.phone}
+                                                onChange={e => {
+                                                    const val = normalizeKenyanPhone(e.target.value);
+                                                    setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
+                                                }}
+                                                className="w-40 sm:w-48 bg-[#0e141a] border border-white/10 focus:border-[#10B981]/50 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none transition-colors"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Co-Chair toggle button with Max 2 check */}
+                                    <button
+                                        type="button"
+                                        title={
+                                            isCoAdmin
+                                                ? "Remove Co-Chair signatory status"
+                                                : isCoAdminLimitReached
+                                                    ? "Maximum 2 Co-Chairs already selected"
+                                                    : "Assign as Co-Chair (Dual Signatory for Payout Approvals)"
+                                        }
+                                        onClick={() => toggleCoChair(i)}
+                                        disabled={isCoAdminLimitReached}
+                                        className={clsx(
+                                            "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-all shrink-0 border",
+                                            isCoAdmin
+                                                ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)] cursor-pointer"
+                                                : isCoAdminLimitReached
+                                                    ? "bg-white/5 text-gray-500 border-white/5 opacity-40 cursor-not-allowed"
+                                                    : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-amber-300 border-white/10 cursor-pointer"
                                         )}
-                                    </p>
+                                    >
+                                        <Shield className={clsx("w-3.5 h-3.5", isCoAdmin ? "text-amber-400" : isCoAdminLimitReached ? "text-gray-600" : "text-gray-400")} />
+                                        <span>{isCoAdmin ? "Co-Chair ✓" : isCoAdminLimitReached ? "Max (2/2)" : "+ Co-Chair"}</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            removeLocalMember(i);
+                                            setCoAdminIndices(prev =>
+                                                prev
+                                                    .filter(idx => idx !== i)
+                                                    .map(idx => idx > i ? idx - 1 : idx)
+                                            );
+                                        }}
+                                        className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all text-xs shrink-0 cursor-pointer"
+                                        title="Remove Manager"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
                             </div>
-
-                            {/* Direct Inline Controls */}
-                            <div className="flex items-center gap-2 shrink-0">
-                                {enrollmentMode === 'manual' && (
-                                    <div className="relative">
-                                        <input
-                                            type="tel"
-                                            placeholder="07... (M-Pesa #)"
-                                            value={m.phone}
-                                            onChange={e => {
-                                                const val = normalizeKenyanPhone(e.target.value);
-                                                setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
-                                            }}
-                                            className="w-40 sm:w-48 bg-[#0e141a] border border-white/10 focus:border-[#10B981]/50 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none transition-colors"
-                                        />
-                                    </div>
-                                )}
-                                <button
-                                    type="button"
-                                    title={coAdminIndex === i ? "Remove Co-Chair (Dual Signatory)" : "Assign as Co-Chair (Second Signatory for Payout Approvals)"}
-                                    onClick={() => setCoAdminIndex(coAdminIndex === i ? null : i)}
-                                    className={clsx(
-                                        "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all shrink-0 cursor-pointer border",
-                                        coAdminIndex === i
-                                            ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
-                                            : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-amber-300 border-white/10"
-                                    )}
-                                >
-                                    <Shield className={clsx("w-3.5 h-3.5", coAdminIndex === i ? "text-amber-400" : "text-gray-400")} />
-                                    <span>{coAdminIndex === i ? "Co-Chair" : "+ Co-Chair"}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        removeLocalMember(i);
-                                        if (coAdminIndex === i) setCoAdminIndex(null);
-                                        else if (coAdminIndex !== null && coAdminIndex > i) setCoAdminIndex(coAdminIndex - 1);
-                                    }}
-                                    className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all text-xs shrink-0 cursor-pointer"
-                                    title="Remove Manager"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {members.length === 0 && (
                         <div className="text-center py-8 px-4 border border-dashed border-white/15 bg-white/[0.02] rounded-2xl space-y-4">
@@ -2028,18 +2160,18 @@ export default function AdminSetup() {
                             <p className="text-[#22c55e] font-black text-base sm:text-lg tabular-nums">KES {monthlyFee} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
                         </div>
                         <div className="bg-[#161d24] rounded-2xl p-3.5 border border-white/5 flex flex-col justify-between">
-                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Registered Squads</p>
-                            <p className="text-white font-black text-base sm:text-lg">
-                                {members.length + (chairmanFplSquad ? 1 : 0)} <span className="text-[10px] font-normal text-gray-400">({members.length} {enrollmentMode === 'self' ? 'pending claim' : 'enrolled'})</span>
+                            <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mb-1">Registered Squads</p>
+                            <p className="text-white font-semibold text-base sm:text-lg">
+                                {fplStandings.length > 0 ? fplStandings.length : (members.length + (chairmanFplSquad ? 1 : 0))} <span className="text-[10px] font-normal text-gray-400">({chairmanFplSquad ? `${(fplStandings.length > 0 ? fplStandings.length : (members.length + 1)) - 1} members + Chairman squad` : `${members.length} squads`})</span>
                             </p>
                         </div>
                         <div className="bg-[#161d24] rounded-2xl p-3.5 border border-white/5 flex flex-col justify-between">
-                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Weekly Prize Pot</p>
-                            <p className="text-emerald-400 font-black text-base sm:text-lg tabular-nums">KES {weeklyPrize} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
+                            <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mb-1">Weekly Prize Pot</p>
+                            <p className="text-emerald-400 font-semibold text-base sm:text-lg tabular-nums">KES {weeklyPrize} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
                         </div>
                         <div className="bg-[#161d24] rounded-2xl p-3.5 border border-white/5 flex flex-col justify-between">
-                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Est. GW Gross Pot</p>
-                            <p className="text-amber-400 font-black text-base sm:text-lg tabular-nums">KES {totalMonthlyPool} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
+                            <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mb-1">Est. GW Gross Pot</p>
+                            <p className="text-amber-400 font-semibold text-base sm:text-lg tabular-nums">KES {totalMonthlyPool} <span className="text-[10px] font-normal text-gray-400">/GW</span></p>
                         </div>
                     </div>
                 </div>
@@ -2103,7 +2235,7 @@ export default function AdminSetup() {
                                 <div className="flex items-center gap-2 truncate">
                                     <Shield className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
                                     <div className="truncate">
-                                        <p className="font-bold text-white truncate leading-tight">
+                                        <p className="font-semibold text-white truncate leading-tight">
                                             {fullName || "Chairman"} <span className="text-[9px] text-[#FBBF24] font-mono">(👑 Chairman)</span>
                                         </p>
                                         <p className="text-[10px] text-gray-300 truncate">
@@ -2111,30 +2243,42 @@ export default function AdminSetup() {
                                         </p>
                                     </div>
                                 </div>
-                                <span className="text-[#22c55e] font-mono text-[11px] font-bold shrink-0">{chairmanPayoutPhone || phone}</span>
+                                <span className="text-[#22c55e] font-mono text-[11px] font-semibold shrink-0">{chairmanPayoutPhone || phone}</span>
                             </div>
 
-                            {/* Squads preview */}
-                            {members.map((m, i) => (
-                                <div key={i} className="flex justify-between items-center bg-[#161d24] p-2.5 rounded-xl border border-white/5 text-xs">
-                                    <div className="min-w-0 pr-2">
-                                        <p className="font-bold text-white truncate max-w-[180px]">{m.fplTeamName || m.displayName}</p>
-                                        <p className="text-[10px] text-gray-400 truncate max-w-[180px]">
-                                            {m.displayName && m.fplTeamName ? m.displayName : "FPL Squad"}
-                                            {m.fplEntryId ? ` · #${m.fplEntryId}` : ""}
-                                        </p>
-                                    </div>
-                                    <div className="shrink-0">
-                                        {m.phone ? (
-                                            <span className="text-gray-300 font-mono text-[11px]">{m.phone}</span>
-                                        ) : (
-                                            <span className="text-[#FBBF24] font-bold text-[9px] bg-[#FBBF24]/10 px-2 py-0.5 rounded-md border border-[#FBBF24]/25">
-                                                Pending Invite Claim
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                            {/* Squads preview — filter out chairman's squad to avoid duplicate row */}
+                            {members
+                                .filter(m => !chairmanFplSquad || Number(m.fplEntryId) !== Number(chairmanFplSquad.entry))
+                                .map((m, i) => {
+                                    const isCoAdmin = coAdminIndices.includes(i);
+                                    return (
+                                        <div key={i} className={clsx("flex justify-between items-center p-2.5 rounded-xl border text-xs", isCoAdmin ? "bg-amber-500/10 border-amber-500/30" : "bg-[#161d24] border-white/5")}>
+                                            <div className="min-w-0 pr-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className="font-semibold text-white truncate max-w-[180px]">{m.fplTeamName || m.displayName}</p>
+                                                    {isCoAdmin && (
+                                                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded tracking-wider uppercase shrink-0 flex items-center gap-1">
+                                                            <Shield className="w-2.5 h-2.5 text-amber-400" /> Co-Chair
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[10px] text-gray-400 truncate max-w-[180px]">
+                                                    {m.displayName && m.fplTeamName ? m.displayName : "FPL Squad"}
+                                                    {m.fplEntryId ? ` · #${m.fplEntryId}` : ""}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0">
+                                                {m.phone ? (
+                                                    <span className="text-gray-300 font-mono text-[11px]">{m.phone}</span>
+                                                ) : (
+                                                    <span className="text-[#FBBF24] font-medium text-[9px] bg-[#FBBF24]/10 px-2 py-0.5 rounded-md border border-[#FBBF24]/25">
+                                                        Pending Invite Claim
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
 
                             {members.length === 0 && (
                                 <div className="text-center py-6 px-3 border border-dashed border-white/10 rounded-xl">
@@ -2175,13 +2319,13 @@ export default function AdminSetup() {
                     </div>
                 )}
 
-                {/* Step 4 Action Bar with Prominent Back and Activate Buttons */}
+                {/* Step 4 Action Bar with Refined Gold Activate Button */}
                 <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center gap-3">
                     <button
                         type="button"
                         onClick={prevStep}
                         disabled={isSubmitting}
-                        className="w-full sm:w-auto px-6 py-4 rounded-xl border border-white/15 hover:border-white/30 bg-white/5 hover:bg-white/10 text-white font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        className="w-full sm:w-auto px-5 py-3.5 rounded-xl border border-white/15 hover:border-white/30 bg-white/5 hover:bg-white/10 text-white font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >
                         <ArrowLeft className="w-4 h-4" /> Back to Members
                     </button>
@@ -2189,16 +2333,17 @@ export default function AdminSetup() {
                         type="button"
                         onClick={handleConfirmLeague}
                         disabled={isSubmitting}
-                        className="flex-1 w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-black text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] shadow-[0_0_25px_rgba(34,197,94,0.2)] disabled:opacity-50 disabled:cursor-wait cursor-pointer"
+                        className="flex-1 w-full bg-[#FBBF24] hover:bg-[#eab308] active:scale-[0.99] text-[#0A0E17] font-semibold text-sm sm:text-base py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(251,191,36,0.25)] hover:shadow-[0_0_25px_rgba(251,191,36,0.35)] disabled:opacity-50 disabled:cursor-wait cursor-pointer"
                     >
                         {isSubmitting ? (
                             <>
-                                <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
-                                Activating League & Generating Signatures...
+                                <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
+                                <span>Activating League & Generating Signatures...</span>
                             </>
                         ) : (
                             <>
-                                <Check className="w-5 h-5" /> Activate League & Proceed to Share Link
+                                <Check className="w-4 h-4 text-black" />
+                                <span>Activate League & Proceed to Share Link</span>
                             </>
                         )}
                     </button>
