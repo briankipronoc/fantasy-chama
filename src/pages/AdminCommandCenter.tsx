@@ -33,6 +33,7 @@ import {
   Coins,
   Radio,
   Flame,
+  Star,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import { db, auth } from "../firebase";
@@ -1118,6 +1119,54 @@ export default function AdminCommandCenter() {
     setToastMessage(message);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => setToastMessage(""), 3000);
+  };
+
+  const handleSendReaction = async (emoji: string) => {
+    if (!activeLeagueId || !gwWinner) return;
+    haptics.celebrate();
+    try {
+      confetti({
+        particleCount: 40,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FBBF24', '#10B981', '#F59E0B', '#FFFFFF'],
+      });
+    } catch {}
+
+    const winnerFirstName = (gwWinner.player_name || 'Champion').split(' ')[0];
+    const senderName = 'Chairman';
+
+    try {
+      const notifRef = collection(db, 'leagues', activeLeagueId, 'notifications');
+      await addDoc(notifRef, {
+        type: 'champion_reaction',
+        emoji,
+        message: `${senderName} sent ${emoji} props to ${winnerFirstName} for GW${currentGwNumber || ''}!`,
+        fromName: senderName,
+        fromId: auth.currentUser?.uid || 'chairman',
+        toWinner: gwWinner.player_name,
+        winnerId: gwWinner.id || null,
+        gw: currentGwNumber || null,
+        timestamp: serverTimestamp(),
+      });
+
+      const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
+      addDoc(eventsRef, {
+        type: 'champion_reaction',
+        eventType: 'reaction',
+        emoji,
+        message: `${senderName} reacted with ${emoji} to ${winnerFirstName}`,
+        actor: senderName,
+        toWinner: gwWinner.player_name,
+        gw: currentGwNumber || null,
+        timestamp: serverTimestamp(),
+      }).catch(() => {});
+
+      showToast(`Sent ${emoji} props to ${winnerFirstName}!`);
+    } catch (err) {
+      console.warn('[reaction] could not save:', err);
+      showToast(`Sent ${emoji} props to ${winnerFirstName}!`);
+    }
   };
 
   // Dynamic Calculations
@@ -3199,9 +3248,18 @@ burstFrame();
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-700 dark:text-[#FBBF24]">
-                                <ShieldCheck className="w-3.5 h-3.5 fill-current" />
-                                {isCurrentEventFinished ? "POT CHAMPION" : "POT LEADER"}
+                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-500 dark:text-[#FBBF24]">
+                                {isCurrentEventFinished ? (
+                                  <>
+                                    <Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" />
+                                    GW {currentGwNumber || 4} Champion Crowned
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShieldCheck className="w-3.5 h-3.5 fill-current" />
+                                    POT LEADER
+                                  </>
+                                )}
                               </p>
                               <span
                                 className={clsx(
@@ -3211,23 +3269,37 @@ burstFrame();
                                     : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
                                 )}
                               >
-                                {isCurrentEventFinished ? `GW${currentGwNumber || ""} Final` : `GW${currentGwNumber || ""} Live`}
+                                {isCurrentEventFinished ? `GW${currentGwNumber || 4} Final` : `GW${currentGwNumber || 4} Live`}
                               </span>
                             </div>
 
                             <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                              {leaderName}
+                              {leaderName} {leaderTeam && <span className="text-sm font-bold text-gray-500 dark:text-gray-400">({leaderTeam})</span>}
                             </h3>
 
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {leaderTeam && (
-                                <span className="text-xs font-semibold text-slate-600 dark:text-gray-300 truncate max-w-[200px]">
-                                  {leaderTeam}
-                                </span>
-                              )}
-                              <span className="inline-flex items-center gap-1 font-black px-2.5 py-0.5 rounded-full text-[11px] tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-[#10B981]/15 dark:border-[#10B981]/30 dark:text-emerald-300">
-                                {leaderPoints} pts
+                              <p className="text-xs text-slate-600 dark:text-slate-300">
+                                Clinched the pot with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
+                                {leadMargin ? ` (+${leadMargin} pts ahead)` : ''} · Payout Yielded: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span>
+                              </p>
+                            </div>
+
+                            {/* Quick Emoji Reactions from Chairman */}
+                            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mr-1">
+                                Send Props to {leaderName.split(' ')[0]} 💬
                               </span>
+                              {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleSendReaction(emoji)}
+                                  className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-slate-100/80 dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs"
+                                  title={`Send ${emoji} to ${leaderName}`}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
                             </div>
 
                             {!isCurrentEventFinished && leadMargin !== null && leadMargin !== undefined && (

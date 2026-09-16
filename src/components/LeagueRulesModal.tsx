@@ -97,7 +97,15 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                     </div>
                     {hasAccepted && (
                         <button
-                            onClick={onClose}
+                            onClick={() => {
+                                if (activeLeagueId) {
+                                    try {
+                                        localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                                        localStorage.setItem('fc_constitution_dismissed', 'true');
+                                    } catch {}
+                                }
+                                onClose();
+                            }}
                             className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.06] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-white transition-all active:scale-95"
                             aria-label="Close"
                         >

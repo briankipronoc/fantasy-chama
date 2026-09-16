@@ -50,22 +50,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
         return () => unsubscribe();
     }, [activeUserId]);
 
-    useEffect(() => {
-        const activeLeagueId = localStorage.getItem('activeLeagueId');
-        if (role === 'admin' || isSuperAdmin) return;
-        if (activeLeagueId && localStorage.getItem(`fc_rules_accepted_${activeLeagueId}`) === 'true') return;
-        if (!currentMember) return;
-        if (currentMember.role === 'admin') return;
-        if (currentMember.hasAcceptedRules === true) {
-            if (activeLeagueId) {
-                try {
-                    localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
-                } catch {}
-            }
-            return;
-        }
-        setShowConstitution(true);
-    }, [currentMember, role, isSuperAdmin]);
+    // Unsolicited auto-popup removed — constitution is accessible on-demand or on designated first-login
 
     useEffect(() => {
         setHeaderMotion('fc-header-enter');

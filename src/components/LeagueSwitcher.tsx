@@ -30,8 +30,9 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
     const dropdownRef = useRef<HTMLDivElement>(null);
     const phone = localStorage.getItem('memberPhone');
     const activeLeagueId = localStorage.getItem('activeLeagueId');
+    const storeLeagueName = useStore((state) => (state.league as any)?.leagueName || state.league?.name);
+    const cachedLeagueName = localStorage.getItem('activeLeagueName');
     const activeRole = localStorage.getItem('activeUserRole') || localStorage.getItem('fc-role') || 'member';
-    const storeLeagueName = useStore((state) => state.league?.name);
     const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid || null);
 
     useEffect(() => {
@@ -57,7 +58,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             if (activeLeagueId && !map.has(activeLeagueId)) {
                 map.set(activeLeagueId, {
                     leagueId: activeLeagueId,
-                    leagueName: storeLeagueName || 'Active Chama',
+                    leagueName: storeLeagueName || cachedLeagueName || 'League',
                     role: activeRole,
                 });
             }
@@ -134,7 +135,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
     const active = leagues.find(l => l.leagueId === activeLeagueId) || {
         leagueId: activeLeagueId || '',
-        leagueName: storeLeagueName || 'Active Chama',
+        leagueName: storeLeagueName || cachedLeagueName || 'League',
         role: activeRole,
     };
 
@@ -228,7 +229,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                             type="button"
                             onClick={() => { haptics.selection(); setOpen(!open); }}
                             className="w-10 h-10 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center relative cursor-pointer active:scale-95 transition-all group shadow-sm"
-                            title={`Active Chama: ${active.leagueName} (${active.role === 'admin' ? 'Chairman' : 'Member'})`}
+                            title={`Active League: ${active.leagueName} (${active.role === 'admin' ? 'Chairman' : 'Member'})`}
                         >
                             <Trophy className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
                             {leagues.length > 1 && (
@@ -242,7 +243,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                             type="button"
                             onClick={() => { haptics.selection(); setOpen(!open); }}
                             className="w-full flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/60 dark:bg-white/[0.03] hover:bg-slate-200/70 dark:hover:bg-white/[0.07] transition-all text-left group cursor-pointer shadow-sm"
-                            title="Switch active Chama"
+                            title="Switch active League"
                         >
                             <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
                                 <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
@@ -280,13 +281,13 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                         type="button"
                         onClick={() => { haptics.selection(); setOpen(!open); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/80 dark:bg-white/[0.04] hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white transition-all cursor-pointer backdrop-blur-md shadow-sm active:scale-95"
-                        title="Switch active Chama"
+                        title="Switch active League"
                     >
                         <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
                         <span className="max-w-[130px] truncate">{active.leagueName}</span>
                         {leagues.length > 1 && (
                             <span className="hidden sm:inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-300">
-                                {leagues.length} Chamas
+                                {leagues.length} Leagues
                             </span>
                         )}
                         <ChevronDown className={`w-3.5 h-3.5 text-slate-500 dark:text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
@@ -380,12 +381,12 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                             <Trophy className="w-7 h-7 text-emerald-400 animate-bounce" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Switching Chama</p>
+                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Switching League</p>
                             <h3 className="text-lg font-black text-white mt-1">{switchingLeagueName}</h3>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
                             <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                            <span>Loading War Room & Standings...</span>
+                            <span>Loading League Hub & Standings...</span>
                         </div>
                     </div>
                 </div>

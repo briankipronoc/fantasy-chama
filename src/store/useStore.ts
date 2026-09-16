@@ -134,7 +134,12 @@ export const useStore = create<AppState>((set) => ({
             const leagueRef = doc(db, 'leagues', leagueId);
             const unsub = onSnapshot(leagueRef, (doc) => {
                 if (doc.exists()) {
-                    set({ league: doc.data() as LeagueSettings });
+                    const data = doc.data();
+                    const realName = data?.leagueName || data?.name || 'League';
+                    try {
+                        localStorage.setItem('activeLeagueName', realName);
+                    } catch {}
+                    set({ league: { ...data, name: realName, leagueName: realName } as unknown as LeagueSettings });
                 }
             }, (error) => {
                 console.warn('[store] listenToLeagueSettings failed:', error?.message || error);

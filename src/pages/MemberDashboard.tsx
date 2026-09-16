@@ -262,11 +262,17 @@ export default function MemberDashboard() {
         if (members.length === 0) return;
         if (!leagueName) return;
         setIsLoading(false);
-        // Show constitution modal on first login (only for non-admin members who haven't accepted)
-        if (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules) {
+        // Show constitution modal on first login (only for non-admin members who haven't accepted or dismissed)
+        const isDismissedOrAccepted = Boolean(
+            activeLeagueId && (
+                localStorage.getItem(`fc_rules_accepted_${activeLeagueId}`) === 'true' ||
+                localStorage.getItem('fc_constitution_dismissed') === 'true'
+            )
+        );
+        if (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules && !isDismissedOrAccepted) {
             setTimeout(() => setShowRulesModal(true), 800);
         }
-    }, [members.length, currentUser, leagueName]);
+    }, [members.length, currentUser, leagueName, activeLeagueId]);
 
 
     useEffect(() => {
@@ -335,24 +341,21 @@ export default function MemberDashboard() {
                     localStorage.setItem(storedKey, String(gwFinishedTimestamp));
                 }
 
-                const hoursSinceGwFinished = gwFinishedTimestamp 
-                    ? (Date.now() - gwFinishedTimestamp) / (1000 * 60 * 60) 
-                    : Infinity;
-
                 // The upcoming gameweek deadline to measure reaction window against
                 const upcomingDeadlineTime = (!isCurrentStarted && rawPrevious && completedCandidate?.id === rawPrevious.id)
                     ? rawCurrent?.deadline_time
                     : rawNext?.deadline_time;
 
-                const nextDeadlineMs = upcomingDeadlineTime ? new Date(upcomingDeadlineTime).getTime() : 0;
-                const hoursUntilNextDeadline = nextDeadlineMs ? (nextDeadlineMs - Date.now()) / (1000 * 60 * 60) : Infinity;
+                // Reigning Champion Rule:
+                // Keep the celebration active until next GW matches actually kick off!
+                const isNextGwKickedOff = rawNext?.deadline_time 
+                    ? Date.now() >= new Date(rawNext.deadline_time).getTime() 
+                    : (rawCurrent?.deadline_time ? Date.now() >= new Date(rawCurrent.deadline_time).getTime() : false);
 
-                // Celebration Rule:
-                // Keep the celebration active for 48 hours after GW ends, or until next GW matches actually kick off!
                 const isCelebrationWindowActive = Boolean(
                     completedCandidate &&
                     isGwFinished &&
-                    (hoursSinceGwFinished <= 48 || (hoursUntilNextDeadline > 0 && !isCurrentStarted))
+                    !isNextGwKickedOff
                 );
 
                 let activeEventToDisplay: any;
@@ -368,7 +371,7 @@ export default function MemberDashboard() {
                     isGwFinished = false;
                 } else {
                     activeEventToDisplay = completedCandidate || rawCurrent || rawPrevious;
-                    isPreparingForNext = isGwFinished && hoursSinceGwFinished > 48;
+                    isPreparingForNext = isGwFinished && isNextGwKickedOff;
                 }
 
                 setCurrentFplEvent({
@@ -1043,7 +1046,15 @@ export default function MemberDashboard() {
             {/* Constitution first-login modal */}
             <LeagueRulesModal
                 isOpen={showRulesModal}
-                onClose={() => setShowRulesModal(false)}
+                onClose={() => {
+                    if (activeLeagueId) {
+                        try {
+                            localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                            localStorage.setItem('fc_constitution_dismissed', 'true');
+                        } catch {}
+                    }
+                    setShowRulesModal(false);
+                }}
                 currentMember={currentUser}
                 leagueName={leagueName}
                 chairmanName={members.find(m => (m as any).role === 'admin')?.displayName}

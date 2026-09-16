@@ -618,7 +618,7 @@ export default function Login() {
                 console.log("5. No active league ID found for Chairman!");
             }
 
-            console.log("6. Opening War Room portal...");
+            console.log("6. Opening Dashboard portal...");
             setRole('admin');
             navigate('/dashboard', { replace: true });
         } catch (err: any) {
