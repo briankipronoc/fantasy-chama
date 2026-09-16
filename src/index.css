@@ -1649,6 +1649,7 @@
 [data-theme="light"] .fc-auth-card {
   background: linear-gradient(180deg, #ffffff, #f8fbff) !important;
   border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #0f172a !important;
   box-shadow: 0 28px 65px rgba(15, 23, 42, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 [data-theme="light"] .fc-auth-shell .bg-\[\#151c18\],

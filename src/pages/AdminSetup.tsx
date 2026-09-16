@@ -704,54 +704,70 @@ export default function AdminSetup() {
                     </div>
                 </div>
 
-                <div className="space-y-1.5 mb-6">
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
-                        Secure Password <Tooltip text="Protects the league's financial vault. Treat this like a bank account." />
-                    </label>
-                    <div className="relative">
-                        <Lock className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
-                        <input
-                            required
-                            type={showPassword ? "text" : "password"}
-                            autoComplete="new-password"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className={inputClasses}
-                            placeholder="Create a secure password"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
-                        >
-                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                        </button>
+                {isExistingChairman ? (
+                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-start gap-3 my-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 mt-0.5">
+                            <Shield className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1 text-left">
+                            <p className="text-xs font-black text-emerald-400 uppercase tracking-wider">Active Chairman Session Verified</p>
+                            <p className="text-[11px] text-gray-300 mt-0.5">
+                                You are signed in as <strong className="text-white">{auth.currentUser?.email}</strong>. This new league will be seamlessly linked to your Chairman account.
+                            </p>
+                        </div>
                     </div>
+                ) : (
+                    <div className="space-y-1.5 mb-6">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                            Secure Password <Tooltip text="Protects the league's financial vault. Treat this like a bank account." />
+                        </label>
+                        <div className="relative">
+                            <Lock className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                            <input
+                                required={!isExistingChairman}
+                                type={showPassword ? "text" : "password"}
+                                autoComplete="new-password"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className={inputClasses}
+                                placeholder="Create a secure password"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
 
-                    <div className="px-1 pt-2">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Security Strength</span>
-                            <span className={clsx("text-[9px] font-bold uppercase tracking-wider", passwordStrengthResult.textColor)}>
-                                {passwordStrengthResult.label}
-                            </span>
-                        </div>
-                        <div className="h-1.5 w-full bg-[#161d24] rounded-full overflow-hidden flex gap-1">
-                            <div className={clsx("h-full rounded-full transition-all duration-300", passwordStrengthResult.w1)}></div>
-                            <div className={clsx("h-full rounded-full transition-all duration-300", passwordStrengthResult.w2)}></div>
-                            <div className={clsx("h-full rounded-full transition-all duration-300", passwordStrengthResult.w3)}></div>
+                        <div className="px-1 pt-2">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Security Strength</span>
+                                <span className={clsx("text-[9px] font-bold uppercase tracking-wider", passwordStrengthResult.textColor)}>
+                                    {passwordStrengthResult.label}
+                                </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-[#161d24] rounded-full overflow-hidden flex gap-1">
+                                <div className={clsx("h-full rounded-full transition-all duration-300", passwordStrengthResult.w1)}></div>
+                                <div className={clsx("h-full rounded-full transition-all duration-300", passwordStrengthResult.w2)}></div>
+                                <div className={clsx("h-full rounded-full transition-all duration-300", passwordStrengthResult.w3)}></div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 <div className="pt-2">
                         <button
                             type="submit"
-                            disabled={!fullName || !email || !phone || !password || isCheckingEmail}
-                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_24px_rgba(251,191,36,0.28)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={!fullName || !email || !phone || (!isExistingChairman && !password) || isCheckingEmail}
+                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_24px_rgba(251,191,36,0.28)] mt-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {isCheckingEmail ? (
                                 <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Checking...
                                 </>
+                            ) : isExistingChairman ? (
+                                <><span>Configure New League</span><ArrowRight className="w-5 h-5" /></>
                             ) : (
                                 <><span>Create Chairman Account</span><Trophy className="w-5 h-5" /></>
                             )}

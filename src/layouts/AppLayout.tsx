@@ -1,13 +1,12 @@
 import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
-import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Trophy, Flame } from 'lucide-react';
+import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Flame, Wallet } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { useNotifications } from '../components/NotificationProvider';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
-import LeagueSwitcher from '../components/LeagueSwitcher';
 import { haptics } from '../utils/haptics';
 
 export default function AppLayout() {
@@ -187,26 +186,32 @@ export default function AppLayout() {
                 <div className="fc-sidebar-shell w-full h-full rounded-3xl border border-white/[0.12] bg-[#0c1219]/85 backdrop-blur-2xl p-5 flex flex-col relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.08)]">
                     <div className="fc-sidebar-glow absolute -top-24 -right-20 w-56 h-56 rounded-full bg-emerald-500/10 blur-[80px] pointer-events-none" />
 
-                    <div className={clsx('mb-4 relative z-10')}>
+                    <div className={clsx('mb-5 relative z-10')}>
                         {!isSidebarCollapsed ? (
-                            <div className="flex items-center justify-between pb-3 border-b border-white/5">
-                                <div className="flex items-center gap-2.5">
-                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-500/15 border border-emerald-400/25 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
-                                        <Trophy className="w-3.5 h-3.5 text-emerald-400" />
-                                    </span>
-                                    <span className="text-xs font-black uppercase tracking-widest text-emerald-400">Navigation</span>
-                                </div>
+                            <div className="flex items-center justify-between pb-4 border-b border-white/5">
+                                <Link to="/dashboard" className="flex items-center gap-3 group">
+                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.35)] shrink-0 group-hover:scale-105 transition-transform">
+                                        <Wallet className="w-4 h-4 text-slate-950 font-black" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1 leading-none">
+                                            <span className="text-sm font-black tracking-tight text-white uppercase">Fantasy</span>
+                                            <span className="text-sm font-black tracking-tight text-emerald-400 uppercase">Chama</span>
+                                        </div>
+                                        <p className="text-[9px] font-bold text-gray-400 tracking-wider uppercase mt-1">Pot Engine</p>
+                                    </div>
+                                </Link>
 
                                 <button
                                     onClick={() => setIsSidebarCollapsed(prev => !prev)}
-                                    className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors inline-flex items-center justify-center cursor-pointer active:scale-95"
+                                    className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors inline-flex items-center justify-center cursor-pointer active:scale-95 shrink-0"
                                     title="Collapse sidebar"
                                 >
                                     <PanelLeftClose className="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-3">
+                            <div className="flex flex-col items-center gap-3 pb-2 border-b border-white/5">
                                 <button
                                     onClick={() => setIsSidebarCollapsed(prev => !prev)}
                                     className="h-10 w-10 rounded-xl border border-white/12 bg-white/[0.03] text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors inline-flex items-center justify-center cursor-pointer active:scale-95"
@@ -214,18 +219,13 @@ export default function AppLayout() {
                                 >
                                     <PanelLeftOpen className="w-4 h-4" />
                                 </button>
-                                <div className="pt-1 flex flex-col items-center gap-1">
-                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl border border-emerald-400/30 bg-emerald-500/12 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
-                                        <Trophy className="w-4 h-4 text-emerald-400" />
-                                    </span>
-                                </div>
+                                <Link to="/dashboard" className="pt-1 flex flex-col items-center group" title="Fantasy Chama">
+                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.35)] shrink-0 group-hover:scale-105 transition-transform">
+                                        <Wallet className="w-4 h-4 text-slate-950 font-black" />
+                                    </div>
+                                </Link>
                             </div>
                         )}
-
-                        {/* Active Chama League Switcher in Desktop Sidebar */}
-                        <div className={clsx('mt-3 flex', isSidebarCollapsed ? 'justify-center' : 'w-full')}>
-                            <LeagueSwitcher variant="sidebar" isCollapsed={isSidebarCollapsed} />
-                        </div>
                     </div>
 
                     <div className="flex flex-col space-y-2.5 flex-1 pt-2 relative z-10">

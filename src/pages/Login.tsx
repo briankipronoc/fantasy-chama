@@ -324,17 +324,17 @@ export default function Login() {
 
                 setTimeout(() => {
                     setLoginTransition(prev => prev ? { ...prev, step: 2 } : null);
-                }, 800);
+                }, 1100);
 
                 setTimeout(() => {
                     setLoginTransition(prev => prev ? { ...prev, step: 3 } : null);
-                }, 1600);
+                }, 2300);
 
                 setTimeout(() => {
                     setShowSelfOnboardModal(false);
                     setRole('member');
                     navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
-                }, 2400);
+                }, 3500);
 
                 return;
             }
@@ -684,34 +684,34 @@ export default function Login() {
 
                 {/* Staged Loading Overlay — reveals who has joined and preloads dashboard in background */}
                 {loginTransition && (
-                    <div className="absolute inset-0 z-30 bg-[#10171d]/95 backdrop-blur-2xl rounded-[2rem] p-6 md:p-8 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 border border-emerald-500/30 shadow-2xl">
+                    <div className="absolute inset-0 z-30 bg-white/95 dark:bg-[#10171d]/95 backdrop-blur-2xl rounded-[2rem] p-6 md:p-8 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 border border-slate-200 dark:border-emerald-500/30 shadow-2xl text-slate-900 dark:text-white">
                         <div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-4">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-4">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
                                 Vault Connected
                             </div>
-                            <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                            <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                                 {loginTransition.leagueName}
                             </h3>
-                            <p className="text-xs text-gray-400 mt-1 font-medium">
-                                Welcome back, <span className="text-white font-bold">{loginTransition.memberName}</span>
+                            <p className="text-xs text-slate-600 dark:text-gray-400 mt-1 font-medium">
+                                Welcome back, <span className="text-slate-900 dark:text-white font-bold">{loginTransition.memberName}</span>
                             </p>
                         </div>
 
                         {/* Member preview badges */}
-                        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2.5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                Active Chama Managers ({loginTransition.totalCount})
+                        <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 space-y-2.5">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">
+                                Active League Managers ({loginTransition.totalCount})
                             </p>
                             <div className="flex items-center gap-1.5 flex-wrap">
                                 {loginTransition.members.slice(0, 4).map((mName, i) => (
-                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-300">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                         {mName}
                                     </span>
                                 ))}
                                 {loginTransition.totalCount > 4 && (
-                                    <span className="text-[10px] font-bold text-gray-400 px-1">
+                                    <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 px-1">
                                         +{loginTransition.totalCount - 4} others
                                     </span>
                                 )}
@@ -720,20 +720,20 @@ export default function Login() {
 
                         {/* Dynamic Progress Steps */}
                         <div className="space-y-3">
-                            <div className="flex items-center justify-between text-xs font-bold text-gray-300">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-gray-300">
                                 <span className="flex items-center gap-2">
-                                    <span className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                    <span className="w-4 h-4 border-2 border-emerald-500 dark:border-emerald-400 border-t-transparent rounded-full animate-spin" />
                                     {loginTransition.step === 1 && "Connecting to Escrow Vault..."}
                                     {loginTransition.step === 2 && "Syncing Managers & Standings..."}
                                     {loginTransition.step === 3 && "Opening Live Dashboard..."}
                                 </span>
-                                <span className="text-emerald-400 font-mono">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-mono font-black">
                                     {loginTransition.step === 1 ? '35%' : loginTransition.step === 2 ? '75%' : '100%'}
                                 </span>
                             </div>
-                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div className="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                                 <div 
-                                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out rounded-full"
                                     style={{ width: loginTransition.step === 1 ? '35%' : loginTransition.step === 2 ? '75%' : '100%' }}
                                 />
                             </div>

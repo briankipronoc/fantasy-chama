@@ -1,14 +1,14 @@
-// LeagueSwitcher.tsx — Multi-league support for users in one or more Chamas.
-// Reads userLeagues from Firestore and store, lets users hot-swap their active circle cleanly in 1 click.
-
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { db, auth } from '../firebase';
-import { doc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getDocs, setDoc, arrayUnion, serverTimestamp, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
-import { ChevronDown, Trophy, Check, Plus, Shield, Users, Loader2 } from 'lucide-react';
+import { ChevronDown, Trophy, Check, Plus, Shield, Users, Loader2, X, Sparkles, ArrowRight } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { useNavigate } from 'react-router-dom';
+import { normalizeKenyanPhone } from '../utils/phone';
+import toast from 'react-hot-toast';
 
 interface LeagueEntry {
     leagueId: string;
@@ -34,6 +34,16 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
     const cachedLeagueName = localStorage.getItem('activeLeagueName');
     const activeRole = localStorage.getItem('activeUserRole') || localStorage.getItem('fc-role') || 'member';
     const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid || null);
+
+    // Join League by Code modal states
+    const [showJoinModal, setShowJoinModal] = useState(false);
+    const [inviteCodeInput, setInviteCodeInput] = useState('');
+    const [isSearchingCode, setIsSearchingCode] = useState(false);
+    const [foundLeague, setFoundLeague] = useState<{ id: string; name: string; stake: number; memberCount?: number } | null>(null);
+    const [codeError, setCodeError] = useState('');
+    const [joinPhoneInput, setJoinPhoneInput] = useState(phone || '');
+    const [joinNameInput, setJoinNameInput] = useState(localStorage.getItem('activeUserName') || '');
+    const [isJoiningLeague, setIsJoiningLeague] = useState(false);
 
     useEffect(() => {
         const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -218,6 +228,97 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
         }
     };
 
+    const handleSearchCode = async (rawCode: string) => {
+        const cleanCode = rawCode.trim().toUpperCase();
+        setInviteCodeInput(cleanCode);
+        setCodeError('');
+        setFoundLeague(null);
+        if (cleanCode.length !== 6) return;
+
+        setIsSearchingCode(true);
+        try {
+            const leaguesRef = collection(db, 'leagues');
+            const q = query(leaguesRef, where('inviteCode', '==', cleanCode));
+            const snap = await getDocs(q);
+            if (snap.empty) {
+                setCodeError('No league found matching this 6-character code.');
+                setFoundLeague(null);
+            } else {
+                const lDoc = snap.docs[0];
+                const lData = lDoc.data();
+                setFoundLeague({
+                    id: lDoc.id,
+                    name: lData.name || lData.leagueName || 'Unnamed League',
+                    stake: Number(lData.gameweekStake || 0),
+                });
+            }
+        } catch (err: any) {
+            console.error('[LeagueSwitcher] code search error:', err);
+            setCodeError('Unable to search league. Please check network.');
+        } finally {
+            setIsSearchingCode(false);
+        }
+    };
+
+    const handleExecuteJoin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!foundLeague) return;
+        const targetPhone = normalizeKenyanPhone(joinPhoneInput || phone || '');
+        if (!targetPhone) {
+            toast.error('Please enter a valid phone number.');
+            return;
+        }
+
+        setIsJoiningLeague(true);
+        try {
+            const membershipsRef = collection(db, 'leagues', foundLeague.id, 'memberships');
+            const qPhone = query(membershipsRef, where('phone', '==', targetPhone));
+            const memberSnap = await getDocs(qPhone);
+
+            if (memberSnap.empty) {
+                await addDoc(membershipsRef, {
+                    displayName: joinNameInput.trim() || 'Chama Member',
+                    phone: targetPhone,
+                    hasPaid: false,
+                    walletBalance: 0,
+                    role: 'member',
+                    trustScore: 100,
+                    avatarSeed: Math.random().toString(36).substring(7),
+                    joinedAt: serverTimestamp(),
+                });
+            }
+
+            const cleanPhone = targetPhone.replace(/\D/g, '');
+            const userLeagueRef = doc(db, 'userLeagues', cleanPhone);
+            await setDoc(userLeagueRef, {
+                leagues: arrayUnion({
+                    leagueId: foundLeague.id,
+                    leagueName: foundLeague.name,
+                    role: 'member'
+                })
+            }, { merge: true });
+
+            localStorage.setItem('memberPhone', targetPhone);
+            if (joinNameInput.trim()) {
+                localStorage.setItem('activeUserName', joinNameInput.trim());
+            }
+
+            toast.success(`Joined ${foundLeague.name}!`);
+            setShowJoinModal(false);
+
+            await switchLeague({
+                leagueId: foundLeague.id,
+                leagueName: foundLeague.name,
+                role: 'member'
+            });
+        } catch (err: any) {
+            console.error('[LeagueSwitcher] join error:', err);
+            toast.error('Could not join league: ' + (err?.message || 'Error'));
+        } finally {
+            setIsJoiningLeague(false);
+        }
+    };
+
     const isSidebar = variant === 'sidebar';
 
     return (
@@ -350,11 +451,11 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                                 onClick={() => {
                                     haptics.selection();
                                     setOpen(false);
-                                    navigate('/admin-setup');
+                                    navigate('/setup');
                                 }}
-                                className="w-full py-2 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                                className="w-full py-2 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                             >
-                                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                                <Plus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                 <span>Create Another League</span>
                             </button>
                             <button
@@ -362,9 +463,9 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                                 onClick={() => {
                                     haptics.selection();
                                     setOpen(false);
-                                    navigate('/login');
+                                    setShowJoinModal(true);
                                 }}
-                                className="w-full py-1.5 px-2 rounded-xl bg-white/[0.02] hover:bg-white/[0.06] text-[9.5px] font-bold text-gray-400 hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                className="w-full py-1.5 px-2 rounded-xl bg-slate-100 dark:bg-white/[0.03] hover:bg-slate-200 dark:hover:bg-white/[0.08] text-[9.5px] font-bold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                             >
                                 <span>Join League via Invite Code</span>
                             </button>
@@ -376,20 +477,134 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             {/* Smooth League Switch Transition Overlay */}
             {isSwitching && (
                 <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-200">
-                    <div className="bg-[#0c1219] border border-emerald-500/35 p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs mx-4">
+                    <div className="bg-white dark:bg-[#0c1219] border border-slate-200 dark:border-emerald-500/35 p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs mx-4">
                         <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                            <Trophy className="w-7 h-7 text-emerald-400 animate-bounce" />
+                            <Trophy className="w-7 h-7 text-emerald-500 dark:text-emerald-400 animate-bounce" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Switching League</p>
-                            <h3 className="text-lg font-black text-white mt-1">{switchingLeagueName}</h3>
+                            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Switching League</p>
+                            <h3 className="text-lg font-black text-slate-900 dark:text-white mt-1">{switchingLeagueName}</h3>
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-300">
-                            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-gray-300">
+                            <Loader2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin" />
                             <span>Loading League Hub & Standings...</span>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* In-App Join League by Invite Code Modal */}
+            {showJoinModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-white dark:bg-[#0d141c] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl relative text-slate-900 dark:text-white">
+                        <button
+                            type="button"
+                            onClick={() => { setShowJoinModal(false); setFoundLeague(null); setInviteCodeInput(''); }}
+                            className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black tracking-tight">Join Another League</h3>
+                                <p className="text-xs text-slate-500 dark:text-gray-400">Enter the 6-character code from your Chairman</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleExecuteJoin} className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-1.5">
+                                    6-Character Invite Code
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        value={inviteCodeInput}
+                                        onChange={(e) => handleSearchCode(e.target.value)}
+                                        placeholder="e.g. 882109 or KIP4FC"
+                                        className="w-full bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/15 rounded-xl px-4 py-3 text-lg font-black tracking-widest uppercase text-center focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-400 dark:placeholder:text-gray-600"
+                                        autoFocus
+                                    />
+                                    {isSearchingCode && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+                                {codeError && (
+                                    <p className="text-[11px] font-bold text-red-500 dark:text-red-400 mt-1.5">{codeError}</p>
+                                )}
+                            </div>
+
+                            {/* Found League Card Preview */}
+                            {foundLeague && (
+                                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
+                                            League Found
+                                        </span>
+                                        <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                                            KES {foundLeague.stake.toLocaleString()}/GW
+                                        </span>
+                                    </div>
+                                    <p className="text-base font-black text-slate-900 dark:text-white">{foundLeague.name}</p>
+
+                                    <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-500/20 space-y-2">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
+                                                Your M-Pesa Phone Number
+                                            </label>
+                                            <input
+                                                type="tel"
+                                                required
+                                                value={joinPhoneInput}
+                                                onChange={(e) => setJoinPhoneInput(e.target.value)}
+                                                placeholder="e.g. 0712345678"
+                                                className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 mb-1">
+                                                Your Manager Display Name (Optional)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={joinNameInput}
+                                                onChange={(e) => setJoinNameInput(e.target.value)}
+                                                placeholder="e.g. Brian Kiprono"
+                                                className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isJoiningLeague}
+                                        className="w-full mt-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
+                                    >
+                                        {isJoiningLeague ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>Connecting Chama...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Confirm & Join {foundLeague.name}</span>
+                                                <ArrowRight className="w-4 h-4" />
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </form>
+                    </div>
+                </div>,
+                document.body
             )}
         </>
     );

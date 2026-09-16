@@ -3187,6 +3187,17 @@ burstFrame();
                 members.filter((m) => m.hasPaid && m.isActive !== false && (m as any).playMode !== 'sidebets_only').length * gameweekStake * (rules.weekly / 100)
               ) || weeklyPot || 0;
 
+              const finishedAtStored = Number(localStorage.getItem(`fc_gw_${currentGwNumber}_finished_at`) || 0);
+              const hoursSinceFinished = finishedAtStored ? (Date.now() - finishedAtStored) / (1000 * 60 * 60) : 0;
+              const hoursUntilNextDeadline = nextDeadlineTime ? (new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60) : Infinity;
+
+              // Rule: Winner crowned active for up to 48h after end of GW AND up to 36h before next GW deadline
+              const isCelebrationWindowActive = Boolean(
+                isCurrentEventFinished &&
+                (finishedAtStored ? hoursSinceFinished <= 48 : true) &&
+                hoursUntilNextDeadline > 36
+              );
+
               return (
                 <div
                   className={clsx(
@@ -3209,13 +3220,15 @@ burstFrame();
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-xs">
                         <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                        Matchday Pulse • GW{currentGwNumber || 4} {isCurrentEventFinished ? "Finished" : "Live"}
+                        Matchday Pulse • GW{currentGwNumber || 4} {isCurrentEventFinished ? (isCelebrationWindowActive ? "Finished" : "Finalized") : "Live"}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
                         <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" /> High Score Active
                       </span>
                       <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
-                        {isCurrentEventFinished ? "Official final standings locked in." : "Scores updating in real-time as fixtures progress."}
+                        {isCurrentEventFinished 
+                          ? (isCelebrationWindowActive ? "Official final standings locked in." : "GW finalized · Upcoming Gameweek deadline approaching.") 
+                          : "Scores updating in real-time as fixtures progress."}
                       </span>
                     </div>
 
@@ -3231,8 +3244,8 @@ burstFrame();
                     </Link>
                   </div>
 
-                  {/* Main Leader & Pot Row */}
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+                  {/* Main Leader & Pot Row — responsive xl:flex-row to prevent half-screen compression */}
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 relative z-10">
                     {/* Left: Leader Profile & Margins */}
                     <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
                       {leaderName ? (
@@ -3249,7 +3262,7 @@ burstFrame();
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-500 dark:text-[#FBBF24]">
-                                {isCurrentEventFinished ? (
+                                {isCelebrationWindowActive ? (
                                   <>
                                     <Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" />
                                     GW {currentGwNumber || 4} Champion Crowned
@@ -3284,22 +3297,24 @@ burstFrame();
                               </p>
                             </div>
 
-                            {/* Quick Emoji Reactions from Chairman */}
-                            <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mr-1">
+                            {/* Quick Emoji Reactions from Chairman — well-grouped to prevent awkward wrapping */}
+                            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 shrink-0">
                                 Send Props to {leaderName.split(' ')[0]} 💬
                               </span>
-                              {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
-                                <button
-                                  key={emoji}
-                                  type="button"
-                                  onClick={() => handleSendReaction(emoji)}
-                                  className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-slate-100/80 dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs"
-                                  title={`Send ${emoji} to ${leaderName}`}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => handleSendReaction(emoji)}
+                                    className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-slate-100/80 dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs shrink-0"
+                                    title={`Send ${emoji} to ${leaderName}`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
 
                             {!isCurrentEventFinished && leadMargin !== null && leadMargin !== undefined && (
@@ -3356,9 +3371,9 @@ burstFrame();
                       )}
                     </div>
 
-                    {/* Right: Projected Pot + Action Buttons */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-200/80 dark:border-white/5">
-                      <div className="rounded-2xl px-5 py-3 border text-left sm:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
+                    {/* Right: Projected Pot + Action Buttons — perfectly aligned across screen sizes */}
+                    <div className="flex flex-col sm:flex-row xl:flex-col sm:items-center xl:items-end justify-between gap-3 pt-3 xl:pt-0 border-t xl:border-t-0 xl:border-l xl:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
+                      <div className="rounded-2xl px-5 py-3 border text-left sm:text-right xl:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs w-full sm:w-auto">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5">
                           Projected Cash Pot
                         </p>
@@ -3370,13 +3385,13 @@ burstFrame();
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
                         <button
                           onClick={() => {
                             haptics.celebrate();
                             setShowChairmanFlexModal(true);
                           }}
-                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer"
+                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
                           title="Generate Champion Victory Card for WhatsApp"
                         >
                           <Share2 className="w-3.5 h-3.5" />
@@ -3388,7 +3403,7 @@ burstFrame();
                           onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
                           disabled={isResolved}
                           className={clsx(
-                            "flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs",
+                            "flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
                             isResolved
                               ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
                               : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"

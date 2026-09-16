@@ -788,27 +788,74 @@ export default function Standings() {
                 )}
 
                 {!error && performanceData.length > 0 && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5">
-                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                            <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                <BarChart3 className="w-3.5 h-3.5 text-emerald-400" /> Performance Trajectory (Top 5 + You)
-                            </h4>
+                    <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 shadow-xl rounded-[1.5rem] p-5 text-slate-900 dark:text-white">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h4 className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-gray-300 uppercase tracking-wider">
+                                    <BarChart3 className="w-4 h-4 text-emerald-500" /> Performance Trajectory (Top 5 + You)
+                                </h4>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                                    Recent Gameweek points progression comparing leaders against your score and the league average
+                                </p>
+                            </div>
                             <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/25 text-[#FBBF24] text-[11px] font-bold shadow-sm">
-                                    <span className="w-2.5 h-0.5 bg-[#FBBF24] inline-block" />
-                                    <span>GW Average: <strong className="text-white font-black">{currentGwAverage}</strong> pts</span>
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-400/10 border border-amber-300 dark:border-amber-400/25 text-amber-800 dark:text-[#FBBF24] text-xs font-bold shadow-xs">
+                                    <span className="w-2.5 h-0.5 bg-amber-500 dark:bg-[#FBBF24] inline-block" />
+                                    <span>GW Average: <strong className="tabular-nums font-black">{currentGwAverage}</strong> pts</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="h-64 w-full" style={{ position: 'relative' }}>
+
+                        {/* Interactive & Clear Legend Chips for PC & Mobile */}
+                        {(() => {
+                            const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
+                            const playerKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
+                            const myMember = members.find(m => m.id === (localStorage.getItem('activeUserId') || ''));
+                            const myFirstName = myMember?.displayName ? myMember.displayName.split(' ')[0] : '';
+
+                            return (
+                                <div className="flex items-center gap-2 flex-wrap mb-4 pt-1">
+                                    {playerKeys.map((playerKey, idx) => {
+                                        const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
+                                        const lastScore = performanceData[performanceData.length - 1]?.[playerKey];
+                                        const color = colors[idx % colors.length];
+                                        return (
+                                            <div
+                                                key={playerKey}
+                                                className={clsx(
+                                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all shadow-xs",
+                                                    isYou
+                                                        ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-500/40 text-emerald-900 dark:text-emerald-300 ring-1 ring-emerald-500/30"
+                                                        : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
+                                                )}
+                                            >
+                                                <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: color }} />
+                                                <span>{playerKey} {isYou && <strong className="text-emerald-600 dark:text-emerald-400 font-black">(You)</strong>}</span>
+                                                {lastScore !== undefined && (
+                                                    <span className="text-[10px] font-black text-slate-500 dark:text-gray-400 tabular-nums ml-0.5">
+                                                        {lastScore} pts
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300">
+                                        <span className="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" />
+                                        <span>League Avg: <strong className="tabular-nums">{currentGwAverage}</strong> pts</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        <div className="h-64 sm:h-72 w-full" style={{ position: 'relative' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={performanceData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
-                                    <XAxis dataKey="name" stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#ffffff30" fontSize={9} tickLine={false} axisLine={false} width={28} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
+                                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={30} />
                                     <Tooltip
-                                        contentStyle={{ backgroundColor: '#0e1419', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '12px' }}
-                                        itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                        contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '14px', fontSize: '12px', color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                        itemStyle={{ fontWeight: 'bold' }}
                                     />
                                     {Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average').map((playerKey, idx) => {
                                         const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
@@ -818,13 +865,13 @@ export default function Standings() {
                                                 type="monotone"
                                                 dataKey={playerKey}
                                                 stroke={colors[idx % colors.length]}
-                                                strokeWidth={2.5}
-                                                dot={{ r: 3.5, fill: colors[idx % colors.length], strokeWidth: 0 }}
-                                                activeDot={{ r: 5 }}
+                                                strokeWidth={3}
+                                                dot={{ r: 4, fill: colors[idx % colors.length], strokeWidth: 0 }}
+                                                activeDot={{ r: 6 }}
                                             />
                                         );
                                     })}
-                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="5 5" dot={false} name="League Avg" />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>

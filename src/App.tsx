@@ -144,7 +144,12 @@ function App() {
             {/* Public routes — no AppLayout shell */}
             <Route path="/" element={<RootRoute />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/setup" element={(role && !!localStorage.getItem('activeLeagueId') && !!localStorage.getItem('activeUserId')) ? <Navigate to="/dashboard" replace /> : <AdminSetup />} />
+            <Route path="/setup" element={<AdminSetup />} />
+            <Route path="/admin-setup" element={<AdminSetup />} />
+            <Route path="/create-league" element={<AdminSetup />} />
+            <Route path="/new-league" element={<AdminSetup />} />
+            <Route path="/join" element={<Login />} />
+            <Route path="/join-league" element={<Login />} />
             <Route path="/invite" element={<InviteHub />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -154,7 +159,6 @@ function App() {
             <Route path="/docs" element={<Docs />} />
             <Route path="/hq" element={<SuperAdminDashboard />} />
             <Route path="/win" element={<WinSharePage />} />
-            <Route path="*" element={<Error808 />} />
 
             {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}
             <Route element={<AppLayoutWrapper />}>
@@ -173,6 +177,9 @@ function App() {
               <Route path="/bets" element={<SideBets />} />
               <Route path="/docs" element={<Docs />} />
             </Route>
+
+            {/* Fallback 404 Route */}
+            <Route path="*" element={<Error808 />} />
           </Routes>
           <QuickActionFab />
         </Suspense>
