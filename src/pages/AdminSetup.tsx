@@ -838,75 +838,75 @@ export default function AdminSetup() {
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">Build Your League's Economy</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm">Configure your chama rules, contributions, and prize distributions.</p>
             </div>
+            <div className="w-full max-w-5xl mx-auto space-y-6">
+                {/* Section 1: Core Configuration (Clean Top Card with 2-Column Responsive Inputs) */}
+                <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-4 text-white font-bold text-lg relative z-10">
+                        <Shield className="w-5 h-5 text-[#22c55e]" /> Core Configuration
+                    </div>
+                    <div className="space-y-4 relative z-10">
+                        {/* FPL League Link / ID First for instant prefill */}
+                        <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4">
+                            <label className="block text-[10px] md:text-xs font-black text-emerald-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
+                                <span>Paste FPL League Link or ID (Recommended)</span>
+                                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 normal-case font-bold">1-Click Auto-Fill</span>
+                            </label>
+                            <input type="text" value={fplLeagueId} onChange={e => {
+                                let val = e.target.value.trim();
+                                // If they paste a full FPL Standings link, extract the numeric ID
+                                const match = val.match(/leagues\/(\d+)\/standings/);
+                                if (match && match[1]) {
+                                    val = match[1];
+                                }
+                                const numericId = val.replace(/[^0-9]/g, '');
+                                setFplLeagueId(numericId);
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 w-full max-w-5xl mx-auto h-full">
-                {/* Column 1: Core Configuration & Split */}
-                <div className="space-y-4 flex flex-col h-full">
-                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden shrink-0">
-                        <div className="flex items-center gap-2 mb-4 text-white font-bold text-lg relative z-10">
-                            <Shield className="w-5 h-5 text-[#22c55e]" /> Core Configuration
-                        </div>
-                        <div className="space-y-4 relative z-10">
-                            {/* FPL League Link / ID First for instant prefill */}
-                            <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4">
-                                <label className="block text-[10px] md:text-xs font-black text-emerald-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
-                                    <span>Paste FPL League Link or ID (Recommended)</span>
-                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 normal-case font-bold">1-Click Auto-Fill</span>
-                                </label>
-                                <input type="text" value={fplLeagueId} onChange={e => {
-                                    let val = e.target.value.trim();
-                                    // If they paste a full FPL Standings link, extract the numeric ID
-                                    const match = val.match(/leagues\/(\d+)\/standings/);
-                                    if (match && match[1]) {
-                                        val = match[1];
-                                    }
-                                    const numericId = val.replace(/[^0-9]/g, '');
-                                    setFplLeagueId(numericId);
-
-                                    // Auto-fetch league name when ID looks valid
-                                    if (numericId.length >= 4) {
-                                        setFplFetchStatus('loading');
-                                        fetch(`/fpl-api/leagues-classic/${numericId}/standings/`)
-                                            .then(res => res.json())
-                                            .then(data => {
-                                                if (data?.league?.name) {
-                                                    setLeagueName(data.league.name);
-                                                    setFplFetchStatus('success');
-                                                    // Store standings for Step 3 FPL import
-                                                    if (data?.standings?.results) {
-                                                        setFplStandings(data.standings.results);
-                                                        const memberCount = data.standings.results.length;
-                                                        if (memberCount >= 2) setEstimatedMembers(memberCount);
-                                                    }
-                                                } else {
-                                                    setFplFetchStatus('error');
+                                // Auto-fetch league name when ID looks valid
+                                if (numericId.length >= 4) {
+                                    setFplFetchStatus('loading');
+                                    fetch(`/fpl-api/leagues-classic/${numericId}/standings/`)
+                                        .then(res => res.json())
+                                        .then(data => {
+                                            if (data?.league?.name) {
+                                                setLeagueName(data.league.name);
+                                                setFplFetchStatus('success');
+                                                // Store standings for Step 3 FPL import
+                                                if (data?.standings?.results) {
+                                                    setFplStandings(data.standings.results);
+                                                    const memberCount = data.standings.results.length;
+                                                    if (memberCount >= 2) setEstimatedMembers(memberCount);
                                                 }
-                                            })
-                                            .catch(() => setFplFetchStatus('error'));
-                                    } else {
-                                        setFplFetchStatus('idle');
-                                    }
-                                }} className={inputClasses} placeholder="Paste your FPL League URL or 6-digit ID" />
-                                <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                                    Linking with your FPL link automatically pulls your <strong>League Name</strong> and <strong>FPL Managers</strong> so setup is instant and hassle-free.
+                                            } else {
+                                                setFplFetchStatus('error');
+                                            }
+                                        })
+                                        .catch(() => setFplFetchStatus('error'));
+                                } else {
+                                    setFplFetchStatus('idle');
+                                }
+                            }} className={inputClasses} placeholder="Paste your FPL League URL or 6-digit ID" />
+                            <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
+                                Linking with your FPL link automatically pulls your <strong>League Name</strong> and <strong>FPL Managers</strong> so setup is instant and hassle-free.
+                            </p>
+                            {fplFetchStatus === 'loading' && (
+                                <p className="text-[11px] text-[#FBBF24] mt-2 flex items-center gap-1.5 font-bold">
+                                    <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Connecting to Official FPL servers & auto-filling...
                                 </p>
-                                {fplFetchStatus === 'loading' && (
-                                    <p className="text-[11px] text-[#FBBF24] mt-2 flex items-center gap-1.5 font-bold">
-                                        <span className="w-2 h-2 bg-[#FBBF24] rounded-full animate-pulse" /> Connecting to Official FPL servers & auto-filling...
-                                    </p>
-                                )}
-                                {fplFetchStatus === 'success' && (
-                                    <p className="text-[11px] text-[#22c55e] mt-2 flex items-center gap-1.5 font-bold">
-                                        <Check className="w-3.5 h-3.5" /> League & {fplStandings.length} members detected! Verified and auto-filled below.
-                                    </p>
-                                )}
-                                {fplFetchStatus === 'error' && (
-                                    <p className="text-[11px] text-red-400 mt-2 font-bold">
-                                        Could not auto-fetch league. Check the number or enter details manually below.
-                                    </p>
-                                )}
-                            </div>
+                            )}
+                            {fplFetchStatus === 'success' && (
+                                <p className="text-[11px] text-[#22c55e] mt-2 flex items-center gap-1.5 font-bold">
+                                    <Check className="w-3.5 h-3.5" /> League & {fplStandings.length} members detected! Verified and auto-filled below.
+                                </p>
+                            )}
+                            {fplFetchStatus === 'error' && (
+                                <p className="text-[11px] text-red-400 mt-2 font-bold">
+                                    Could not auto-fetch league. Check the number or enter details manually below.
+                                </p>
+                            )}
+                        </div>
 
+                        {/* 2-Column Responsive Inputs for Core Config */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* League Name Input */}
                             <div>
                                 <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
@@ -919,10 +919,10 @@ export default function AdminSetup() {
                             </div>
 
                             {/* Dual Team Toggle */}
-                            <div className="flex items-center justify-between bg-[#161d24] border border-white/5 rounded-xl px-4 py-3">
+                            <div className="flex items-center justify-between bg-[#161d24] border border-white/5 rounded-xl px-4 py-2.5">
                                 <div>
                                     <p className="text-[11px] font-bold text-white">Allow Dual Teams</p>
-                                    <p className="text-[9px] text-gray-500 mt-0.5">Members may register 2 FPL teams — both independently eligible to win each GW.</p>
+                                    <p className="text-[9px] text-gray-500 mt-0.5">Members may register 2 FPL teams with independent eligibility.</p>
                                 </div>
                                 <button
                                     type="button"
@@ -939,177 +939,184 @@ export default function AdminSetup() {
                                 </button>
                             </div>
 
+                            {/* Gameweek Stake */}
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Gameweek Stake (KES)</label>
+                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Gameweek Stake (KES)</label>
                                 <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
-                                    <span className="bg-[#11171a] px-4 flex items-center justify-center text-gray-600 dark:text-gray-400 font-bold border-r border-white/5">KES</span>
+                                    <span className="bg-[#11171a] px-3.5 flex items-center justify-center text-gray-600 dark:text-gray-400 font-bold border-r border-white/5 text-xs">KES</span>
                                     <input
                                         type="number"
                                         value={monthlyFee === 0 ? '' : monthlyFee}
                                         onFocus={e => e.target.select()}
                                         onChange={e => setMonthlyFee(Number(e.target.value))}
-                                        className="w-full bg-transparent px-4 py-3.5 text-white font-medium focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
+                                        className="w-full bg-transparent px-3.5 py-3 text-white font-medium text-sm focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
                                     />
                                 </div>
-                                <p className="text-[9px] text-gray-500 mt-1.5 leading-relaxed">Amount auto-deducted per member per FPL Gameweek from their Wallet Balance.</p>
+                                <p className="text-[9px] text-gray-500 mt-1">Auto-deducted per member per FPL Gameweek.</p>
                             </div>
 
-                            <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Estimated Members</label>
-                                <input
-                                    type="number"
-                                    min="2"
-                                    max="20"
-                                    value={estimatedMembers}
-                                    onChange={e => setEstimatedMembers(Math.min(20, Math.max(2, Number(e.target.value) || 2)))}
-                                    className={inputClasses}
-                                    placeholder="e.g. 10"
-                                />
-                                <p className="text-[9px] text-gray-500 mt-1.5">Live projection sizing (2-20 members).</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Pochi / M-Pesa Receiving Number</label>
-                                <input
-                                    type="tel"
-                                    value={chairmanPayoutPhone}
-                                    onChange={e => setChairmanPayoutPhone(normalizeKenyanPhone(e.target.value))}
-                                    onBlur={() => {
-                                        if (chairmanPayoutPhone) setChairmanPayoutPhone(normalizeKenyanPhone(chairmanPayoutPhone));
-                                    }}
-                                    className={inputClasses}
-                                    placeholder="e.g. 0712345678 or 254..."
-                                />
-                                <p className="text-[9px] text-gray-500 mt-1.5">Destination for Chairman Pochi/cash fallback references.</p>
+                            {/* Estimated Members & Pochi */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Members Size</label>
+                                    <input
+                                        type="number"
+                                        min="2"
+                                        max="20"
+                                        value={estimatedMembers}
+                                        onChange={e => setEstimatedMembers(Math.min(20, Math.max(2, Number(e.target.value) || 2)))}
+                                        className={inputClasses}
+                                        placeholder="10"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider truncate">Pochi / M-Pesa #</label>
+                                    <input
+                                        type="tel"
+                                        value={chairmanPayoutPhone}
+                                        onChange={e => setChairmanPayoutPhone(normalizeKenyanPhone(e.target.value))}
+                                        onBlur={() => {
+                                            if (chairmanPayoutPhone) setChairmanPayoutPhone(normalizeKenyanPhone(chairmanPayoutPhone));
+                                        }}
+                                        className={inputClasses}
+                                        placeholder="0712..."
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Distribution Split */}
-                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-lg relative h-full flex flex-col flex-1">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2 text-white font-bold text-lg">
-                                <Trophy className="w-5 h-5 text-[#FBBF24]" /> Distribution Split Logic
+                {/* Section 2: Side-by-Side Distribution Split (Left) and Pot Totals Live Preview (Right) with Matching Height */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-stretch">
+                    {/* Left Card: Distribution Split Logic */}
+                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex flex-col justify-between h-full">
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2 text-white font-bold text-base md:text-lg">
+                                    <Trophy className="w-5 h-5 text-[#FBBF24]" /> Distribution Split Logic
+                                </div>
+                                <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
                             </div>
-                            <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
-                        </div>
 
-                        <div className="mb-4 flex-1 flex flex-col justify-center">
-                            <div className="flex justify-between items-end mb-2">
-                                <div>
+                            <div className="mb-4">
+                                <div className="flex justify-between items-end mb-2">
+                                    <div>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={weeklyPrizePercent}
+                                            onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                            className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent border-b border-[#22c55e]/30 focus:border-[#22c55e] outline-none w-20 text-center"
+                                        /><span className="text-3xl font-black text-[#22c55e]">%</span>
+                                        <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Weekly Prize</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">{100 - weeklyPrizePercent}%</span>
+                                        <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Grand Vault</p>
+                                    </div>
+                                </div>
+
+                                {/* Interactive Range Slider */}
+                                <div className="mt-3 relative mb-2">
                                     <input
-                                        type="number"
+                                        type="range"
                                         min="0"
                                         max="100"
+                                        step="1"
                                         value={weeklyPrizePercent}
-                                        onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
-                                        className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent border-b border-[#22c55e]/30 focus:border-[#22c55e] outline-none w-20 text-center"
-                                    /><span className="text-3xl font-black text-[#22c55e]">%</span>
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Weekly Prize</p>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">{100 - weeklyPrizePercent}%</span>
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Grand Vault</p>
-                                </div>
-                            </div>
-
-                            {/* Interactive Range Slider */}
-                            <div className="mt-3 relative mb-2">
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    step="1"
-                                    value={weeklyPrizePercent}
-                                    onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
-                                    className="fc-range w-full h-2 rounded-lg appearance-none cursor-pointer outline-none"
-                                    style={{
-                                        background: `linear-gradient(to right, #22c55e ${weeklyPrizePercent}%, #FBBF24 ${weeklyPrizePercent}%)`
-                                    }}
-                                />
-                                <div className="flex justify-between mt-2 text-[9px] text-gray-500 font-bold px-1 mb-2">
-                                    <span>Season Payout Only</span>
-                                    <span>Adjust Split</span>
-                                    <span>All Weekly</span>
-                                </div>
-                            </div>
-
-                            {/* Season Winners Selector */}
-                            <div className="mt-4 mb-2">
-                                <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                    <Users className="w-4 h-4 text-[#22c55e]" /> End of Season Winners
-                                </label>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {[
-                                        { key: 'top1', label: 'Top 1' },
-                                        { key: 'top3', label: 'Top 3' },
-                                        { key: 'top5', label: 'Top 5' },
-                                        { key: 'custom', label: 'Custom' },
-                                    ].map((option) => (
-                                        <button
-                                            key={option.key}
-                                            type="button"
-                                            onClick={() => {
-                                                const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
-                                                setSeasonWinnersMode(mode);
-                                                if (mode === 'top1') setSeasonWinnersCount(1);
-                                                if (mode === 'top3') setSeasonWinnersCount(3);
-                                                if (mode === 'top5') setSeasonWinnersCount(5);
-                                            }}
-                                            className={clsx(
-                                                "py-2 rounded-xl border text-xs font-bold transition-all",
-                                                seasonWinnersMode === option.key
-                                                    ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
-                                                    : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
-                                            )}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    ))}
+                                        onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
+                                        className="fc-range w-full h-2 rounded-lg appearance-none cursor-pointer outline-none"
+                                        style={{
+                                            background: `linear-gradient(to right, #22c55e ${weeklyPrizePercent}%, #FBBF24 ${weeklyPrizePercent}%)`
+                                        }}
+                                    />
+                                    <div className="flex justify-between mt-2 text-[9px] text-gray-500 font-bold px-1 mb-2">
+                                        <span>Season Payout Only</span>
+                                        <span>Adjust Split</span>
+                                        <span>All Weekly</span>
+                                    </div>
                                 </div>
 
-                                {seasonWinnersMode === 'custom' && (
-                                    <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            <div>
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max={maxAllowedWinners}
-                                                    value={normalizedCustomWinnerCount}
-                                                    onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
-                                                    className="mt-1 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2 text-sm font-bold text-white"
-                                                />
-                                            </div>
-                                        </div>
+                                {/* Season Winners Selector */}
+                                <div className="mt-4 mb-2">
+                                    <label className="flex items-center gap-2 text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
+                                        <Users className="w-4 h-4 text-[#22c55e]" /> End of Season Winners
+                                    </label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[
+                                            { key: 'top1', label: 'Top 1' },
+                                            { key: 'top3', label: 'Top 3' },
+                                            { key: 'top5', label: 'Top 5' },
+                                            { key: 'custom', label: 'Custom' },
+                                        ].map((option) => (
+                                            <button
+                                                key={option.key}
+                                                type="button"
+                                                onClick={() => {
+                                                    const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
+                                                    setSeasonWinnersMode(mode);
+                                                    if (mode === 'top1') setSeasonWinnersCount(1);
+                                                    if (mode === 'top3') setSeasonWinnersCount(3);
+                                                    if (mode === 'top5') setSeasonWinnersCount(5);
+                                                }}
+                                                className={clsx(
+                                                    "py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer",
+                                                    seasonWinnersMode === option.key
+                                                        ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
+                                                        : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
+                                                )}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
 
-                                        <div className="space-y-1.5">
-                                            {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
-                                                <div key={`ratio-${idx}`} className="flex items-center gap-2">
-                                                    <span className="w-10 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
+                                    {seasonWinnersMode === 'custom' && (
+                                        <div className="mt-3 space-y-2 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
                                                     <input
                                                         type="number"
-                                                        min="0"
-                                                        value={customWinnerRatios[idx] || '0'}
-                                                        onChange={(e) => {
-                                                            const next = [...customWinnerRatios];
-                                                            next[idx] = e.target.value;
-                                                            setCustomWinnerRatios(next);
-                                                        }}
-                                                        className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
+                                                        min="1"
+                                                        max={maxAllowedWinners}
+                                                        value={normalizedCustomWinnerCount}
+                                                        onChange={(e) => setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(e.target.value) || 1)))}
+                                                        className="mt-1 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2 text-sm font-bold text-white"
                                                     />
-                                                    <span className="text-[10px] font-black text-gray-500">%</span>
-                                                    <span className="w-14 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
                                                 </div>
-                                            ))}
+                                            </div>
+
+                                            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                                {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
+                                                    <div key={`ratio-${idx}`} className="flex items-center gap-2">
+                                                        <span className="w-10 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={customWinnerRatios[idx] || '0'}
+                                                            onChange={(e) => {
+                                                                const next = [...customWinnerRatios];
+                                                                next[idx] = e.target.value;
+                                                                setCustomWinnerRatios(next);
+                                                            }}
+                                                            className="flex-1 bg-[#161d24] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white"
+                                                        />
+                                                        <span className="text-[10px] font-black text-gray-500">%</span>
+                                                        <span className="w-14 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 pt-2">
+                        {/* Bottom Metric Pills for Split */}
+                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/5">
                             <div className="bg-[#161d24] border border-white/5 rounded-xl p-3 border-l-2 border-l-[#22c55e]">
                                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Weekly Payout</p>
                                 <h4 className="text-lg font-bold text-white tabular-nums">KES {weeklyPrize.toLocaleString()}</h4>
@@ -1120,15 +1127,13 @@ export default function AdminSetup() {
                             </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Column 2: Pot Totals (Compact, Responsive & Streamlined) */}
-                <div className="relative h-full flex flex-col justify-between space-y-4">
-                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex-1 flex flex-col justify-between">
+                    {/* Right Card: Pot Totals Live Preview with Next Action */}
+                    <div className="bg-[#151c18] border border-white/5 p-5 md:p-6 rounded-2xl shadow-xl flex flex-col justify-between h-full">
                         <div>
                             <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <h3 className="font-extrabold text-white text-base">Pot Totals (Live Preview)</h3>
+                                    <h3 className="font-extrabold text-white text-base md:text-lg">Pot Totals (Live Preview)</h3>
                                     <p className="text-[11px] text-[#22c55e] font-bold mt-0.5">Projected for {estimatedMembers} members · KES {monthlyFee}/GW</p>
                                 </div>
                                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
@@ -1136,7 +1141,7 @@ export default function AdminSetup() {
                                 </span>
                             </div>
 
-                            {/* Pot Cards Grid (Compact 2-col to eliminate tall scrolling) */}
+                            {/* Pot Cards Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                                 <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5">
                                     <div className="w-9 h-9 rounded-xl bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center shrink-0">
@@ -1174,7 +1179,7 @@ export default function AdminSetup() {
                                 </div>
                             </div>
 
-                            {/* Transparent Pilot Fee Breakdown (Only M-Pesa 1.5% active in pilot) */}
+                            {/* Transparent Pilot Fee Breakdown */}
                             <div className="mt-4 pt-3 border-t border-white/5 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-[10px] uppercase tracking-widest font-black text-gray-400 flex items-center gap-1.5">
@@ -1183,23 +1188,24 @@ export default function AdminSetup() {
                                     <span className="text-[9px] font-mono text-emerald-400 font-bold">Pilot: 98.5% Net to Members</span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+                                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
                                         <p className="text-[9px] text-emerald-300 font-bold uppercase">Net Pot</p>
                                         <p className="text-sm font-black text-emerald-400">98.5%</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-[#161d24] border border-white/5">
+                                    <div className="p-2 rounded-xl bg-[#161d24] border border-white/5">
                                         <p className="text-[9px] text-gray-400 font-bold uppercase">M-Pesa API</p>
                                         <p className="text-sm font-black text-white">1.5%</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-                                        <p className="text-[9px] text-gray-500 font-bold uppercase">Chama/Platform</p>
+                                    <div className="p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                                        <p className="text-[9px] text-gray-500 font-bold uppercase">Platform/Kickback</p>
                                         <p className="text-sm font-black text-gray-400">0% (Waived)</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="pt-5 mt-4 border-t border-white/5 shrink-0">
+                        {/* Next: Add Members Action Button inside Right Card bottom */}
+                        <div className="pt-4 mt-4 border-t border-white/5 shrink-0">
                             <button
                                 type="button"
                                 onClick={nextStep}
