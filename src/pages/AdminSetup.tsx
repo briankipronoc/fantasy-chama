@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X } from 'lucide-react';
+import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X, Share2, Sliders, Copy } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion } from 'firebase/firestore';
@@ -88,7 +88,8 @@ export default function AdminSetup() {
     const [newMemberPhone, setNewMemberPhone] = useState('');
     const [newMemberSecondTeam, setNewMemberSecondTeam] = useState(''); // second FPL team ID input
     const [coAdminIndex, setCoAdminIndex] = useState<number | null>(null);
-    const [expandedMemberIndex, setExpandedMemberIndex] = useState<number | null>(null);
+    const [enrollmentMode, setEnrollmentMode] = useState<'self' | 'manual'>('self');
+    const [showAddManualMember, setShowAddManualMember] = useState(false);
 
     // Step 4: Code
     const generatedCode = useMemo(() => {
@@ -99,7 +100,10 @@ export default function AdminSetup() {
         }
         return result;
     }, []);
+
     const [copied, setCopied] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
+    const [copiedCode, setCopiedCode] = useState(false);
 
     // Derived calculations
     const MAX_LEAGUE_MEMBERS = 20;
@@ -298,11 +302,14 @@ export default function AdminSetup() {
                 toast.error('Please enter a Gameweek stake (minimum KES 50).');
                 return;
             }
+            if (fplStandings.length > 0 && members.length === 0) {
+                handleImportFromFPL();
+            }
             setLeagueSettings({ name: leagueName, monthlyFee, inviteCode: generatedCode });
         }
         if (step === 3) {
-            if (members.length < 1) {
-                toast.error('Please add at least 1 member (or import via FPL) before proceeding.');
+            if (enrollmentMode === 'manual' && members.length < 1) {
+                toast.error('Please add at least 1 member or switch to Self-Onboarding mode.');
                 return;
             }
             // Commit members globally
@@ -607,6 +614,12 @@ export default function AdminSetup() {
         setMembers(imported.slice(0, 19));
     };
 
+    useEffect(() => {
+        if (step === 3 && members.length === 0 && fplStandings.length > 0) {
+            handleImportFromFPL();
+        }
+    }, [step, fplStandings.length]);
+
     const addLocalMember = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMemberName || !newMemberPhone) return;
@@ -637,14 +650,30 @@ export default function AdminSetup() {
         setMembers(members.filter((_, idx) => idx !== indexToRemove));
     };
 
-    const handleCopyCode = () => {
+    const handleShareWhatsApp = () => {
         const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
         const link = `${appUrl}/login?code=${generatedCode}`;
-        const message = `🏆 Join our FPL Chama — *${leagueName || "Tentshakers FC"}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${generatedCode}*`;
+        const message = `🏆 Join our FPL Chama — *${leagueName || "Premier League"}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${generatedCode}*`;
         navigator.clipboard.writeText(message);
         setCopied(true);
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleCopyInviteLink = () => {
+        const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
+        const link = `${appUrl}/login?code=${generatedCode}`;
+        navigator.clipboard.writeText(link);
+        setCopiedLink(true);
+        toast.success('Invite link copied to clipboard!');
+        setTimeout(() => setCopiedLink(false), 2000);
+    };
+
+    const handleCopyOnlyCode = () => {
+        navigator.clipboard.writeText(generatedCode);
+        setCopiedCode(true);
+        toast.success(`League code ${generatedCode} copied!`);
+        setTimeout(() => setCopiedCode(false), 2000);
     };
 
     const inputClasses = "w-full pl-12 pr-4 py-3 md:py-3.5 rounded-xl border border-white/5 bg-[#161d24] text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium [&:-webkit-autofill]:bg-[#161d24] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0px_1000px_#161d24_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
@@ -853,15 +882,15 @@ export default function AdminSetup() {
                             </label>
                             <input type="text" value={fplLeagueId} onChange={e => {
                                 let val = e.target.value.trim();
-                                // If they paste a full FPL Standings link, extract the numeric ID
-                                const match = val.match(/leagues\/(\d+)\/standings/);
+                                // If they paste an FPL Standings link or URL, extract the numeric ID
+                                const match = val.match(/leagues\/(\d+)/);
                                 if (match && match[1]) {
                                     val = match[1];
                                 }
                                 const numericId = val.replace(/[^0-9]/g, '');
                                 setFplLeagueId(numericId);
 
-                                // Auto-fetch league name when ID looks valid
+                                // Auto-fetch league name and members when ID looks valid
                                 if (numericId.length >= 4) {
                                     setFplFetchStatus('loading');
                                     fetch(`/fpl-api/leagues-classic/${numericId}/standings/`)
@@ -870,11 +899,27 @@ export default function AdminSetup() {
                                             if (data?.league?.name) {
                                                 setLeagueName(data.league.name);
                                                 setFplFetchStatus('success');
-                                                // Store standings for Step 3 FPL import
+                                                // Store standings and auto-prefill members for Step 3
                                                 if (data?.standings?.results) {
                                                     setFplStandings(data.standings.results);
                                                     const memberCount = data.standings.results.length;
                                                     if (memberCount >= 2) setEstimatedMembers(memberCount);
+                                                    
+                                                    const cleanFullName = (fullName || '').trim().toLowerCase();
+                                                    const imported = data.standings.results
+                                                        .filter((entry: any) => {
+                                                            const pName = (entry.player_name || '').trim().toLowerCase();
+                                                            return !cleanFullName || pName !== cleanFullName;
+                                                        })
+                                                        .map((entry: any) => ({
+                                                            displayName: entry.player_name,
+                                                            phone: '',
+                                                            fplEntryId: entry.entry,
+                                                            fplTeamName: entry.entry_name,
+                                                        }));
+                                                    if (imported.length > 0) {
+                                                        setMembers(imported.slice(0, 19));
+                                                    }
                                                 }
                                             } else {
                                                 setFplFetchStatus('error');
@@ -905,60 +950,62 @@ export default function AdminSetup() {
                             )}
                         </div>
 
-                        {/* 2-Column Responsive Inputs for Core Config */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* League Name Input */}
-                            <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
-                                    League Name
-                                    {fplFetchStatus === 'success' && (
-                                        <span className="ml-2 text-[9px] text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20 normal-case tracking-normal font-bold">Auto-filled</span>
-                                    )}
-                                </label>
-                                <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. Nairobi Premier League" />
-                            </div>
-
-                            {/* Dual Team Toggle */}
-                            <div className="flex items-center justify-between bg-[#161d24] border border-white/5 rounded-xl px-4 py-2.5">
-                                <div>
-                                    <p className="text-[11px] font-bold text-white">Allow Dual Teams</p>
-                                    <p className="text-[9px] text-gray-500 mt-0.5">Members may register 2 FPL teams with independent eligibility.</p>
+                        {/* Uniform 2x2 Grid of Core Config Inputs + Cohesive Dual Teams Row */}
+                        <div className="space-y-3.5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                {/* 1. League Name */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center justify-between">
+                                        <span>League Name</span>
+                                        {fplFetchStatus === 'success' && (
+                                            <span className="text-[9px] text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20 normal-case font-bold">Auto-filled</span>
+                                        )}
+                                    </label>
+                                    <input type="text" value={leagueName} onChange={e => setLeagueName(e.target.value)} className={inputClasses} placeholder="e.g. Nairobi Premier League" />
+                                    <p className="text-[9px] text-gray-500">Your Chama circle display title</p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setAllowMultipleTeams(!allowMultipleTeams)}
-                                    className={clsx(
-                                        "relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3",
-                                        allowMultipleTeams ? "bg-[#10B981]" : "bg-white/10"
-                                    )}
-                                >
-                                    <span className={clsx(
-                                        "absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform",
-                                        allowMultipleTeams ? "translate-x-5" : "translate-x-0"
-                                    )} />
-                                </button>
-                            </div>
 
-                            {/* Gameweek Stake */}
-                            <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Gameweek Stake (KES)</label>
-                                <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
-                                    <span className="bg-[#11171a] px-3.5 flex items-center justify-center text-gray-600 dark:text-gray-400 font-bold border-r border-white/5 text-xs">KES</span>
+                                {/* 2. Gameweek Stake */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                        Gameweek Stake (KES)
+                                    </label>
+                                    <div className="flex bg-[#161d24] border border-white/5 rounded-xl overflow-hidden focus-within:border-[#FBBF24]/50 focus-within:ring-1 focus-within:ring-[#FBBF24]/50 transition-all">
+                                        <span className="bg-[#11171a] px-3.5 flex items-center justify-center text-gray-400 font-bold border-r border-white/5 text-xs">KES</span>
+                                        <input
+                                            type="number"
+                                            value={monthlyFee === 0 ? '' : monthlyFee}
+                                            onFocus={e => e.target.select()}
+                                            onChange={e => setMonthlyFee(Number(e.target.value))}
+                                            className="w-full bg-transparent px-3.5 py-3 text-white font-medium text-sm focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
+                                        />
+                                    </div>
+                                    <p className="text-[9px] text-gray-500">Auto-deducted per member per GW (min KES 50)</p>
+                                </div>
+
+                                {/* 3. POCHI / M-PESA # */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider truncate" title="POCHI / M-PESA # (The number receiving funds)">
+                                        POCHI / M-PESA #
+                                    </label>
                                     <input
-                                        type="number"
-                                        value={monthlyFee === 0 ? '' : monthlyFee}
-                                        onFocus={e => e.target.select()}
-                                        onChange={e => setMonthlyFee(Number(e.target.value))}
-                                        className="w-full bg-transparent px-3.5 py-3 text-white font-medium text-sm focus:outline-none [&:-webkit-autofill]:shadow-[inset_0_0_0px_1000px_#161d24] [-webkit-text-fill-color:white]"
+                                        type="tel"
+                                        value={chairmanPayoutPhone}
+                                        onChange={e => setChairmanPayoutPhone(normalizeKenyanPhone(e.target.value))}
+                                        onBlur={() => {
+                                            if (chairmanPayoutPhone) setChairmanPayoutPhone(normalizeKenyanPhone(chairmanPayoutPhone));
+                                        }}
+                                        className={inputClasses}
+                                        placeholder="0712345678"
                                     />
+                                    <p className="text-[9px] text-emerald-400 font-medium">The number receiving funds so Chairman knows</p>
                                 </div>
-                                <p className="text-[9px] text-gray-500 mt-1">Auto-deducted per member per FPL Gameweek.</p>
-                            </div>
 
-                            {/* Estimated Members & Pochi */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">Members Size</label>
+                                {/* 4. Estimated Members */}
+                                <div className="space-y-1.5">
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                        Members Size (Est.)
+                                    </label>
                                     <input
                                         type="number"
                                         min="2"
@@ -968,20 +1015,37 @@ export default function AdminSetup() {
                                         className={inputClasses}
                                         placeholder="10"
                                     />
+                                    <p className="text-[9px] text-gray-500">Projections baseline for pot & prize modeling (2 - 20)</p>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider truncate">Pochi / M-Pesa #</label>
-                                    <input
-                                        type="tel"
-                                        value={chairmanPayoutPhone}
-                                        onChange={e => setChairmanPayoutPhone(normalizeKenyanPhone(e.target.value))}
-                                        onBlur={() => {
-                                            if (chairmanPayoutPhone) setChairmanPayoutPhone(normalizeKenyanPhone(chairmanPayoutPhone));
-                                        }}
-                                        className={inputClasses}
-                                        placeholder="0712..."
-                                    />
+                            </div>
+
+                            {/* 5. Allow Dual Teams - Clean Cohesive Full-Width Row */}
+                            <div className="flex items-center justify-between bg-[#161d24] border border-white/5 rounded-xl px-4 py-3 hover:border-white/10 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="size-8 rounded-lg bg-[#10B981]/10 border border-[#10B981]/25 flex items-center justify-center text-[#10B981] font-bold text-xs shrink-0">
+                                        2x
+                                    </div>
+                                    <div className="min-w-0 pr-2">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs font-bold text-white">Allow Dual Teams</p>
+                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400">Optional</span>
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">Members may register 2 separate FPL teams under one M-Pesa account with independent pot payouts.</p>
+                                    </div>
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setAllowMultipleTeams(!allowMultipleTeams)}
+                                    className={clsx(
+                                        "relative w-11 h-6 rounded-full transition-colors flex-shrink-0 cursor-pointer",
+                                        allowMultipleTeams ? "bg-[#10B981]" : "bg-white/10"
+                                    )}
+                                >
+                                    <span className={clsx(
+                                        "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform",
+                                        allowMultipleTeams ? "translate-x-5" : "translate-x-0"
+                                    )} />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -999,27 +1063,65 @@ export default function AdminSetup() {
                                 <span className="px-2 py-1 bg-[#22c55e]/10 text-[#22c55e] text-[9px] uppercase font-bold tracking-widest rounded border border-[#22c55e]/20">Dynamic Payout</span>
                             </div>
 
-                            <div className="mb-4">
-                                <div className="flex justify-between items-end mb-2">
-                                    <div>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            value={weeklyPrizePercent}
-                                            onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
-                                            className="text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent border-b border-[#22c55e]/30 focus:border-[#22c55e] outline-none w-20 text-center"
-                                        /><span className="text-3xl font-black text-[#22c55e]">%</span>
-                                        <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Weekly Prize</p>
+                            {/* Redesigned Percentage Split Cards & Slider */}
+                            <div className="mb-4 space-y-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Weekly Prize Pill Card */}
+                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#22c55e]/30 flex flex-col items-center text-center relative overflow-hidden">
+                                        <div className="absolute top-2 right-2 flex gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setWeeklyPrizePercent(Math.max(0, weeklyPrizePercent - 5))}
+                                                className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
+                                                title="Decrease 5%"
+                                            >
+                                                -
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setWeeklyPrizePercent(Math.min(100, weeklyPrizePercent + 5))}
+                                                className="w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
+                                                title="Increase 5%"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Weekly Prize</span>
+                                        <div className="flex items-baseline gap-1 my-0.5">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={weeklyPrizePercent}
+                                                onChange={e => setWeeklyPrizePercent(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                                className="text-2xl sm:text-3xl font-black text-[#22c55e] tabular-nums tracking-tight bg-transparent text-center w-16 outline-none focus:ring-1 focus:ring-[#22c55e]/50 rounded py-0.5"
+                                            />
+                                            <span className="text-xl sm:text-2xl font-black text-[#22c55e]">%</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-500 mt-0.5">Top GW Score</span>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">{100 - weeklyPrizePercent}%</span>
-                                        <p className="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest mt-1">Grand Vault</p>
+
+                                    {/* Grand Vault Pill Card */}
+                                    <div className="p-3.5 rounded-xl bg-[#161d24] border border-[#FBBF24]/30 flex flex-col items-center text-center">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Grand Vault</span>
+                                        <div className="flex items-baseline gap-1 my-0.5">
+                                            <span className="text-2xl sm:text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight py-0.5">
+                                                {100 - weeklyPrizePercent}
+                                            </span>
+                                            <span className="text-xl sm:text-2xl font-black text-[#FBBF24]">%</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gray-500 mt-0.5">Season Podium</span>
                                     </div>
                                 </div>
 
-                                {/* Interactive Range Slider */}
-                                <div className="mt-3 relative mb-2">
+                                {/* Interactive Range Slider with explicit "Move slider to set" guidance */}
+                                <div className="p-3.5 rounded-xl bg-black/30 border border-white/5 space-y-2.5">
+                                    <div className="flex items-center justify-between text-[11px] font-bold">
+                                        <span className="text-[#10B981] flex items-center gap-1.5 uppercase tracking-wider">
+                                            <Sliders className="w-3.5 h-3.5" /> Move slider to set split
+                                        </span>
+                                        <span className="text-[#FBBF24] font-mono text-xs">{weeklyPrizePercent}% Weekly · {100 - weeklyPrizePercent}% Vault</span>
+                                    </div>
                                     <input
                                         type="range"
                                         min="0"
@@ -1027,15 +1129,16 @@ export default function AdminSetup() {
                                         step="1"
                                         value={weeklyPrizePercent}
                                         onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
-                                        className="fc-range w-full h-2 rounded-lg appearance-none cursor-pointer outline-none"
+                                        className="fc-range w-full h-2.5 rounded-lg appearance-none cursor-pointer outline-none"
                                         style={{
                                             background: `linear-gradient(to right, #22c55e ${weeklyPrizePercent}%, #FBBF24 ${weeklyPrizePercent}%)`
                                         }}
                                     />
-                                    <div className="flex justify-between mt-2 text-[9px] text-gray-500 font-bold px-1 mb-2">
-                                        <span>Season Payout Only</span>
-                                        <span>Adjust Split</span>
-                                        <span>All Weekly</span>
+                                    <div className="flex justify-between text-[9px] text-gray-400 font-bold px-1 gap-1">
+                                        <button type="button" onClick={() => setWeeklyPrizePercent(0)} className="hover:text-white transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded">0% (All Vault)</button>
+                                        <button type="button" onClick={() => setWeeklyPrizePercent(50)} className="hover:text-white transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded">50 / 50 Split</button>
+                                        <button type="button" onClick={() => setWeeklyPrizePercent(70)} className="hover:text-white transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded">70 / 30 Standard</button>
+                                        <button type="button" onClick={() => setWeeklyPrizePercent(100)} className="hover:text-white transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded">100% (All Weekly)</button>
                                     </div>
                                 </div>
 
@@ -1224,10 +1327,15 @@ export default function AdminSetup() {
         <div className={`space-y-6 ${stepAnimClass} w-full`}>
             <div className="text-center mb-4">
                 <p className="text-[10px] text-[#FBBF24] font-bold uppercase tracking-widest mb-2">Step 3 of 4</p>
-                <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Add League Members</h2>
-                <p className="text-gray-400 text-xs md:text-sm">Add each person's name and M-Pesa number. They'll use the invite code from Step 4 to join.</p>
+                <h2 className="text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">Enroll League Members</h2>
+                <p className="text-gray-400 text-xs md:text-sm max-w-xl mx-auto">
+                    {members.length > 0
+                        ? `We recovered ${members.length} teams from your FPL link. Choose Self-Onboarding to share an invite link, or manually add M-Pesa numbers directly.`
+                        : "Add your members or paste your FPL link to pull all managers automatically."}
+                </p>
             </div>
 
+            {/* Quick Rules & Guidance */}
             <div className="max-w-4xl mx-auto bg-[#0f1923] border border-white/10 rounded-2xl px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#FBBF24]">Multi-League Guidance</p>
@@ -1243,239 +1351,318 @@ export default function AdminSetup() {
                 </div>
             </div>
 
-            {/* FPL Auto-Import Bar */}
-            {fplStandings.length > 0 && (
-                <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl px-5 py-3.5">
-                    <div>
-                        <p className="text-[11px] font-black text-[#10B981] uppercase tracking-widest">FPL Import Ready</p>
-                        <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">{fplStandings.length} managers found in your FPL league. Import to pre-fill names, then add phone numbers.</p>
+            {/* Enrollment Mode Choice Cards */}
+            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {/* Mode 1: Self-Onboarding */}
+                <div
+                    onClick={() => setEnrollmentMode('self')}
+                    className={clsx(
+                        "p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 relative overflow-hidden",
+                        enrollmentMode === 'self'
+                            ? "bg-[#10B981]/15 border-[#10B981] shadow-[0_0_25px_rgba(16,185,129,0.15)]"
+                            : "bg-[#161d24] border-white/10 hover:border-white/20 opacity-80"
+                    )}
+                >
+                    <div className={clsx(
+                        "size-10 rounded-xl flex items-center justify-center shrink-0 font-bold",
+                        enrollmentMode === 'self' ? "bg-[#10B981] text-black" : "bg-white/10 text-gray-400"
+                    )}>
+                        <Share2 className="w-5 h-5" />
                     </div>
-                    <button
-                        type="button"
-                        onClick={handleImportFromFPL}
-                        className="flex-shrink-0 bg-[#10B981] hover:bg-[#0ea271] text-black text-[11px] font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                        <ArrowRight className="w-3.5 h-3.5" /> Import from FPL
-                    </button>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-bold text-white">Self-Onboarding Mode</p>
+                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/30">Recommended</span>
+                        </div>
+                        <p className="text-[11px] text-gray-300 mt-1 leading-snug">
+                            Skip entering phone numbers now! Just click Next to get your WhatsApp invite link. Members claim their team & enter their own M-Pesa number when they join.
+                        </p>
+                    </div>
                 </div>
-            )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto h-full min-h-[400px]">
-                {/* Left side: Add member */}
-                <div className="bg-[#151c18] border border-white/5 rounded-2xl p-6 flex flex-col h-full shadow-lg relative overflow-hidden">
-                    <div className="flex items-center gap-2 text-white font-bold text-lg mb-6">
-                        <UserPlus className="w-5 h-5 text-[#22c55e]" />
-                        New Member
+                {/* Mode 2: Chairman Manual Entry */}
+                <div
+                    onClick={() => setEnrollmentMode('manual')}
+                    className={clsx(
+                        "p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 relative overflow-hidden",
+                        enrollmentMode === 'manual'
+                            ? "bg-[#FBBF24]/15 border-[#FBBF24] shadow-[0_0_25px_rgba(251,191,36,0.15)]"
+                            : "bg-[#161d24] border-white/10 hover:border-white/20 opacity-80"
+                    )}
+                >
+                    <div className={clsx(
+                        "size-10 rounded-xl flex items-center justify-center shrink-0 font-bold",
+                        enrollmentMode === 'manual' ? "bg-[#FBBF24] text-black" : "bg-white/10 text-gray-400"
+                    )}>
+                        <Smartphone className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-bold text-white">Chairman Manual Entry</p>
+                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10">Optional</span>
+                        </div>
+                        <p className="text-[11px] text-gray-300 mt-1 leading-snug">
+                            Directly tie M-Pesa numbers into each recovered FPL team below. You can also add custom members not found in FPL.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Recovered Teams & Member Management Panel */}
+            <div className="max-w-4xl mx-auto bg-[#151c18] border border-white/5 rounded-2xl p-5 md:p-6 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-base font-bold text-white">
+                                {members.length > 0 ? "Recovered Teams & Managers" : "League Members"}
+                            </h3>
+                            <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 text-xs font-bold px-2 py-0.5 rounded">
+                                {members.length + 1} Total Circle
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                            {enrollmentMode === 'self'
+                                ? "Type numbers here if known, or leave them blank so managers self-link their M-Pesa via invite link."
+                                : "Enter M-Pesa phone numbers below for direct enrollment."}
+                        </p>
                     </div>
 
-                    <form onSubmit={addLocalMember} className="space-y-4 flex-1 relative z-10">
-                        <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                Member Display Name <Tooltip text="Their recognizable alias or FPL Team name." />
-                            </label>
-                            <input
-                                type="text"
-                                value={newMemberName}
-                                onChange={e => setNewMemberName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
-                                placeholder="e.g. Kevin Otieno"
-                                className={inputClasses}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                M-Pesa Phone Number <Tooltip text={<span><strong>Strict verification:</strong> Only this precise phone number will be allowed to log in and withdraw payouts via Safaricom.</span>} />
-                            </label>
-                            <input
-                                type="tel"
-                                value={newMemberPhone}
-                                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
-                                onChange={e => {
-                                    (e.target as HTMLInputElement).setCustomValidity('');
-                                    setNewMemberPhone(normalizeKenyanPhone(e.target.value));
-                                }}
-                                onBlur={() => {
-                                    if (newMemberPhone) setNewMemberPhone(normalizeKenyanPhone(newMemberPhone));
-                                }}
-                                placeholder="e.g. 0712345678 or 254..."
-                                className={inputClasses}
-                            />
-                            {/* Dual-team warning: same phone already exists */}
-                            {newMemberPhone.length === 10 && members.some(m => m.phone === newMemberPhone) && (
-                                <p className="text-[10px] text-[#FBBF24] mt-1.5 flex items-center gap-1 font-bold">
-                                    <span className="w-2 h-2 bg-[#FBBF24] rounded-full" /> Shared phone detected — this will be registered as a dual-team entry.
-                                </p>
-                            )}
-                        </div>
-                        {/* Second FPL Team (only shown when allowMultipleTeams is enabled) */}
-                        {allowMultipleTeams && (
+                    <div className="flex items-center gap-2 shrink-0">
+                        {fplStandings.length > 0 && members.length < fplStandings.length && (
+                            <button
+                                type="button"
+                                onClick={handleImportFromFPL}
+                                className="px-3 py-1.5 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981] hover:bg-[#10B981]/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                                <ArrowRight className="w-3 h-3" /> Re-import ({fplStandings.length})
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowAddManualMember(!showAddManualMember)}
+                            className="px-3 py-1.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <UserPlus className="w-3.5 h-3.5 text-[#22c55e]" />
+                            {showAddManualMember ? "Close Manual Form" : "+ Add Non-FPL Member"}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Collapsible Manual Member Addition Form */}
+                {showAddManualMember && (
+                    <form onSubmit={addLocalMember} className="p-4 rounded-xl bg-[#161d24] border border-white/10 space-y-3 animate-in fade-in duration-200">
+                        <p className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                            <UserPlus className="w-3.5 h-3.5 text-[#22c55e]" /> Add Custom Member Manually
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                                <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
-                                    2nd FPL Team ID <Tooltip text="Optional. The FPL entry ID of their second team. Leave blank if they only have one team." />
-                                </label>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Display Name</label>
                                 <input
                                     type="text"
-                                    value={newMemberSecondTeam}
-                                    onChange={e => setNewMemberSecondTeam(e.target.value.replace(/[^0-9]/g, ''))}
-                                    placeholder="e.g. 7890123 (optional)"
+                                    value={newMemberName}
+                                    onChange={e => setNewMemberName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
+                                    placeholder="e.g. Kevin Otieno"
                                     className={inputClasses}
                                 />
                             </div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={!newMemberName || !newMemberPhone}
-                            className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2"
-                        >
-                            <UserPlus className="w-5 h-5" /> Enroll to Circle
-                        </button>
-
-                        <div className="mt-8 bg-white/5 border border-white/10 rounded-xl p-4 flex gap-3 items-start">
-                            <div className="size-5 rounded-full bg-[#FBBF24]/20 text-[#FBBF24] flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">i</div>
-                            <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                                <strong className="text-white">Tip:</strong> Enrolled members verify themselves when setting up their Profile later using your generated join code.
-                            </p>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">M-Pesa Phone #</label>
+                                <input
+                                    type="tel"
+                                    value={newMemberPhone}
+                                    onChange={e => setNewMemberPhone(normalizeKenyanPhone(e.target.value))}
+                                    placeholder="0712345678"
+                                    className={inputClasses}
+                                />
+                            </div>
+                            {allowMultipleTeams && (
+                                <div>
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">2nd FPL Team ID (Opt)</label>
+                                    <input
+                                        type="text"
+                                        value={newMemberSecondTeam}
+                                        onChange={e => setNewMemberSecondTeam(e.target.value.replace(/[^0-9]/g, ''))}
+                                        placeholder="e.g. 7890123"
+                                        className={inputClasses}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={() => setShowAddManualMember(false)}
+                                className="px-3 py-2 rounded-xl text-xs text-gray-400 hover:text-white cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={!newMemberName || !newMemberPhone}
+                                className="px-5 py-2 rounded-xl bg-[#22c55e] hover:bg-[#1fbb59] text-black font-bold text-xs disabled:opacity-50 cursor-pointer"
+                            >
+                                Enroll Custom Member
+                            </button>
                         </div>
                     </form>
-                </div>
+                )}
 
-                {/* Right side: Enrolled List */}
-                <div className="bg-[#151c18] border border-white/5 rounded-2xl flex flex-col h-full shadow-lg relative overflow-hidden">
-                    <div className="p-5 border-b border-white/5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">Enrolled Circle</span>
-                        </div>
-                        <span className="bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20 text-xs font-bold px-2 py-1 rounded">{members.length + 1} Total</span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                        {/* Chairman card — always pinned at top */}
-                        <div className="flex items-center gap-3 p-3 rounded-xl border bg-[#FBBF24]/8 border-[#FBBF24]/25 shadow-sm">
-                            <div className="size-9 rounded-full flex items-center justify-center font-bold text-sm border bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30 flex-shrink-0">
+                {/* Members List Container */}
+                <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                    {/* Chairman card — always pinned at top */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border bg-[#FBBF24]/10 border-[#FBBF24]/30 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="size-9 rounded-xl flex items-center justify-center font-black text-sm border bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30 shrink-0">
                                 {fullName ? fullName.charAt(0).toUpperCase() : "C"}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-white leading-tight">{fullName || "Chairman"}</p>
-                                <p className="text-[10px] text-gray-500 tabular-nums">{phone || "Pending Phone"}</p>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-bold text-sm text-white leading-tight">{fullName || "Chairman"}</p>
+                                    <span className="text-[9px] font-black text-[#FBBF24] uppercase tracking-widest px-2 py-0.5 bg-[#FBBF24]/20 border border-[#FBBF24]/30 rounded">
+                                        👑 Chairman
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-gray-400 font-mono mt-0.5">
+                                    {phone || "Phone on file"} · League Administrator & Primary Payout Signatory
+                                </p>
                             </div>
-                            <span className="text-[9px] font-black text-[#FBBF24] uppercase tracking-widest px-2 py-1 bg-[#FBBF24]/10 border border-[#FBBF24]/20 rounded flex-shrink-0">
-                                👑 Chairman
-                            </span>
                         </div>
+                        <span className="text-[10px] text-[#FBBF24] font-bold bg-black/30 px-2.5 py-1 rounded-lg border border-[#FBBF24]/20 shrink-0">
+                            Registered Admin
+                        </span>
+                    </div>
 
-                        {/* Member chip-cards grid */}
-                        <div className="grid grid-cols-1 gap-2 pt-1">
-                        {members.map((m, i) => (
-                            <div key={i} className={clsx(
-                                "rounded-xl border transition-all overflow-hidden",
+                    {/* Recovered FPL Teams & Members */}
+                    {members.map((m, i) => (
+                        <div
+                            key={i}
+                            className={clsx(
+                                "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border transition-all",
                                 coAdminIndex === i
                                     ? "border-[#FBBF24]/40 bg-[#FBBF24]/8"
-                                    : "border-white/8 bg-[#0d1519]/60"
-                            )}>
-                                {/* Card header — always visible */}
-                                <div className="flex items-center gap-3 p-3">
-                                    <div className={clsx(
-                                        "size-9 rounded-full flex items-center justify-center font-bold text-sm border flex-shrink-0",
-                                        coAdminIndex === i
-                                            ? "bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30"
-                                            : "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/25"
-                                    )}>
-                                        {m.displayName.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        {/* Name — editable inline, full wrap */}
-                                        <input
-                                            type="text"
-                                            value={m.displayName}
-                                            onChange={e => setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, displayName: e.target.value } : mem))}
-                                            className="font-bold text-sm text-white bg-transparent border-b border-transparent focus:border-[#FBBF24]/50 hover:border-white/20 focus:outline-none transition-colors w-full pb-0.5 leading-snug"
-                                        />
-                                        <p className="text-[10px] text-gray-500 tabular-nums mt-0.5">
-                                            {m.phone || <span className="text-[#FBBF24]/80 italic">⚠ Phone needed</span>}
-                                            {m.fplTeamName && <span className="ml-2 text-[#10B981]/70 truncate max-w-[120px] inline-block align-bottom"> · {m.fplTeamName}</span>}
-                                            {m.fplEntryId && !m.fplTeamName && <span className="ml-2 text-[#10B981]/60">FPL#{m.fplEntryId}</span>}
-                                            {m.secondFplTeamId && <span className="ml-1 text-[10px] font-black text-[#10B981] border border-[#10B981]/30 bg-[#10B981]/10 px-1.5 py-0.5 rounded tracking-widest uppercase">Dual</span>}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                                        {/* Co-Chair star button */}
-                                        <button
-                                            type="button"
-                                            title={coAdminIndex === i ? "Remove Co-Chair" : "Make Co-Chair (second payout signatory)"}
-                                            onClick={() => setCoAdminIndex(coAdminIndex === i ? null : i)}
-                                            className={clsx(
-                                                "w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all",
-                                                coAdminIndex === i
-                                                    ? "bg-[#FBBF24] text-black shadow-[0_0_10px_rgba(251,191,36,0.4)]"
-                                                    : "bg-white/5 text-gray-500 hover:bg-white/10 hover:text-[#FBBF24] border border-white/10"
-                                            )}
-                                        >
-                                            ⭐
-                                        </button>
-                                        {/* Expand toggle for phone edit */}
-                                        <button
-                                            type="button"
-                                            onClick={() => setExpandedMemberIndex(expandedMemberIndex === i ? null : i)}
-                                            className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all text-xs"
-                                        >
-                                            {expandedMemberIndex === i ? "▲" : "▼"}
-                                        </button>
-                                        {/* Remove */}
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                removeLocalMember(i);
-                                                if (coAdminIndex === i) setCoAdminIndex(null);
-                                                else if (coAdminIndex !== null && coAdminIndex > i) setCoAdminIndex(coAdminIndex - 1);
-                                                if (expandedMemberIndex === i) setExpandedMemberIndex(null);
-                                            }}
-                                            className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all text-xs"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Expanded edit area */}
-                                {expandedMemberIndex === i && (
-                                    <div className="px-3 pb-3 pt-0 border-t border-white/5 space-y-2">
-                                        {!m.phone && (
-                                            <input
-                                                type="tel"
-                                                placeholder="M-Pesa phone (0712...)"
-                                                maxLength={10}
-                                                autoFocus
-                                                className="w-full pl-3 pr-3 py-2 rounded-lg border border-[#FBBF24]/30 bg-[#161d24] text-white text-xs placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/60 transition-all"
-                                                onChange={e => {
-                                                    const val = normalizeKenyanPhone(e.target.value);
-                                                    setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
-                                                }}
-                                            />
-                                        )}
-                                        {coAdminIndex === i && (
-                                            <div className="flex items-start gap-2 bg-[#FBBF24]/8 border border-[#FBBF24]/20 rounded-lg p-2.5">
-                                                <span className="text-sm flex-shrink-0">⭐</span>
-                                                <p className="text-[10px] text-[#FBBF24]/90 leading-relaxed">
-                                                    <strong className="text-[#FBBF24]">Co-Chair assigned.</strong> All payouts will require their signature before M-Pesa fires. They'll see an approval inbox on their dashboard.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                        </div>
-                    </div>
-
-                    <div className="p-4 border-t border-white/5">
-                        <button
-                            onClick={nextStep}
-                            disabled={members.length < 1}
-                            className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(251,191,36,0.15)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                    : "border-white/10 bg-[#161d24]/70 hover:border-white/20"
+                            )}
                         >
-                            <Shield className="w-5 h-5" /> {members.length < 1 ? `Add 1 More Member` : "Initialize League & Generate Code"}
-                        </button>
-                    </div>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className={clsx(
+                                    "size-9 rounded-xl flex items-center justify-center font-bold text-sm border shrink-0",
+                                    coAdminIndex === i
+                                        ? "bg-[#FBBF24]/20 text-[#FBBF24] border-[#FBBF24]/30"
+                                        : "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/25"
+                                )}>
+                                    {m.displayName ? m.displayName.charAt(0).toUpperCase() : "M"}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-bold text-sm text-white truncate">
+                                            {m.fplTeamName || m.displayName}
+                                        </p>
+                                        {m.fplEntryId && (
+                                            <span className="text-[9px] font-mono font-bold text-[#10B981] bg-[#10B981]/15 px-1.5 py-0.5 rounded border border-[#10B981]/25 shrink-0">
+                                                #{m.fplEntryId}
+                                            </span>
+                                        )}
+                                        {m.secondFplTeamId && (
+                                            <span className="text-[9px] font-black text-[#10B981] border border-[#10B981]/30 bg-[#10B981]/10 px-1.5 py-0.5 rounded tracking-widest uppercase shrink-0">
+                                                Dual
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                                        Manager: <span className="text-gray-200">{m.displayName}</span>
+                                        {m.phone ? (
+                                            <span className="text-[#10B981] ml-2 font-mono font-medium">· {m.phone}</span>
+                                        ) : (
+                                            <span className="text-amber-400/80 ml-2 italic text-[10px]">· Self-onboarding link</span>
+                                        )}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Direct Inline Phone Input & Controls */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                <div className="relative">
+                                    <input
+                                        type="tel"
+                                        placeholder={enrollmentMode === 'self' ? "07... (or leave for link)" : "07... (M-Pesa #)"}
+                                        value={m.phone}
+                                        onChange={e => {
+                                            const val = normalizeKenyanPhone(e.target.value);
+                                            setMembers(prev => prev.map((mem, idx) => idx === i ? { ...mem, phone: val } : mem));
+                                        }}
+                                        className="w-44 sm:w-52 bg-[#0e141a] border border-white/10 focus:border-[#10B981]/50 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-gray-600 focus:outline-none transition-colors"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    title={coAdminIndex === i ? "Remove Co-Chair" : "Make Co-Chair (second payout signatory)"}
+                                    onClick={() => setCoAdminIndex(coAdminIndex === i ? null : i)}
+                                    className={clsx(
+                                        "w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-all shrink-0 cursor-pointer",
+                                        coAdminIndex === i
+                                            ? "bg-[#FBBF24] text-black shadow-[0_0_10px_rgba(251,191,36,0.4)]"
+                                            : "bg-white/5 text-gray-500 hover:bg-white/10 hover:text-[#FBBF24] border border-white/10"
+                                    )}
+                                >
+                                    ⭐
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        removeLocalMember(i);
+                                        if (coAdminIndex === i) setCoAdminIndex(null);
+                                        else if (coAdminIndex !== null && coAdminIndex > i) setCoAdminIndex(coAdminIndex - 1);
+                                    }}
+                                    className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all text-xs shrink-0 cursor-pointer"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {members.length === 0 && (
+                        <div className="text-center py-10 border border-dashed border-white/10 rounded-xl space-y-3">
+                            <Users className="w-8 h-8 text-gray-500 mx-auto" />
+                            <div>
+                                <p className="text-sm font-bold text-white">No members added yet</p>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Paste your FPL league link in Step 2 to recover all teams, or add members manually above.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Step 3 Footer Action Bar */}
+                <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <p className="text-xs text-gray-400 text-center sm:text-left">
+                        {enrollmentMode === 'self' ? (
+                            <span className="text-[#10B981] font-medium flex items-center gap-1.5 justify-center sm:justify-start">
+                                <Check className="w-4 h-4" /> Self-onboarding enabled: Share link on WhatsApp after clicking Next.
+                            </span>
+                        ) : (
+                            <span>{members.filter(m => m.phone).length} of {members.length} phone numbers tied directly.</span>
+                        )}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={nextStep}
+                        disabled={enrollmentMode === 'manual' && members.length < 1}
+                        className="w-full sm:w-auto px-8 bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] cursor-pointer disabled:opacity-50"
+                    >
+                        {enrollmentMode === 'self' ? (
+                            <>
+                                <span>Next: Review & Share Link</span>
+                                <ArrowRight className="w-5 h-5" />
+                            </>
+                        ) : (
+                            <>
+                                <span>Next: Confirm League</span>
+                                <ArrowRight className="w-5 h-5" />
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
         </div>
@@ -1552,14 +1739,22 @@ export default function AdminSetup() {
                             </div>
 
                             {/* Enrolled row */}
-                            {members.slice(0, 4).map((m, i) => (
+                            {members.slice(0, 5).map((m, i) => (
                                 <div key={i} className="flex justify-between items-center bg-[#0a100a]/50 p-2.5 rounded-lg border border-white/5 text-xs">
-                                    <span className="font-medium text-gray-200">{m.displayName}</span>
-                                    <span className="text-gray-600 dark:text-gray-400 tabular-nums">{m.phone}</span>
+                                    <span className="font-medium text-gray-200 truncate max-w-[160px]">{m.fplTeamName || m.displayName}</span>
+                                    <span className="tabular-nums">
+                                        {m.phone ? (
+                                            <span className="text-gray-300 font-mono">{m.phone}</span>
+                                        ) : (
+                                            <span className="text-[#FBBF24] font-semibold text-[10px] bg-[#FBBF24]/10 px-1.5 py-0.5 rounded border border-[#FBBF24]/20">
+                                                Self-onboard link
+                                            </span>
+                                        )}
+                                    </span>
                                 </div>
                             ))}
-                            {members.length > 4 && (
-                                <div className="text-center text-[10px] text-gray-500 pt-1 font-bold tracking-widest uppercase">+ {members.length - 4} more members</div>
+                            {members.length > 5 && (
+                                <div className="text-center text-[10px] text-gray-500 pt-1 font-bold tracking-widest uppercase">+ {members.length - 5} more members</div>
                             )}
                         </div>
                     </div>
@@ -1600,8 +1795,16 @@ export default function AdminSetup() {
                         disabled={isSubmitting}
                         className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] disabled:opacity-50 disabled:cursor-wait"
                     >
-                        {isSubmitting ? "Initializing League Vault..." : "Confirm & Generate League Code"}
-                        {!isSubmitting && <ArrowRight className="w-5 h-5 ml-1" />}
+                        {isSubmitting ? (
+                            <>
+                                <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
+                                Securing League & Generating Signatures...
+                            </>
+                        ) : (
+                            <>
+                                <Check className="w-5 h-5" /> Activate League & Proceed to Share Link
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
@@ -1615,30 +1818,62 @@ export default function AdminSetup() {
                     <Check className="w-10 h-10 text-[#22c55e]" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight text-white">League Created Successfully!</h2>
-                <p className="text-gray-600 dark:text-gray-400 max-w-sm mx-auto">Your league economy is actively monitoring. You must share this unique join code with your enrolled members securely.</p>
+                <p className="text-gray-400 max-w-sm mx-auto text-xs md:text-sm">
+                    Your league economy is live. Share this unique invite code or WhatsApp link so managers self-onboard and claim their teams.
+                </p>
             </div>
 
-            <div className="bg-[#151c18] border border-[#FBBF24]/30 p-10 rounded-[2rem] w-full max-w-sm text-center shadow-[0_0_50px_rgba(251,191,36,0.05)] relative overflow-hidden">
-                <p className="text-[#FBBF24] text-[10px] md:text-xs font-bold uppercase tracking-widest mb-4">Master Invite Code</p>
+            <div className="bg-[#151c18] border border-[#FBBF24]/30 p-8 md:p-10 rounded-[2rem] w-full max-w-sm text-center shadow-[0_0_50px_rgba(251,191,36,0.05)] relative overflow-hidden">
+                <p className="text-[#FBBF24] text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3">Master Invite Code</p>
                 <h1 className="text-5xl md:text-6xl font-black font-mono tracking-widest text-white drop-shadow-md">
                     {generatedCode.slice(0, 3)} <span className="text-[#FBBF24]">{generatedCode.slice(3, 6)}</span>
                 </h1>
             </div>
 
-            <div className="w-full max-w-sm space-y-3 mt-8">
-                <button onClick={handleCopyCode} className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base md:text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)]">
-                    <Smartphone className="w-5 h-5" />
-                    {copied ? "Copied!" : "Copy Secure Code"}
+            <div className="w-full max-w-sm space-y-3 mt-6">
+                <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-black text-base py-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] cursor-pointer"
+                >
+                    <Share2 className="w-5 h-5" />
+                    {copied ? "Opening WhatsApp..." : "Share on WhatsApp"}
                 </button>
-                <div className="flex items-center gap-3 my-4">
+
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={handleCopyInviteLink}
+                        className="bg-[#161d24] border border-white/10 hover:border-white/20 text-white font-bold py-3 px-2 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                        <Copy className="w-3.5 h-3.5 text-[#10B981]" />
+                        {copiedLink ? "Link Copied!" : "Copy Invite Link"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleCopyOnlyCode}
+                        className="bg-[#161d24] border border-white/10 hover:border-white/20 text-white font-bold py-3 px-2 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                        <Smartphone className="w-3.5 h-3.5 text-[#FBBF24]" />
+                        {copiedCode ? "Code Copied!" : "Copy Code Only"}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3 my-3">
                     <div className="h-px bg-white/10 flex-1"></div>
                     <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Next Phase</span>
                     <div className="h-px bg-white/10 flex-1"></div>
                 </div>
-                <button onClick={() => navigate('/dashboard', { replace: true })} className="w-full bg-[#161d24] border border-white/5 hover:border-white/20 text-white font-bold py-4 rounded-xl transition-all shadow-md">
+
+                <button
+                    type="button"
+                    onClick={() => navigate('/dashboard', { replace: true })}
+                    className="w-full bg-[#161d24] border border-white/10 hover:border-white/20 text-white font-bold py-3.5 rounded-xl transition-all shadow-md cursor-pointer hover:bg-white/5"
+                >
                     Enter Chairman Command Center
                 </button>
-                <p className="text-[10px] text-[#22c55e] border border-[#22c55e]/20 bg-[#22c55e]/5 p-2 rounded text-center mt-4">
+
+                <p className="text-[10px] text-[#22c55e] border border-[#22c55e]/20 bg-[#22c55e]/5 p-2 rounded text-center mt-3">
                     <Shield className="w-3 h-3 inline-block mr-1 -mt-0.5" />
                     League settings and root members successfully transferred and secured in Firebase.
                 </p>
