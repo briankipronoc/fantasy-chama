@@ -7,6 +7,7 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { useNotifications } from '../components/NotificationProvider';
 import PwaInstallPrompt from '../components/PwaInstallPrompt';
+import LeagueSwitcher from '../components/LeagueSwitcher';
 import { haptics } from '../utils/haptics';
 
 export default function AppLayout() {
@@ -220,6 +221,11 @@ export default function AppLayout() {
                                 </div>
                             </div>
                         )}
+
+                        {/* Active Chama League Switcher in Desktop Sidebar */}
+                        <div className={clsx('mt-3 flex', isSidebarCollapsed ? 'justify-center' : 'w-full')}>
+                            <LeagueSwitcher variant="sidebar" isCollapsed={isSidebarCollapsed} />
+                        </div>
                     </div>
 
                     <div className="flex flex-col space-y-2.5 flex-1 pt-2 relative z-10">

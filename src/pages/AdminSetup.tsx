@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
-import { collection, addDoc, serverTimestamp, writeBatch, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
 import { normalizeKenyanPhone } from '../utils/phone';
 import toast from 'react-hot-toast';
@@ -41,6 +41,20 @@ export default function AdminSetup() {
     const [showPassword, setShowPassword] = useState(false);
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
     const [step1Error, setStep1Error] = useState('');
+    const [isExistingChairman, setIsExistingChairman] = useState(false);
+
+    useEffect(() => {
+        if (auth.currentUser) {
+            setIsExistingChairman(true);
+            if (auth.currentUser.email && !email) setEmail(auth.currentUser.email);
+            if (auth.currentUser.displayName && !fullName) setFullName(auth.currentUser.displayName);
+            const storedPhone = localStorage.getItem('memberPhone');
+            if (storedPhone && !phone) {
+                setPhone(storedPhone);
+                setChairmanPayoutPhone(storedPhone);
+            }
+        }
+    }, []);
 
     // Step 2: League
     const [leagueName, setLeagueName] = useState('');
@@ -182,25 +196,50 @@ export default function AdminSetup() {
 
     const nextStep = async () => {
         if (step === 1) {
-            // Probe if email is already registered BEFORE moving to step 2.
-            // fetchSignInMethodsForEmail is deprecated in Firebase v9+, so we probe
-            // by attempting sign-in with a garbage password and reading the error code:
-            //   auth/wrong-password  → email exists (correct path)
-            //   auth/user-not-found  → email is free (correct path in older SDK)
-            //   auth/invalid-credential → Firebase v10+ combines not-found + wrong-pass
-            //   auth/email-already-in-use → extremely unlikely here but handled later
+            // If already authenticated as this chairman, proceed directly to Step 2
+            if (auth.currentUser && auth.currentUser.email?.toLowerCase() === email.trim().toLowerCase()) {
+                setRole('admin');
+                setStep(2);
+                setStepDirection('forward');
+                return;
+            }
+
             setIsCheckingEmail(true);
             setStep1Error('');
             try {
-                await signInWithEmailAndPassword(auth, email, '__FC_PROBE_PASSWORD_XYZ__');
-                // If this somehow succeeds (impossible with garbage pw), email exists
-                setStep1Error('This email is already registered. Please log in instead.');
+                // If user entered a password, check if it matches their existing Chairman account
+                if (password && password.length >= 6) {
+                    try {
+                        const signInRes = await signInWithEmailAndPassword(auth, email.trim(), password);
+                        if (signInRes.user) {
+                            // Successfully authenticated existing chairman!
+                            setIsExistingChairman(true);
+                            setRole('admin');
+                            setStep(2);
+                            setStepDirection('forward');
+                            setIsCheckingEmail(false);
+                            return;
+                        }
+                    } catch (signInErr: any) {
+                        if (signInErr.code === 'auth/wrong-password') {
+                            setStep1Error('This email is registered to an existing Chairman account. Please enter your existing password to link this new league, or use a different email.');
+                            setIsCheckingEmail(false);
+                            return;
+                        } else if (signInErr.code === 'auth/too-many-requests') {
+                            setStep1Error('Too many attempts. Please wait a moment.');
+                            setIsCheckingEmail(false);
+                            return;
+                        }
+                    }
+                }
+
+                await signInWithEmailAndPassword(auth, email.trim(), '__FC_PROBE_PASSWORD_XYZ__');
+                setStep1Error('This email is registered to a Chairman account. Enter your existing password above to link this new league.');
                 setIsCheckingEmail(false);
                 return;
             } catch (err: any) {
                 if (err.code === 'auth/wrong-password' || err.code === 'auth/too-many-requests') {
-                    // Wrong password means the account EXISTS
-                    setStep1Error('This email is already registered. Please log in instead.');
+                    setStep1Error('This email belongs to an existing Chairman account. Enter your existing password above to link this new league, or use a new email.');
                     setIsCheckingEmail(false);
                     return;
                 } else if (
@@ -208,8 +247,6 @@ export default function AdminSetup() {
                     err.code === 'auth/invalid-credential' ||
                     err.code === 'auth/invalid-email'
                 ) {
-                    // user-not-found / invalid-credential with garbage pw = email is FREE
-                    // invalid-email means the email format is wrong
                     if (err.code === 'auth/invalid-email') {
                         setStep1Error('Please enter a valid email address.');
                         setIsCheckingEmail(false);
@@ -217,7 +254,6 @@ export default function AdminSetup() {
                     }
                     // Email is available — proceed normally
                 } else {
-                    // Network error or unknown — let it proceed; real error surfaces at step 4
                     console.warn('[Step1] Email probe skipped due to network/unknown error:', err.code, err.message);
                 }
             } finally {
@@ -317,18 +353,40 @@ export default function AdminSetup() {
         setSubmitError('');
 
         try {
-            // Write 1: Create Admin User
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            await updateProfile(userCredential.user, { displayName: fullName });
+            // Write 1: Create Admin User or reuse existing Chairman session
+            let chairmanUser = auth.currentUser;
+            if (!chairmanUser || chairmanUser.email?.toLowerCase() !== email.trim().toLowerCase()) {
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+                    chairmanUser = userCredential.user;
+                } catch (authErr: any) {
+                    if (authErr.code === 'auth/email-already-in-use') {
+                        const signInRes = await signInWithEmailAndPassword(auth, email.trim(), password);
+                        chairmanUser = signInRes.user;
+                    } else {
+                        throw authErr;
+                    }
+                }
+            }
+
+            if (fullName && (!chairmanUser.displayName || chairmanUser.displayName !== fullName)) {
+                try {
+                    await updateProfile(chairmanUser, { displayName: fullName });
+                } catch (pErr) {
+                    console.warn('[AdminSetup] updateProfile skipped:', pErr);
+                }
+            }
+
+            const chairmanUid = chairmanUser.uid;
 
             // Write 2: Create the League Document
             const leagueDocRef = await addDoc(collection(db, 'leagues'), {
                 leagueName,
                 fplLeagueId,
                 gameweekStake: monthlyFee,
-                chairmanId: userCredential.user.uid,
+                chairmanId: chairmanUid,
                 chairmanPhone: chairmanPayoutPhone || phone,
-                chairmanEmail: email,
+                chairmanEmail: email.trim(),
                 allowMultipleTeams,
                 startGw: null, // Will be set once we know current GW from FPL (auto-populated on first load)
                 rules: {
@@ -421,14 +479,32 @@ export default function AdminSetup() {
                     eventType: 'operations',
                     title: 'League setup completed',
                     message: `${fullName} created ${leagueName} with ${members.length + 1} members.`,
-                    actorId: userCredential.user.uid,
+                    actorId: chairmanUid,
                     timestamp: serverTimestamp(),
                 }),
             ]);
 
+            // Save to userLeagues so the Chairman's league list updates everywhere immediately
+            if (cleanPhone) {
+                try {
+                    const userLeagueRef = doc(db, 'userLeagues', cleanPhone);
+                    await setDoc(userLeagueRef, {
+                        leagues: arrayUnion({
+                            leagueId,
+                            leagueName,
+                            role: 'admin'
+                        })
+                    }, { merge: true });
+                } catch (ulErr) {
+                    console.warn('[AdminSetup] Failed to sync userLeagues doc:', ulErr);
+                }
+            }
+
             // Bind the chairman's membership doc ID so the app can load their profile
             localStorage.setItem('activeLeagueId', leagueId);
             localStorage.setItem('activeUserId', chairmanRef.id);
+            localStorage.setItem('activeUserRole', 'admin');
+            if (phone) localStorage.setItem('memberPhone', phone);
 
             // Ensure role is set (it was set at step 1 but re-confirm after writes)
             setRole('admin');
@@ -535,10 +611,12 @@ export default function AdminSetup() {
             <div className="absolute inset-0 bg-gradient-to-br from-[#10B981]/5 to-transparent rounded-[2rem] pointer-events-none"></div>
             <div className="text-center mb-6 relative z-10">
                 <h1 className="text-2xl md:text-3xl font-bold mb-1 tracking-tight text-white">
-                    Chairman Sign Up
+                    {isExistingChairman ? "Create Another League" : "Chairman Sign Up"}
                 </h1>
                 <p className="text-gray-400 text-sm">
-                    Create your account to set up your FPL league
+                    {isExistingChairman 
+                        ? "Add another Chama circle under your Chairman account"
+                        : "Create your account to set up your FPL league"}
                 </p>
             </div>
 
@@ -1438,22 +1516,22 @@ export default function AdminSetup() {
                     <div className="bg-red-500/10 border border-red-500/20 text-xs p-4 rounded-xl mt-4">
                         {submitError === 'EMAIL_ALREADY_IN_USE' ? (
                             <div className="space-y-2">
-                                <p className="text-red-400 font-bold">This email address is already registered to an existing chairman account.</p>
-                                <p className="text-gray-400">You cannot create two leagues with the same email. Please either:</p>
+                                <p className="text-amber-400 font-bold">This email belongs to an existing Chairman account.</p>
+                                <p className="text-gray-300 text-xs">Please verify your password in Step 1 to add this new league to your account portfolio.</p>
                                 <div className="flex gap-2 mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setStep(1); setStep1Error('Enter your existing password to link this new league.'); setSubmitError(''); }}
+                                        className="flex-1 bg-[#22c55e] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#1fbb59] transition-all"
+                                    >
+                                        Enter Password in Step 1
+                                    </button>
                                     <button
                                         type="button"
                                         onClick={() => navigate('/login', { state: { isAdminView: true } })}
                                         className="flex-1 bg-[#FBBF24] text-black font-bold py-2.5 rounded-xl text-xs hover:bg-[#eab308] transition-all"
                                     >
                                         Log In as Chairman
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { setStep(1); setStep1Error(''); setSubmitError(''); }}
-                                        className="flex-1 border border-white/10 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-white/5 transition-all"
-                                    >
-                                        Use Different Email
                                     </button>
                                 </div>
                             </div>
