@@ -139,16 +139,54 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const displayNotifs = activeTab === 'personal' ? personalNotifs : systemNotifs;
     const rawFilteredNotifs = displayNotifs.filter((notif) => notifView === 'all' ? true : notificationCategory(notif) === notifView);
 
-    // Smart notification grouping: combine props or repetitive sync notifications for the same recipient & GW into a clean single item
+    // Smart notification grouping: combine props, repetitive sync notifications, and member join events into clean, aggregated items
     const filteredNotifs = useMemo(() => {
         const groupedMap = new Map<string, any>();
         const result: any[] = [];
 
         for (const notif of rawFilteredNotifs) {
             const msg = String(notif?.message || '');
-            // Detect "sent <emoji> props to <Name> for GW<X>" pattern
-            const propsMatch = msg.match(/^(.+?)\s+sent\s+(.+?)\s+props\s+to\s+(.+?)\s+for\s+(GW\d+)/i);
+            const eventType = (notif as any)?.eventType || notif?.type;
+
+            // 1. Group member join / onboarding notifications
+            const isJoinNotif = eventType === 'member_joined' 
+                || (notif as any)?.title === 'New Member Self-Onboarded' 
+                || msg.includes('joined') && (msg.includes('Contributor') || msg.includes('Vault Only') || msg.includes('Spectator') || msg.includes('League'));
             
+            if (isJoinNotif) {
+                const joinMatch = msg.match(/^(.+?)\s+joined\s+(.+?)(?:\s+\((.+?)\))?\./i);
+                const memberName = joinMatch ? joinMatch[1].trim() : (msg.split(' joined')[0] || 'A manager');
+                const groupKey = 'group_members_joined';
+
+                if (groupedMap.has(groupKey)) {
+                    const existing = groupedMap.get(groupKey);
+                    if (!existing.members.includes(memberName)) {
+                        existing.members.push(memberName);
+                    }
+                    existing.allIds.push(notif.id);
+                    existing.count += 1;
+                    if (!notif.readBy?.includes(realActiveUser)) {
+                        existing.isUnread = true;
+                    }
+                } else {
+                    const groupItem = {
+                        ...notif,
+                        isGroup: true,
+                        groupType: 'join',
+                        count: 1,
+                        members: [memberName],
+                        allIds: [notif.id],
+                        isUnread: !notif.readBy?.includes(realActiveUser),
+                        originalMessage: msg
+                    };
+                    groupedMap.set(groupKey, groupItem);
+                    result.push(groupItem);
+                }
+                continue;
+            }
+
+            // 2. Group "sent <emoji> props to <Name> for GW<X>" cheers
+            const propsMatch = msg.match(/^(.+?)\s+sent\s+(.+?)\s+props\s+to\s+(.+?)\s+for\s+(GW\d+)/i);
             if (propsMatch) {
                 const [, sender, emoji, recipient, gw] = propsMatch;
                 const groupKey = `props_${recipient.trim().toLowerCase()}_${gw.trim().toLowerCase()}`;
@@ -171,6 +209,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                     const groupItem = {
                         ...notif,
                         isGroup: true,
+                        groupType: 'props',
                         count: 1,
                         senders: [sender],
                         emojis: [emoji],
@@ -183,28 +222,44 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                     groupedMap.set(groupKey, groupItem);
                     result.push(groupItem);
                 }
-            } else {
-                result.push({
-                    ...notif,
-                    allIds: [notif.id],
-                    isUnread: !notif.readBy?.includes(realActiveUser)
-                });
+                continue;
             }
+
+            // Standalone notifications
+            result.push({
+                ...notif,
+                allIds: [notif.id],
+                isUnread: !notif.readBy?.includes(realActiveUser)
+            });
         }
 
-        // Format grouped props messages
+        // Format grouped messages for clean digestion
         return result.map(item => {
             if (item.isGroup && item.count > 1) {
-                const sendersText = item.senders.length === 2 
-                    ? `${item.senders[0]} and ${item.senders[1]}`
-                    : item.senders.length > 2 
-                        ? `${item.senders[0]}, ${item.senders[1]} +${item.senders.length - 2} others`
-                        : item.senders[0];
-                const emojisJoined = item.emojis.join(' ');
-                return {
-                    ...item,
-                    message: `${sendersText} sent ${emojisJoined} props to ${item.recipient} for ${item.gw}! (${item.count} cheers)`
-                };
+                if (item.groupType === 'join') {
+                    const membersList = item.members.length === 2
+                        ? `${item.members[0]} and ${item.members[1]}`
+                        : item.members.length > 2
+                            ? `${item.members[0]}, ${item.members[1]} +${item.members.length - 2} other managers`
+                            : item.members[0];
+                    return {
+                        ...item,
+                        message: `🎉 ${membersList} self-onboarded to the league! (${item.count} new managers)`
+                    };
+                }
+
+                if (item.groupType === 'props') {
+                    const sendersText = item.senders.length === 2 
+                        ? `${item.senders[0]} and ${item.senders[1]}`
+                        : item.senders.length > 2 
+                            ? `${item.senders[0]}, ${item.senders[1]} +${item.senders.length - 2} others`
+                            : item.senders[0];
+                    const emojisJoined = item.emojis.join(' ');
+                    return {
+                        ...item,
+                        message: `${sendersText} sent ${emojisJoined} props to ${item.recipient} for ${item.gw}! (${item.count} cheers)`
+                    };
+                }
             }
             return item;
         });

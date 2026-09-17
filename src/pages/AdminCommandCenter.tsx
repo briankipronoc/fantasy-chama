@@ -954,19 +954,23 @@ export default function AdminCommandCenter() {
           showProgress: true,
           smoothScroll: true,
           animate: true,
-          overlayOpacity: 0.7,
-          stagePadding: 8,
+          overlayOpacity: 0.75,
+          stagePadding: 12,
+          stageRadius: 16,
           popoverClass: "fc-driver-popover",
+          nextBtnText: "Next →",
+          prevBtnText: "← Back",
+          doneBtnText: "Get Started ✨",
           onNextClick: (_element: any, _step: any, options: any) => {
             const activeIndex = options?.state?.activeIndex ?? 0;
             if (activeIndex === 0) {
               setActiveTab("ledger");
-              window.setTimeout(() => options.driver.moveNext(), 350);
+              window.setTimeout(() => options.driver.moveNext(), 400);
               return;
             }
             if (activeIndex === 1) {
               setActiveTab("finance");
-              window.setTimeout(() => options.driver.moveNext(), 350);
+              window.setTimeout(() => options.driver.moveNext(), 400);
               return;
             }
             options.driver.moveNext();
@@ -975,12 +979,12 @@ export default function AdminCommandCenter() {
             const activeIndex = options?.state?.activeIndex ?? 0;
             if (activeIndex === 1) {
               setActiveTab("dashboard");
-              window.setTimeout(() => options.driver.movePrevious(), 350);
+              window.setTimeout(() => options.driver.movePrevious(), 400);
               return;
             }
             if (activeIndex === 2) {
               setActiveTab("ledger");
-              window.setTimeout(() => options.driver.movePrevious(), 350);
+              window.setTimeout(() => options.driver.movePrevious(), 400);
               return;
             }
             options.driver.movePrevious();
@@ -991,7 +995,7 @@ export default function AdminCommandCenter() {
               popover: {
                 title: "🏠 Overview — Your Command Center",
                 description:
-                  "This is your command center. See the live GW leader, pending payouts, and the full snapshot of league health at a glance. Start here every gameweek.",
+                  "This is your primary command center. Monitor live GW leaders, pending payouts, and the financial health of your chama at a glance.",
                 side: "bottom",
                 align: "start",
               },
@@ -999,19 +1003,19 @@ export default function AdminCommandCenter() {
             {
               element: "#master-ledger",
               popover: {
-                title: "📋 Ledger — Who's Paid?",
+                title: "📋 Master Ledger — Member Balances",
                 description:
-                  "See every member's wallet balance and payment status in real time. Fund wallets manually, mark deposits, and spot red-zone members before it's too late.",
-                side: "bottom",
+                  "See every member's wallet balance, M-Pesa phone number, and contribution status in real time. Record deposits manually or track auto-funded players.",
+                side: "top",
                 align: "start",
               },
             },
             {
               element: "#tour-finance-ops",
               popover: {
-                title: "💸 Finance & Ops — Treasury",
+                title: "💸 Finance & Ops — Chama Vault",
                 description:
-                  "Track your weekly pot, season vault, and M-Pesa payout history. Use Pilot Prefund to seed wallets during testing. This is where the money lives.",
+                  "Track live weekly pots, season jackpot growth, and disburse payouts directly via M-Pesa. Everything financial is protected and verified here.",
                 side: "top",
                 align: "start",
               },
@@ -4106,9 +4110,9 @@ burstFrame();
               </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
-              <div className="xl:col-span-12 flex flex-col gap-6 w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 w-full">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8 w-full">
+              <div className="xl:col-span-12 flex flex-col gap-6 md:gap-8 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-8 w-full">
                   <PotVaultSwapper
                     weeklyPot={weeklyPot}
                     seasonVault={seasonVault}
@@ -4120,7 +4124,7 @@ burstFrame();
                   {/* Total Collections Card */}
                   <div
                     id="tour-ledger"
-                    className="bg-[#161d24] border border-[#10B981]/10 rounded-[2rem] p-6 md:p-8 relative overflow-hidden shadow-lg hover:border-[#10B981]/30 transition-colors w-full min-h-[220px] flex flex-col justify-center"
+                    className="bg-[#161d24] border border-[#10B981]/10 rounded-[2rem] p-6 sm:p-8 md:p-10 relative overflow-hidden shadow-lg hover:border-[#10B981]/30 transition-colors w-full min-h-[240px] flex flex-col justify-center"
                   >
                     <div className="absolute top-6 right-6 opacity-[0.03] pointer-events-none">
                       <Banknote className="w-24 h-24" />
@@ -4154,7 +4158,7 @@ burstFrame();
                 </div>
 
                 {/* Operations Feed — dynamic based on GW state */}
-                <div className="fc-ops-feed w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 md:p-8">
+                <div className="fc-ops-feed w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl p-6 sm:p-8 md:p-10">
                   <div className="flex items-center justify-between mb-5">
                     <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest">
                       <Bell className="w-4 h-4" /> Operations Feed

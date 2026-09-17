@@ -809,14 +809,14 @@ const handleRejectPendingPayout = async (payout: any) => {
     }
 
     return (
-        <div className="fc-finances-page p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white h-full overflow-y-auto relative">
+        <div className="fc-finances-page p-4 sm:p-6 md:p-10 lg:p-12 w-full animate-in fade-in duration-500 pb-10 lg:pb-12 font-sans text-white h-full overflow-y-auto relative">
             <div className="absolute inset-0 pointer-events-none opacity-70">
                 <div className="absolute -top-20 right-[8%] h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
                 <div className="absolute bottom-10 left-[6%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
             </div>
-            <div className="w-full max-w-6xl mx-auto">
+            <div className="w-full max-w-6xl mx-auto space-y-6">
                 <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pt-2 pb-4 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pt-2 pb-4 mb-2">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400 mb-1">Red Zone & Finances</p>
                         <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
@@ -836,8 +836,8 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
-                    <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                        <article className={clsx("fc-card rounded-2xl p-6 border flex flex-col justify-between shadow-md", isSpectator ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
+                    <section className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6 mb-8">
+                        <article className={clsx("fc-card rounded-2xl p-6 sm:p-7 border flex flex-col justify-between shadow-md", isSpectator ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <p className={clsx("text-[10px] font-black uppercase tracking-widest", isSpectator ? "text-indigo-600 dark:text-indigo-300" : "text-emerald-600 dark:text-emerald-300")}>
@@ -912,10 +912,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </section>
                 )}
 
-                {/* Main Treasury Metric Cards (1 Row) */}
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                {/* Main Treasury Metric Cards (1 Row with ample breathing room) */}
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 mb-8">
                     {/* Card 1: Projected Weekly / Season Collection */}
-                    <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-5 sm:p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[185px]">
+                    <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
                         <div className="flex items-center justify-between gap-2 mb-3">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400">
@@ -972,7 +972,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     {/* Card 2: Total Payouts Yielded */}
-                    <div className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 p-5 sm:p-6 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[185px]">
+                    <div className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
                         <div className="flex items-center gap-2.5 mb-3">
                             <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400">
                                 <Trophy className="w-4 h-4" />
@@ -1007,7 +1007,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                         const networkShare = totalCollectedGross * 0.015;
 
                         return (
-                            <div className="fc-card bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-amber-500/25 p-4 sm:p-5 rounded-2xl relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[185px]">
+                            <div className="fc-card bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-amber-500/25 p-5 sm:p-6 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2.5">
                                         <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400 flex-shrink-0">

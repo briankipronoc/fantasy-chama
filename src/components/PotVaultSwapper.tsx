@@ -27,7 +27,7 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
         : 0;
 
     return (
-        <div className="fc-pot-swapper bg-gradient-to-br from-[#1c272c] to-[#11171a] border border-[#FBBF24]/30 rounded-[2rem] p-6 md:p-8 relative overflow-hidden shadow-[0_0_30px_rgba(251,191,36,0.08)] hover:border-[#FBBF24]/50 transition-colors w-full min-h-[220px] h-full flex flex-col justify-between">
+        <div className="fc-pot-swapper bg-gradient-to-br from-[#1c272c] to-[#11171a] border border-[#FBBF24]/30 rounded-[2rem] p-6 sm:p-8 md:p-10 relative overflow-hidden shadow-[0_0_30px_rgba(251,191,36,0.08)] hover:border-[#FBBF24]/50 transition-colors w-full min-h-[240px] h-full flex flex-col justify-between">
             <div className="absolute top-0 right-0 p-6 opacity-10 blur-[20px] pointer-events-none">
                 <div className={`w-32 h-32 rounded-full transition-colors duration-1000 ${showWeeklyPot ? 'bg-[#FBBF24]' : 'bg-[#10B981]'}`}></div>
             </div>
