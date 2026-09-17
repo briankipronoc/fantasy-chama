@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
 import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut } from 'lucide-react';
@@ -9,9 +9,7 @@ import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
 import DeadlineCountdown from './DeadlineCountdown';
 import LeagueSwitcher from './LeagueSwitcher';
-import { auth } from '../firebase';
 import { useTheme } from '../hooks/useTheme';
-import { onAuthStateChanged } from 'firebase/auth';
 import UserAvatar from './UserAvatar';
 import { haptics } from '../utils/haptics';
 
@@ -31,24 +29,11 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const [showConstitution, setShowConstitution] = useState(false);
     const [notifListMotion, setNotifListMotion] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const navigate = useNavigate();
     const location = useLocation();
     const { theme: currentTheme, setTheme } = useTheme();
     const [headerMotion, setHeaderMotion] = useState('');
 
     const currentMember = members.find(m => m.id === realActiveUser) || members.find(m => m.id === activeUserId) || null;
-    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user && user.uid === import.meta.env.VITE_SUPER_ADMIN_UID) {
-                setIsSuperAdmin(true);
-            } else {
-                setIsSuperAdmin(activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID);
-            }
-        });
-        return () => unsubscribe();
-    }, [activeUserId]);
 
     // Unsolicited auto-popup removed — constitution is accessible on-demand or on designated first-login
 
@@ -323,16 +308,6 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
             {/* Row 2: Action Icons neatly right-aligned below the League Switcher (Admins only) */}
             {!shouldHideExtraControls && (
                 <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
-                    {/* Join HQ Trigger */}
-                    {isSuperAdmin && (
-                        <button
-                            onClick={() => navigate('/hq')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/30 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981]/80 transition-all font-bold text-[10px] sm:text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)] active:scale-95"
-                            title="Access Super Admin HQ"
-                        >
-                            <Shield className="w-3.5 h-3.5" /> Join HQ
-                        </button>
-                    )}
 
                     {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
                     <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">

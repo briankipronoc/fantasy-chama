@@ -2196,16 +2196,8 @@ export default function AdminSetup() {
                 </div>
 
                 {/* Step 3 Footer Action Bar */}
-                <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <button
-                        type="button"
-                        onClick={prevStep}
-                        className="w-full sm:w-auto px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Back to Rules
-                    </button>
-
-                    <p className="text-xs text-gray-400 text-center sm:text-left flex-1 px-2">
+                <div className="pt-4 border-t border-white/10 space-y-3">
+                    <p className="text-xs text-gray-400 text-center sm:text-left px-1">
                         {enrollmentMode === 'self' ? (
                             <span className="text-[#10B981] font-medium flex items-center gap-1.5 justify-center sm:justify-start">
                                 <Check className="w-4 h-4" /> Self-onboarding enabled: Share link on WhatsApp after clicking Next.
@@ -2215,24 +2207,25 @@ export default function AdminSetup() {
                         )}
                     </p>
 
-                    <button
-                        type="button"
-                        onClick={nextStep}
-                        disabled={enrollmentMode === 'manual' && members.length < 1}
-                        className="w-full sm:w-auto px-8 bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-bold text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] cursor-pointer disabled:opacity-50"
-                    >
-                        {enrollmentMode === 'self' ? (
-                            <>
-                                <span>Next: Review & Share Link</span>
-                                <ArrowRight className="w-5 h-5" />
-                            </>
-                        ) : (
-                            <>
-                                <span>Next: Confirm League</span>
-                                <ArrowRight className="w-5 h-5" />
-                            </>
-                        )}
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={prevStep}
+                            className="px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shrink-0"
+                        >
+                            <ArrowLeft className="w-4 h-4" /> Back
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={nextStep}
+                            disabled={enrollmentMode === 'manual' && members.length < 1}
+                            className="flex-1 bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-black text-sm sm:text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_20px_rgba(34,197,94,0.2)] cursor-pointer disabled:opacity-50"
+                        >
+                            <span>{enrollmentMode === 'self' ? 'Next: Review & Share Link' : 'Next: Confirm League'}</span>
+                            <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2487,20 +2480,20 @@ export default function AdminSetup() {
                 )}
 
                 {/* Step 4 Action Bar with Refined Gold Activate Button */}
-                <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center gap-3">
+                <div className="pt-4 border-t border-white/10 flex items-center gap-3">
                     <button
                         type="button"
                         onClick={prevStep}
                         disabled={isSubmitting}
-                        className="w-full sm:w-auto px-5 py-3.5 rounded-xl border border-white/15 hover:border-white/30 bg-white/5 hover:bg-white/10 text-white font-medium text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        className="px-5 py-3.5 rounded-xl border border-white/15 hover:border-white/30 bg-white/5 hover:bg-white/10 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                        <ArrowLeft className="w-4 h-4" /> Back to Members
+                        <ArrowLeft className="w-4 h-4" /> Back
                     </button>
                     <button
                         type="button"
                         onClick={handleConfirmLeague}
                         disabled={isSubmitting}
-                        className="flex-1 w-full bg-[#FBBF24] hover:bg-[#eab308] active:scale-[0.99] text-[#0A0E17] font-semibold text-sm sm:text-base py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(251,191,36,0.25)] hover:shadow-[0_0_25px_rgba(251,191,36,0.35)] disabled:opacity-50 disabled:cursor-wait cursor-pointer"
+                        className="flex-1 bg-[#FBBF24] hover:bg-[#eab308] text-[#0A0E17] font-black text-sm sm:text-base py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_0_20px_rgba(251,191,36,0.25)] hover:shadow-[0_0_25px_rgba(251,191,36,0.35)] disabled:opacity-50 disabled:cursor-wait cursor-pointer"
                     >
                         {isSubmitting ? (
                             <>
@@ -2510,7 +2503,8 @@ export default function AdminSetup() {
                         ) : (
                             <>
                                 <Check className="w-4 h-4 text-black" />
-                                <span>Activate League & Proceed to Share Link</span>
+                                <span>Activate League & Share Link</span>
+                                <ArrowRight className="w-4 h-4" />
                             </>
                         )}
                     </button>

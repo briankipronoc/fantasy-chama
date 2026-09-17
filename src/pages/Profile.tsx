@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -16,10 +17,24 @@ import DocsModal from '../components/DocsModal';
 export default function Profile() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id'; // Fallback for MVP
+    const navigate = useNavigate();
     const role = useStore(state => state.role);
     const members = useStore(state => state.members);
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
+
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user && user.uid === import.meta.env.VITE_SUPER_ADMIN_UID) {
+                setIsSuperAdmin(true);
+            } else {
+                setIsSuperAdmin(activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID);
+            }
+        });
+        return () => unsubscribe();
+    }, [activeUserId]);
 
     // Form states
     const [displayName, setDisplayName] = useState('');
@@ -768,7 +783,7 @@ export default function Profile() {
                                 </div>
                             </div>
                         )}
-                        <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
                             <div>
                                 <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-white">
                                     <User className="w-5 h-5 text-[#10B981]" /> Personal Details
@@ -777,6 +792,16 @@ export default function Profile() {
                                     Update the member identity that powers invites, payouts, and FPL matching.
                                 </p>
                             </div>
+                            {isSuperAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/hq')}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#10B981]/15 border border-[#10B981]/40 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981] transition-all font-black text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer"
+                                    title="Access Super Admin HQ"
+                                >
+                                    <Shield className="w-3.5 h-3.5" /> Join HQ
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-4 items-stretch">
@@ -932,39 +957,51 @@ export default function Profile() {
                     {renderActiveMembersStrip('w-full')}
 
                     {isAdminView && (
-                        <div className="fc-card w-full bg-gradient-to-br from-[#121920] to-[#0b1014] border border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
+                        <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#121920] dark:to-[#0b1014] border border-slate-200 dark:border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-slate-500/10 blur-[90px] pointer-events-none"></div>
                             
                             <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
                                 <div className="flex items-center gap-2.5">
                                     <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.2)]">
-                                        <Activity className="w-4 h-4 text-emerald-400" />
+                                        <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <div>
-                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
+                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
                                             Account & Session Details
                                         </h2>
-                                        <p className="text-[10px] text-gray-500 font-medium">Your login credentials and league membership details</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Your login credentials and league membership details</p>
                                     </div>
                                 </div>
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Active Session
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    {isSuperAdmin && (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/hq')}
+                                            className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/15 border border-emerald-500/40 rounded-full text-emerald-700 dark:text-emerald-400 hover:text-white hover:bg-emerald-600 transition-all font-black text-[10px] uppercase tracking-widest shadow-[0_0_12px_rgba(16,185,129,0.15)] active:scale-95 cursor-pointer"
+                                            title="Access Super Admin HQ"
+                                        >
+                                            <Shield className="w-3.5 h-3.5" /> Join HQ
+                                        </button>
+                                    )}
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Active Session
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                 {/* Account ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-slate-400/30 transition-all">
+                                <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-black/30 p-3.5 flex flex-col justify-between hover:border-slate-400/40 dark:hover:border-slate-400/30 transition-all shadow-xs">
                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Fingerprint className="w-3.5 h-3.5 text-slate-400" /> Account ID
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                            <Fingerprint className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Account ID
                                         </span>
-                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded border border-slate-500/20">Session</span>
+                                        <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-500/10 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-500/20">Session</span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                    <div className="flex items-center justify-between gap-2 bg-slate-100/90 dark:bg-[#090d11] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
                                             {auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}
                                         </span>
                                         {auth.currentUser?.uid && (
@@ -974,26 +1011,26 @@ export default function Profile() {
                                                     navigator.clipboard.writeText(auth.currentUser?.uid || '');
                                                     toast.success('Account ID copied!');
                                                 }}
-                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
                                                 title="Copy Account ID"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Your active authenticated user ID</p>
+                                    <p className="text-[9px] text-slate-500 dark:text-gray-400 mt-2 font-medium">Your active authenticated user ID</p>
                                 </div>
 
                                 {/* Chairman ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-amber-500/30 transition-all">
+                                <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-black/30 p-3.5 flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs">
                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Chairman ID
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                            <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Chairman ID
                                         </span>
-                                        <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">Primary</span>
+                                        <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/15 dark:bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30 dark:border-amber-500/20">Primary</span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                    <div className="flex items-center justify-between gap-2 bg-slate-100/90 dark:bg-[#090d11] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
                                             {chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}
                                         </span>
                                         {chairmanId && (
@@ -1003,31 +1040,31 @@ export default function Profile() {
                                                     navigator.clipboard.writeText(chairmanId || '');
                                                     toast.success('Chairman ID copied!');
                                                 }}
-                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
                                                 title="Copy Chairman ID"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">League Chairman administrator ID</p>
+                                    <p className="text-[9px] text-slate-500 dark:text-gray-400 mt-2 font-medium">League Chairman administrator ID</p>
                                 </div>
 
                                 {/* Co-Chair ID */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/30 transition-all">
+                                <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/40 transition-all shadow-xs">
                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" /> Co-Chair ID
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Co-Chair ID
                                         </span>
                                         <span className={clsx(
                                             "text-[9px] font-bold px-1.5 py-0.5 rounded border",
-                                            coAdminId ? "text-blue-400 bg-blue-500/10 border-blue-500/20" : "text-gray-500 bg-white/5 border-white/10"
+                                            coAdminId ? "text-blue-700 dark:text-blue-400 bg-blue-500/15 dark:bg-blue-500/10 border-blue-500/30 dark:border-blue-500/20" : "text-slate-500 dark:text-gray-500 bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10"
                                         )}>
                                             {coAdminId ? "Dual-Sign" : "Unset"}
                                         </span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
-                                        <span className="text-xs font-mono font-bold text-slate-200">
+                                    <div className="flex items-center justify-between gap-2 bg-slate-100/90 dark:bg-[#090d11] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                                        <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
                                             {coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}
                                         </span>
                                         {coAdminId && (
@@ -1037,46 +1074,46 @@ export default function Profile() {
                                                     navigator.clipboard.writeText(coAdminId || '');
                                                     toast.success('Co-Chair ID copied!');
                                                 }}
-                                                className="p-1 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
+                                                className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
                                                 title="Copy Co-Chair ID"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Secondary payout approver ID</p>
+                                    <p className="text-[9px] text-slate-500 dark:text-gray-400 mt-2 font-medium">Secondary payout approver ID</p>
                                 </div>
 
                                 {/* Your Role */}
-                                <div className="rounded-2xl border border-white/8 bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/30 transition-all">
+                                <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/40 transition-all shadow-xs">
                                     <div className="flex items-center justify-between gap-2 mb-2">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                            <Key className="w-3.5 h-3.5 text-emerald-400" /> Your Role
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                            <Key className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Your Role
                                         </span>
-                                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">Verified</span>
+                                        <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 dark:bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30 dark:border-emerald-500/20">Verified</span>
                                     </div>
-                                    <div className="flex items-center justify-center gap-2 bg-[#090d11] px-2.5 py-2 rounded-xl border border-white/5">
+                                    <div className="flex items-center justify-center gap-2 bg-slate-100/90 dark:bg-[#090d11] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-white/5">
                                         <div className="flex items-center gap-2 text-xs font-black">
                                             <span className={clsx(
                                                 "px-2 py-0.5 rounded-lg border text-[11px]",
                                                 chairmanId && auth.currentUser?.uid === chairmanId
-                                                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                                                    : "text-gray-500 border-transparent"
+                                                    ? "bg-amber-500/15 border-amber-500/40 text-amber-800 dark:text-amber-300"
+                                                    : "text-slate-400 dark:text-gray-500 border-transparent"
                                             )}>
                                                 Chair
                                             </span>
-                                            <span className="text-gray-600 font-normal">•</span>
+                                            <span className="text-slate-400 dark:text-gray-600 font-normal">•</span>
                                             <span className={clsx(
                                                 "px-2 py-0.5 rounded-lg border text-[11px]",
                                                 coAdminId && auth.currentUser?.uid === coAdminId
-                                                    ? "bg-blue-500/15 border-blue-500/30 text-blue-300"
-                                                    : "text-gray-500 border-transparent"
+                                                    ? "bg-blue-500/15 border-blue-500/40 text-blue-800 dark:text-blue-300"
+                                                    : "text-slate-400 dark:text-gray-500 border-transparent"
                                             )}>
                                                 Co-Admin
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-[9px] text-gray-500 mt-2 font-medium">Dual-governance permission status for this session</p>
+                                    <p className="text-[9px] text-slate-500 dark:text-gray-400 mt-2 font-medium">Dual-governance permission status for this session</p>
                                 </div>
                             </div>
                         </div>

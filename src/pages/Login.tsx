@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown } from 'lucide-react';
+import { Shield, User, ArrowRight, ArrowLeft, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -1378,18 +1378,18 @@ export default function Login() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2.5 pt-2">
+                                    <div className="flex items-center gap-3 pt-3 border-t border-white/10">
                                         <button
                                             type="button"
                                             onClick={() => setOnboardStep(1)}
-                                            className="px-4 py-3 rounded-xl border border-white/10 hover:border-white/20 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all"
+                                            className="px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
                                         >
-                                            ← Back
+                                            <ArrowLeft className="w-3.5 h-3.5" /> Back
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setOnboardStep(3)}
-                                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-[#0A0E17] font-black text-xs uppercase tracking-wider py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+                                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-[#0A0E17] font-black text-xs sm:text-sm uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
                                         >
                                             <span>Next: Review & Confirm</span>
                                             <ArrowRight className="w-4 h-4" />
@@ -1468,23 +1468,23 @@ export default function Login() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2.5 pt-2">
+                                    <div className="flex items-center gap-3 pt-3 border-t border-white/10">
                                         <button
                                             type="button"
                                             onClick={() => setOnboardStep(2)}
-                                            className="px-4 py-3.5 rounded-xl border border-white/10 hover:border-white/20 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all"
+                                            className="px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
                                         >
-                                            ← Back
+                                            <ArrowLeft className="w-3.5 h-3.5" /> Back
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={isOnboardingSubmitting}
-                                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-[#0A0E17] font-black text-sm py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-95 disabled:opacity-50 cursor-pointer"
+                                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-[#0A0E17] font-black text-xs sm:text-sm uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-95 disabled:opacity-50 cursor-pointer"
                                         >
                                             {isOnboardingSubmitting ? (
                                                 <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Activating Profile...</>
                                             ) : (
-                                                <>Complete Onboarding & Enter League <ArrowRight className="w-4 h-4" /></>
+                                                <><span>Complete & Enter League</span> <ArrowRight className="w-4 h-4" /></>
                                             )}
                                         </button>
                                     </div>

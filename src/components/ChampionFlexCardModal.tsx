@@ -98,74 +98,87 @@ export default function ChampionFlexCardModal({
     },
   ];
 
-  const getGameweekBanters = (name: string, pts: string | number): BanterItem[] => [
-    {
-      id: 'official',
-      label: '🏆 Official Result',
-      title: 'Official Winner Announcement',
-      text: [
-        `🏆 *${leagueName} — GW${gameweek} Champion!*`,
-        `🥇 *${name}* ${teamName ? `(${teamName})` : ''} tops with *${pts} pts*!`,
-        `💰 Pot Secured: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`,
-        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-      ].join('\n'),
-    },
-    {
-      id: 'mwizi',
-      label: '🥷 Mwizi wa Points',
-      title: 'Points Master',
-      text: [
-        `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
-        `Hii wiki *${name}* ndiye mwizi wa points (*${pts} pts*) 😂!`,
-        `💰 Pot: *KES ${amountWon.toLocaleString()}* safi kwa wallet. Chezeni chini wazee! 🏁`,
-        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-      ].join('\n'),
-    },
-    {
-      id: 'goat',
-      label: '🐐 Mapema Ndio Best',
-      title: 'Class is Permanent',
-      text: [
-        `🏆 *GW${gameweek} Champion — ${leagueName}* 🐐`,
-        `Mapema ndio best! Form is temporary, class is permanent.`,
-        `🥇 *${name}* (*${pts} pts*) | Payout: *KES ${amountWon.toLocaleString()}* 🎉`,
-        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-      ].join('\n'),
-    },
-    {
-      id: 'respect',
-      label: '☕ Respect & Chai',
-      title: 'Cool & Collected',
-      text: [
-        `🏆 *${leagueName} — Gameweek ${gameweek}* ☕`,
-        `Champion: *${name}* 🥇 (*${pts} pts*) | Pot: *KES ${amountWon.toLocaleString()}*`,
-        `Nilikuwa nawangoja lakini hamkufika podium leo. Tutaonana next GW! 🤝⚽`,
-        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-      ].join('\n'),
-    },
-    {
-      id: 'pep',
-      label: '🧠 Tactical Masterclass',
-      title: 'Pep Guardiola wa Chama',
-      text: [
-        `🏆 *${leagueName} Tactical Masterclass — GW${gameweek}* 🧠⚽`,
-        `Mnaniita Pep wa Chama kuanzia leo! 🥇 *${name}* (*${pts} pts*)`,
-        `Pot Won: *KES ${amountWon.toLocaleString()}* 💸. Classes zinaanza Monday! 📚`,
-        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-      ].join('\n'),
-    },
-    {
-      id: 'lunch',
-      label: '🥩 Asanteni kwa Lunch',
-      title: 'Pot ya Wiki',
-      text: [
-        `🏆 *${leagueName} — GW${gameweek} Settled!* 🥩`,
-        `Asanteni sana wadau kwa kunilipia lunch na fuel ya wiki! 😂`,
-        `Winner: *${name}* (*${pts} pts*) | Pot: *KES ${amountWon.toLocaleString()}*`,
-        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-      ].join('\n'),
-    },
-  ];
+  const getGameweekBanters = (name: string, pts: string | number): BanterItem[] => {
+    const isCashPot = amountWon > 0;
+    return [
+      {
+        id: 'official',
+        label: '🏆 Official Result',
+        title: 'Official Winner Announcement',
+        text: [
+          `🏆 *${leagueName} — GW${gameweek} Champion!*`,
+          `🥇 *${name}* ${teamName ? `(${teamName})` : ''} tops with *${pts} pts*!`,
+          isCashPot
+            ? `💰 Pot Secured: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`
+            : `👑 Gameweek MVP & Bragging Rights Secured! (Season Grand Vault Contender 🏆)`,
+          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
+        id: 'mwizi',
+        label: '🥷 Mwizi wa Points',
+        title: 'Points Master',
+        text: [
+          `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
+          `Hii wiki *${name}* ndiye mwizi wa points (*${pts} pts*) 😂!`,
+          isCashPot
+            ? `💰 Pot: *KES ${amountWon.toLocaleString()}* safi kwa wallet. Chezeni chini wazee! 🏁`
+            : `👑 Bragging rights safi kwa kibindoni. Chezeni chini wazee! 🏁`,
+          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
+        id: 'goat',
+        label: '🐐 Mapema Ndio Best',
+        title: 'Class is Permanent',
+        text: [
+          `🏆 *GW${gameweek} Champion — ${leagueName}* 🐐`,
+          `Mapema ndio best! Form is temporary, class is permanent.`,
+          isCashPot
+            ? `🥇 *${name}* (*${pts} pts*) | Payout: *KES ${amountWon.toLocaleString()}* 🎉`
+            : `🥇 *${name}* (*${pts} pts*) | Gameweek MVP & King of the Week 👑🎉`,
+          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
+        id: 'respect',
+        label: '☕ Respect & Chai',
+        title: 'Cool & Collected',
+        text: [
+          `🏆 *${leagueName} — Gameweek ${gameweek}* ☕`,
+          `Champion: *${name}* 🥇 (*${pts} pts*) | ${isCashPot ? `Pot: *KES ${amountWon.toLocaleString()}*` : 'Gameweek MVP 👑'}`,
+          `Nilikuwa nawangoja lakini hamkufika podium leo. Tutaonana next GW! 🤝⚽`,
+          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
+        id: 'pep',
+        label: '🧠 Tactical Masterclass',
+        title: 'Pep Guardiola wa Chama',
+        text: [
+          `🏆 *${leagueName} Tactical Masterclass — GW${gameweek}* 🧠⚽`,
+          `Mnaniita Pep wa Chama kuanzia leo! 🥇 *${name}* (*${pts} pts*)`,
+          isCashPot
+            ? `Pot Won: *KES ${amountWon.toLocaleString()}* 💸. Classes zinaanza Monday! 📚`
+            : `Season Vault inatambua masterclass hii! Classes zinaanza Monday! 📚`,
+          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
+        id: 'lunch',
+        label: isCashPot ? '🥩 Asanteni kwa Lunch' : '👑 Supa MVP',
+        title: isCashPot ? 'Pot ya Wiki' : 'Supremacy ya Wiki',
+        text: [
+          `🏆 *${leagueName} — GW${gameweek} Settled!* ${isCashPot ? '🥩' : '👑'}`,
+          isCashPot
+            ? `Asanteni sana wadau kwa kunilipia lunch na fuel ya wiki! 😂`
+            : `Mbio za Season Grand Vault zinaongozwa na wakali! Respect the leader! 👑`,
+          `Winner: *${name}* (*${pts} pts*) | ${isCashPot ? `Pot: *KES ${amountWon.toLocaleString()}*` : 'Status: GW MVP 👑'}`,
+          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+        ].join('\n'),
+      },
+    ];
+  };
 
   useEffect(() => {
     const initialBanters = isSideBet
@@ -322,15 +335,28 @@ export default function ChampionFlexCardModal({
 
       ctx.fillStyle = '#FBBF24';
       ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText(isSideBet ? 'DUEL POT CLAIMED' : 'POT SECURED', 745, 600);
+      ctx.fillText(
+        isSideBet ? 'DUEL POT CLAIMED' : (amountWon > 0 ? 'POT SECURED' : 'GAMEWEEK HONOR'),
+        745,
+        600
+      );
 
       ctx.fillStyle = '#FDE68A';
-      ctx.font = '900 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText(`KES ${amountWon.toLocaleString()}`, 745, 685);
+      if (amountWon > 0) {
+        ctx.font = '900 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(`KES ${amountWon.toLocaleString()}`, 745, 685);
+      } else {
+        ctx.font = '900 46px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText('GW MVP 👑', 745, 685);
+      }
 
       ctx.fillStyle = '#F59E0B';
       ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText('AUTO-DISBURSED M-PESA', 745, 715);
+      ctx.fillText(
+        amountWon > 0 ? 'AUTO-DISBURSED M-PESA' : 'SEASON VAULT CONTENDER',
+        745,
+        715
+      );
 
       // 9. League Code Pill if available
       if (leagueCode) {

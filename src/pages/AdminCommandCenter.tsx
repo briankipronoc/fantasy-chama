@@ -3239,7 +3239,7 @@ burstFrame();
             subtitle="Chairman Hub"
           />
 
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pt-2 pb-4">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 pt-1 pb-2">
             <div>
               <h2 className="fc-dashboard-header-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
                 <ShieldCheck className="w-7 h-7 text-[#FBBF24]" /> {tabCopy.dashboard.title}
@@ -3250,17 +3250,17 @@ burstFrame();
             </div>
             
             {!isCoChairSession && (
-              <div className="flex flex-wrap gap-3 w-full lg:w-auto justify-start lg:justify-end items-end">
+              <div className="flex flex-wrap gap-2.5 w-full lg:w-auto justify-start lg:justify-end items-end">
                 <button
                   id="tour-add-member"
                   onClick={openAddMemberModal}
-                  className="fc-add-member-btn flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 text-slate-900 dark:text-white text-sm font-bold rounded-xl transition-colors shrink-0 shadow-sm"
+                  className="fc-add-member-btn flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-white dark:hover:bg-white/10 text-slate-900 dark:text-white text-xs sm:text-sm font-bold rounded-xl transition-colors shrink-0 shadow-sm"
                 >
                   <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
                 </button>
                 <button
                   onClick={handleBulkNudge}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(239,68,68,0.28)] shrink-0"
+                  className="flex items-center justify-center gap-2 px-3.5 py-2 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(239,68,68,0.28)] shrink-0"
                 >
                   <Megaphone className="w-4 h-4" /> Bulk Nudge
                 </button>
@@ -3270,7 +3270,7 @@ burstFrame();
                     setCleanSlateConfirmText('');
                     setShowCleanSlateModal(true);
                   }}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-xl transition-all shrink-0 cursor-pointer"
                   title="Clean Slate / Reset Season Wallets & Ledger"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-red-400" /> Clean Slate
@@ -3282,33 +3282,43 @@ burstFrame();
 
           {/* Main Tab Navigation */}
           <div
-            className="flex overflow-x-auto gap-2 pb-2 mb-6 border-b border-slate-200 dark:border-white/5"
-            style={{ scrollbarWidth: "none" }}
+            className="flex items-center justify-between gap-2 pb-1 mb-3 border-b border-slate-200 dark:border-white/5"
           >
-            {["dashboard", "ledger", "finance"].map((tab) => (
+            <div className="flex overflow-x-auto gap-2" style={{ scrollbarWidth: "none" }}>
+              {["dashboard", "ledger", "finance"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab as any)}
+                  className={clsx(
+                    "px-3.5 py-1.5 font-black uppercase tracking-widest text-[10px] sm:text-xs transition-colors whitespace-nowrap",
+                    activeTab === tab
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-[#10B981] border-b-2 border-emerald-500 dark:border-[#10B981]"
+                      : "text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 border-b-2 border-transparent",
+                  )}
+                >
+                  {tab === "dashboard"
+                    ? "Overview"
+                    : tab === "ledger"
+                      ? "Ledger & Access"
+                      : "Finance & Ops"}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === "finance" && !isCoChairSession && (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={clsx(
-                  "px-4 py-2 font-black uppercase tracking-widest text-[10px] sm:text-xs transition-colors whitespace-nowrap",
-                  activeTab === tab
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-[#10B981] border-b-2 border-emerald-500 dark:border-[#10B981]"
-                    : "text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 border-b-2 border-transparent",
-                )}
+                onClick={openPrefundModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-xs font-bold rounded-xl transition-colors cursor-pointer shrink-0"
               >
-                {tab === "dashboard"
-                  ? "Overview"
-                  : tab === "ledger"
-                    ? "Ledger & Access"
-                    : "Finance & Ops"}
+                <Banknote className="w-3.5 h-3.5" /> Pilot Prefund
               </button>
-            ))}
+            )}
           </div>
 
           <div
             className={
               activeTab === "dashboard"
-                ? "block space-y-6 animate-in fade-in duration-500"
+                ? "block space-y-4 animate-in fade-in duration-500"
                 : "hidden"
             }
           >
@@ -3514,9 +3524,9 @@ burstFrame();
                       )}
                     </div>
 
-                    {/* Right: Projected Pot + Action Buttons — perfectly aligned across screen sizes */}
-                    <div className="flex flex-col sm:flex-row xl:flex-col sm:items-center xl:items-end justify-between gap-3 pt-3 xl:pt-0 border-t xl:border-t-0 xl:border-l xl:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
-                      <div className="rounded-2xl px-5 py-3 border text-left sm:text-right xl:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs w-full sm:w-auto">
+                    {/* Right: Projected Pot + Action Buttons — Resolve placed directly below Projected Cash Pot with matching length */}
+                    <div className="flex flex-col gap-2.5 w-full sm:w-56 md:w-64 pt-3 xl:pt-0 border-t xl:border-t-0 xl:border-l xl:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
+                      <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-left sm:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5">
                           Projected Cash Pot
                         </p>
@@ -3528,36 +3538,35 @@ burstFrame();
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
-                        {leaderName && (
-                          <button
-                            onClick={() => {
-                              haptics.celebrate();
-                              setShowChairmanFlexModal(true);
-                            }}
-                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                            title="Generate Champion Victory Card for WhatsApp"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                            <span>Victory Card</span>
-                          </button>
+                      {/* Resolve button directly below Projected Cash Pot — matching width */}
+                      <button
+                        id="tour-resolve-gw"
+                        onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                        disabled={isResolved}
+                        className={clsx(
+                          "w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
+                          isResolved
+                            ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
+                            : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
                         )}
+                      >
+                        <Trophy className="w-3.5 h-3.5" />
+                        <span>{isResolved ? "Resolved ✓" : "Resolve"}</span>
+                      </button>
 
+                      {leaderName && (
                         <button
-                          id="tour-resolve-gw"
-                          onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                          disabled={isResolved}
-                          className={clsx(
-                            "flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
-                            isResolved
-                              ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
-                              : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
-                          )}
+                          onClick={() => {
+                            haptics.celebrate();
+                            setShowChairmanFlexModal(true);
+                          }}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                          title="Generate Champion Victory Card for WhatsApp"
                         >
-                          <Trophy className="w-3.5 h-3.5" />
-                          <span>{isResolved ? "Resolved ✓" : "Resolve"}</span>
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>Victory Card</span>
                         </button>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -4176,17 +4185,7 @@ burstFrame();
           }
         >
           {/* Generate League Access Section */}
-          <section className="fc-vault-explainer space-y-6 px-1 sm:px-3">
-            {!isCoChairSession && (
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={openPrefundModal}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-xs md:text-sm font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  <Banknote className="w-4 h-4" /> Pilot Prefund
-                </button>
-              </div>
-            )}
+          <section className="fc-vault-explainer space-y-4 px-1 sm:px-3">
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-8 w-full">
               <div className="xl:col-span-12 flex flex-col gap-5 md:gap-8 w-full">
@@ -4498,12 +4497,12 @@ burstFrame();
         <div
           className={
             activeTab === "ledger"
-              ? "block space-y-6 animate-in fade-in duration-500"
+              ? "block space-y-4 animate-in fade-in duration-500"
               : "hidden"
           }
         >
           {/* The Master Ledger Section */}
-          <div className="w-full space-y-6">
+          <div className="w-full space-y-4">
             {/* Quick Ledger Overview Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="fc-card rounded-2xl p-4 sm:p-5 border border-amber-300/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex items-center justify-between shadow-md">

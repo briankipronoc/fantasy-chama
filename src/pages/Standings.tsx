@@ -249,20 +249,37 @@ export default function Standings() {
                         ...Array.from(pendingForfeited),
                     ]);
 
+                    const effectiveStartGw = Math.max(1, Number(leagueStartGw > 1 ? leagueStartGw : ((leagueRules as any)?.startGw || currentEvent || 1)));
+
                     const ledger = Array.from({ length: 38 }, (_, index) => {
                         const gw = index + 1;
+                        // 1. Approved winner in recorded transactions
                         if (winnerByGw.has(gw)) {
                             return winnerByGw.get(gw)!;
                         }
-                        const isForfeited = effectiveForfeited.has(gw) || (leagueStartGw > 1 && gw < leagueStartGw);
-                        if (isForfeited) {
+
+                        // 2. Pre-league gameweeks (prior to league officially starting) -> strictly voided
+                        if (effectiveStartGw > 1 && gw < effectiveStartGw) {
                             return {
                                 gw,
-                                winnerName: 'Voided / Skipped',
+                                winnerName: 'Voided',
+                                winnerTeam: 'Pre-League',
+                                isVoided: true,
+                                isPreLeague: true,
+                            };
+                        }
+
+                        // 3. Explicitly forfeited gameweeks
+                        if (effectiveForfeited.has(gw)) {
+                            return {
+                                gw,
+                                winnerName: 'Voided',
                                 winnerTeam: 'Round Unplayed',
                                 isVoided: true,
                             };
                         }
+
+                        // 4. Pending payouts awaiting co-chair or chairman approval
                         if (pendingPayoutsMap.has(gw)) {
                             const p = pendingPayoutsMap.get(gw);
                             return {
@@ -273,17 +290,44 @@ export default function Standings() {
                                 isAwaitingPayment: true,
                             };
                         }
-                        // If GW completed (e.g. GW 4 that ended yesterday) and top scorer is known
-                        if (topGwMember && Number(topGwMember.event_total) > 0 && (gw === 4 || (currentEvent && gw < currentEvent))) {
+
+                        // 5. Current active live gameweek
+                        if (currentEvent && gw === currentEvent) {
+                            if (topGwMember && Number(topGwMember.event_total) > 0) {
+                                return {
+                                    gw,
+                                    winnerName: topGwMember.player_name,
+                                    winnerTeam: topGwMember.entry_name || 'Live Leader',
+                                    amount: estimatedPot,
+                                    isCurrentLive: true,
+                                };
+                            }
                             return {
                                 gw,
-                                winnerName: topGwMember.player_name,
-                                winnerTeam: topGwMember.entry_name || 'Awaiting Payment',
-                                amount: estimatedPot,
-                                isAwaitingPayment: true,
+                                winnerName: 'In Progress',
+                                winnerTeam: 'Live Gameweek',
+                                isCurrentLive: true,
                             };
                         }
-                        return { gw, winnerName: 'Pending' };
+
+                        // 6. Past gameweeks that already concluded but were never resolved or had insufficient players -> Skipped
+                        if (currentEvent && gw < currentEvent) {
+                            return {
+                                gw,
+                                winnerName: 'Skipped',
+                                winnerTeam: 'Not resolved / Insufficient players',
+                                isVoided: true,
+                                isSkipped: true,
+                            };
+                        }
+
+                        // 7. Future gameweeks
+                        return {
+                            gw,
+                            winnerName: 'Upcoming',
+                            winnerTeam: 'Pending kickoff',
+                            isUpcoming: true,
+                        };
                     });
                     setGwWinnersLedger(ledger);
                 } catch (txErr: any) {
@@ -947,9 +991,12 @@ export default function Standings() {
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
                             {gwWinnersLedger.map((item: any) => {
                                 const isVoided = Boolean(item.isVoided);
+                                const isPreLeague = Boolean(item.isPreLeague);
+                                const isSkipped = Boolean(item.isSkipped);
                                 const isAwaitingPayment = Boolean(item.isAwaitingPayment);
-                                const resolved = (item.winnerName !== 'Pending' && !isVoided) || isAwaitingPayment;
                                 const isCurrentGw = currentEvent === item.gw;
+                                const isCurrentLive = Boolean(item.isCurrentLive) || isCurrentGw;
+                                const resolved = (item.winnerName !== 'Upcoming' && item.winnerName !== 'In Progress' && !isVoided) || isAwaitingPayment;
                                 return (
                                     <div
                                         key={item.gw}
@@ -960,15 +1007,23 @@ export default function Standings() {
                                                 ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
                                                 : isAwaitingPayment
                                                 ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                                : isVoided
+                                                : isPreLeague
+                                                ? 'border-slate-500/25 bg-slate-500/8 opacity-75'
+                                                : isVoided || isSkipped
                                                 ? 'border-amber-500/25 bg-amber-500/8'
+                                                : isCurrentGw
+                                                ? 'border-[#FBBF24]/50 bg-[#FBBF24]/10'
                                                 : 'border-white/10 bg-black/25',
                                             isCurrentGw && 'ring-2 ring-[#FBBF24]/55'
                                         )}
                                     >
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                             <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">GW {item.gw}</p>
-                                            {isVoided ? (
+                                            {isPreLeague ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-400 border border-slate-500/30">
+                                                    Voided
+                                                </span>
+                                            ) : isVoided || isSkipped ? (
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
                                                     Skipped
                                                 </span>
@@ -980,13 +1035,30 @@ export default function Standings() {
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                                     Paid ✓
                                                 </span>
-                                            ) : null}
+                                            ) : isCurrentLive ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-[#FBBF24] border border-[#FBBF24]/40">
+                                                    Live
+                                                </span>
+                                            ) : (
+                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-gray-500 border border-white/10">
+                                                    Upcoming
+                                                </span>
+                                            )}
                                         </div>
-                                        <p className={clsx('text-xs font-black truncate', resolved ? 'text-white' : isVoided ? 'text-amber-300' : 'text-gray-500')}>
+                                        <p className={clsx(
+                                            'text-xs font-black truncate',
+                                            resolved ? 'text-white' : isPreLeague ? 'text-slate-400' : isVoided || isSkipped ? 'text-amber-300' : isCurrentGw ? 'text-[#FBBF24]' : 'text-gray-500'
+                                        )}>
                                             {item.winnerName}
                                         </p>
                                         <p className="text-[10px] text-gray-400 truncate mt-1">
-                                            {isVoided ? 'No fees deducted' : isAwaitingPayment ? `${item.winnerTeam || 'Awaiting Payment'}` : item.winnerTeam || (resolved ? 'Winner recorded' : 'Not resolved')}
+                                            {isPreLeague
+                                                ? 'Pre-League · No fees'
+                                                : isVoided || isSkipped
+                                                ? (item.winnerTeam || 'Not resolved / Unplayed')
+                                                : isAwaitingPayment
+                                                ? `${item.winnerTeam || 'Awaiting Payment'}`
+                                                : item.winnerTeam || (resolved ? 'Winner recorded' : isCurrentGw ? 'Active Gameweek' : 'Pending kickoff')}
                                         </p>
                                         {resolved && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
