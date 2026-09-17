@@ -210,21 +210,32 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                 localStorage.setItem('memberPhone', matchedPhone);
             }
 
+            // Sync Zustand store reactively
+            useStore.getState().setActiveLeagueId(league.leagueId);
             useStore.getState().setRole(league.role === 'admin' ? 'admin' : 'member');
             useStore.getState().listenToLeagueSettings(league.leagueId);
             useStore.getState().listenToLeagueMembers(league.leagueId);
 
             setOpen(false);
 
+            // Smooth background transition: keep the sleek waiting overlay up briefly
+            // while React swaps the league data in memory, then smoothly navigate.
             setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 300);
+                navigate('/dashboard', { replace: true });
+                setTimeout(() => {
+                    setIsSwitching(false);
+                }, 400);
+            }, 600);
         } catch (err) {
             console.error('[switchLeague] error resolving membership:', err);
             localStorage.setItem('activeLeagueId', league.leagueId);
             localStorage.setItem('activeUserRole', league.role);
+            useStore.getState().setActiveLeagueId(league.leagueId);
             useStore.getState().setRole(league.role === 'admin' ? 'admin' : 'member');
-            window.location.href = '/dashboard';
+            navigate('/dashboard', { replace: true });
+            setTimeout(() => {
+                setIsSwitching(false);
+            }, 400);
         }
     };
 
@@ -474,23 +485,27 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                 )}
             </div>
 
-            {/* Smooth League Switch Transition Overlay */}
-            {isSwitching && (
-                <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999] flex flex-col items-center justify-center animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#0c1219] border border-slate-200 dark:border-emerald-500/35 p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs mx-4">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                            <Trophy className="w-7 h-7 text-emerald-500 dark:text-emerald-400 animate-bounce" />
+            {/* Smooth League Switch Transition Overlay (Mounted to Body to cover whole viewport without clipping) */}
+            {isSwitching && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 bg-[#070b10]/85 backdrop-blur-xl z-[999999] flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-[#0e1620] border border-emerald-500/30 p-7 rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col items-center gap-4 text-center max-w-xs mx-4 text-white">
+                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                            <Trophy className="w-8 h-8 text-emerald-400 animate-bounce" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Switching League</p>
-                            <h3 className="text-lg font-black text-slate-900 dark:text-white mt-1">{switchingLeagueName}</h3>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                                Connecting Chama
+                            </span>
+                            <h3 className="text-xl font-black text-white mt-2 tracking-tight">{switchingLeagueName}</h3>
+                            <p className="text-xs text-gray-400 mt-1">Syncing escrow vault & live standings...</p>
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-gray-300">
-                            <Loader2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin" />
-                            <span>Loading League Hub & Standings...</span>
+                        <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-300/90 pt-1">
+                            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                            <span>Switching smoothly...</span>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* In-App Join League by Invite Code Modal */}

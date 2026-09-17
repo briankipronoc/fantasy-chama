@@ -45,7 +45,8 @@ const RouteLoader = () => (
 // Renders the correct dashboard based on role — used inside the AppLayout
 const DashboardRenderer = () => {
   const role = useStore(state => state.role);
-  return role === 'admin' ? <AdminCommandCenter /> : <MemberDashboard />;
+  const activeLeagueId = useStore(state => state.activeLeagueId) || localStorage.getItem('activeLeagueId') || 'default';
+  return role === 'admin' ? <AdminCommandCenter key={`admin-${activeLeagueId}`} /> : <MemberDashboard key={`member-${activeLeagueId}`} />;
 };
 
 // Smart root route:

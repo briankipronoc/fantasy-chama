@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown } from 'lucide-react';
+import { Shield, User, ArrowRight, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -37,7 +37,7 @@ export default function Login() {
     const [onboardTeamName, setOnboardTeamName] = useState('');
     const [customFplId, setCustomFplId] = useState('');
     const [onboardSearch, setOnboardSearch] = useState('');
-    const [onboardPlayMode, setOnboardPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
+    const [onboardPlayMode, setOnboardPlayMode] = useState<'pot' | 'season_only' | 'sidebets_only'>('pot');
     const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
     const [onboardStep, setOnboardStep] = useState<1 | 2 | 3>(1);
     const [onboardError, setOnboardError] = useState('');
@@ -561,11 +561,16 @@ export default function Login() {
 
             // Post join notification to league
             try {
+                const tierLabel = onboardPlayMode === 'pot' 
+                    ? '🏆 Cash Pot Contributor' 
+                    : onboardPlayMode === 'season_only'
+                    ? '👑 Season Vault Only'
+                    : '🛡️ Spectator & Side-Bets Only';
                 await addDoc(collection(db, 'leagues', onboardData.leagueId, 'notifications'), {
                     type: 'member_joined',
                     eventType: 'member_joined',
                     title: 'New Member Self-Onboarded',
-                    message: `${finalDisplayName} joined ${onboardData.leagueName} (${onboardPlayMode === 'pot' ? '🏆 Cash Pot Contributor' : '🛡️ Spectator & Side-Bets Only'}).`,
+                    message: `${finalDisplayName} joined ${onboardData.leagueName} (${tierLabel}).`,
                     createdAt: serverTimestamp(),
                 });
             } catch (notifErr) {
@@ -1284,54 +1289,79 @@ export default function Login() {
                                         <span className="text-[10px] text-emerald-400 font-bold">Step 2 of 3</span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {/* Option 1: Cash Pot */}
+                                    <div className="space-y-2.5">
+                                        {/* Option 1: Cash Pot (Weekly + Season Vault) */}
                                         <div
                                             onClick={() => setOnboardPlayMode('pot')}
-                                            className={`cursor-pointer rounded-2xl p-4 border transition-all relative ${
+                                            className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
                                                 onboardPlayMode === 'pot'
                                                     ? 'bg-emerald-500/15 border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/40'
                                                     : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
                                             }`}
                                         >
-                                            <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center justify-between mb-1.5">
                                                 <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                    <Trophy className="w-4 h-4 text-[#FBBF24]" /> Cash Pot
+                                                    <Trophy className="w-4 h-4 text-[#FBBF24]" /> Full Pot (Weekly + Season)
                                                 </span>
                                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20">
                                                     KES {onboardData.monthlyFee.toLocaleString()}/GW
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-gray-300 leading-snug mb-2.5">
-                                                Compete for weekly 1st place payouts and the season vault jackpot.
+                                            <p className="text-[11px] text-gray-300 leading-snug mb-2">
+                                                Compete for every round's gameweek cash prize + qualify for the end-of-season championship vault.
                                             </p>
                                             <span className="text-[10px] font-bold text-emerald-400 block">
-                                                ✓ Weekly & Season Vault Prize Eligible
+                                                ✓ Weekly Round Cash & Season Championship Vault
                                             </span>
                                         </div>
 
-                                        {/* Option 2: Spectator & Side-Bets Only */}
+                                        {/* Option 2: Season Vault Only */}
+                                        <div
+                                            onClick={() => setOnboardPlayMode('season_only')}
+                                            className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
+                                                onboardPlayMode === 'season_only'
+                                                    ? 'bg-amber-500/15 border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-500/40'
+                                                    : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <span className="text-xs font-black flex items-center gap-1.5 text-white">
+                                                    <Crown className="w-4 h-4 text-amber-400" /> Season Vault Only
+                                                </span>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                                    Season Jackpot Focus
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-gray-300 leading-snug mb-2">
+                                                Focus entirely on the 38-gameweek overall championship. No weekly round pot dues required.
+                                            </p>
+                                            <span className="text-[10px] font-bold text-amber-400 block">
+                                                ✓ Overall Season Standings & Trophy Vault Focus
+                                            </span>
+                                        </div>
+
+                                        {/* Option 3: Spectator & Side-Bets Only */}
                                         <div
                                             onClick={() => setOnboardPlayMode('sidebets_only')}
-                                            className={`cursor-pointer rounded-2xl p-4 border transition-all relative ${
+                                            className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
                                                 onboardPlayMode === 'sidebets_only'
                                                     ? 'bg-indigo-500/15 border-indigo-500/60 shadow-[0_0_20px_rgba(99,102,241,0.2)] ring-1 ring-indigo-500/40'
                                                     : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
                                             }`}
                                         >
-                                            <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center justify-between mb-1.5">
                                                 <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                    <Swords className="w-4 h-4 text-indigo-400" /> Spectator & Bets
+                                                    <Swords className="w-4 h-4 text-indigo-400" /> Free Spectator & Side-Bets
                                                 </span>
                                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                                                     Free Entry
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-gray-300 leading-snug mb-2.5">
-                                                Zero weekly pot dues. Challenge rivals to 1v1 M-Pesa cash side bets anytime!
+                                            <p className="text-[11px] text-gray-300 leading-snug mb-2">
+                                                Follow live league standings for free. Challenge rivals to 1v1 M-Pesa cash side bets whenever you want!
                                             </p>
                                             <span className="text-[10px] font-bold text-indigo-400 block">
-                                                ✓ 1v1 Side Bets · Test for Next Season
+                                                ✓ 1v1 P2P Side Bets · Zero Chama Dues
                                             </span>
                                         </div>
                                     </div>
@@ -1385,10 +1415,16 @@ export default function Login() {
                                             <span className={clsx(
                                                 "text-xs font-black px-2 py-0.5 rounded-lg border",
                                                 onboardPlayMode === 'pot'
+                                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                                                    : onboardPlayMode === 'season_only'
                                                     ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
                                                     : "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
                                             )}>
-                                                {onboardPlayMode === 'pot' ? `🏆 Cash Pot (KES ${onboardData.monthlyFee}/GW)` : '🛡️ Spectator & Bets (Free)'}
+                                                {onboardPlayMode === 'pot'
+                                                    ? `🏆 Full Pot (KES ${onboardData.monthlyFee}/GW)`
+                                                    : onboardPlayMode === 'season_only'
+                                                    ? '👑 Season Vault Only'
+                                                    : '🛡️ Spectator & Bets (Free)'}
                                             </span>
                                         </div>
                                         <div className="pt-2 border-t border-white/5 space-y-1.5">

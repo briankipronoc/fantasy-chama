@@ -35,6 +35,7 @@ import {
   Radio,
   Flame,
   Star,
+  X,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import { db, auth } from "../firebase";
@@ -443,20 +444,13 @@ export default function AdminCommandCenter() {
     (state) => state.togglePaymentStatus,
   );
   const isStealthMode = useStore((state) => state.isStealthMode);
-  const tutorialSeenKey =
-    activeLeagueId && activeUserId
-      ? `chairman_initialized_${activeLeagueId}_${activeUserId}`
-      : null;
-  const adminTourSeenKey =
-    activeLeagueId && activeUserId
-      ? `hasSeenAdminTour_${activeLeagueId}_${activeUserId}`
-      : null;
+  const tutorialSeenKey = activeLeagueId
+    ? `chairman_initialized_${activeLeagueId}`
+    : null;
+  const adminTourSeenKey = activeLeagueId
+    ? `hasSeenAdminTour_${activeLeagueId}`
+    : null;
   const coChairMember = members.find((m) => m.id === coAdminId);
-  
-  
-  
-  
-  
   
   const hasValidCoChair =
     !!coAdminId &&
@@ -487,7 +481,12 @@ export default function AdminCommandCenter() {
   };
 
   const handleInitializeOperations = () => {
-    if (tutorialSeenKey) localStorage.setItem(tutorialSeenKey, "true");
+    if (activeLeagueId) {
+      localStorage.setItem(`chairman_initialized_${activeLeagueId}`, "true");
+      localStorage.setItem(`chairman_checklist_done_${activeLeagueId}`, "true");
+      if (activeUserId) localStorage.setItem(`chairman_initialized_${activeLeagueId}_${activeUserId}`, "true");
+    }
+    localStorage.setItem("chairman_initialized_any", "true");
     setShowTutorial(false);
   };
 
@@ -518,8 +517,17 @@ export default function AdminCommandCenter() {
       return;
     }
 
-    if (tutorialSeenKey && !localStorage.getItem(tutorialSeenKey)) {
+    const hasDismissed = Boolean(
+      tutorialSeenKey && (
+        localStorage.getItem(tutorialSeenKey) === "true" ||
+        localStorage.getItem(`chairman_checklist_done_${activeLeagueId}`) === "true" ||
+        (activeUserId && localStorage.getItem(`chairman_initialized_${activeLeagueId}_${activeUserId}`) === "true")
+      )
+    );
+    if (!hasDismissed && activeLeagueId) {
       setShowTutorial(true);
+    } else {
+      setShowTutorial(false);
     }
 
     // Real-time league doc listener — ensures league name/stake/rules update immediately on league switch
@@ -1330,7 +1338,7 @@ export default function AdminCommandCenter() {
     navigator.clipboard.writeText(inviteCode);
     const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
     const link = `${appUrl}/login?code=${inviteCode}`;
-    const host = chairmanName || "your Chairman";
+    const host = chairmanName || members.find(m => m.role === 'admin' || m.role === 'chairman')?.displayName || auth.currentUser?.displayName || localStorage.getItem('activeUserName') || localStorage.getItem('fc-setup-fullName') || "The Chairman";
     const lName = leagueName || "our FPL Chama";
     const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
@@ -2991,8 +2999,21 @@ burstFrame();
 
       {/* HQ Onboarding Tutorial Overlay */}
       {showTutorial && !isSuspended && (
-        <div className="fixed inset-0 z-[90000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-[#0b1014] border border-[#10B981]/30 rounded-[2rem] p-8 shadow-[0_0_80px_rgba(16,185,129,0.15)] relative animate-in fade-in zoom-in-95 duration-500">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleInitializeOperations();
+          }}
+          className="fixed inset-0 z-[90000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="w-full max-w-2xl bg-[#0b1014] border border-[#10B981]/30 rounded-[2rem] p-8 shadow-[0_0_80px_rgba(16,185,129,0.15)] relative animate-in fade-in zoom-in-95 duration-300">
+            <button
+              type="button"
+              onClick={handleInitializeOperations}
+              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer z-20"
+              title="Close & Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#10B981] blur-[150px] opacity-10 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#FBBF24] blur-[150px] opacity-10 pointer-events-none"></div>
 
