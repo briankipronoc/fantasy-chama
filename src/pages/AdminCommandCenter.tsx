@@ -5127,18 +5127,21 @@ burstFrame();
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                     Member
                   </span>
-                  <select
-                    value={fundTargetMemberId}
-                    onChange={(e) => setFundTargetMemberId(e.target.value)}
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
-                  >
-                    <option value="">Select member</option>
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.displayName}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={fundTargetMemberId}
+                      onChange={(e) => setFundTargetMemberId(e.target.value)}
+                      className="fc-prefund-input w-full appearance-none rounded-xl border border-white/10 px-3.5 py-3 pr-10 bg-[#0d1316] text-white focus:border-[#10B981]/50 cursor-pointer font-medium"
+                    >
+                      <option value="" className="bg-[#0d1316] text-gray-400">Select member</option>
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id} className="bg-[#0d1316] text-white">
+                          {member.displayName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
                 </label>
 
                 <label className="space-y-2 md:col-span-2">

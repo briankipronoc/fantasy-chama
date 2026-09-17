@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2 } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -823,18 +823,21 @@ export default function Profile() {
                                             Syncing with Fantasy Premier League Server...
                                         </div>
                                     ) : fplStandings.length > 0 ? (
-                                        <select
-                                            value={fplTeamName}
-                                            onChange={(e) => setFplTeamName(e.target.value)}
-                                            className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium text-left appearance-none"
-                                        >
-                                            <option value="" disabled className="text-gray-500">Select your actual FPL Team</option>
-                                            {fplStandings.map((team: any) => (
-                                                <option key={team.entry} value={team.entry}>
-                                                    {team.entry_name} — (Mgr: {team.player_name})
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <div className="relative">
+                                            <select
+                                                value={fplTeamName}
+                                                onChange={(e) => setFplTeamName(e.target.value)}
+                                                className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 pl-4 pr-10 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium text-left appearance-none cursor-pointer"
+                                            >
+                                                <option value="" disabled className="text-gray-500 bg-[#0b1014]">Select your actual FPL Team</option>
+                                                {fplStandings.map((team: any) => (
+                                                    <option key={team.entry} value={team.entry} className="bg-[#0b1014] text-white">
+                                                        {team.entry_name} — (Mgr: {team.player_name})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown className="w-4 h-4 text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                        </div>
                                     ) : (
                                         <input
                                             type="text"
@@ -1196,17 +1199,20 @@ export default function Profile() {
                                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                                         </label>
                                     </div>
-                                    <select
-                                        disabled={isFinancialsLocked}
-                                        value={coAdminId}
-                                        onChange={(e) => setCoAdminId(e.target.value)}
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
-                                    >
-                                        <option value="">-- No Co-Chair Selected --</option>
-                                        {members.filter(m => m.id !== activeUserId).map(m => (
-                                            <option key={m.id} value={m.authUid || m.id}>{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            disabled={isFinancialsLocked}
+                                            value={coAdminId}
+                                            onChange={(e) => setCoAdminId(e.target.value)}
+                                            className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+                                        >
+                                            <option value="" className="bg-[#0b1014] text-gray-400">-- No Co-Chair Selected --</option>
+                                            {members.filter(m => m.id !== activeUserId).map(m => (
+                                                <option key={m.id} value={m.authUid || m.id} className="bg-[#0b1014] text-white">{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                    </div>
                                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
                                 </div>
 

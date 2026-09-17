@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X, Share2, Sliders, Copy, RefreshCw } from 'lucide-react';
+import { Shield, UserPlus, ArrowLeft, Check, Smartphone, Trophy, PersonStanding, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, Users, Info, AlertTriangle, X, Share2, Sliders, Copy, RefreshCw, ChevronDown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
-import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { collection, addDoc, serverTimestamp, writeBatch, doc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { normalizeKenyanPhone } from '../utils/phone';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -46,40 +46,83 @@ export default function AdminSetup() {
     const [showExitModal, setShowExitModal] = useState(false);
 
     useEffect(() => {
-        // Never auto-advance for anonymous Firebase users (anonymous users have null email)
-        const currentAuthUser = auth.currentUser;
-        const hasValidAuth = Boolean(currentAuthUser && !currentAuthUser.isAnonymous && currentAuthUser.email);
-
-        if (hasValidAuth) {
-            setIsExistingChairman(true);
-            setRole('admin');
-            if (currentAuthUser?.email) setEmail(currentAuthUser.email);
-            if (currentAuthUser?.displayName) setFullName(currentAuthUser.displayName);
-            
-            const storedName = localStorage.getItem('activeUserName');
-            if (storedName && !currentAuthUser?.displayName) setFullName(storedName);
-
-            const storedPhone = localStorage.getItem('memberPhone');
-            if (storedPhone) {
-                setPhone(storedPhone);
-                setChairmanPayoutPhone(storedPhone);
-            }
-
-            // Immediately jump to step 2 (League Rules & Economy) so the authenticated Chairman never re-enters personal details
-            setStep(2);
-        } else {
-            // Restore any draft fields from localStorage if available
-            const savedName = localStorage.getItem('fc-setup-fullName');
-            if (savedName) setFullName(savedName);
-            const savedEmail = localStorage.getItem('fc-setup-email');
-            if (savedEmail) setEmail(savedEmail);
-            const savedPhone = localStorage.getItem('fc-setup-phone');
-            if (savedPhone) {
-                setPhone(savedPhone);
-                setChairmanPayoutPhone(savedPhone);
-            }
+        // 1. Synchronously prefill known details from localStorage immediately
+        const savedName = localStorage.getItem('fc-setup-fullName') || localStorage.getItem('activeUserName');
+        if (savedName && savedName.trim().toLowerCase() !== 'chairman' && savedName.trim().toLowerCase() !== 'admin') {
+            setFullName(savedName);
         }
+
+        const savedEmail = localStorage.getItem('fc-setup-email') || localStorage.getItem('fc-login-email');
+        if (savedEmail) setEmail(savedEmail);
+
+        const savedPhone = localStorage.getItem('fc-setup-phone') || localStorage.getItem('memberPhone');
+        if (savedPhone) {
+            setPhone(savedPhone);
+            setChairmanPayoutPhone(savedPhone);
+        }
+
+        // 2. Fetch existing active league info if available from Firestore
+        const activeLid = localStorage.getItem('activeLeagueId');
+        if (activeLid) {
+            getDoc(doc(db, 'leagues', activeLid))
+                .then(snap => {
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        if (data?.chairmanName && (!savedName || savedName === 'Chairman' || savedName === 'Admin')) {
+                            setFullName(data.chairmanName);
+                            localStorage.setItem('fc-setup-fullName', data.chairmanName);
+                        }
+                        if (data?.chairmanPhone && !savedPhone) {
+                            setPhone(data.chairmanPhone);
+                            setChairmanPayoutPhone(data.chairmanPhone);
+                            localStorage.setItem('fc-setup-phone', data.chairmanPhone);
+                        }
+                        if (data?.chairmanEmail && !savedEmail) {
+                            setEmail(data.chairmanEmail);
+                            localStorage.setItem('fc-setup-email', data.chairmanEmail);
+                        }
+                    }
+                })
+                .catch(err => console.warn('Could not read existing league profile:', err));
+        }
+
+        // 3. Listen to auth state to capture asynchronous Firebase Auth restoration
+        const unsubscribe = onAuthStateChanged(auth, async (currentAuthUser) => {
+            if (currentAuthUser && !currentAuthUser.isAnonymous && currentAuthUser.email) {
+                setIsExistingChairman(true);
+                setRole('admin');
+                setEmail(currentAuthUser.email);
+                localStorage.setItem('fc-setup-email', currentAuthUser.email);
+
+                if (currentAuthUser.displayName && (!fullName || fullName === 'Chairman' || fullName === 'Admin')) {
+                    setFullName(currentAuthUser.displayName);
+                    localStorage.setItem('fc-setup-fullName', currentAuthUser.displayName);
+                }
+
+                // If user is already an authenticated Chairman and has phone/email on record, jump to step 2
+                const resolvedPhone = localStorage.getItem('memberPhone') || localStorage.getItem('fc-setup-phone');
+                if (resolvedPhone) {
+                    setPhone(resolvedPhone);
+                    setChairmanPayoutPhone(resolvedPhone);
+                }
+                setStep(prev => prev === 1 ? 2 : prev);
+            }
+        });
+
+        return () => unsubscribe();
     }, []);
+
+    // Prompt user before accidental tab close during setup
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (step > 1 && step < STEPS) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [step]);
 
     // Step 2: League
     const [leagueName, setLeagueName] = useState('');
@@ -103,6 +146,25 @@ export default function AdminSetup() {
     const [enrollmentMode, setEnrollmentMode] = useState<'self' | 'manual'>('self');
     const [showAddManualMember, setShowAddManualMember] = useState(false);
     const [chairmanFplSquad, setChairmanFplSquad] = useState<{ entry: number; entryName: string; playerName: string } | null>(null);
+
+    // Dynamic Manager Display Name (Never fall back to generic "Chairman" when actual name is known)
+    const effectiveManagerName = useMemo(() => {
+        if (fullName && fullName.trim() && fullName.trim().toLowerCase() !== 'chairman' && fullName.trim().toLowerCase() !== 'admin') {
+            return fullName.trim();
+        }
+        if (chairmanFplSquad?.playerName && chairmanFplSquad.playerName.trim() && chairmanFplSquad.playerName.trim().toLowerCase() !== 'chairman') {
+            return chairmanFplSquad.playerName.trim();
+        }
+        const storedName = localStorage.getItem('activeUserName');
+        if (storedName && storedName.trim() && storedName.trim().toLowerCase() !== 'chairman' && storedName.trim().toLowerCase() !== 'admin') {
+            return storedName.trim();
+        }
+        const authName = auth.currentUser?.displayName;
+        if (authName && authName.trim() && authName.trim().toLowerCase() !== 'chairman') {
+            return authName.trim();
+        }
+        return 'League Founder';
+    }, [fullName, chairmanFplSquad, auth.currentUser?.displayName]);
 
     const toggleCoChair = (index: number) => {
         setCoAdminIndices(prev => {
@@ -288,6 +350,9 @@ export default function AdminSetup() {
     const weeklyPrize = Math.round(netPool * (weeklyPrizePercent / 100));
     const grandVault = netPool - weeklyPrize;
 
+    const totalSquadsCount = fplStandings.length > 0 ? fplStandings.length : (members.length + (chairmanFplSquad ? 1 : 0));
+    const otherMembersCount = chairmanFplSquad ? Math.max(0, totalSquadsCount - 1) : totalSquadsCount;
+
     useEffect(() => {
         if (estimatedMembers > MAX_LEAGUE_MEMBERS) setEstimatedMembers(MAX_LEAGUE_MEMBERS);
     }, [estimatedMembers]);
@@ -303,52 +368,57 @@ export default function AdminSetup() {
         setCustomWinnerRatios((prev) => {
             const next = [...prev];
             if (next.length > normalizedCustomWinnerCount) return next.slice(0, normalizedCustomWinnerCount);
-            if (next.length < normalizedCustomWinnerCount) {
-                const preset = getPresetDistribution(normalizedCustomWinnerCount).map(String);
-                return preset.slice(0, normalizedCustomWinnerCount);
-            }
-            if (next.every((value) => Number(value || 0) <= 0)) {
-                return getPresetDistribution(normalizedCustomWinnerCount).map(String);
+            while (next.length < normalizedCustomWinnerCount) {
+                next.push('0');
             }
             return next;
         });
     }, [seasonWinnersMode, normalizedCustomWinnerCount]);
 
-    useEffect(() => {
-        if (seasonWinnersMode === 'custom') return;
-        setCustomWinnerRatios(getPresetDistribution(effectiveSeasonWinnersCount).map(String));
-    }, [seasonWinnersMode, effectiveSeasonWinnersCount]);
-
     const passwordStrengthResult = useMemo(() => {
-        let score = 0;
-        if (password.length > 5) score += 1;
-        if (password.length > 8) score += 1;
-        if (/[A-Z]/.test(password)) score += 1;
-        if (/[0-9]/.test(password)) score += 1;
-        if (/[^A-Za-z0-9]/.test(password)) score += 1;
-
-        if (score === 0) return { label: 'Weak', w1: 'w-1/3 bg-white/10', w2: 'w-1/3 bg-white/10', w3: 'w-1/3 bg-white/10', textColor: 'text-gray-500' };
-        if (score <= 2) return { label: 'Low', w1: 'w-1/3 bg-red-500', w2: 'w-1/3 bg-white/10', w3: 'w-1/3 bg-white/10', textColor: 'text-red-500' };
-        if (score <= 4) return { label: 'Medium', w1: 'w-1/3 bg-[#FBBF24]', w2: 'w-1/3 bg-[#FBBF24]', w3: 'w-1/3 bg-white/10', textColor: 'text-[#FBBF24]' };
+        if (!password) return { label: 'Empty', w1: 'w-0', w2: 'w-0', w3: 'w-0', textColor: 'text-gray-500' };
+        if (password.length < 6) return { label: 'Too Short', w1: 'w-1/3 bg-red-500', w2: 'w-0', w3: 'w-0', textColor: 'text-red-500' };
+        if (password.length < 10) return { label: 'Medium', w1: 'w-1/3 bg-amber-500', w2: 'w-1/3 bg-amber-500', w3: 'w-0', textColor: 'text-amber-500' };
         return { label: 'Strong', w1: 'w-1/3 bg-[#22c55e]', w2: 'w-1/3 bg-[#22c55e]', w3: 'w-1/3 bg-[#22c55e]', textColor: 'text-[#22c55e]' };
     }, [password]);
 
     const nextStep = async () => {
+        // Universal identity checks before advancing
+        if (!email.trim() || !email.includes('@')) {
+            toast.error('Chairman login email is required before proceeding. Please complete Step 1.');
+            setStep(1);
+            return;
+        }
+        if (!phone.trim()) {
+            toast.error('Payout M-Pesa phone number is required before proceeding. Please complete Step 1.');
+            setStep(1);
+            return;
+        }
+        if (!fullName.trim() && !effectiveManagerName) {
+            toast.error('Full name is required before proceeding. Please enter your name in Step 1.');
+            setStep(1);
+            return;
+        }
+
         if (step === 1) {
             if (!fullName.trim()) {
                 toast.error('Please enter your full name.');
                 return;
             }
-            if (!email.trim()) {
-                toast.error('Please enter your email address.');
+            if (!email.trim() || !email.includes('@')) {
+                toast.error('Please enter a valid email address.');
                 return;
             }
             if (!phone.trim()) {
                 toast.error('Please enter your M-Pesa phone number.');
                 return;
             }
+            if (!isExistingChairman && (!auth.currentUser || auth.currentUser.isAnonymous) && (!password || password.length < 6)) {
+                toast.error('Please create a secure password (at least 6 characters).');
+                return;
+            }
             // If already authenticated as this chairman, proceed directly to Step 2
-            if (auth.currentUser && auth.currentUser.email?.toLowerCase() === email.trim().toLowerCase()) {
+            if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.email?.toLowerCase() === email.trim().toLowerCase()) {
                 setRole('admin');
                 setStep(2);
                 setStepDirection('forward');
@@ -841,21 +911,30 @@ export default function AdminSetup() {
                 }));
                 setMembers(allImported.slice(0, 19));
             }
-            toast.success('Switched to Non-Playing Chairman (pure admin mode)');
+            toast.success('Switched to Pure Admin (Non-Playing mode)');
             return;
         }
         const matched = fplStandings.find(e => Number(e.entry) === Number(selectedEntryId));
         if (matched) {
+            const chosenPlayerName = matched.player_name || fullName || 'Manager';
             const squadObj = {
                 entry: Number(matched.entry),
                 entryName: matched.entry_name || 'My Squad',
-                playerName: matched.player_name || fullName,
+                playerName: chosenPlayerName,
             };
             setChairmanFplSquad(squadObj);
             localStorage.setItem('fc-setup-chairmanFplSquad', JSON.stringify(squadObj));
+            
+            // Auto-update Chairman's name from their selected FPL squad
+            if (matched.player_name) {
+                setFullName(matched.player_name);
+                localStorage.setItem('fc-setup-fullName', matched.player_name);
+                localStorage.setItem('activeUserName', matched.player_name);
+            }
+
             // Remove this squad from the remaining members list using strict Number conversion
             setMembers(prev => prev.filter(m => Number(m.fplEntryId) !== Number(selectedEntryId)));
-            toast.success(`Linked your Chairman profile to "${matched.entry_name}"!`);
+            toast.success(`Linked profile to "${matched.entry_name}" (${chosenPlayerName})!`);
         }
     };
 
@@ -870,17 +949,17 @@ export default function AdminSetup() {
         if (!newMemberName || !newMemberPhone) return;
         if (members.length >= 19) return;
 
-        const cleanFullName = (fullName || '').trim().toLowerCase();
+        const cleanFullName = (fullName || effectiveManagerName || '').trim().toLowerCase();
         const cleanChairmanPhone = (phone || '').replace(/\D/g, '');
         const mPhone = (newMemberPhone || '').replace(/\D/g, '');
         const mName = (newMemberName || '').trim().toLowerCase();
 
         if (cleanFullName && mName === cleanFullName) {
-            toast.error('Chairman is already enrolled as the league administrator.');
+            toast.error(`${effectiveManagerName} is already enrolled as the league administrator.`);
             return;
         }
         if (cleanChairmanPhone && mPhone && cleanChairmanPhone.slice(-9) === mPhone.slice(-9)) {
-            toast.error('This phone number is already registered to the Chairman.');
+            toast.error(`This phone number is already registered to ${effectiveManagerName}.`);
             return;
         }
 
@@ -1661,16 +1740,16 @@ export default function AdminSetup() {
                 )}>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                            <UserAvatar name={fullName || "Chairman"} size="sm" />
+                            <UserAvatar name={effectiveManagerName} size="sm" />
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <p className="font-semibold text-sm text-white leading-tight">{fullName || "Chairman"}</p>
+                                    <p className="font-semibold text-sm text-white leading-tight">{effectiveManagerName}</p>
                                     <span className="text-[9px] font-semibold text-[#FBBF24] uppercase tracking-wider px-2 py-0.5 bg-[#FBBF24]/20 border border-[#FBBF24]/30 rounded">
                                         👑 Chairman
                                     </span>
                                 </div>
                                 <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                                    {phone || "Phone on file"} · Payout Remittance Phone Locked
+                                    {chairmanPayoutPhone || phone || "Phone on file"} · Payout Remittance Phone Locked
                                 </p>
                             </div>
                         </div>
@@ -1678,25 +1757,28 @@ export default function AdminSetup() {
                         {/* Prominent Selector Dropdown */}
                         <div className="w-full md:w-80 shrink-0 space-y-1">
                             <label className="block text-[11px] font-semibold text-amber-300 uppercase tracking-wider">
-                                {chairmanFplSquad ? "Your Linked FPL Squad" : "👉 Which of these squads is yours?"}
+                                {chairmanFplSquad ? `Linked Squad (${effectiveManagerName})` : "👉 Which of these squads is yours?"}
                             </label>
-                            <select
-                                value={chairmanFplSquad?.entry || ''}
-                                onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
-                                className={clsx(
-                                    "w-full rounded-xl py-2.5 px-3 text-xs focus:outline-none cursor-pointer font-medium border transition-all",
-                                    chairmanFplSquad
-                                        ? "bg-[#0e141a] border-[#10B981]/50 text-white focus:border-[#10B981]"
-                                        : "bg-[#0e141a] border-[#FBBF24] text-white focus:border-[#FBBF24] ring-2 ring-[#FBBF24]/20"
-                                )}
-                            >
-                                <option value="">🛡️ Non-Playing Chairman (pure admin, no team)</option>
-                                {fplStandings.map((s) => (
-                                    <option key={s.entry} value={s.entry}>
-                                        ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={chairmanFplSquad?.entry || ''}
+                                    onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
+                                    className={clsx(
+                                        "w-full appearance-none rounded-xl py-2.5 pl-3.5 pr-10 text-xs focus:outline-none cursor-pointer font-medium border transition-all shadow-sm",
+                                        chairmanFplSquad
+                                            ? "bg-[#111820] border-[#10B981]/50 text-white focus:border-[#10B981]"
+                                            : "bg-[#111820] border-[#FBBF24] text-white focus:border-[#FBBF24] ring-2 ring-[#FBBF24]/20"
+                                    )}
+                                >
+                                    <option value="" className="bg-[#0f1720] text-gray-300 py-1">🛡️ Pure Admin (Non-Playing, no squad)</option>
+                                    {fplStandings.map((s) => (
+                                        <option key={s.entry} value={s.entry} className="bg-[#0f1720] text-white py-1">
+                                            ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="w-4 h-4 text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                            </div>
                         </div>
                     </div>
 
@@ -1716,7 +1798,7 @@ export default function AdminSetup() {
                         </div>
                     ) : (
                         <p className="text-[11px] text-gray-300 leading-tight">
-                            💡 <strong>Chairman Team Selection:</strong> If you are managing one of the imported squads, select it above so your gameweek points and payouts are tracked automatically. If you only administer the league without a team, leave it as <em>Non-Playing Chairman</em>.
+                            💡 <strong>Team Selection:</strong> If you manage one of the imported squads, select it above so your gameweek points and payouts are tracked automatically. If you only administer the league without a team, leave it as <em>Pure Admin</em>.
                         </p>
                     )}
                 </div>
@@ -1951,10 +2033,8 @@ export default function AdminSetup() {
                                         </div>
                                         <p className="text-[11px] text-gray-400 mt-0.5 truncate">
                                             Manager: <span className="text-gray-200">{m.displayName}</span>
-                                            {m.phone ? (
+                                            {m.phone && (
                                                 <span className="text-[#10B981] ml-2 font-mono font-medium">· {m.phone}</span>
-                                            ) : (
-                                                <span className="text-amber-400/80 ml-2 italic text-[10px]">· Self-onboarding link</span>
                                             )}
                                         </p>
                                     </div>
@@ -2143,7 +2223,7 @@ export default function AdminSetup() {
                             </div>
                             <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight break-words">{leagueName || "Premier League"}</h3>
                             <p className="text-xs text-gray-400 mt-1">
-                                Circle initialized by <strong className="text-white">{fullName || "Chairman"}</strong> · Remittance Line: <span className="font-mono text-[#22c55e] font-bold">{chairmanPayoutPhone || phone}</span>
+                                Circle initialized by <strong className="text-white">{effectiveManagerName}</strong> · Remittance Line: <span className="font-mono text-[#22c55e] font-bold">{chairmanPayoutPhone || phone}</span>
                             </p>
                         </div>
                         <div className="shrink-0">
@@ -2162,7 +2242,7 @@ export default function AdminSetup() {
                         <div className="bg-[#161d24] rounded-2xl p-3.5 border border-white/5 flex flex-col justify-between">
                             <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider mb-1">Registered Squads</p>
                             <p className="text-white font-semibold text-base sm:text-lg">
-                                {fplStandings.length > 0 ? fplStandings.length : (members.length + (chairmanFplSquad ? 1 : 0))} <span className="text-[10px] font-normal text-gray-400">({chairmanFplSquad ? `${(fplStandings.length > 0 ? fplStandings.length : (members.length + 1)) - 1} members + Chairman squad` : `${members.length} squads`})</span>
+                                {totalSquadsCount} <span className="text-[10px] font-normal text-gray-400">({chairmanFplSquad ? `${otherMembersCount} members + ${effectiveManagerName}` : `${totalSquadsCount} squads`})</span>
                             </p>
                         </div>
                         <div className="bg-[#161d24] rounded-2xl p-3.5 border border-white/5 flex flex-col justify-between">
@@ -2218,15 +2298,9 @@ export default function AdminSetup() {
                                 <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-black flex items-center justify-center shrink-0">3</span>
                                 <Users className="w-4 h-4 text-[#22c55e]" /> Squads & Claim Status
                             </div>
-                            {enrollmentMode === 'self' ? (
-                                <span className="text-[9px] font-bold text-[#10B981] bg-[#10B981]/15 px-2 py-0.5 rounded-full border border-[#10B981]/30 flex items-center gap-1">
-                                    <Share2 className="w-2.5 h-2.5" /> Self-Onboard Link
-                                </span>
-                            ) : (
-                                <span className="text-[9px] font-bold text-sky-400 bg-sky-500/15 px-2 py-0.5 rounded-full border border-sky-500/30">
-                                    Manual Entry
-                                </span>
-                            )}
+                            <span className="text-[10px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                                {totalSquadsCount} Squads
+                            </span>
                         </div>
 
                         <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
@@ -2236,10 +2310,10 @@ export default function AdminSetup() {
                                     <Shield className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
                                     <div className="truncate">
                                         <p className="font-semibold text-white truncate leading-tight">
-                                            {fullName || "Chairman"} <span className="text-[9px] text-[#FBBF24] font-mono">(👑 Chairman)</span>
+                                            {effectiveManagerName} <span className="text-[9px] text-[#FBBF24] font-mono">(👑 Chairman)</span>
                                         </p>
                                         <p className="text-[10px] text-gray-300 truncate">
-                                            {chairmanFplSquad ? `Squad: ${chairmanFplSquad.entryName} (#${chairmanFplSquad.entry})` : "Non-Playing Administrator"}
+                                            {chairmanFplSquad ? `Squad: ${chairmanFplSquad.entryName} (#${chairmanFplSquad.entry})` : "Pure Admin (Non-Playing)"}
                                         </p>
                                     </div>
                                 </div>
@@ -2455,7 +2529,14 @@ export default function AdminSetup() {
 
             {/* Header Elements */}
             <div className="absolute top-0 w-full p-6 md:p-8 flex justify-between items-center z-20">
-                <div className="flex items-center gap-3">
+                <div 
+                    onClick={() => {
+                        if (step > 1 && step < STEPS) setShowExitModal(true);
+                        else navigate('/dashboard');
+                    }}
+                    className="flex items-center gap-3 cursor-pointer select-none"
+                    title="Fantasy Chama"
+                >
                     <div className="bg-[#10B981] p-1.5 md:p-2 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
                         <div className="w-4 h-4 md:w-5 md:h-5 border-[2.5px] border-[#0b1014] rounded-md flex items-center justify-center relative">
                             <div className="w-1.5 h-1.5 bg-[#0b1014] rounded-sm absolute right-0.5"></div>
@@ -2553,10 +2634,10 @@ export default function AdminSetup() {
                             <AlertTriangle className="w-7 h-7" />
                         </div>
                         <h3 className="text-xl font-black text-white tracking-tight mb-2">
-                            Stop League Creation?
+                            Exit Setup Wizard?
                         </h3>
                         <p className="text-sm text-gray-300 leading-relaxed mb-6">
-                            Are you sure you want to stop now? Any new league settings or custom rules you have configured will be discarded.
+                            Are you sure you want to exit and stop setting up? Any unsaved league rules or member configurations will be discarded.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-3">
                             <button
@@ -2564,7 +2645,7 @@ export default function AdminSetup() {
                                 onClick={() => setShowExitModal(false)}
                                 className="flex-1 py-3 px-4 rounded-xl border border-white/10 hover:border-white/20 bg-white/[0.05] hover:bg-white/10 text-white font-bold text-sm transition-all"
                             >
-                                Keep Editing
+                                Keep Setting Up
                             </button>
                             <button
                                 type="button"

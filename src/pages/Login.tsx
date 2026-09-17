@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check } from 'lucide-react';
+import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -1095,30 +1095,33 @@ export default function Login() {
                                                 )}
                                             </div>
 
-                                            <select
-                                                value={selectedTeamClaim}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setSelectedTeamClaim(val);
-                                                    if (val !== 'custom') {
-                                                        const matched = onboardData.unlinkedTeams.find(t => t.id === val);
-                                                        if (matched) {
-                                                            setOnboardManagerName(matched.displayName || '');
-                                                            setOnboardTeamName(matched.fplTeamName || matched.teamName || '');
+                                            <div className="relative">
+                                                <select
+                                                    value={selectedTeamClaim}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setSelectedTeamClaim(val);
+                                                        if (val !== 'custom') {
+                                                            const matched = onboardData.unlinkedTeams.find(t => t.id === val);
+                                                            if (matched) {
+                                                                setOnboardManagerName(matched.displayName || '');
+                                                                setOnboardTeamName(matched.fplTeamName || matched.teamName || '');
+                                                            }
                                                         }
-                                                    }
-                                                }}
-                                                className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-emerald-500/50"
-                                            >
-                                                <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"}>
-                                                    {filteredUnlinkedTeams.map((t) => (
-                                                        <option key={t.id} value={t.id}>
-                                                            {t.displayName} — {t.fplTeamName || t.teamName || 'FPL Squad'}
-                                                        </option>
-                                                    ))}
-                                                </optgroup>
-                                                <option value="custom">➕ Not in list / Enter manually</option>
-                                            </select>
+                                                    }}
+                                                    className="w-full appearance-none bg-[#161d24] border border-white/10 rounded-xl py-2.5 pl-3 pr-9 text-xs text-white focus:outline-none focus:border-emerald-500/50 cursor-pointer font-medium"
+                                                >
+                                                    <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"}>
+                                                        {filteredUnlinkedTeams.map((t) => (
+                                                            <option key={t.id} value={t.id} className="bg-[#161d24] text-white">
+                                                                {t.displayName} — {t.fplTeamName || t.teamName || 'FPL Squad'}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <option value="custom" className="bg-[#161d24] text-amber-300 font-semibold">➕ Not in list / Enter manually</option>
+                                                </select>
+                                                <ChevronDown className="w-4 h-4 text-emerald-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
+                                            </div>
                                         </div>
                                     )}
 

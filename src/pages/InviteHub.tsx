@@ -1,4 +1,4 @@
-import { Check, Share2, FileText, Shield, Users, Zap, Wallet, Trophy } from 'lucide-react';
+import { Check, Share2, FileText, Shield, Users, Zap, Wallet, Trophy, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -18,15 +18,31 @@ export default function InviteHub() {
         if (targetPhone.trim()) {
             let formattedPhone = targetPhone.trim();
             if (formattedPhone.startsWith('0')) formattedPhone = '254' + formattedPhone.slice(1);
-            params += `&phone=${formattedPhone}`;
+            params += `&p=${encodeURIComponent(formattedPhone)}`;
         }
 
-        const inviteLink = `${appUrl}/login${params}`;
-        const message = `🏆 Join our FPL Chama — *Tentshakers FC*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${inviteLink}\nLeague Code: *${inviteCode}*`;
-        navigator.clipboard.writeText(message);
-        setCopied(true);
-        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-        setTimeout(() => setCopied(false), 2000);
+        const shareUrl = `${appUrl}/login${params}`;
+        
+        const message = `🏆 *You've been invited to join Fantasy Chama!*\n\n` +
+            `Sign in, link your FPL squad, and join the gameweek money league pot.\n\n` +
+            `👉 *Join League:* ${shareUrl}\n\n` +
+            `_Invite Code: *${inviteCode}*_`;
+
+        if (navigator.share) {
+            navigator.share({
+                title: 'Fantasy Chama League Invite',
+                text: message,
+            }).catch(() => {
+                // Fallback to clipboard if share was cancelled or failed
+                navigator.clipboard.writeText(message);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2500);
+            });
+        } else {
+            navigator.clipboard.writeText(message);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2500);
+        }
     };
 
     return (
@@ -89,15 +105,18 @@ export default function InviteHub() {
                         <div className="w-full space-y-4 mb-6 text-left">
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Link Expiry</label>
-                                <select 
-                                    value={expiresDays}
-                                    onChange={(e) => setExpiresDays(e.target.value)}
-                                    className="w-full bg-[#0d1316] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#10B981]/50"
-                                >
-                                    <option value="1">Expire in 24 Hours</option>
-                                    <option value="7">Expire in 7 Days</option>
-                                    <option value="30">Expire in 30 Days</option>
-                                </select>
+                                <div className="relative">
+                                    <select 
+                                        value={expiresDays}
+                                        onChange={(e) => setExpiresDays(e.target.value)}
+                                        className="w-full appearance-none bg-[#0d1316] border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white text-sm focus:outline-none focus:border-[#10B981]/50 cursor-pointer font-medium transition-all"
+                                    >
+                                        <option value="1" className="bg-[#0d1316] text-white py-1">Expire in 24 Hours</option>
+                                        <option value="7" className="bg-[#0d1316] text-white py-1">Expire in 7 Days</option>
+                                        <option value="30" className="bg-[#0d1316] text-white py-1">Expire in 30 Days</option>
+                                    </select>
+                                    <ChevronDown className="w-4 h-4 text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Target Phone (Optional)</label>
