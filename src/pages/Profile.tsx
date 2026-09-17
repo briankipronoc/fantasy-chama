@@ -827,16 +827,16 @@ export default function Profile() {
                                             <select
                                                 value={fplTeamName}
                                                 onChange={(e) => setFplTeamName(e.target.value)}
-                                                className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 pl-4 pr-10 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium text-left appearance-none cursor-pointer"
+                                                className="w-full bg-white dark:bg-[#0b1014] border border-gray-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-10 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] transition-all outline-none font-semibold text-left appearance-none cursor-pointer shadow-sm"
                                             >
-                                                <option value="" disabled className="text-gray-500 bg-[#0b1014]">Select your actual FPL Team</option>
+                                                <option value="" disabled className="text-gray-500 dark:text-gray-400 bg-white dark:bg-[#0b1014]">Select your actual FPL Team</option>
                                                 {fplStandings.map((team: any) => (
-                                                    <option key={team.entry} value={team.entry} className="bg-[#0b1014] text-white">
+                                                    <option key={team.entry} value={team.entry} className="bg-white dark:bg-[#0b1014] text-gray-900 dark:text-white py-1.5 font-medium">
                                                         {team.entry_name} — (Mgr: {team.player_name})
                                                     </option>
                                                 ))}
                                             </select>
-                                            <ChevronDown className="w-4 h-4 text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                            <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                                         </div>
                                     ) : (
                                         <input
@@ -1204,14 +1204,14 @@ export default function Profile() {
                                             disabled={isFinancialsLocked}
                                             value={coAdminId}
                                             onChange={(e) => setCoAdminId(e.target.value)}
-                                            className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+                                            className="w-full bg-white dark:bg-[#0b1014] border border-gray-300 dark:border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer shadow-sm"
                                         >
-                                            <option value="" className="bg-[#0b1014] text-gray-400">-- No Co-Chair Selected --</option>
+                                            <option value="" className="bg-white dark:bg-[#0b1014] text-gray-500 dark:text-gray-400 py-1.5 font-medium">-- No Co-Chair Selected --</option>
                                             {members.filter(m => m.id !== activeUserId).map(m => (
-                                                <option key={m.id} value={m.authUid || m.id} className="bg-[#0b1014] text-white">{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
+                                                <option key={m.id} value={m.authUid || m.id} className="bg-white dark:bg-[#0b1014] text-gray-900 dark:text-white py-1.5 font-medium">{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
                                             ))}
                                         </select>
-                                        <ChevronDown className="w-4 h-4 text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                        <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                                     </div>
                                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
                                 </div>

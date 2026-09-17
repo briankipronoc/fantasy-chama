@@ -44,22 +44,36 @@ export default function AdminSetup() {
     const [step1Error, setStep1Error] = useState('');
     const [isExistingChairman, setIsExistingChairman] = useState(false);
     const [showExitModal, setShowExitModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Step 2: League
+    const [leagueName, setLeagueName] = useState('');
+    const [fplLeagueId, setFplLeagueId] = useState('');
 
     useEffect(() => {
         // 1. Synchronously prefill known details from localStorage immediately
         const savedName = localStorage.getItem('fc-setup-fullName') || localStorage.getItem('activeUserName');
         if (savedName && savedName.trim().toLowerCase() !== 'chairman' && savedName.trim().toLowerCase() !== 'admin') {
-            setFullName(savedName);
+            setFullName(savedName.trim());
         }
 
-        const savedEmail = localStorage.getItem('fc-setup-email') || localStorage.getItem('fc-login-email');
-        if (savedEmail) setEmail(savedEmail);
+        const savedEmail = localStorage.getItem('fc-setup-email') || localStorage.getItem('fc-login-email') || localStorage.getItem('activeUserEmail') || auth.currentUser?.email;
+        if (savedEmail) {
+            setEmail(savedEmail.trim());
+            localStorage.setItem('fc-setup-email', savedEmail.trim());
+        }
 
-        const savedPhone = localStorage.getItem('fc-setup-phone') || localStorage.getItem('memberPhone');
+        const savedPhone = localStorage.getItem('fc-setup-phone') || localStorage.getItem('fc-setup-chairmanPayoutPhone') || localStorage.getItem('memberPhone') || localStorage.getItem('activeUserPhone');
         if (savedPhone) {
-            setPhone(savedPhone);
-            setChairmanPayoutPhone(savedPhone);
+            setPhone(savedPhone.trim());
+            setChairmanPayoutPhone(savedPhone.trim());
         }
+
+        const savedLeagueName = localStorage.getItem('fc-setup-leagueName');
+        if (savedLeagueName) setLeagueName(savedLeagueName);
+
+        const savedFplLeagueId = localStorage.getItem('fc-setup-fplLeagueId');
+        if (savedFplLeagueId) setFplLeagueId(savedFplLeagueId);
 
         // 2. Fetch existing active league info if available from Firestore
         const activeLid = localStorage.getItem('activeLeagueId');
@@ -68,7 +82,7 @@ export default function AdminSetup() {
                 .then(snap => {
                     if (snap.exists()) {
                         const data = snap.data();
-                        if (data?.chairmanName && (!savedName || savedName === 'Chairman' || savedName === 'Admin')) {
+                        if (data?.chairmanName && (!savedName || savedName.trim().toLowerCase() === 'chairman' || savedName.trim().toLowerCase() === 'admin')) {
                             setFullName(data.chairmanName);
                             localStorage.setItem('fc-setup-fullName', data.chairmanName);
                         }
@@ -94,7 +108,7 @@ export default function AdminSetup() {
                 setEmail(currentAuthUser.email);
                 localStorage.setItem('fc-setup-email', currentAuthUser.email);
 
-                if (currentAuthUser.displayName && (!fullName || fullName === 'Chairman' || fullName === 'Admin')) {
+                if (currentAuthUser.displayName && (!fullName || fullName.trim().toLowerCase() === 'chairman' || fullName.trim().toLowerCase() === 'admin')) {
                     setFullName(currentAuthUser.displayName);
                     localStorage.setItem('fc-setup-fullName', currentAuthUser.displayName);
                 }
@@ -115,18 +129,15 @@ export default function AdminSetup() {
     // Prompt user before accidental tab close during setup
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (step > 1 && step < STEPS) {
+            if (step > 1 && !isSubmitting) {
                 e.preventDefault();
-                e.returnValue = '';
+                e.returnValue = 'You have unsaved league configuration. Leaving will discard your setup progress.';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [step]);
+    }, [step, isSubmitting]);
 
-    // Step 2: League
-    const [leagueName, setLeagueName] = useState('');
-    const [fplLeagueId, setFplLeagueId] = useState('');
     const [fplFetchStatus, setFplFetchStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [fplStandings, setFplStandings] = useState<any[]>([]); // stores raw FPL standings for Step 3 import
     const [monthlyFee, setMonthlyFee] = useState(200);
@@ -147,24 +158,44 @@ export default function AdminSetup() {
     const [showAddManualMember, setShowAddManualMember] = useState(false);
     const [chairmanFplSquad, setChairmanFplSquad] = useState<{ entry: number; entryName: string; playerName: string } | null>(null);
 
-    // Dynamic Manager Display Name (Never fall back to generic "Chairman" when actual name is known)
+    // Dynamic Manager Display Name (Always resolves to manager's actual name from selected FPL squad or auth)
     const effectiveManagerName = useMemo(() => {
+        // Priority 1: Match from FPL Standings for the selected Chairman squad
+        if (chairmanFplSquad?.entry && fplStandings.length > 0) {
+            const matched = fplStandings.find(s => Number(s.entry) === Number(chairmanFplSquad.entry));
+            if (matched?.player_name && matched.player_name.trim() && matched.player_name.trim().toLowerCase() !== 'chairman' && matched.player_name.trim().toLowerCase() !== 'admin') {
+                return matched.player_name.trim();
+            }
+        }
+        // Priority 2: Chairman squad object playerName
+        if (chairmanFplSquad?.playerName && chairmanFplSquad.playerName.trim() && chairmanFplSquad.playerName.trim().toLowerCase() !== 'chairman' && chairmanFplSquad.playerName.trim().toLowerCase() !== 'admin') {
+            return chairmanFplSquad.playerName.trim();
+        }
+        // Priority 3: User entered fullName
         if (fullName && fullName.trim() && fullName.trim().toLowerCase() !== 'chairman' && fullName.trim().toLowerCase() !== 'admin') {
             return fullName.trim();
         }
-        if (chairmanFplSquad?.playerName && chairmanFplSquad.playerName.trim() && chairmanFplSquad.playerName.trim().toLowerCase() !== 'chairman') {
-            return chairmanFplSquad.playerName.trim();
-        }
-        const storedName = localStorage.getItem('activeUserName');
+        // Priority 4: Stored user name in localStorage
+        const storedName = localStorage.getItem('fc-setup-fullName') || localStorage.getItem('activeUserName');
         if (storedName && storedName.trim() && storedName.trim().toLowerCase() !== 'chairman' && storedName.trim().toLowerCase() !== 'admin') {
             return storedName.trim();
         }
+        // Priority 5: Auth display name
         const authName = auth.currentUser?.displayName;
-        if (authName && authName.trim() && authName.trim().toLowerCase() !== 'chairman') {
+        if (authName && authName.trim() && authName.trim().toLowerCase() !== 'chairman' && authName.trim().toLowerCase() !== 'admin') {
             return authName.trim();
         }
         return 'League Founder';
-    }, [fullName, chairmanFplSquad, auth.currentUser?.displayName]);
+    }, [fullName, chairmanFplSquad, fplStandings, auth.currentUser?.displayName]);
+
+    // Auto-heal fullName when effectiveManagerName resolves a genuine manager name
+    useEffect(() => {
+        if (effectiveManagerName && effectiveManagerName !== 'League Founder' && (!fullName || fullName.trim().toLowerCase() === 'chairman' || fullName.trim().toLowerCase() === 'admin')) {
+            setFullName(effectiveManagerName);
+            localStorage.setItem('fc-setup-fullName', effectiveManagerName);
+            localStorage.setItem('activeUserName', effectiveManagerName);
+        }
+    }, [effectiveManagerName, fullName]);
 
     const toggleCoChair = (index: number) => {
         setCoAdminIndices(prev => {
@@ -511,17 +542,9 @@ export default function AdminSetup() {
         if (step < STEPS) { setStepDirection('forward'); setStep(step + 1); }
     };
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
     useEffect(() => {
-        setFullName(localStorage.getItem('fc-setup-fullName') || '');
-        setEmail(localStorage.getItem('fc-setup-email') || '');
-        setPhone(localStorage.getItem('fc-setup-phone') || '');
-        setChairmanPayoutPhone(localStorage.getItem('fc-setup-chairmanPayoutPhone') || '');
-        setLeagueName(localStorage.getItem('fc-setup-leagueName') || '');
-        setFplLeagueId(localStorage.getItem('fc-setup-fplLeagueId') || '');
-
         const savedMonthlyFee = Number(localStorage.getItem('fc-setup-monthlyFee'));
         if (!Number.isNaN(savedMonthlyFee) && savedMonthlyFee > 0) setMonthlyFee(savedMonthlyFee);
 
@@ -641,12 +664,32 @@ export default function AdminSetup() {
         setSubmitError('');
 
         try {
-            const cleanEmail = email.trim();
+            const cleanEmail = (
+                email.trim() || 
+                auth.currentUser?.email || 
+                localStorage.getItem('fc-setup-email') || 
+                localStorage.getItem('fc-login-email') || 
+                localStorage.getItem('activeUserEmail') || 
+                ''
+            ).trim();
+
             if (!cleanEmail || !cleanEmail.includes('@')) {
                 setSubmitError('Chairman login email is required. Please return to Step 1 to enter your account email and password.');
+                setStep(1);
                 setIsSubmitting(false);
                 return;
             }
+
+            if (!email.trim() && cleanEmail) {
+                setEmail(cleanEmail);
+            }
+
+            const resolvedChairmanName = (
+                (effectiveManagerName && effectiveManagerName !== 'League Founder' ? effectiveManagerName : '') || 
+                (fullName && fullName.trim().toLowerCase() !== 'chairman' && fullName.trim().toLowerCase() !== 'admin' ? fullName.trim() : '') ||
+                auth.currentUser?.displayName ||
+                'Chairman'
+            );
 
             // Write 1: Create Admin User or reuse existing Chairman session
             let chairmanUser = auth.currentUser;
@@ -679,9 +722,9 @@ export default function AdminSetup() {
                 }
             }
 
-            if (fullName && (!chairmanUser.displayName || chairmanUser.displayName !== fullName)) {
+            if (resolvedChairmanName && (!chairmanUser.displayName || chairmanUser.displayName !== resolvedChairmanName)) {
                 try {
-                    await updateProfile(chairmanUser, { displayName: fullName });
+                    await updateProfile(chairmanUser, { displayName: resolvedChairmanName });
                 } catch (pErr) {
                     console.warn('[AdminSetup] updateProfile skipped:', pErr);
                 }
@@ -695,6 +738,7 @@ export default function AdminSetup() {
                 fplLeagueId,
                 gameweekStake: monthlyFee,
                 chairmanId: chairmanUid,
+                chairmanName: resolvedChairmanName,
                 chairmanPhone: chairmanPayoutPhone || phone,
                 chairmanEmail: cleanEmail,
                 allowMultipleTeams,
@@ -718,7 +762,7 @@ export default function AdminSetup() {
             // Enroll Chairman First (with linked FPL squad if selected)
             const chairmanRef = doc(collection(db, 'leagues', leagueId, 'memberships'));
             const chairmanData: any = {
-                displayName: fullName,
+                displayName: resolvedChairmanName,
                 phone: phone,
                 hasPaid: false,
                 walletBalance: 0,
@@ -832,7 +876,9 @@ export default function AdminSetup() {
             localStorage.setItem('activeLeagueId', leagueId);
             localStorage.setItem('activeUserId', chairmanRef.id);
             localStorage.setItem('activeUserRole', 'admin');
+            localStorage.setItem('activeUserName', resolvedChairmanName);
             if (phone) localStorage.setItem('memberPhone', phone);
+            if (cleanEmail) localStorage.setItem('fc-login-email', cleanEmail);
 
             // Ensure role is set (it was set at step 1 but re-confirm after writes)
             setRole('admin');
@@ -916,7 +962,11 @@ export default function AdminSetup() {
         }
         const matched = fplStandings.find(e => Number(e.entry) === Number(selectedEntryId));
         if (matched) {
-            const chosenPlayerName = matched.player_name || fullName || 'Manager';
+            const chosenPlayerName = (matched.player_name && matched.player_name.trim().toLowerCase() !== 'chairman' && matched.player_name.trim().toLowerCase() !== 'admin')
+                ? matched.player_name.trim()
+                : (fullName && fullName.trim().toLowerCase() !== 'chairman' && fullName.trim().toLowerCase() !== 'admin')
+                    ? fullName.trim()
+                    : 'Manager';
             const squadObj = {
                 entry: Number(matched.entry),
                 entryName: matched.entry_name || 'My Squad',
@@ -926,10 +976,11 @@ export default function AdminSetup() {
             localStorage.setItem('fc-setup-chairmanFplSquad', JSON.stringify(squadObj));
             
             // Auto-update Chairman's name from their selected FPL squad
-            if (matched.player_name) {
-                setFullName(matched.player_name);
-                localStorage.setItem('fc-setup-fullName', matched.player_name);
-                localStorage.setItem('activeUserName', matched.player_name);
+            if (matched.player_name && matched.player_name.trim().toLowerCase() !== 'chairman' && matched.player_name.trim().toLowerCase() !== 'admin') {
+                const cleanName = matched.player_name.trim();
+                setFullName(cleanName);
+                localStorage.setItem('fc-setup-fullName', cleanName);
+                localStorage.setItem('activeUserName', cleanName);
             }
 
             // Remove this squad from the remaining members list using strict Number conversion
@@ -1745,7 +1796,7 @@ export default function AdminSetup() {
                                 <div className="flex items-center gap-2">
                                     <p className="font-semibold text-sm text-white leading-tight">{effectiveManagerName}</p>
                                     <span className="text-[9px] font-semibold text-[#FBBF24] uppercase tracking-wider px-2 py-0.5 bg-[#FBBF24]/20 border border-[#FBBF24]/30 rounded">
-                                        👑 Chairman
+                                        👑 League Admin
                                     </span>
                                 </div>
                                 <p className="text-[11px] text-gray-400 font-mono mt-0.5">
@@ -1764,20 +1815,20 @@ export default function AdminSetup() {
                                     value={chairmanFplSquad?.entry || ''}
                                     onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
                                     className={clsx(
-                                        "w-full appearance-none rounded-xl py-2.5 pl-3.5 pr-10 text-xs focus:outline-none cursor-pointer font-medium border transition-all shadow-sm",
+                                        "w-full appearance-none rounded-xl py-2.5 pl-3.5 pr-10 text-xs focus:outline-none cursor-pointer font-semibold border transition-all shadow-sm",
                                         chairmanFplSquad
-                                            ? "bg-[#111820] border-[#10B981]/50 text-white focus:border-[#10B981]"
-                                            : "bg-[#111820] border-[#FBBF24] text-white focus:border-[#FBBF24] ring-2 ring-[#FBBF24]/20"
+                                            ? "bg-white dark:bg-[#111820] border-emerald-500/50 dark:border-[#10B981]/50 text-gray-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                                            : "bg-white dark:bg-[#111820] border-amber-500 dark:border-[#FBBF24] text-gray-900 dark:text-white focus:border-amber-500 ring-2 ring-amber-500/20"
                                     )}
                                 >
-                                    <option value="" className="bg-[#0f1720] text-gray-300 py-1">🛡️ Pure Admin (Non-Playing, no squad)</option>
+                                    <option value="" className="bg-white dark:bg-[#0f1720] text-gray-700 dark:text-gray-300 py-1.5 font-medium">🛡️ Pure Admin (Non-Playing, no squad)</option>
                                     {fplStandings.map((s) => (
-                                        <option key={s.entry} value={s.entry} className="bg-[#0f1720] text-white py-1">
+                                        <option key={s.entry} value={s.entry} className="bg-white dark:bg-[#0f1720] text-gray-900 dark:text-white py-1.5 font-medium">
                                             ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
                                         </option>
                                     ))}
                                 </select>
-                                <ChevronDown className="w-4 h-4 text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                             </div>
                         </div>
                     </div>
@@ -2309,8 +2360,9 @@ export default function AdminSetup() {
                                 <div className="flex items-center gap-2 truncate">
                                     <Shield className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
                                     <div className="truncate">
-                                        <p className="font-semibold text-white truncate leading-tight">
-                                            {effectiveManagerName} <span className="text-[9px] text-[#FBBF24] font-mono">(👑 Chairman)</span>
+                                        <p className="font-semibold text-white truncate leading-tight flex items-center gap-1.5">
+                                            <span>{effectiveManagerName}</span>
+                                            <span className="text-[9px] text-[#FBBF24] font-mono bg-[#FBBF24]/10 px-1.5 py-0.5 rounded border border-[#FBBF24]/30">👑 League Admin</span>
                                         </p>
                                         <p className="text-[10px] text-gray-300 truncate">
                                             {chairmanFplSquad ? `Squad: ${chairmanFplSquad.entryName} (#${chairmanFplSquad.entry})` : "Pure Admin (Non-Playing)"}

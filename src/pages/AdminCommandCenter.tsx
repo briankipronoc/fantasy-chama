@@ -5131,16 +5131,16 @@ burstFrame();
                     <select
                       value={fundTargetMemberId}
                       onChange={(e) => setFundTargetMemberId(e.target.value)}
-                      className="fc-prefund-input w-full appearance-none rounded-xl border border-white/10 px-3.5 py-3 pr-10 bg-[#0d1316] text-white focus:border-[#10B981]/50 cursor-pointer font-medium"
+                      className="fc-prefund-input w-full appearance-none rounded-xl border border-gray-300 dark:border-white/10 px-3.5 py-3 pr-10 bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] cursor-pointer font-semibold shadow-sm transition-all"
                     >
-                      <option value="" className="bg-[#0d1316] text-gray-400">Select member</option>
+                      <option value="" className="bg-white dark:bg-[#0d1316] text-gray-500 dark:text-gray-400 py-1.5 font-medium">Select member</option>
                       {members.map((member) => (
-                        <option key={member.id} value={member.id} className="bg-[#0d1316] text-white">
+                        <option key={member.id} value={member.id} className="bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white py-1.5 font-medium">
                           {member.displayName}
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-4 h-4 text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                    <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </label>
 

@@ -1109,18 +1109,18 @@ export default function Login() {
                                                             }
                                                         }
                                                     }}
-                                                    className="w-full appearance-none bg-[#161d24] border border-white/10 rounded-xl py-2.5 pl-3 pr-9 text-xs text-white focus:outline-none focus:border-emerald-500/50 cursor-pointer font-medium"
+                                                    className="w-full appearance-none bg-white dark:bg-[#161d24] border border-gray-300 dark:border-white/10 rounded-xl py-2.5 pl-3 pr-9 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer font-semibold shadow-sm transition-all"
                                                 >
-                                                    <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"}>
+                                                    <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"} className="bg-white dark:bg-[#161d24] text-gray-900 dark:text-white">
                                                         {filteredUnlinkedTeams.map((t) => (
-                                                            <option key={t.id} value={t.id} className="bg-[#161d24] text-white">
+                                                            <option key={t.id} value={t.id} className="bg-white dark:bg-[#161d24] text-gray-900 dark:text-white py-1.5 font-medium">
                                                                 {t.displayName} — {t.fplTeamName || t.teamName || 'FPL Squad'}
                                                             </option>
                                                         ))}
                                                     </optgroup>
-                                                    <option value="custom" className="bg-[#161d24] text-amber-300 font-semibold">➕ Not in list / Enter manually</option>
+                                                    <option value="custom" className="bg-white dark:bg-[#161d24] text-amber-600 dark:text-amber-300 font-bold py-1.5">➕ Not in list / Enter manually</option>
                                                 </select>
-                                                <ChevronDown className="w-4 h-4 text-emerald-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
+                                                <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
                                             </div>
                                         </div>
                                     )}

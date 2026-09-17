@@ -109,13 +109,13 @@ export default function InviteHub() {
                                     <select 
                                         value={expiresDays}
                                         onChange={(e) => setExpiresDays(e.target.value)}
-                                        className="w-full appearance-none bg-[#0d1316] border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white text-sm focus:outline-none focus:border-[#10B981]/50 cursor-pointer font-medium transition-all"
+                                        className="w-full appearance-none bg-white dark:bg-[#0d1316] border border-gray-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-10 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20 cursor-pointer font-semibold transition-all shadow-sm"
                                     >
-                                        <option value="1" className="bg-[#0d1316] text-white py-1">Expire in 24 Hours</option>
-                                        <option value="7" className="bg-[#0d1316] text-white py-1">Expire in 7 Days</option>
-                                        <option value="30" className="bg-[#0d1316] text-white py-1">Expire in 30 Days</option>
+                                        <option value="1" className="bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white py-1.5 font-medium">Expire in 24 Hours</option>
+                                        <option value="7" className="bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white py-1.5 font-medium">Expire in 7 Days</option>
+                                        <option value="30" className="bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white py-1.5 font-medium">Expire in 30 Days</option>
                                     </select>
-                                    <ChevronDown className="w-4 h-4 text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                    <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                                 </div>
                             </div>
                             <div>
@@ -125,7 +125,7 @@ export default function InviteHub() {
                                     value={targetPhone}
                                     onChange={(e) => setTargetPhone(e.target.value)}
                                     placeholder="Lock link to specific number (e.g. 07...)"
-                                    className="w-full bg-[#0d1316] border border-white/10 rounded-xl py-3 px-4 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#10B981]/50"
+                                    className="w-full bg-white dark:bg-[#0d1316] border border-gray-300 dark:border-white/10 rounded-xl py-3 px-4 text-gray-900 dark:text-white text-sm placeholder:text-gray-400 dark:placeholder:text-gray-600 focus:outline-none focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20 transition-all shadow-sm font-medium"
                                 />
                             </div>
                         </div>
