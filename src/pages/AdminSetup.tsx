@@ -2312,30 +2312,41 @@ export default function AdminSetup() {
                     {/* Left: 2. Distribution Summary */}
                     <div className="bg-[#111820]/80 border border-white/5 rounded-2xl p-4 md:p-5 flex flex-col justify-between space-y-4">
                         <div>
-                            <div className="flex items-center gap-2 mb-3 text-white font-bold text-sm">
-                                <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center justify-center shrink-0">2</span>
-                                <Trophy className="w-4 h-4 text-[#FBBF24]" /> Prize Distribution Breakdown
-                            </div>
-                            <div className="space-y-2.5">
-                                <div className="flex justify-between items-center bg-[#161d24] p-3 rounded-xl border border-white/5 text-xs">
-                                    <span className="text-gray-300 font-medium">Weekly Prize ({weeklyPrizePercent}%)</span>
-                                    <span className="font-bold text-emerald-400 text-sm tabular-nums">KES {weeklyPrize} <span className="text-[10px] text-gray-400 font-normal">/GW</span></span>
+                            <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+                                <div className="flex items-center gap-2 text-white font-bold text-sm">
+                                    <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center justify-center shrink-0">2</span>
+                                    <Trophy className="w-4 h-4 text-[#FBBF24]" /> Prize Distribution Breakdown
                                 </div>
-                                <div className="flex justify-between items-center bg-[#161d24] p-3 rounded-xl border border-white/5 text-xs">
-                                    <span className="text-gray-300 font-medium">Grand Vault ({100 - weeklyPrizePercent}%)</span>
-                                    <span className="font-bold text-[#FBBF24] text-sm tabular-nums">KES {grandVault * 38} <span className="text-[10px] text-gray-400 font-normal">/38GWs</span></span>
+                                <span className="text-xs font-mono text-[#FBBF24] bg-[#FBBF24]/10 px-2.5 py-1 rounded-md border border-[#FBBF24]/20 font-bold">
+                                    {weeklyPrizePercent}% / {100 - weeklyPrizePercent}% Split
+                                </span>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center bg-[#161d24] p-3.5 rounded-xl border border-white/5 text-xs">
+                                    <div>
+                                        <p className="text-gray-200 font-semibold text-xs">Weekly Gameweek Prize</p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{weeklyPrizePercent}% of weekly pot awarded to top GW scorer</p>
+                                    </div>
+                                    <span className="font-bold text-emerald-400 text-base tabular-nums">KES {weeklyPrize} <span className="text-[10px] text-gray-400 font-normal">/GW</span></span>
+                                </div>
+                                <div className="flex justify-between items-center bg-[#161d24] p-3.5 rounded-xl border border-white/5 text-xs">
+                                    <div>
+                                        <p className="text-gray-200 font-semibold text-xs">Grand Season Vault</p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{100 - weeklyPrizePercent}% accumulated into season finale pot</p>
+                                    </div>
+                                    <span className="font-bold text-[#FBBF24] text-base tabular-nums">KES {grandVault * 38} <span className="text-[10px] text-gray-400 font-normal">/38GWs</span></span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Podium Split Pills */}
-                        <div className="pt-3 border-t border-white/5 space-y-1.5">
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Podium Allocations</p>
-                            <div className="grid grid-cols-3 gap-1.5 text-center">
+                        <div className="pt-3 border-t border-white/5 space-y-2">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Season End Podium Allocations</p>
+                            <div className="grid grid-cols-3 gap-2 text-center">
                                 {effectiveSeasonDistribution.slice(0, 3).map((pct, idx) => (
-                                    <div key={idx} className="bg-black/30 border border-white/5 rounded-lg py-1.5 px-1">
-                                        <p className="text-[9px] text-gray-400 font-bold">#{idx + 1} {idx === 0 ? 'Champ' : `Tier ${idx + 1}`}</p>
-                                        <p className="text-xs font-black text-white">{pct}%</p>
+                                    <div key={idx} className="bg-black/40 border border-white/5 rounded-xl py-2 px-1">
+                                        <p className="text-[9px] text-amber-400/90 font-bold uppercase tracking-wider">#{idx + 1} {idx === 0 ? 'Champion' : `Tier ${idx + 1}`}</p>
+                                        <p className="text-sm font-black text-white mt-0.5">{pct}%</p>
                                     </div>
                                 ))}
                             </div>
@@ -2344,32 +2355,43 @@ export default function AdminSetup() {
 
                     {/* Right: 3. Squads & Onboarding Snapshot */}
                     <div className="bg-[#111820]/80 border border-white/5 rounded-2xl p-4 md:p-5 flex flex-col justify-between space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
                             <div className="flex items-center gap-2 text-white font-bold text-sm">
                                 <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-black flex items-center justify-center shrink-0">3</span>
                                 <Users className="w-4 h-4 text-[#22c55e]" /> Squads & Claim Status
                             </div>
-                            <span className="text-[10px] font-mono text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                                {totalSquadsCount} Squads
+                            <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20 font-bold">
+                                {totalSquadsCount} Registered {totalSquadsCount === 1 ? 'Squad' : 'Squads'}
                             </span>
                         </div>
 
-                        <div className="space-y-2 max-h-[190px] overflow-y-auto pr-1">
+                        <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                             {/* Chairman row with verified squad & phone */}
-                            <div className="flex justify-between items-center bg-[#22c55e]/10 p-2.5 rounded-xl border border-[#22c55e]/25 text-xs shadow-sm">
-                                <div className="flex items-center gap-2 truncate">
-                                    <Shield className="w-3.5 h-3.5 text-[#FBBF24] shrink-0" />
-                                    <div className="truncate">
-                                        <p className="font-semibold text-white truncate leading-tight flex items-center gap-1.5">
-                                            <span>{effectiveManagerName}</span>
-                                            <span className="text-[9px] text-[#FBBF24] font-mono bg-[#FBBF24]/10 px-1.5 py-0.5 rounded border border-[#FBBF24]/30">👑 League Admin</span>
-                                        </p>
-                                        <p className="text-[10px] text-gray-300 truncate">
-                                            {chairmanFplSquad ? `Squad: ${chairmanFplSquad.entryName} (#${chairmanFplSquad.entry})` : "Pure Admin (Non-Playing)"}
+                            <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/25 p-3 rounded-xl text-xs shadow-sm gap-3">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                                        <Shield className="w-4 h-4 text-[#FBBF24]" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <p className="font-bold text-white text-sm leading-tight tracking-tight">{effectiveManagerName}</p>
+                                            <span className="text-[9px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                                                👑 League Admin
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-300 mt-0.5 truncate">
+                                            {chairmanFplSquad ? (
+                                                <span>Squad: <strong className="text-white font-semibold">{chairmanFplSquad.entryName}</strong> <span className="text-gray-400 font-mono ml-1">(#{chairmanFplSquad.entry})</span></span>
+                                            ) : (
+                                                <span className="text-gray-400 italic">Pure Admin (Non-Playing)</span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>
-                                <span className="text-[#22c55e] font-mono text-[11px] font-semibold shrink-0">{chairmanPayoutPhone || phone}</span>
+                                <div className="text-right shrink-0">
+                                    <span className="text-emerald-400 font-mono text-xs font-bold block">{chairmanPayoutPhone || phone}</span>
+                                    <span className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold block mt-0.5">Payout Line</span>
+                                </div>
                             </div>
 
                             {/* Squads preview — filter out chairman's squad to avoid duplicate row */}
@@ -2378,26 +2400,41 @@ export default function AdminSetup() {
                                 .map((m, i) => {
                                     const isCoAdmin = coAdminIndices.includes(i);
                                     return (
-                                        <div key={i} className={clsx("flex justify-between items-center p-2.5 rounded-xl border text-xs", isCoAdmin ? "bg-amber-500/10 border-amber-500/30" : "bg-[#161d24] border-white/5")}>
-                                            <div className="min-w-0 pr-2">
-                                                <div className="flex items-center gap-1.5">
-                                                    <p className="font-semibold text-white truncate max-w-[180px]">{m.fplTeamName || m.displayName}</p>
+                                        <div 
+                                            key={i} 
+                                            className={clsx(
+                                                "flex items-center justify-between p-3 rounded-xl border text-xs gap-3 transition-all",
+                                                isCoAdmin ? "bg-amber-500/10 border-amber-500/30" : "bg-[#161d24]/90 hover:bg-[#161d24] border-white/5"
+                                            )}
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <p className="font-bold text-white text-sm tracking-tight">{m.fplTeamName || m.displayName}</p>
                                                     {isCoAdmin && (
-                                                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded tracking-wider uppercase shrink-0 flex items-center gap-1">
+                                                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded tracking-wider uppercase shrink-0 flex items-center gap-1">
                                                             <Shield className="w-2.5 h-2.5 text-amber-400" /> Co-Chair
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="text-[10px] text-gray-400 truncate max-w-[180px]">
-                                                    {m.displayName && m.fplTeamName ? m.displayName : "FPL Squad"}
-                                                    {m.fplEntryId ? ` · #${m.fplEntryId}` : ""}
+                                                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                                    <span>Manager: <strong className="text-gray-200 font-medium">{m.displayName || "FPL Manager"}</strong></span>
+                                                    {m.fplEntryId ? (
+                                                        <>
+                                                            <span className="text-gray-600 font-bold">•</span>
+                                                            <span className="font-mono text-gray-400">#{m.fplEntryId}</span>
+                                                        </>
+                                                    ) : null}
                                                 </p>
                                             </div>
-                                            <div className="shrink-0">
+                                            <div className="shrink-0 text-right">
                                                 {m.phone ? (
-                                                    <span className="text-gray-300 font-mono text-[11px]">{m.phone}</span>
+                                                    <div>
+                                                        <span className="text-gray-200 font-mono text-xs font-semibold bg-white/5 px-2.5 py-1 rounded-lg border border-white/10 block">{m.phone}</span>
+                                                        <span className="text-[9px] text-emerald-400 font-semibold uppercase tracking-wider block mt-0.5">Linked</span>
+                                                    </div>
                                                 ) : (
-                                                    <span className="text-[#FBBF24] font-medium text-[9px] bg-[#FBBF24]/10 px-2 py-0.5 rounded-md border border-[#FBBF24]/25">
+                                                    <span className="inline-flex items-center gap-1.5 text-amber-400 font-semibold text-[10px] bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/25 whitespace-nowrap">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
                                                         Pending Invite Claim
                                                     </span>
                                                 )}
