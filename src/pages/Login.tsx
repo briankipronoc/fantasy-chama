@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { Shield, User, ArrowRight, ArrowLeft, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
-import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signInAnonymously, sendPasswordResetEmail } from 'firebase/auth';
 import { normalizeKenyanPhone, getPhoneVariants } from '../utils/phone';
 
@@ -484,6 +484,12 @@ export default function Login() {
                     currentAuthUser = userCredential.user;
                 } catch (authErr) {
                     console.warn("[onboarding] Auth sign-in retry:", authErr);
+                    try {
+                        const userCredential = await signInAnonymously(auth);
+                        currentAuthUser = userCredential.user;
+                    } catch (e) {
+                        console.error("[onboarding] Critical auth failure:", e);
+                    }
                 }
             }
             const activeAuthUid = currentAuthUser?.uid || onboardData.userUid;
@@ -539,6 +545,7 @@ export default function Login() {
                     fplTeamId: claimed?.fplTeamId || claimed?.entry || null,
                     isPending: false,
                     isActive: true,
+                    role: claimed?.role || 'member',
                     playMode: onboardPlayMode,
                     joinedGw: onboardData.currentGw,
                     authUid: activeAuthUid,
@@ -569,6 +576,22 @@ export default function Login() {
                     createdAt: serverTimestamp(),
                 });
                 memberId = docRef.id;
+            }
+
+            // Sync user's league list to userLeagues for multi-league switching
+            try {
+                const userLeagueRef = doc(db, 'userLeagues', targetPhone);
+                const snap = await getDoc(userLeagueRef);
+                const currentLeagues = snap.exists() ? (snap.data().leagues || []) : [];
+                if (!currentLeagues.includes(onboardData.leagueId)) {
+                    await setDoc(userLeagueRef, {
+                        phone: targetPhone,
+                        leagues: [...currentLeagues, onboardData.leagueId],
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                }
+            } catch (ulErr) {
+                console.warn("[onboarding] Non-critical userLeagues sync:", ulErr);
             }
 
             // Post join notification to league
