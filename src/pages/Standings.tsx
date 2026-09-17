@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
@@ -75,7 +75,153 @@ export default function Standings() {
     const [leagueRules, setLeagueRules] = useState<any>({});
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
-    const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean }>>([]);
+    const [payoutRows, setPayoutRows] = useState<any[]>([]);
+    const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
+    const members = useStore(state => state.members);
+    const gwWinnersLedger = useMemo(() => {
+        const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean; isAwaitingPayment?: boolean }>();
+        payoutRows.forEach((tx) => {
+            const gw = Number(tx.gameweek || tx.gw);
+            if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
+            winnerByGw.set(gw, {
+                gw,
+                winnerName: tx.winnerName || 'Unknown winner',
+                winnerTeam: tx.winnerTeam || tx.entryName || null,
+                amount: Number(tx.amount || 0),
+            });
+        });
+
+        const pendingForfeited = new Set<number>();
+        const pendingPayoutsMap = new Map<number, any>();
+        pendingPayouts.forEach((p) => {
+            const gwNum = Number(p.gw || p.gameweek);
+            if (Number.isFinite(gwNum)) {
+                if (p.status === 'forfeited') {
+                    pendingForfeited.add(gwNum);
+                } else {
+                    pendingPayoutsMap.set(gwNum, p);
+                }
+            }
+        });
+
+        const weeklyPercent = Number((leagueRules as any)?.weekly || 70) / 100;
+        const stakeVal = Number((leagueRules as any)?.gameweekStake || 250);
+
+        // Active non-eliminated funded Chama members from results
+        const norm = (s: string) => String(s || '').toLowerCase().trim();
+        const activeChamaResults = (standingsData || []).filter((r: any) => {
+            const dbMember = members.find((m: any) => {
+                if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+                if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+                const db = norm(m.displayName);
+                return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+            });
+            if (!dbMember) return false;
+            if (dbMember.isActive === false) return false;
+            if ((dbMember as any)?.isEliminated === true) return false;
+            if ((dbMember as any)?.playMode === 'sidebets_only') return false;
+            const isFunded = dbMember.hasPaid === true || (stakeVal > 0 && (Number(dbMember.walletBalance || 0)) >= stakeVal);
+            return isFunded;
+        });
+        const sortedActiveResults = [...activeChamaResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+        const topGwMember = sortedActiveResults[0];
+
+        const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated && (m as any)?.playMode !== 'sidebets_only' && (m.hasPaid || (stakeVal > 0 && (Number(m.walletBalance || 0)) >= stakeVal))).length || 1;
+        const estimatedPot = Math.round(activeCount * stakeVal * weeklyPercent);
+
+        const effectiveForfeited = new Set<number>([
+            ...(forfeitedGws || []),
+            ...(leagueRules?.forfeitedGws || []),
+            ...Array.from(pendingForfeited),
+        ]);
+
+        const hasPayoutForCurrent = Array.from(winnerByGw.keys()).includes(currentEvent || 0);
+        const effectiveStartGw = Math.max(1, Number(
+            (leagueStartGw && leagueStartGw <= (currentEvent || 0) && isCurrentEventFinished && !hasPayoutForCurrent)
+                ? (currentEvent ? currentEvent + 1 : leagueStartGw)
+                : (leagueStartGw > 1 ? leagueStartGw : ((leagueRules as any)?.startGw || (isCurrentEventFinished && currentEvent ? currentEvent + 1 : currentEvent) || 1))
+        ));
+
+        return Array.from({ length: 38 }, (_, index) => {
+            const gw = index + 1;
+            // 1. Approved winner in recorded transactions
+            if (winnerByGw.has(gw)) {
+                return winnerByGw.get(gw)!;
+            }
+
+            // 2. Pre-league gameweeks (prior to league officially starting) -> strictly voided
+            if (effectiveStartGw > 1 && gw < effectiveStartGw) {
+                return {
+                    gw,
+                    winnerName: 'Voided',
+                    winnerTeam: 'Pre-League',
+                    isVoided: true,
+                    isPreLeague: true,
+                };
+            }
+
+            // 3. Explicitly forfeited gameweeks
+            if (effectiveForfeited.has(gw)) {
+                return {
+                    gw,
+                    winnerName: 'Voided',
+                    winnerTeam: 'Round Unplayed',
+                    isVoided: true,
+                };
+            }
+
+            // 4. Pending payouts awaiting co-chair or chairman approval
+            if (pendingPayoutsMap.has(gw)) {
+                const p = pendingPayoutsMap.get(gw);
+                return {
+                    gw,
+                    winnerName: p.winnerName || p.playerName || 'Winner identified',
+                    winnerTeam: p.winnerTeam || p.entryName || 'Awaiting Payment',
+                    amount: Number(p.amount || estimatedPot),
+                    isAwaitingPayment: true,
+                };
+            }
+
+            // 5. Current active live gameweek
+            if (currentEvent && gw === currentEvent && !isCurrentEventFinished) {
+                if (topGwMember && Number(topGwMember.event_total) > 0) {
+                    return {
+                        gw,
+                        winnerName: topGwMember.player_name,
+                        winnerTeam: topGwMember.entry_name || 'Live Leader',
+                        amount: estimatedPot,
+                        isCurrentLive: true,
+                    };
+                }
+                return {
+                    gw,
+                    winnerName: 'In Progress',
+                    winnerTeam: 'Live Gameweek',
+                    isCurrentLive: true,
+                };
+            }
+
+            // 6. Past gameweeks that already concluded but were never resolved or had insufficient players -> Skipped
+            if (currentEvent && gw < currentEvent) {
+                return {
+                    gw,
+                    winnerName: 'Skipped',
+                    winnerTeam: 'Not resolved / Insufficient players',
+                    isVoided: true,
+                    isSkipped: true,
+                };
+            }
+
+            // 7. Future gameweeks
+            return {
+                gw,
+                winnerName: 'Upcoming',
+                winnerTeam: 'Pending kickoff',
+                isUpcoming: true,
+            };
+        });
+    }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
+
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -95,7 +241,6 @@ export default function Standings() {
     } | null>(null);
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
-    const members = useStore(state => state.members);
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
 
@@ -191,162 +336,34 @@ export default function Standings() {
 
                 try {
                     const txSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'transactions'));
-                    const payoutRows = txSnap.docs
+                    const payoutRowsData = txSnap.docs
                         .map((txDoc) => txDoc.data() as any)
                         .filter((tx) => tx.type === 'payout' && Number.isFinite(Number(tx.gameweek || tx.gw)));
+                    setPayoutRows(payoutRowsData);
 
-                    let pendingForfeited = new Set<number>();
-                    const pendingPayoutsMap = new Map<number, any>();
                     try {
                         const pendingSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'pending_payouts'));
-                        pendingSnap.docs.forEach((docSnap) => {
-                            const p = docSnap.data() as any;
-                            const gwNum = Number(p.gw || p.gameweek);
-                            if (Number.isFinite(gwNum)) {
-                                if (p.status === 'forfeited') {
-                                    pendingForfeited.add(gwNum);
-                                } else {
-                                    pendingPayoutsMap.set(gwNum, p);
-                                }
-                            }
-                        });
+                        setPendingPayouts(pendingSnap.docs.map((d) => d.data() as any));
                     } catch (_pErr) {
-                        // ignore if collection empty
+                        setPendingPayouts([]);
                     }
-
-                    const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean; isAwaitingPayment?: boolean }>();
-                    payoutRows.forEach((tx) => {
-                        const gw = Number(tx.gameweek || tx.gw);
-                        if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
-                        winnerByGw.set(gw, {
-                            gw,
-                            winnerName: tx.winnerName || 'Unknown winner',
-                            winnerTeam: tx.winnerTeam || tx.entryName || null,
-                            amount: Number(tx.amount || 0),
-                        });
-                    });
-
-                    const weeklyPercent = Number((leagueRules as any)?.weekly || 70) / 100;
-                    const stakeVal = Number((leagueRules as any)?.gameweekStake || 250);
-
-                    // Active non-eliminated funded Chama members from results
-                    const norm = (s: string) => String(s || '').toLowerCase().trim();
-                    const activeChamaResults = results.filter((r: any) => {
-                        const dbMember = members.find((m: any) => {
-                            if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
-                            if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
-                            const db = norm(m.displayName);
-                            return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
-                        });
-                        if (!dbMember) return false;
-                        if (dbMember.isActive === false) return false;
-                        if ((dbMember as any)?.isEliminated === true) return false;
-                        if ((dbMember as any)?.playMode === 'sidebets_only') return false;
-                        const isFunded = dbMember.hasPaid === true || (stakeVal > 0 && (Number(dbMember.walletBalance || 0)) >= stakeVal);
-                        return isFunded;
-                    });
-                    const sortedActiveResults = [...activeChamaResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-                    const topGwMember = sortedActiveResults[0];
-
-                    const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated && (m as any)?.playMode !== 'sidebets_only' && (m.hasPaid || (stakeVal > 0 && (Number(m.walletBalance || 0)) >= stakeVal))).length || 1;
-                    const estimatedPot = Math.round(activeCount * stakeVal * weeklyPercent);
-
-                    const effectiveForfeited = new Set<number>([
-                        ...(forfeitedGws || []),
-                        ...(leagueRules?.forfeitedGws || []),
-                        ...Array.from(pendingForfeited),
-                    ]);
-
-                    const hasPayoutForCurrent = Array.from(winnerByGw.keys()).includes(currentEvent || 0);
-                    const effectiveStartGw = Math.max(1, Number(
-                        (leagueStartGw && leagueStartGw <= (currentEvent || 0) && isCurrentEventFinished && !hasPayoutForCurrent)
-                            ? (currentEvent ? currentEvent + 1 : leagueStartGw)
-                            : (leagueStartGw > 1 ? leagueStartGw : ((leagueRules as any)?.startGw || (isCurrentEventFinished && currentEvent ? currentEvent + 1 : currentEvent) || 1))
-                    ));
-
-                    const ledger = Array.from({ length: 38 }, (_, index) => {
-                        const gw = index + 1;
-                        // 1. Approved winner in recorded transactions
-                        if (winnerByGw.has(gw)) {
-                            return winnerByGw.get(gw)!;
-                        }
-
-                        // 2. Pre-league gameweeks (prior to league officially starting) -> strictly voided
-                        if (effectiveStartGw > 1 && gw < effectiveStartGw) {
-                            return {
-                                gw,
-                                winnerName: 'Voided',
-                                winnerTeam: 'Pre-League',
-                                isVoided: true,
-                                isPreLeague: true,
-                            };
-                        }
-
-                        // 3. Explicitly forfeited gameweeks
-                        if (effectiveForfeited.has(gw)) {
-                            return {
-                                gw,
-                                winnerName: 'Voided',
-                                winnerTeam: 'Round Unplayed',
-                                isVoided: true,
-                            };
-                        }
-
-                        // 4. Pending payouts awaiting co-chair or chairman approval
-                        if (pendingPayoutsMap.has(gw)) {
-                            const p = pendingPayoutsMap.get(gw);
-                            return {
-                                gw,
-                                winnerName: p.winnerName || p.playerName || 'Winner identified',
-                                winnerTeam: p.winnerTeam || p.entryName || 'Awaiting Payment',
-                                amount: Number(p.amount || estimatedPot),
-                                isAwaitingPayment: true,
-                            };
-                        }
-
-                        // 5. Current active live gameweek
-                        if (currentEvent && gw === currentEvent) {
-                            if (topGwMember && Number(topGwMember.event_total) > 0) {
-                                return {
-                                    gw,
-                                    winnerName: topGwMember.player_name,
-                                    winnerTeam: topGwMember.entry_name || 'Live Leader',
-                                    amount: estimatedPot,
-                                    isCurrentLive: true,
-                                };
-                            }
-                            return {
-                                gw,
-                                winnerName: 'In Progress',
-                                winnerTeam: 'Live Gameweek',
-                                isCurrentLive: true,
-                            };
-                        }
-
-                        // 6. Past gameweeks that already concluded but were never resolved or had insufficient players -> Skipped
-                        if (currentEvent && gw < currentEvent) {
-                            return {
-                                gw,
-                                winnerName: 'Skipped',
-                                winnerTeam: 'Not resolved / Insufficient players',
-                                isVoided: true,
-                                isSkipped: true,
-                            };
-                        }
-
-                        // 7. Future gameweeks
-                        return {
-                            gw,
-                            winnerName: 'Upcoming',
-                            winnerTeam: 'Pending kickoff',
-                            isUpcoming: true,
-                        };
-                    });
-                    setGwWinnersLedger(ledger);
                 } catch (txErr: any) {
-                    console.warn('[standings] ledger read skipped:', txErr?.message || txErr);
-                    const blankLedger = Array.from({ length: 38 }, (_, index) => ({ gw: index + 1, winnerName: 'Pending' }));
-                    setGwWinnersLedger(blankLedger);
+                    console.warn('[standings] ledger tx read skipped:', txErr?.message || txErr);
+                }
+
+                // Ensure currentEvent is available immediately
+                try {
+                    const bResp = await fetch(`/fpl-api/bootstrap-static/`);
+                    if (bResp.ok) {
+                        const bData = await bResp.json();
+                        const current = (bData?.events || []).find((event: any) => event.is_current);
+                        if (current?.id) {
+                            setCurrentEvent(current.id);
+                            setIsCurrentEventFinished(Boolean(current.finished === true && current.data_checked === true));
+                        }
+                    }
+                } catch (bErr) {
+                    console.warn('[standings] bootstrap static fetch skipped:', bErr);
                 }
             } catch (err: any) {
                 console.error('FPL Fetch Error:', err);
@@ -380,13 +397,14 @@ export default function Standings() {
     useEffect(() => {
         // Only scroll the horizontal rail — NOT the page/window — to avoid page jumping
         if (!currentEvent || !ledgerRailRef.current) return;
+        const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : currentEvent;
         const rail = ledgerRailRef.current;
-        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${currentEvent}"]`);
+        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
         if (!gwCard) return;
         // Container-only horizontal scroll (does NOT touch vertical scroll)
         const targetLeft = gwCard.offsetLeft - rail.clientWidth / 2 + gwCard.clientWidth / 2;
         rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-    }, [currentEvent, gwWinnersLedger.length]);
+    }, [currentEvent, isCurrentEventFinished, gwWinnersLedger.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
         const norm = (s: string) => s.toLowerCase().trim();
@@ -1038,6 +1056,8 @@ export default function Standings() {
                                 const isPreLeague = Boolean(item.isPreLeague);
                                 const isSkipped = Boolean(item.isSkipped);
                                 const isAwaitingPayment = Boolean(item.isAwaitingPayment);
+                                const targetActiveGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1);
+                                const isTargetActiveGw = item.gw === targetActiveGw;
                                 const isCurrentGw = currentEvent === item.gw;
                                 const isCurrentLive = !isCurrentEventFinished && (Boolean(item.isCurrentLive) || isCurrentGw);
                                 const resolved = (item.winnerName !== 'Upcoming' && item.winnerName !== 'In Progress' && !isVoided) || isAwaitingPayment;
@@ -1055,10 +1075,11 @@ export default function Standings() {
                                                 ? 'border-slate-300 dark:border-slate-500/25 bg-slate-100/90 dark:bg-slate-500/8 text-slate-700 dark:text-slate-300'
                                                 : isVoided || isSkipped
                                                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                                : isTargetActiveGw
+                                                ? 'border-[#FBBF24]/60 bg-[#FBBF24]/10 ring-2 ring-[#FBBF24]/50'
                                                 : isCurrentGw
                                                 ? 'border-[#FBBF24]/50 bg-[#FBBF24]/10'
-                                                : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25',
-                                            isCurrentGw && 'ring-2 ring-[#FBBF24]/55'
+                                                : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
                                         )}
                                     >
                                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -1081,7 +1102,11 @@ export default function Standings() {
                                                 </span>
                                             ) : isCurrentLive ? (
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40">
-                                                    {isCurrentEventFinished ? 'Final' : 'Live'}
+                                                    Live
+                                                </span>
+                                            ) : isTargetActiveGw ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40 animate-pulse">
+                                                    Pending
                                                 </span>
                                             ) : (
                                                 <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
@@ -1091,7 +1116,7 @@ export default function Standings() {
                                         </div>
                                         <p className={clsx(
                                             'text-xs font-black truncate',
-                                            resolved ? 'text-slate-900 dark:text-white' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided || isSkipped ? 'text-amber-600 dark:text-amber-300' : isCurrentGw ? 'text-amber-600 dark:text-[#FBBF24]' : 'text-slate-400 dark:text-gray-500'
+                                            resolved ? 'text-slate-900 dark:text-white' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided || isSkipped ? 'text-amber-600 dark:text-amber-300' : isTargetActiveGw ? 'text-amber-600 dark:text-[#FBBF24]' : 'text-slate-400 dark:text-gray-500'
                                         )}>
                                             {item.winnerName}
                                         </p>
@@ -1102,7 +1127,7 @@ export default function Standings() {
                                                 ? (item.winnerTeam || 'Not resolved / Unplayed')
                                                 : isAwaitingPayment
                                                 ? `${item.winnerTeam || 'Awaiting Payment'}`
-                                                : item.winnerTeam || (resolved ? 'Winner recorded' : isCurrentGw ? (isCurrentEventFinished ? 'Gameweek Concluded' : 'Active Gameweek') : 'Pending kickoff')}
+                                                : item.winnerTeam || (resolved ? 'Winner recorded' : isTargetActiveGw ? (isCurrentEventFinished ? 'Next Round Kickoff' : 'Active Round') : 'Pending kickoff')}
                                         </p>
                                         {resolved && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>

@@ -262,17 +262,25 @@ export default function MemberDashboard() {
         if (members.length === 0) return;
         if (!leagueName) return;
         setIsLoading(false);
-        // Show constitution modal on first login (only for non-admin members who haven't accepted or dismissed)
+
+        const shouldForceShowConstitution = Boolean(
+            location.state?.showConstitution ||
+            sessionStorage.getItem('fc_show_constitution_onboarded') === 'true'
+        );
+
+        // Show constitution modal on first login (only for non-admin members who haven't accepted or dismissed in this league)
         const isDismissedOrAccepted = Boolean(
             activeLeagueId && (
                 localStorage.getItem(`fc_rules_accepted_${activeLeagueId}`) === 'true' ||
-                localStorage.getItem('fc_constitution_dismissed') === 'true'
+                localStorage.getItem(`fc_constitution_dismissed_${activeLeagueId}`) === 'true'
             )
         );
-        if (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules && !isDismissedOrAccepted) {
-            setTimeout(() => setShowRulesModal(true), 800);
+
+        if (shouldForceShowConstitution || (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules && !isDismissedOrAccepted)) {
+            const timer = setTimeout(() => setShowRulesModal(true), 350);
+            return () => clearTimeout(timer);
         }
-    }, [members.length, currentUser, leagueName, activeLeagueId]);
+    }, [members.length, currentUser, leagueName, activeLeagueId, location.state]);
 
 
     useEffect(() => {
@@ -1054,10 +1062,11 @@ export default function MemberDashboard() {
             <LeagueRulesModal
                 isOpen={showRulesModal}
                 onClose={() => {
+                    sessionStorage.removeItem('fc_show_constitution_onboarded');
                     if (activeLeagueId) {
                         try {
                             localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
-                            localStorage.setItem('fc_constitution_dismissed', 'true');
+                            localStorage.setItem(`fc_constitution_dismissed_${activeLeagueId}`, 'true');
                         } catch {}
                     }
                     setShowRulesModal(false);

@@ -259,6 +259,8 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                                     if (activeLeagueId) {
                                         try {
                                             localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                                            localStorage.setItem(`fc_constitution_dismissed_${activeLeagueId}`, 'true');
+                                            sessionStorage.removeItem('fc_show_constitution_onboarded');
                                         } catch {}
                                     }
                                     if (activeLeagueId && currentMember) {

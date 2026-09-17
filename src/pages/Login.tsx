@@ -495,14 +495,21 @@ export default function Login() {
             const activeAuthUid = currentAuthUser?.uid || onboardData.userUid;
 
             // If this phone is already an active member in this league, sign them in directly!
-            const membershipsRef = collection(db, 'leagues', onboardData.leagueId, 'memberships');
-            const allMembersSnap = await getDocs(membershipsRef);
-            const matchedExisting = allMembersSnap.docs.find(d => {
-                const data = d.data();
-                const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
-                const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
-                return (p1 === targetPhone || p2 === targetPhone) && data.isPending !== true;
-            });
+            let matchedExisting: any = null;
+            if (selectedTeamClaim === 'custom') {
+                try {
+                    const membershipsRef = collection(db, 'leagues', onboardData.leagueId, 'memberships');
+                    const allMembersSnap = await getDocs(membershipsRef);
+                    matchedExisting = allMembersSnap.docs.find(d => {
+                        const data = d.data();
+                        const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
+                        const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
+                        return (p1 === targetPhone || p2 === targetPhone) && data.isPending !== true;
+                    });
+                } catch (e) {
+                    console.warn("[onboarding] Existing member check warning:", e);
+                }
+            }
 
             if (matchedExisting) {
                 localStorage.setItem('activeLeagueId', onboardData.leagueId);
@@ -579,52 +586,66 @@ export default function Login() {
                 memberId = docRef.id;
             }
 
-            // Sync user's league list to userLeagues for multi-league switching
-            try {
-                const userLeagueRef = doc(db, 'userLeagues', targetPhone);
-                const snap = await getDoc(userLeagueRef);
-                const currentLeagues = snap.exists() ? (snap.data().leagues || []) : [];
-                if (!currentLeagues.includes(onboardData.leagueId)) {
-                    await setDoc(userLeagueRef, {
-                        phone: targetPhone,
-                        leagues: [...currentLeagues, onboardData.leagueId],
-                        updatedAt: serverTimestamp()
-                    }, { merge: true });
+            // Non-blocking background sync for userLeagues and join notification
+            const leagueId = onboardData.leagueId;
+            const leagueName = onboardData.leagueName;
+            (async () => {
+                try {
+                    const userLeagueRef = doc(db, 'userLeagues', targetPhone);
+                    const snap = await getDoc(userLeagueRef);
+                    const currentLeagues = snap.exists() ? (snap.data().leagues || []) : [];
+                    if (!currentLeagues.includes(leagueId)) {
+                        await setDoc(userLeagueRef, {
+                            phone: targetPhone,
+                            leagues: [...currentLeagues, leagueId],
+                            updatedAt: serverTimestamp()
+                        }, { merge: true });
+                    }
+                } catch (ulErr) {
+                    console.warn("[onboarding] Background userLeagues sync:", ulErr);
                 }
-            } catch (ulErr) {
-                console.warn("[onboarding] Non-critical userLeagues sync:", ulErr);
-            }
 
-            // Post join notification to league
-            try {
-                const tierLabel = onboardPlayMode === 'pot' 
-                    ? '🏆 Cash Pot Contributor' 
-                    : onboardPlayMode === 'season_only'
-                    ? '👑 Season Vault Only'
-                    : '🛡️ Spectator & Side-Bets Only';
-                await addDoc(collection(db, 'leagues', onboardData.leagueId, 'notifications'), {
-                    type: 'member_joined',
-                    eventType: 'member_joined',
-                    title: 'New Member Self-Onboarded',
-                    message: `${finalDisplayName} joined ${onboardData.leagueName} (${tierLabel}).`,
-                    createdAt: serverTimestamp(),
-                });
-            } catch (notifErr) {
-                console.warn("Could not post join notification:", notifErr);
-            }
+                try {
+                    const tierLabel = onboardPlayMode === 'pot' 
+                        ? '🏆 Cash Pot Contributor' 
+                        : onboardPlayMode === 'season_only'
+                        ? '👑 Season Vault Only'
+                        : '🛡️ Spectator & Side-Bets Only';
+                    await addDoc(collection(db, 'leagues', leagueId, 'notifications'), {
+                        type: 'member_joined',
+                        eventType: 'member_joined',
+                        title: 'New Member Self-Onboarded',
+                        message: `${finalDisplayName} joined ${leagueName} (${tierLabel}).`,
+                        createdAt: serverTimestamp(),
+                    });
+                } catch (notifErr) {
+                    console.warn("[onboarding] Background notification:", notifErr);
+                }
+            })().catch(bgErr => console.warn("[onboarding] Background tasks:", bgErr));
 
-            // Save session to localStorage
-            localStorage.setItem('activeLeagueId', onboardData.leagueId);
-            localStorage.setItem('memberPhone', onboardData.phone);
+            // Save active session to localStorage
+            localStorage.setItem('activeLeagueId', leagueId);
+            localStorage.setItem('memberPhone', targetPhone);
             localStorage.setItem('activeUserId', memberId);
+            localStorage.setItem('activeUserName', finalDisplayName);
+
+            // Clean up old dismissed flags so constitution displays once for newly onboarded profile
+            try {
+                localStorage.removeItem('fc_constitution_dismissed');
+                localStorage.removeItem(`fc_rules_accepted_${leagueId}`);
+                localStorage.removeItem(`fc_constitution_dismissed_${leagueId}`);
+                sessionStorage.setItem('fc_show_constitution_onboarded', 'true');
+            } catch {}
 
             localStorage.removeItem('fc-login-code');
             localStorage.removeItem('fc-login-phone');
 
+            setShowSelfOnboardModal(false);
             setRole('member');
             navigate('/dashboard', {
                 state: {
-                    welcomeMsg: `Welcome to ${onboardData.leagueName}, ${finalDisplayName}! ${onboardPlayMode === 'sidebets_only' ? 'You are in Free Spectator & Side-Bets mode.' : 'Your spot in the chama is confirmed.'}`
+                    welcomeMsg: `Welcome to ${leagueName}, ${finalDisplayName}! ${onboardPlayMode === 'sidebets_only' ? 'You are in Free Spectator & Side-Bets mode.' : 'Your spot in the chama is confirmed.'}`,
+                    showConstitution: true
                 },
                 replace: true,
             });
