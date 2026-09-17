@@ -520,15 +520,17 @@ export default function Standings() {
             <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
             <div className="fixed bottom-0 left-0 w-full h-[600px] pointer-events-none z-0" style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%)' }} />
 
-            <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10 space-y-8 pb-6 lg:pb-8">
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-6 space-y-4 md:space-y-5 pb-6 lg:pb-8">
                 {/* Header — matches other pages */}
                 <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Gameweek Rankings" />
 
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 pt-1 pb-2 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 pt-0 pb-1 mb-2">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400 mb-1">League Table</p>
-                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
-                            <Trophy className="w-7 h-7 text-amber-400" /> Live Standings
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400 mb-1 flex items-center gap-1.5">
+                            🏆 League Table
+                        </p>
+                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
+                            <Trophy className="w-6 h-6 text-emerald-400" /> Live Standings
                         </h2>
                         <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
                             Real-time FPL performance rankings for your active league.

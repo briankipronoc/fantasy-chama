@@ -527,9 +527,10 @@ export default function Login() {
             }
 
             if (!finalDisplayName) {
-                setOnboardError('Please enter your Manager / Display Name.');
-                setIsOnboardingSubmitting(false);
-                return;
+                finalDisplayName = onboardManagerName.trim() || 'Manager';
+            }
+            if (!finalTeamName) {
+                finalTeamName = onboardTeamName.trim() || finalDisplayName || 'FPL Squad';
             }
 
             let memberId = selectedTeamClaim;
@@ -1120,8 +1121,33 @@ export default function Login() {
                                         key={s.step}
                                         type="button"
                                         onClick={() => {
-                                            if (s.step < onboardStep) setOnboardStep(s.step as any);
-                                            else if (s.step === 2 && (onboardManagerName.trim() || selectedTeamClaim !== 'custom')) setOnboardStep(2);
+                                            if (s.step < onboardStep) {
+                                                setOnboardStep(s.step as any);
+                                            } else if (s.step === 2) {
+                                                let name = onboardManagerName.trim();
+                                                if (selectedTeamClaim !== 'custom') {
+                                                    const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
+                                                    if (matched) name = name || matched.displayName || '';
+                                                }
+                                                if (!name) {
+                                                    setOnboardError('Please complete Step 1 (Manager Name) first.');
+                                                    return;
+                                                }
+                                                setOnboardError('');
+                                                setOnboardStep(2);
+                                            } else if (s.step === 3) {
+                                                let name = onboardManagerName.trim();
+                                                if (selectedTeamClaim !== 'custom') {
+                                                    const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
+                                                    if (matched) name = name || matched.displayName || '';
+                                                }
+                                                if (!name) {
+                                                    setOnboardError('Please complete Step 1 (Manager Name) first.');
+                                                    return;
+                                                }
+                                                setOnboardError('');
+                                                setOnboardStep(3);
+                                            }
                                         }}
                                         className={clsx(
                                             "flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all",
@@ -1295,14 +1321,20 @@ export default function Login() {
                                         type="button"
                                         onClick={() => {
                                             let name = onboardManagerName.trim();
+                                            let squad = onboardTeamName.trim();
                                             if (selectedTeamClaim !== 'custom') {
                                                 const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
-                                                if (matched) name = name || matched.displayName;
+                                                if (matched) {
+                                                    name = name || matched.displayName || '';
+                                                    squad = squad || matched.fplTeamName || matched.teamName || matched.displayName || '';
+                                                }
                                             }
                                             if (!name) {
                                                 setOnboardError('Please enter or select your Manager Name to proceed.');
                                                 return;
                                             }
+                                            setOnboardManagerName(name);
+                                            setOnboardTeamName(squad);
                                             setOnboardError('');
                                             setOnboardStep(2);
                                         }}

@@ -811,18 +811,21 @@ const handleRejectPendingPayout = async (payout: any) => {
     }
 
     return (
-        <div className="fc-finances-page p-4 sm:p-6 md:p-10 lg:p-12 w-full animate-in fade-in duration-500 pb-10 lg:pb-12 font-sans text-white h-full overflow-y-auto relative">
+        <div className="fc-finances-page p-3 sm:p-5 md:p-6 lg:p-8 w-full animate-in fade-in duration-500 pb-8 font-sans text-white h-full overflow-y-auto relative">
             <div className="absolute inset-0 pointer-events-none opacity-70">
                 <div className="absolute -top-20 right-[8%] h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
                 <div className="absolute bottom-10 left-[6%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
             </div>
-            <div className="w-full max-w-6xl mx-auto space-y-6">
+            <div className="w-full max-w-6xl mx-auto space-y-4">
                 <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 pt-2 pb-4 mb-2">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 pt-0 pb-1 mb-1">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400 mb-1">Red Zone & Finances</p>
-                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
-                            <ReceiptText className="w-7 h-7 text-emerald-400" /> Audit Log
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-400 mb-1 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                            🚨 Red Zone & Finances
+                        </p>
+                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
+                            <ReceiptText className="w-6 h-6 text-emerald-400" /> Audit Log
                         </h2>
                         <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
                             A transparent, permanent history of all funds entering and exiting the Chama Vault.
@@ -830,7 +833,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     <div className="flex gap-3 flex-wrap">
-                        <button onClick={exportLedgerCSV} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition active:scale-95">
+                        <button onClick={exportLedgerCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition active:scale-95">
                             <Download className="w-3.5 h-3.5" /> Export CSV
                         </button>
                     </div>

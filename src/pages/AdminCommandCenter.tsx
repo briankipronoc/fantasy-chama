@@ -3695,9 +3695,9 @@ burstFrame();
                       ) : null}
                     </div>
 
-                    <div className="my-auto py-2 flex flex-col items-center justify-center text-center w-full">
+                    <div className="my-auto py-1 flex flex-col items-center justify-center text-center w-full">
                       <span className={clsx(
-                        "text-xs md:text-sm font-bold px-3 py-1 rounded-full inline-block",
+                        "text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-block max-w-full truncate",
                         gwAlreadySettled 
                           ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
                           : isCurrentEventFinished

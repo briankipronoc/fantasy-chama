@@ -459,55 +459,83 @@ export default function AdminSetup() {
             setIsCheckingEmail(true);
             setStep1Error('');
             try {
-                // If user entered a password, check if it matches their existing Chairman account
-                if (password && password.length >= 6) {
-                    try {
-                        const signInRes = await signInWithEmailAndPassword(auth, email.trim(), password);
-                        if (signInRes.user) {
-                            // Successfully authenticated existing chairman!
-                            setIsExistingChairman(true);
-                            setRole('admin');
-                            setStep(2);
-                            setStepDirection('forward');
-                            setIsCheckingEmail(false);
-                            return;
-                        }
-                    } catch (signInErr: any) {
-                        if (signInErr.code === 'auth/wrong-password') {
-                            setStep1Error('This email is registered to an existing Chairman account. Please enter your existing password to link this new league, or use a different email.');
-                            setIsCheckingEmail(false);
-                            return;
-                        } else if (signInErr.code === 'auth/too-many-requests') {
-                            setStep1Error('Too many attempts. Please wait a moment.');
-                            setIsCheckingEmail(false);
-                            return;
-                        }
+                // If user is already authenticated as this non-anonymous email, proceed directly
+                if (auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.email?.toLowerCase() === email.trim().toLowerCase()) {
+                    if (fullName.trim() && (!auth.currentUser.displayName || auth.currentUser.displayName !== fullName.trim())) {
+                        try { await updateProfile(auth.currentUser, { displayName: fullName.trim() }); } catch {}
                     }
-                }
-
-                await signInWithEmailAndPassword(auth, email.trim(), '__FC_PROBE_PASSWORD_XYZ__');
-                setStep1Error('This email is registered to a Chairman account. Enter your existing password above to link this new league.');
-                setIsCheckingEmail(false);
-                return;
-            } catch (err: any) {
-                if (err.code === 'auth/wrong-password' || err.code === 'auth/too-many-requests') {
-                    setStep1Error('This email belongs to an existing Chairman account. Enter your existing password above to link this new league, or use a new email.');
+                    setRole('admin');
+                    setStep(2);
+                    setStepDirection('forward');
                     setIsCheckingEmail(false);
                     return;
-                } else if (
-                    err.code === 'auth/user-not-found' ||
-                    err.code === 'auth/invalid-credential' ||
-                    err.code === 'auth/invalid-email'
-                ) {
-                    if (err.code === 'auth/invalid-email') {
-                        setStep1Error('Please enter a valid email address.');
+                }
+
+                if (!password || password.length < 6) {
+                    setStep1Error('Please enter a secure password (at least 6 characters) to secure your Chairman account.');
+                    setIsCheckingEmail(false);
+                    return;
+                }
+
+                // If currently anonymous, sign out first to avoid auth collision
+                if (auth.currentUser?.isAnonymous) {
+                    try { await signOut(auth); } catch {}
+                }
+
+                // 1. Try to sign in if this is an existing Chairman account
+                try {
+                    const signInRes = await signInWithEmailAndPassword(auth, email.trim(), password);
+                    if (signInRes.user) {
+                        setIsExistingChairman(true);
+                        if (fullName.trim() && (!signInRes.user.displayName || signInRes.user.displayName !== fullName.trim())) {
+                            try { await updateProfile(signInRes.user, { displayName: fullName.trim() }); } catch {}
+                        }
+                        setRole('admin');
+                        setStep(2);
+                        setStepDirection('forward');
                         setIsCheckingEmail(false);
                         return;
                     }
-                    // Email is available — proceed normally
-                } else {
-                    console.warn('[Step1] Email probe skipped due to network/unknown error:', err.code, err.message);
+                } catch (signInErr: any) {
+                    if (signInErr.code === 'auth/wrong-password') {
+                        setStep1Error('This email is registered to an existing Chairman account, but the password was incorrect. Please enter your correct password.');
+                        setIsCheckingEmail(false);
+                        return;
+                    } else if (signInErr.code === 'auth/too-many-requests') {
+                        setStep1Error('Too many attempts. Please wait a moment and try again.');
+                        setIsCheckingEmail(false);
+                        return;
+                    } else if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential') {
+                        // 2. Not an existing user — create the new Chairman account right now!
+                        try {
+                            const newCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+                            if (newCred.user) {
+                                if (fullName.trim()) {
+                                    try { await updateProfile(newCred.user, { displayName: fullName.trim() }); } catch {}
+                                }
+                                setRole('admin');
+                                setStep(2);
+                                setStepDirection('forward');
+                                setIsCheckingEmail(false);
+                                return;
+                            }
+                        } catch (createErr: any) {
+                            if (createErr.code === 'auth/email-already-in-use') {
+                                setStep1Error('This email is already in use. Please enter your existing Chairman password to link this league.');
+                            } else {
+                                setStep1Error(createErr.message || 'Could not create Chairman account. Please check your details.');
+                            }
+                            setIsCheckingEmail(false);
+                            return;
+                        }
+                    } else {
+                        setStep1Error(signInErr.message || 'Could not verify Chairman account.');
+                        setIsCheckingEmail(false);
+                        return;
+                    }
                 }
+            } catch (err: any) {
+                setStep1Error(err.message || 'Network error verifying account. Check your connection.');
             } finally {
                 setIsCheckingEmail(false);
             }

@@ -441,16 +441,18 @@ export default function SideBets() {
                 <div className="absolute bottom-10 left-[8%] h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
             </div>
 
-            <div className="max-w-6xl mx-auto space-y-8 relative z-10">
+            <div className="max-w-6xl mx-auto space-y-4 md:space-y-5 relative z-10">
                 {/* Standard Page Header */}
                 <Header role={role || 'member'} title={leagueName} subtitle="Head-to-Head Wagers" />
 
                 {/* Clean Unboxed Title Module (League Control Snapshot style) */}
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-1 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-0 pb-1">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400 mb-1">League Features</p>
-                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 mb-1">
-                            <Swords className="w-7 h-7 text-amber-400" /> Side Bets & Wagers
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-indigo-400 mb-1 flex items-center gap-1.5">
+                            ⚔️ League Features
+                        </p>
+                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
+                            <Swords className="w-6 h-6 text-indigo-400" /> Side Bets & Wagers
                         </h2>
                         <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
                             Direct head-to-head wagers between managers. Chairman approved, wallets auto-settled.
