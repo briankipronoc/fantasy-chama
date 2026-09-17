@@ -1028,7 +1028,11 @@ export default function AdminSetup() {
     const handleShareWhatsApp = () => {
         const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
         const link = `${appUrl}/login?code=${generatedCode}`;
-        const message = `🏆 Join our FPL Chama — *${leagueName || "Premier League"}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${generatedCode}*`;
+        const host = (fullName && fullName.trim().toLowerCase() !== 'chairman' && fullName.trim().toLowerCase() !== 'admin')
+            ? fullName.trim()
+            : (effectiveManagerName && effectiveManagerName !== 'League Founder' ? effectiveManagerName : "your Chairman");
+        const lName = leagueName || "our FPL Chama";
+        const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${generatedCode}*`;
         navigator.clipboard.writeText(message);
         setCopied(true);
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
@@ -1092,7 +1096,7 @@ export default function AdminSetup() {
                                 value={fullName}
                                 onChange={e => setFullName(e.target.value.replace(/[^a-zA-Z\s'\-]/g, ''))}
                                 pattern="^[a-zA-Z][a-zA-Z'\-\s]{1,}[a-zA-Z]$"
-                                title="Please enter at least two names (e.g., Brian Kiprono)"
+                                title="Please enter at least two names (e.g., Kevin Sifuna)"
                                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/5 bg-[#0b1014] text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 text-sm font-medium"
                                 placeholder="Enter your legal name"
                             />

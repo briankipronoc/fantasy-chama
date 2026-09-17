@@ -1,10 +1,14 @@
 import { Check, Share2, FileText, Shield, Users, Zap, Wallet, Trophy, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useStore } from '../store/useStore';
 
 export default function InviteHub() {
     const [searchParams] = useSearchParams();
     const inviteCode = searchParams.get('code') || "882109";
+    const league = useStore((state) => state.league);
+    const host = league?.chairmanName || 'The Chairman';
+    const lName = league?.name || 'our FPL Chama';
     const [copied, setCopied] = useState(false);
 
     const [targetPhone, setTargetPhone] = useState('');
@@ -23,10 +27,10 @@ export default function InviteHub() {
 
         const shareUrl = `${appUrl}/login${params}`;
         
-        const message = `🏆 *You've been invited to join Fantasy Chama!*\n\n` +
-            `Sign in, link your FPL squad, and join the gameweek money league pot.\n\n` +
-            `👉 *Join League:* ${shareUrl}\n\n` +
-            `_Invite Code: *${inviteCode}*_`;
+        const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\n` +
+            `Win weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\n` +
+            `Join here: ${shareUrl}\n` +
+            `League Code: *${inviteCode}*`;
 
         if (navigator.share) {
             navigator.share({
@@ -147,7 +151,7 @@ export default function InviteHub() {
                         <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Invitation Preview</span>
                     </div>
                     <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 text-gray-300 text-sm leading-relaxed shadow-lg font-mono whitespace-pre-wrap">
-                        {`🏆 Join our FPL Chama — *Tentshakers FC*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: https://fantasy-chama.vercel.app/login?code=${inviteCode}\nLeague Code: *${inviteCode}*`}
+                        {`You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: https://fantasy-chama.vercel.app/login?code=${inviteCode}\nLeague Code: *${inviteCode}*`}
                     </div>
                 </div>
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Shield, User, ArrowRight, Mail, KeyRound, Phone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown } from 'lucide-react';
+import { Shield, User, ArrowRight, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp } from 'firebase/firestore';
@@ -76,15 +76,50 @@ export default function Login() {
     const navigate = useNavigate();
     const setRole = useStore((state) => state.setRole);
 
+    // Mount Effect: handle URL invite codes and restore preferences
     useEffect(() => {
-        const savedAdminView = localStorage.getItem('fc-login-admin-view');
-        if (savedAdminView !== null) setIsAdminView(savedAdminView === 'true');
+        const params = new URLSearchParams(window.location.search);
+        const urlCode = params.get('code');
+        const urlExpires = params.get('e');
+        const urlPhone = params.get('phone') || params.get('p');
 
-        setPhone(localStorage.getItem('fc-login-phone') || '');
+        if (urlExpires && Date.now() > parseInt(urlExpires)) {
+            setError('This invite link has expired. Request a new one from your Chairman.');
+            return;
+        }
+
+        if (urlCode && urlCode.length === 6) {
+            // Invite link is strictly for a member joining this league!
+            // Never show Chairman Sign In when following an invite link
+            setIsAdminView(false);
+            localStorage.setItem('fc-login-admin-view', 'false');
+
+            const upperCode = urlCode.toUpperCase();
+            const chars = upperCode.split('');
+            setCode(chars);
+
+            let initialPhone = '';
+            if (urlPhone) {
+                initialPhone = normalizeKenyanPhone(urlPhone);
+                setPhone(initialPhone);
+                setIsPhoneLocked(true);
+            } else {
+                initialPhone = localStorage.getItem('fc-login-phone') || '';
+                setPhone(initialPhone);
+            }
+
+            // Auto-launch the Self-Onboarding Wizard immediately for the invited member
+            startOnboardingForLeague(upperCode, initialPhone);
+        } else {
+            const savedAdminView = localStorage.getItem('fc-login-admin-view');
+            if (savedAdminView !== null) setIsAdminView(savedAdminView === 'true');
+
+            setPhone(localStorage.getItem('fc-login-phone') || '');
+            const savedCode = (localStorage.getItem('fc-login-code') || '').slice(0, 6);
+            setCode(Array.from({ length: 6 }, (_, index) => savedCode[index] || ''));
+        }
+
         setEmail(localStorage.getItem('fc-login-email') || '');
-
-        const savedCode = (localStorage.getItem('fc-login-code') || '').slice(0, 6);
-        setCode(Array.from({ length: 6 }, (_, index) => savedCode[index] || ''));
     }, []);
 
     useEffect(() => { localStorage.setItem('fc-login-admin-view', String(isAdminView)); }, [isAdminView]);
@@ -118,29 +153,6 @@ export default function Login() {
         const lastIdx = Math.min(pasted.length - 1, 5);
         setTimeout(() => inputRefs.current[lastIdx]?.focus(), 0);
     };
-
-    // Auto-fill from URL params (for expiring targeted invite links)
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const urlCode = params.get('code');
-        const urlExpires = params.get('e');
-        const urlPhone = params.get('phone');
-        
-        if (urlExpires && Date.now() > parseInt(urlExpires)) {
-            setError('This invite link has expired. Request a new one from your Chairman.');
-            return;
-        }
-
-        if (urlCode && urlCode.length === 6) {
-            const chars = urlCode.toUpperCase().split('');
-            setCode(chars);
-        }
-        
-        if (urlPhone) {
-            setPhone(normalizeKenyanPhone(urlPhone));
-            setIsPhoneLocked(true);
-        }
-    }, []);
 
     // Pre-warm anonymous session on mount to eliminate cold-start auth latency
     useEffect(() => {
@@ -201,18 +213,15 @@ export default function Login() {
         return () => { isMounted = false; };
     }, [code]);
 
-    const handleJoin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const fullCode = code.join('');
-
-        if (!phone || fullCode.length !== 6) return;
+    const startOnboardingForLeague = async (fullCode: string, userPhone?: string) => {
+        if (!fullCode || fullCode.length !== 6) return;
 
         setError('');
         setInfoMessage('');
         setIsLoading(true);
 
         try {
-            console.log("1. Member Login Initiated with code:", fullCode);
+            console.log("1. Member Onboarding/Login Initiated with code:", fullCode);
 
             // Ensure anonymous Firebase Auth session exists BEFORE querying leagues/memberships
             let currentAuthUser = auth.currentUser;
@@ -228,11 +237,10 @@ export default function Login() {
             }
             const userUid = currentAuthUser?.uid || 'anon_' + Date.now();
 
-            // 1. Find the League by the 6-Digit Code (with 25s timeout and automatic retry on cold start)
+            // 1. Find the League by the 6-Digit Code
             const leaguesRef = collection(db, 'leagues');
-            const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode));
+            const qLeague = query(leaguesRef, where("inviteCode", "==", fullCode.toUpperCase()));
 
-            console.log("2. Querying master ledger for invite code...");
             let leagueSnapshot: any;
             try {
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Database connection timeout. Check your network.")), 25000));
@@ -241,8 +249,6 @@ export default function Login() {
                 console.warn("First query attempt delayed, retrying immediately...", queryErr);
                 leagueSnapshot = await getDocs(qLeague);
             }
-
-            console.log("3. Query returned snapshot size:", leagueSnapshot?.size);
 
             if (!leagueSnapshot || leagueSnapshot.empty) {
                 console.warn("Invalid Invite Code verified on DB.");
@@ -257,90 +263,92 @@ export default function Login() {
             const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
             const allMembersSnap = await getDocs(membershipsRef);
 
-            const phoneVariants = getPhoneVariants(phone);
-            const normalizedInput = normalizeKenyanPhone(phone);
-            const cleanDigitsInput = phone.replace(/\D/g, '');
+            const activePhone = userPhone || phone;
+            if (activePhone) {
+                const phoneVariants = getPhoneVariants(activePhone);
+                const normalizedInput = normalizeKenyanPhone(activePhone);
+                const cleanDigitsInput = activePhone.replace(/\D/g, '');
 
-            const matchedMemberDoc = allMembersSnap.docs.find(d => {
-                const data = d.data();
-                const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
-                const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
-                const cleanP1 = String(data.phone || '').replace(/\D/g, '');
-                const cleanP2 = String(data.phoneNumber || '').replace(/\D/g, '');
+                const matchedMemberDoc = allMembersSnap.docs.find(d => {
+                    const data = d.data();
+                    const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
+                    const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
+                    const cleanP1 = String(data.phone || '').replace(/\D/g, '');
+                    const cleanP2 = String(data.phoneNumber || '').replace(/\D/g, '');
 
-                const matchesVariant = phoneVariants.includes(data.phone) || phoneVariants.includes(data.phoneNumber);
-                const matchesNormalized = (p1 && p1 === normalizedInput) || (p2 && p2 === normalizedInput);
-                const matchesLast9 = cleanDigitsInput.length >= 8 && (
-                    (cleanP1.length >= 8 && cleanP1.endsWith(cleanDigitsInput.slice(-8))) ||
-                    (cleanP2.length >= 8 && cleanP2.endsWith(cleanDigitsInput.slice(-8))) ||
-                    (cleanDigitsInput.length >= 9 && cleanP1.endsWith(cleanDigitsInput.slice(-9))) ||
-                    (cleanDigitsInput.length >= 9 && cleanP2.endsWith(cleanDigitsInput.slice(-9)))
-                );
+                    const matchesVariant = phoneVariants.includes(data.phone) || phoneVariants.includes(data.phoneNumber);
+                    const matchesNormalized = (p1 && p1 === normalizedInput) || (p2 && p2 === normalizedInput);
+                    const matchesLast9 = cleanDigitsInput.length >= 8 && (
+                        (cleanP1.length >= 8 && cleanP1.endsWith(cleanDigitsInput.slice(-8))) ||
+                        (cleanP2.length >= 8 && cleanP2.endsWith(cleanDigitsInput.slice(-8))) ||
+                        (cleanDigitsInput.length >= 9 && cleanP1.endsWith(cleanDigitsInput.slice(-9))) ||
+                        (cleanDigitsInput.length >= 9 && cleanP2.endsWith(cleanDigitsInput.slice(-9)))
+                    );
 
-                return matchesVariant || matchesNormalized || matchesLast9;
-            });
+                    return (matchesVariant || matchesNormalized || matchesLast9) && data.isPending !== true;
+                });
 
-            if (matchedMemberDoc) {
-                // 3. User already exists: update member document with active authUid (non-fatal) and sign in directly
-                const memberDocRef = matchedMemberDoc.ref;
-                try {
-                    await updateDoc(memberDocRef, { authUid: userUid });
-                } catch (updateErr) {
-                    console.warn("[login] Non-critical: could not update authUid on member document:", updateErr);
-                }
-
-                const memberData = matchedMemberDoc.data();
-
-                // Save session to localStorage
-                localStorage.setItem('activeLeagueId', leagueId);
-                localStorage.setItem('memberPhone', phone);
-                localStorage.setItem('activeUserId', memberDocRef.id);
-
-                // Clear sensitive login inputs from localStorage after success
-                localStorage.removeItem('fc-login-code');
-                localStorage.removeItem('fc-login-phone');
-
-                // Extract active member names to show the user during the warm-up transition
-                const rawNames: string[] = [];
-                allMembersSnap.docs.forEach(docSnap => {
-                    const d = docSnap.data();
-                    const raw = (d.displayName || d.name || '').trim();
-                    if (raw && d.isActive !== false && d.role !== 'admin') {
-                        const first = raw.split(' ')[0];
-                        if (first && !rawNames.includes(first)) rawNames.push(first);
+                if (matchedMemberDoc) {
+                    const memberDocRef = matchedMemberDoc.ref;
+                    try {
+                        await updateDoc(memberDocRef, { authUid: userUid });
+                    } catch (updateErr) {
+                        console.warn("[login] Non-critical: could not update authUid on member document:", updateErr);
                     }
-                });
 
-                const leagueDocData = leagueData.data();
-                const leagueDisplayName = leagueDocData?.name || 'FPL Chama';
+                    const memberData = matchedMemberDoc.data();
 
-                setLoginTransition({
-                    leagueName: leagueDisplayName,
-                    memberName: memberData.displayName || 'Manager',
-                    members: rawNames,
-                    totalCount: allMembersSnap.docs.filter(d => d.data().isActive !== false && d.data().role !== 'admin').length,
-                    step: 1
-                });
+                    // Save session to localStorage
+                    localStorage.setItem('activeLeagueId', leagueId);
+                    localStorage.setItem('memberPhone', activePhone);
+                    localStorage.setItem('activeUserId', memberDocRef.id);
 
-                setTimeout(() => {
-                    setLoginTransition(prev => prev ? { ...prev, step: 2 } : null);
-                }, 1100);
+                    // Clear sensitive login inputs from localStorage after success
+                    localStorage.removeItem('fc-login-code');
+                    localStorage.removeItem('fc-login-phone');
 
-                setTimeout(() => {
-                    setLoginTransition(prev => prev ? { ...prev, step: 3 } : null);
-                }, 2300);
+                    // Extract active member names to show the user during the warm-up transition
+                    const rawNames: string[] = [];
+                    allMembersSnap.docs.forEach(docSnap => {
+                        const d = docSnap.data();
+                        const raw = (d.displayName || d.name || '').trim();
+                        if (raw && d.isActive !== false && d.role !== 'admin') {
+                            const first = raw.split(' ')[0];
+                            if (first && !rawNames.includes(first)) rawNames.push(first);
+                        }
+                    });
 
-                setTimeout(() => {
-                    setShowSelfOnboardModal(false);
-                    setRole('member');
-                    navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
-                }, 3500);
+                    const leagueDocData = leagueData.data();
+                    const leagueDisplayName = leagueDocData?.name || 'FPL Chama';
 
-                return;
+                    setLoginTransition({
+                        leagueName: leagueDisplayName,
+                        memberName: memberData.displayName || 'Manager',
+                        members: rawNames,
+                        totalCount: allMembersSnap.docs.filter(d => d.data().isActive !== false && d.data().role !== 'admin').length,
+                        step: 1
+                    });
+
+                    setTimeout(() => {
+                        setLoginTransition(prev => prev ? { ...prev, step: 2 } : null);
+                    }, 1100);
+
+                    setTimeout(() => {
+                        setLoginTransition(prev => prev ? { ...prev, step: 3 } : null);
+                    }, 2300);
+
+                    setTimeout(() => {
+                        setShowSelfOnboardModal(false);
+                        setRole('member');
+                        navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
+                    }, 3500);
+
+                    return;
+                }
             }
 
             // User is not yet registered: launch Self-Onboarding wizard
-            console.log("Phone not found. Loading league details for self-onboarding wizard...");
+            console.log("Loading league details for self-onboarding wizard...");
             const unlinked = allMembersSnap.docs
                 .map(d => ({ id: d.id, ...d.data() } as any))
                 .filter(m => (!m.phone && !m.phoneNumber) || m.isPending === true);
@@ -354,14 +362,14 @@ export default function Login() {
                     const existingClaimedIds = new Set(
                         allMembersSnap.docs
                             .map(d => d.data())
-                            .filter((m: any) => m.phone || m.phoneNumber || m.isPending === false)
+                            .filter((m: any) => (m.phone || m.phoneNumber) && m.isPending !== true)
                             .map((m: any) => String(m.fplTeamId || m.entry || ''))
                             .filter(Boolean)
                     );
                     const existingClaimedNames = new Set(
                         allMembersSnap.docs
                             .map(d => d.data())
-                            .filter((m: any) => m.phone || m.phoneNumber || m.isPending === false)
+                            .filter((m: any) => (m.phone || m.phoneNumber) && m.isPending !== true)
                             .map((m: any) => (m.displayName || '').toLowerCase().trim())
                             .filter(Boolean)
                     );
@@ -418,7 +426,7 @@ export default function Login() {
                 leagueId,
                 leagueName: finalLeagueName,
                 monthlyFee: finalMonthlyFee,
-                phone,
+                phone: activePhone || '',
                 userUid,
                 currentGw: detectedGw,
                 unlinkedTeams: unlinked,
@@ -446,6 +454,13 @@ export default function Login() {
         }
     };
 
+    const handleJoin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const fullCode = code.join('');
+        if (!phone || fullCode.length !== 6) return;
+        await startOnboardingForLeague(fullCode, phone);
+    };
+
     const handleCompleteOnboarding = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!onboardData) return;
@@ -453,6 +468,35 @@ export default function Login() {
         setIsOnboardingSubmitting(true);
 
         try {
+            const rawPhone = (phone || onboardData.phone || '').trim();
+            const targetPhone = normalizeKenyanPhone(rawPhone);
+            if (!targetPhone || targetPhone.length < 10) {
+                setOnboardError('Please enter a valid Kenyan M-Pesa phone number (e.g. 0712345678).');
+                setIsOnboardingSubmitting(false);
+                return;
+            }
+
+            // If this phone is already an active member in this league, sign them in directly!
+            const membershipsRef = collection(db, 'leagues', onboardData.leagueId, 'memberships');
+            const allMembersSnap = await getDocs(membershipsRef);
+            const matchedExisting = allMembersSnap.docs.find(d => {
+                const data = d.data();
+                const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
+                const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
+                return (p1 === targetPhone || p2 === targetPhone) && data.isPending !== true;
+            });
+
+            if (matchedExisting) {
+                localStorage.setItem('activeLeagueId', onboardData.leagueId);
+                localStorage.setItem('memberPhone', targetPhone);
+                localStorage.setItem('activeUserId', matchedExisting.id);
+                localStorage.setItem('activeUserName', matchedExisting.data().displayName || 'Manager');
+                setShowSelfOnboardModal(false);
+                setRole('member');
+                navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${matchedExisting.data().displayName}!` }, replace: true });
+                return;
+            }
+
             let finalDisplayName = onboardManagerName.trim();
             let finalTeamName = onboardTeamName.trim();
 
@@ -476,7 +520,7 @@ export default function Login() {
                 const claimed = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
                 const memberRef = doc(db, 'leagues', onboardData.leagueId, 'memberships', selectedTeamClaim);
                 await updateDoc(memberRef, {
-                    phone: onboardData.phone,
+                    phone: targetPhone,
                     displayName: finalDisplayName,
                     fplTeamName: finalTeamName || finalDisplayName,
                     teamName: finalTeamName || finalDisplayName,
@@ -495,7 +539,7 @@ export default function Login() {
                 const numericFplId = claimed?.fplTeamId || claimed?.entry || (customFplId.trim() && !isNaN(Number(customFplId.trim())) ? Number(customFplId.trim()) : null);
 
                 const docRef = await addDoc(collection(db, 'leagues', onboardData.leagueId, 'memberships'), {
-                    phone: onboardData.phone,
+                    phone: targetPhone,
                     displayName: finalDisplayName,
                     fplTeamName: finalTeamName || finalDisplayName,
                     teamName: finalTeamName || finalDisplayName,
@@ -1347,9 +1391,32 @@ export default function Login() {
                                                 {onboardPlayMode === 'pot' ? `🏆 Cash Pot (KES ${onboardData.monthlyFee}/GW)` : '🛡️ Spectator & Bets (Free)'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[11px] text-gray-400">Payout Phone:</span>
-                                            <span className="text-xs font-mono font-bold text-white">{onboardData.phone}</span>
+                                        <div className="pt-2 border-t border-white/5 space-y-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
+                                                    <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                                                    <span>M-Pesa Payout Number</span>
+                                                    <span className="text-emerald-400 font-bold">*</span>
+                                                </label>
+                                                <span className="text-[10px] text-emerald-400 font-medium">Instant Winnings</span>
+                                            </div>
+                                            <input
+                                                type="tel"
+                                                value={phone}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setPhone(val);
+                                                    if (onboardData) {
+                                                        setOnboardData({ ...onboardData, phone: val });
+                                                    }
+                                                }}
+                                                placeholder="e.g. 0712 345 678"
+                                                className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder:text-gray-500 font-mono focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-bold"
+                                                required
+                                            />
+                                            <p className="text-[10px] text-gray-400 leading-snug">
+                                                Weekly cash prizes and payouts will be sent directly to this Safaricom M-Pesa number.
+                                            </p>
                                         </div>
                                     </div>
 

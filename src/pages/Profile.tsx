@@ -40,6 +40,7 @@ export default function Profile() {
     const [customWinnerRatios, setCustomWinnerRatios] = useState<string[]>(['50', '30', '20']);
     const [fplLeagueId, setFplLeagueId] = useState('');
     const [inviteCode, setInviteCode] = useState('');
+    const [chairmanName, setChairmanName] = useState('');
     const [chairmanPhone, setChairmanPhone] = useState('');
     const [coAdminId, setCoAdminId] = useState('');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
@@ -150,6 +151,7 @@ export default function Profile() {
                     setCustomWinnerRatios(data.rules.seasonDistribution.map((value: number) => String(value)));
                 }
                 setInviteCode(data.inviteCode || 'N/A');
+                setChairmanName(data.chairmanName || '');
                 setCoAdminId(data.coAdminId || '');
                 setChairmanPhone(data.chairmanPhone || '');
                 if (data.chairmanId) setChairmanId(data.chairmanId);
@@ -427,14 +429,16 @@ export default function Profile() {
     const handleShare = () => {
         const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
         const link = `${origin}/login?code=${inviteCode}`;
-        const text = `🏆 Join our FPL Chama — *${leagueName || 'Tentshakers FC'}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${inviteCode}*`;
+        const host = chairmanName || displayName || members.find(m => m.role === 'admin')?.displayName || 'your Chairman';
+        const text = `You're invited by ${host} to join *${leagueName || 'our FPL Chama'}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleCopy = () => {
         const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
         const link = `${origin}/login?code=${inviteCode}`;
-        const text = `🏆 Join our FPL Chama — *${leagueName || 'Tentshakers FC'}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${inviteCode}*`;
+        const host = chairmanName || displayName || members.find(m => m.role === 'admin')?.displayName || 'your Chairman';
+        const text = `You're invited by ${host} to join *${leagueName || 'our FPL Chama'}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
         navigator.clipboard.writeText(text);
         toast.success(`Invite message copied to clipboard!`);
     };

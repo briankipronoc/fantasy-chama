@@ -72,6 +72,7 @@ export default function AdminCommandCenter() {
   >("dashboard");
 
   const [leagueName, setLeagueName] = useState("");
+  const [chairmanName, setChairmanName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [gameweekStake, setMonthlyContribution] = useState(0);
   const [rules, setRules] = useState({ weekly: 70, vault: 30 });
@@ -531,6 +532,7 @@ export default function AdminCommandCenter() {
       }
       const data = docSnap.data();
       setLeagueName(data.name || data.leagueName || "Unnamed League");
+      setChairmanName(data.chairmanName || "");
       setInviteCode(data.inviteCode || "------");
       setMonthlyContribution(data.gameweekStake || 0);
       setCoAdminId(data.coAdminId || null);
@@ -1328,7 +1330,9 @@ export default function AdminCommandCenter() {
     navigator.clipboard.writeText(inviteCode);
     const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
     const link = `${appUrl}/login?code=${inviteCode}`;
-    const message = `🏆 Join our FPL Chama — *${leagueName || "Tentshakers FC"}*!\n\nWeekly cash pots & season prize vault on lock. Scores sync directly with official FPL API.\n\n👉 Join here: ${link}\nLeague Code: *${inviteCode}*`;
+    const host = chairmanName || "your Chairman";
+    const lName = leagueName || "our FPL Chama";
+    const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
     showToast("Invite link copied & WhatsApp opened!");
   };
@@ -5697,7 +5701,7 @@ burstFrame();
                       type="text"
                       value={manualWinnerInput}
                       onChange={(e) => setManualWinnerInput(e.target.value)}
-                      placeholder="e.g. Brian Kiprono"
+                      placeholder="e.g. Kevin Sifuna"
                       className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none"
                     />
                   </div>

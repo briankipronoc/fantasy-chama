@@ -576,7 +576,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                                                 type="text"
                                                 value={joinNameInput}
                                                 onChange={(e) => setJoinNameInput(e.target.value)}
-                                                placeholder="e.g. Brian Kiprono"
+                                                placeholder="e.g. Kevin Sifuna"
                                                 className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500"
                                             />
                                         </div>

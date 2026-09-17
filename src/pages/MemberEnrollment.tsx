@@ -227,7 +227,7 @@ export default function MemberEnrollment() {
                                             type="text"
                                             value={newName}
                                             onChange={e => setNewName(e.target.value.replace(/[^a-zA-Z\s'\\-]/g, ''))}
-                                            placeholder="e.g. Brian Kipronoh"
+                                            placeholder="e.g. Kevin Sifuna"
                                             required
                                             className="fc-input"
                                         />
