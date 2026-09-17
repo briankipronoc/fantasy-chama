@@ -7,7 +7,8 @@ export default function WinSharePage() {
     const [params] = useSearchParams();
     const league = params.get('league') || 'FPL Chama';
     const gw = params.get('gw') || '?';
-    const winner = params.get('winner') || 'The Champion';
+    const rawWinner = params.get('winner') || 'The Champion';
+    const winner = (rawWinner.trim().split(/\s+/)[0]) || 'The Champion';
     const amount = Number(params.get('amount') || 0);
     const pts = params.get('pts') || '';
     const code = params.get('code') || '';

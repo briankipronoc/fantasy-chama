@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptText, History, Download, ShieldCheck, Wallet, TrendingUp, Clock3, Trophy } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -368,10 +368,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
     const getSeasonVaultPercentages = (winnerCount: number) => {
         if (winnerCount === 1) return [100];
-        if (winnerCount === 2) return [60, 40];
+        if (winnerCount === 2) return [65, 35];
         if (winnerCount === 3) return [50, 30, 20];
         if (winnerCount === 4) return [40, 30, 20, 10];
-        return [45, 25, 15, 10, 5];
+        if (winnerCount === 5) return [35, 25, 20, 12, 8];
+        if (winnerCount === 6) return [30, 22, 16, 12, 10, 10];
+        if (winnerCount === 7) return [28, 20, 15, 12, 10, 8, 7];
+        if (winnerCount === 8) return [25, 18, 14, 12, 10, 8, 7, 6];
+        if (winnerCount === 9) return [24, 18, 13, 11, 10, 8, 6, 5, 5];
+        if (winnerCount === 10) return [22, 17, 13, 11, 10, 8, 7, 5, 4, 3];
+        const base = Math.floor(100 / winnerCount);
+        const remainder = 100 - base * winnerCount;
+        return Array.from({ length: winnerCount }, (_, idx) => base + (idx === 0 ? remainder : 0));
     };
 
     const normalizeToHundred = (ratios: number[], count: number) => {
@@ -414,7 +422,103 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             ? 'Top 1'
             : seasonWinnersMode === 'top5'
                 ? 'Top 5'
-                : 'Top 3';
+                : configuredWinnersCount > 3
+                    ? `Top ${configuredWinnersCount}`
+                    : 'Top 3';
+
+    const tiedSeasonVaultPreview = useMemo(() => {
+        const activeStandings = standingsData.filter((entry) => {
+            return activeMembers.some((m) =>
+                (m.fplTeamId && Number(m.fplTeamId) === Number(entry.entry)) ||
+                (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(entry.entry)) ||
+                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase()
+            );
+        });
+        const dedupedStandings = activeStandings.filter((entry, idx, arr) => 
+            arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
+        );
+        const cleanStandings = (dedupedStandings.length > 0 
+            ? dedupedStandings 
+            : activeMembers.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad', total: 0 }))
+        ).sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
+
+        const totalVault = Math.round(totalPreviewPayout || projectedSeasonVault || 0);
+        const tiers = seasonVaultPreview || [];
+
+        // Group players by score to detect ties
+        const groups: Array<{ score: number; players: any[]; startIndex: number }> = [];
+        let curIdx = 0;
+        while (curIdx < cleanStandings.length && curIdx < tiers.length) {
+            const score = Number(cleanStandings[curIdx].total || 0);
+            const matching = cleanStandings.filter((p: any) => Number(p.total || 0) === score);
+            groups.push({ score, players: matching, startIndex: curIdx });
+            curIdx += matching.length;
+        }
+
+        const result: Array<{
+            tierIndex: number;
+            rank: number;
+            isTied: boolean;
+            percentage: number;
+            amount: number;
+            player_name: string;
+            entry_name: string;
+            originalPlace: number;
+            tiedRangeText?: string;
+        }> = [];
+
+        for (const grp of groups) {
+            const rank = grp.startIndex + 1;
+            const isTied = grp.players.length > 1;
+
+            // Calculate pooled percentage across the tiers occupied by this tied group
+            let pooledPercent = 0;
+            const endPos = Math.min(tiers.length, grp.startIndex + grp.players.length);
+            for (let pos = grp.startIndex; pos < endPos; pos++) {
+                pooledPercent += Number(tiers[pos]?.percentage || 0);
+            }
+            const splitPercent = grp.players.length > 0 ? (pooledPercent / grp.players.length) : 0;
+            const splitAmount = Math.round(totalVault * (splitPercent / 100));
+            const roundedPercent = Math.round(splitPercent * 10) / 10;
+            const tiedRangeText = isTied ? `Split from Tiers ${grp.startIndex + 1}–${endPos}` : undefined;
+
+            for (let i = 0; i < grp.players.length; i++) {
+                if (result.length < tiers.length) {
+                    const p = grp.players[i];
+                    result.push({
+                        tierIndex: result.length,
+                        rank,
+                        isTied,
+                        percentage: roundedPercent,
+                        amount: splitAmount,
+                        player_name: p?.player_name || `Manager #${rank}`,
+                        entry_name: p?.entry_name || 'FPL Squad',
+                        originalPlace: result.length + 1,
+                        tiedRangeText,
+                    });
+                }
+            }
+        }
+
+        // If fewer players than tiers, fill remaining tiers with baseline tier slot
+        if (result.length < tiers.length) {
+            for (let pos = result.length; pos < tiers.length; pos++) {
+                const tier = tiers[pos];
+                result.push({
+                    tierIndex: pos,
+                    rank: tier.place,
+                    isTied: false,
+                    percentage: tier.percentage,
+                    amount: tier.amount,
+                    player_name: 'Awaiting Contender',
+                    entry_name: 'Tier Slot',
+                    originalPlace: tier.place,
+                });
+            }
+        }
+
+        return result;
+    }, [standingsData, activeMembers, totalPreviewPayout, projectedSeasonVault, seasonVaultPreview]);
 
     const currentUser = members.find(m => m.id === activeUserId) || members.find(m => m.phone === memberPhone);
     const isAdmin = role === 'admin';
@@ -1083,15 +1187,17 @@ const handleRejectPendingPayout = async (payout: any) => {
                         </div>
                     </div>
 
-                    <div className="flex gap-3 overflow-x-auto pb-3 custom-scrollbar lg:grid lg:grid-cols-5 items-stretch">
-                        {seasonVaultPreview.map((tier: { place: number; percentage: number; amount: number }) => (
-                            <div key={tier.place} className="min-w-[190px] flex-1 rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-lg">
+                    <div className="flex gap-3 overflow-x-auto pb-3 custom-scrollbar lg:grid lg:grid-cols-3 xl:grid-cols-5 items-stretch">
+                        {tiedSeasonVaultPreview.map((tier: any) => (
+                            <div key={`${tier.originalPlace}-${tier.player_name}`} className="min-w-[190px] flex-1 rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-lg">
                                 <div>
                                     <div className="flex items-center justify-between gap-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">#{tier.place}</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                            #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-400 font-bold tracking-normal">(Tied)</span>}
+                                        </p>
                                         <span className={clsx(
                                             'text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border',
-                                            tier.place === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.place === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
+                                            tier.rank === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.rank === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
                                         )}>
                                             {tier.percentage}%
                                         </span>
@@ -1099,29 +1205,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <p className="mt-3 text-2xl font-black text-amber-400 tabular-nums">KES {tier.amount.toLocaleString()}</p>
                                 </div>
                                 <div>
-                                    {(() => {
-                                        const activeStandings = standingsData.filter((entry) => {
-                                            return activeMembers.some((m) =>
-                                                (m.fplTeamId && Number(m.fplTeamId) === Number(entry.entry)) ||
-                                                (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(entry.entry)) ||
-                                                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase()
-                                            );
-                                        });
-                                        const dedupedStandings = activeStandings.filter((entry, idx, arr) => 
-                                            arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
-                                        );
-                                        const cleanStandings = dedupedStandings.length > 0 
-                                            ? dedupedStandings 
-                                            : activeMembers.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad' }));
-                                        const matchingLeader = cleanStandings[tier.place - 1];
-                                        if (!matchingLeader) return null;
-                                        return (
-                                            <p className="mt-2.5 text-[11px] font-bold text-emerald-300 break-words leading-tight">
-                                                Current #{tier.place}: {matchingLeader.player_name} · {matchingLeader.entry_name}
-                                            </p>
-                                        );
-                                    })()}
-                                    <p className="mt-1.5 text-[10px] text-slate-400">{tier.percentage}% ratio of current season vault</p>
+                                    <p className="mt-2.5 text-[11px] font-bold text-emerald-300 break-words leading-tight">
+                                        Current #{tier.rank}{tier.isTied ? ' (Tied)' : ''}: {tier.player_name} · {tier.entry_name}
+                                    </p>
+                                    <p className="mt-1.5 text-[10px] text-slate-400">
+                                        {tier.percentage}% ratio of current season vault
+                                        {tier.tiedRangeText ? ` (${tier.tiedRangeText})` : ''}
+                                    </p>
                                 </div>
                             </div>
                         ))}
@@ -1494,67 +1584,14 @@ const handleRejectPendingPayout = async (payout: any) => {
                     onClose={() => setShowSeasonCeremony(false)}
                     leagueName={leagueName}
                     seasonVaultTotal={Math.round(totalPreviewPayout || projectedSeasonVault || 0)}
-                    winners={(() => {
-                        const activeStandings = standingsData.filter((entry) => {
-                            return activeMembers.some((m) =>
-                                (m.fplTeamId && Number(m.fplTeamId) === Number(entry.entry)) ||
-                                (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(entry.entry)) ||
-                                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase()
-                            );
-                        });
-                        const dedupedStandings = activeStandings.filter((entry, idx, arr) => 
-                            arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
-                        );
-                        const cleanStandings = (dedupedStandings.length > 0 
-                            ? dedupedStandings 
-                            : activeMembers.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad', total: 0 }))
-                        ).sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
-
-                        const totalVault = Math.round(totalPreviewPayout || projectedSeasonVault || 0);
-                        const tiers = seasonVaultPreview || [];
-
-                        // Group players by score to detect ties
-                        const groups: Array<{ score: number; players: any[]; startIndex: number }> = [];
-                        let curIdx = 0;
-                        while (curIdx < cleanStandings.length && curIdx < tiers.length) {
-                            const score = Number(cleanStandings[curIdx].total || 0);
-                            const matching = cleanStandings.filter((p: any) => Number(p.total || 0) === score);
-                            groups.push({ score, players: matching, startIndex: curIdx });
-                            curIdx += matching.length;
-                        }
-
-                        const result: any[] = [];
-                        for (const grp of groups) {
-                            const rank = grp.startIndex + 1;
-                            const isTied = grp.players.length > 1;
-
-                            // Calculate pooled percentage across the tiers occupied by this tied group
-                            let pooledPercent = 0;
-                            for (let pos = grp.startIndex; pos < grp.startIndex + grp.players.length; pos++) {
-                                if (pos < tiers.length) {
-                                    pooledPercent += Number(tiers[pos].percentage || 0);
-                                }
-                            }
-                            const splitPercent = grp.players.length > 0 ? (pooledPercent / grp.players.length) : 0;
-                            const splitAmount = Math.round(totalVault * (splitPercent / 100));
-
-                            for (const p of grp.players) {
-                                if (result.length < tiers.length) {
-                                    result.push({
-                                        rank,
-                                        isTied,
-                                        name: p?.player_name || `Manager #${rank}`,
-                                        teamName: p?.entry_name || 'FPL Squad',
-                                        percent: Math.round(splitPercent * 10) / 10,
-                                        amount: splitAmount,
-                                        points: p?.total ? Number(p.total) : undefined
-                                    });
-                                }
-                            }
-                        }
-
-                        return result;
-                    })()}
+                    winners={tiedSeasonVaultPreview.map((t: any) => ({
+                        rank: t.rank,
+                        isTied: t.isTied,
+                        name: t.player_name,
+                        teamName: t.entry_name,
+                        percent: t.percentage,
+                        amount: t.amount,
+                    }))}
                     chairmanName={leagueSettings?.chairmanName || 'Chairman'}
                     leagueId={activeLeagueId || undefined}
                     members={activeMembers}

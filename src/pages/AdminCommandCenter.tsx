@@ -587,9 +587,13 @@ export default function AdminCommandCenter() {
             }
             setIsCurrentEventFinished(isEventFinished);
             setCurrentGwNumber(fetchedGwId);
-            if (fetchedGwId && !data.startGw && activeLeagueId) {
-              updateDoc(leagueRef, { startGw: fetchedGwId }).catch(() => {});
-              setStartGw(fetchedGwId);
+            const targetStartGw = isEventFinished ? (nextEvent?.id || (fetchedGwId ? fetchedGwId + 1 : 1)) : fetchedGwId;
+            if (activeLeagueId) {
+              const needsStartGwUpdate = !data.startGw || (isEventFinished && fetchedGwId && Number(data.startGw) <= Number(fetchedGwId));
+              if (needsStartGwUpdate) {
+                updateDoc(leagueRef, { startGw: targetStartGw }).catch(() => {});
+                setStartGw(targetStartGw);
+              }
             }
           }
         } catch (bootstrapErr: any) {
@@ -1266,9 +1270,19 @@ export default function AdminCommandCenter() {
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  // Effective startGw: use startGw from state or leagueSettings, default to currentGw or 1
+  // Effective startGw: use startGw from state or leagueSettings
+  // If the current event already concluded without any approved payouts in this chama,
+  // the league officially begins at the next upcoming gameweek (e.g. GW5).
+  // All prior gameweeks (GW1..4) are strictly voided (pre-league).
+  const hasCurrentGwApprovedPayout = pendingPayouts.some(
+    (p: any) => Number(p.gw) === (currentGwNumber || 0) && p.status === 'approved'
+  );
+  const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
+  const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
   const effectiveStartGw = Number(
-    startGw || (leagueSettings as any)?.startGw || (currentGwNumber || firestoreGw || 1)
+    (rawStartGw && rawStartGw <= (currentGwNumber || 0) && isCurrentEventFinished && !hasCurrentGwApprovedPayout)
+      ? Math.max(rawStartGw, nextPlayableGw)
+      : (rawStartGw || nextPlayableGw || 1)
   );
   // Pre-league gameweeks prior to effectiveStartGw are automatically voided/forfeited
   const preLeagueGws = effectiveStartGw > 1 ? Array.from({ length: effectiveStartGw - 1 }, (_, i) => i + 1) : [];
@@ -3866,30 +3880,30 @@ burstFrame();
 
           {/* GW Winners Ledger — scroll card, placed before stats */}
           {activeTab === 'dashboard' && (
-            <div className="w-full bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 overflow-hidden">
+            <div className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-4 md:p-5 overflow-hidden shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                  <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-gray-400 flex items-center gap-2">
                     <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
                   </h4>
                   {forfeitedGws.length > 0 && (
-                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-200/90 dark:bg-gray-500/20 border border-slate-300 dark:border-gray-500/30 text-slate-800 dark:text-gray-200 shadow-sm">
-                      {forfeitedGws.length} Forfeited
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 shadow-sm">
+                      {forfeitedGws.length} Voided
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                    NOW: GW {currentGwNumber || firestoreGw || '--'}
+                  <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">
+                    {isCurrentEventFinished ? `NEXT: GW ${nextPlayableGw} · PENDING` : `NOW: GW ${currentGwNumber || firestoreGw || '--'}`}
                   </span>
-                  <span className="text-[9px] text-gray-500 hidden sm:inline">
+                  <span className="text-[9px] text-slate-500 dark:text-gray-500 hidden sm:inline">
                     · Tap any GW to manage / forfeit
                   </span>
                 </div>
               </div>
               <div ref={gwLedgerScrollRef} className="flex md:justify-center gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                 {Array.from({ length: 38 }, (_, i) => i + 1)
-                  .filter(gw => gw <= (currentGwNumber || firestoreGw || 38))
+                  .filter(gw => gw <= Math.max(effectiveStartGw, nextPlayableGw))
                   .map((gw) => {
                   const approvedPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'approved'
@@ -3902,7 +3916,8 @@ burstFrame();
                     (p) => Number(p.gw) === gw && p.status === 'forfeited'
                   ) || (leagueSettings?.forfeitedGws || []).includes(gw);
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
-                  const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isCurrent && gw < (currentGwNumber || firestoreGw || 99);
+                  const isNextPending = isCurrentEventFinished && gw === nextPlayableGw;
+                  const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isCurrent && !isNextPending && gw < (currentGwNumber || firestoreGw || 99);
                   return (
                     <button
                       key={gw}
@@ -3917,6 +3932,8 @@ burstFrame();
                           ? `GW${gw} won by ${approvedPayout.winnerName} — click to view`
                           : pendingPayout
                           ? `GW${gw} payout pending approval — click to view`
+                          : isNextPending
+                          ? `GW${gw} is the upcoming round (pending kickoff)`
                           : isSkipped
                           ? `GW${gw} is unsettled — click to forfeit or resolve`
                           : isCurrent
@@ -3933,7 +3950,9 @@ burstFrame();
                           : pendingPayout
                           ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
                           : isForfeited
-                          ? 'border-slate-300 dark:border-white/10 bg-slate-100/90 dark:bg-black/40 hover:border-slate-400 dark:hover:border-white/20 hover:bg-slate-200 dark:hover:bg-white/5 opacity-90 text-slate-800 dark:text-gray-200'
+                          ? 'border-slate-300 dark:border-white/10 bg-white dark:bg-black/40 hover:border-slate-400 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/5 opacity-90 text-slate-800 dark:text-gray-200 shadow-sm'
+                          : isNextPending
+                          ? 'border-sky-500/40 bg-sky-500/10 hover:border-sky-500/70 hover:bg-sky-500/20'
                           : isCurrent
                           ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
                           : isSkipped
@@ -3942,7 +3961,7 @@ burstFrame();
                       }`}
                     >
                       <span className={`text-[9px] font-black uppercase tracking-widest ${
-                        isCurrent ? 'text-slate-900 dark:text-white font-black' : isForfeited ? 'text-slate-700 dark:text-gray-300 font-bold' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
+                        isNextPending ? 'text-sky-600 dark:text-sky-400 font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isForfeited ? 'text-slate-700 dark:text-gray-300 font-bold' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
                       }`}>GW{gw}</span>
                       <span className={`text-[8px] font-bold ${
                         approvedPayout
@@ -3950,7 +3969,9 @@ burstFrame();
                           : pendingPayout
                           ? 'text-amber-500 dark:text-[#FBBF24]'
                           : isForfeited
-                          ? 'text-slate-600 dark:text-gray-300 font-black'
+                          ? 'text-rose-600 dark:text-rose-400 font-black'
+                          : isNextPending
+                          ? 'text-sky-600 dark:text-sky-400 font-black'
                           : isCurrent
                           ? 'text-emerald-600 dark:text-emerald-400 font-black'
                           : isSkipped
@@ -3963,6 +3984,8 @@ burstFrame();
                           ? '⏳ Pending'
                           : isForfeited
                           ? '🚫 Void'
+                          : isNextPending
+                          ? '⏳ Pending'
                           : isCurrent
                           ? (isCurrentEventFinished ? 'Final' : 'Live')
                           : isSkipped
@@ -3977,11 +4000,14 @@ burstFrame();
                       {isForfeited && (
                         <span className="text-[7px] text-slate-600 dark:text-gray-400 font-extrabold uppercase tracking-widest">{isPreLeague ? 'Pre-League' : 'Forfeited'}</span>
                       )}
+                      {isNextPending && (
+                        <span className="text-[7px] text-sky-600 dark:text-sky-400 font-bold uppercase tracking-widest">Upcoming</span>
+                      )}
                       {isSkipped && (
                         <span className="text-[7px] text-amber-500 dark:text-amber-300 font-black uppercase tracking-widest">Tap</span>
                       )}
-                      {isCurrent && (
-                        <span className="text-[7px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">{isCurrentEventFinished ? 'Unsettled' : 'Active'}</span>
+                      {isCurrent && !isCurrentEventFinished && (
+                        <span className="text-[7px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">Active</span>
                       )}
                     </button>
                   );

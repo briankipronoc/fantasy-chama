@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
@@ -51,7 +50,6 @@ const fetchFplStandings = async (leagueId: number) => {
 };
 
 export default function Standings() {
-    const navigate = useNavigate();
     const role = useStore(state => state.role);
     const league = useStore(state => state.league);
 
@@ -259,7 +257,12 @@ export default function Standings() {
                         ...Array.from(pendingForfeited),
                     ]);
 
-                    const effectiveStartGw = Math.max(1, Number(leagueStartGw > 1 ? leagueStartGw : ((leagueRules as any)?.startGw || currentEvent || 1)));
+                    const hasPayoutForCurrent = Array.from(winnerByGw.keys()).includes(currentEvent || 0);
+                    const effectiveStartGw = Math.max(1, Number(
+                        (leagueStartGw && leagueStartGw <= (currentEvent || 0) && isCurrentEventFinished && !hasPayoutForCurrent)
+                            ? (currentEvent ? currentEvent + 1 : leagueStartGw)
+                            : (leagueStartGw > 1 ? leagueStartGw : ((leagueRules as any)?.startGw || (isCurrentEventFinished && currentEvent ? currentEvent + 1 : currentEvent) || 1))
+                    ));
 
                     const ledger = Array.from({ length: 38 }, (_, index) => {
                         const gw = index + 1;
@@ -622,19 +625,10 @@ export default function Standings() {
                 )}
                 {/* Stats swapper + user hero */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Honest Funded Pot Members Card — clickable to /finances */}
-                    <div
-                        onClick={() => navigate('/finances')}
-                        className="fc-card bg-[#161d24] border border-white/5 hover:border-emerald-500/30 rounded-2xl p-5 flex items-center justify-between min-h-[88px] cursor-pointer transition-all hover:scale-[1.01] group"
-                        title="Click to view Red Zone and manage manager payments"
-                    >
+                    {/* Honest Funded Pot Members Card */}
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px]">
                         <div>
-                            <div className="flex items-center gap-2">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Funded Pot Members</p>
-                                <span className="text-[9px] font-black text-emerald-400 group-hover:underline flex items-center gap-0.5 mb-1">
-                                    Manage & Nudge →
-                                </span>
-                            </div>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Funded Pot Members</p>
                             <p className="text-2xl font-black text-white">
                                 {eligibleGwStandings.length} <span className="text-sm font-bold text-gray-400">/ {standingsData.length || members.length} Paid</span>
                             </p>
@@ -653,7 +647,7 @@ export default function Standings() {
                                 );
                             })()}
                         </div>
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/40 flex items-center justify-center transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                             <Users className="w-5 h-5 text-emerald-400" />
                         </div>
                     </div>
@@ -1032,7 +1026,7 @@ export default function Standings() {
                             <div className="flex items-center gap-2">
                                 {currentEvent && (
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
-                                        Now: GW {currentEvent}
+                                        {isCurrentEventFinished ? `Next: GW ${(currentEvent || 0) + 1} (Pending)` : `Now: GW ${currentEvent}`}
                                     </span>
                                 )}
                                 <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">Scroll for GW 1-38</span>
@@ -1045,7 +1039,7 @@ export default function Standings() {
                                 const isSkipped = Boolean(item.isSkipped);
                                 const isAwaitingPayment = Boolean(item.isAwaitingPayment);
                                 const isCurrentGw = currentEvent === item.gw;
-                                const isCurrentLive = Boolean(item.isCurrentLive) || isCurrentGw;
+                                const isCurrentLive = !isCurrentEventFinished && (Boolean(item.isCurrentLive) || isCurrentGw);
                                 const resolved = (item.winnerName !== 'Upcoming' && item.winnerName !== 'In Progress' && !isVoided) || isAwaitingPayment;
                                 return (
                                     <div

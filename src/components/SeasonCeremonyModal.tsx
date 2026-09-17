@@ -17,6 +17,7 @@ export interface SeasonWinnerTier {
   percent: number;
   amount: number;
   points?: number;
+  isTied?: boolean;
 }
 
 interface SeasonCeremonyModalProps {
@@ -93,17 +94,12 @@ export default function SeasonCeremonyModal({
     `Chama: *${leagueName}*`,
     `Total Season Vault Distributed: *KES ${seasonVaultTotal.toLocaleString()}*`,
     ``,
-    `🥇 *#1 CHAMPION:* ${winners[0]?.name || 'N/A'} (${winners[0]?.teamName || ''})`,
-    `💰 *KES ${Number(winners[0]?.amount || 0).toLocaleString()}* (35% Tier 1)`,
-    ``,
-    `🥈 *#2 RUNNER-UP:* ${winners[1]?.name || 'N/A'} (${winners[1]?.teamName || ''})`,
-    `💰 *KES ${Number(winners[1]?.amount || 0).toLocaleString()}* (25% Tier 2)`,
-    ``,
-    `🥉 *#3 THIRD PLACE:* ${winners[2]?.name || 'N/A'} (${winners[2]?.teamName || ''})`,
-    `💰 *KES ${Number(winners[2]?.amount || 0).toLocaleString()}* (20% Tier 3)`,
-    ``,
-    winners[3] ? `🎖️ *#4 FOURTH:* ${winners[3].name} — KES ${Number(winners[3].amount).toLocaleString()} (12%)` : '',
-    winners[4] ? `🎖️ *#5 FIFTH:* ${winners[4].name} — KES ${Number(winners[4].amount).toLocaleString()} (8%)` : '',
+    ...winners.map((w, idx) => {
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🎖️';
+      const rankTitle = w.rank === 1 ? 'CHAMPION' : w.rank === 2 ? 'RUNNER-UP' : w.rank === 3 ? 'THIRD PLACE' : `POSITION #${w.rank}`;
+      const tieTag = w.isTied ? ' (Tied)' : '';
+      return `${medal} *#${w.rank}${tieTag} ${rankTitle}:* ${w.name} (${w.teamName || ''})\n💰 *KES ${Number(w.amount || 0).toLocaleString()}* (${w.percent}%)`;
+    }),
     ``,
     `Hongera sana kwa washindi wote! 🍾🎉 Wallets have been credited cleanly via FantasyChama Vault Engine.`,
     `👉 ${appUrl}/finances`,
@@ -182,7 +178,7 @@ export default function SeasonCeremonyModal({
 
       ctx.fillStyle = '#FBBF24';
       ctx.font = 'bold 16px monospace';
-      ctx.fillText('SEASON VAULT TIER 1 PAYOUT (35%)', 600, 495);
+      ctx.fillText(`SEASON VAULT TIER 1 PAYOUT (${champion.percent || 35}%)`, 600, 495);
 
       ctx.fillStyle = '#34D399';
       ctx.font = '900 36px sans-serif';
@@ -281,9 +277,11 @@ export default function SeasonCeremonyModal({
               <div className="order-2 md:order-1 bg-slate-900/60 border border-slate-700/50 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <span className="w-8 h-8 rounded-full bg-slate-300 text-slate-900 font-black text-xs flex items-center justify-center shadow">
-                    #2
+                    #{winners[1]?.rank || 2}
                   </span>
-                  <span className="text-[10px] font-black uppercase text-slate-400">Runner-Up · 25%</span>
+                  <span className="text-[10px] font-black uppercase text-slate-400">
+                    {winners[1]?.isTied ? `#${winners[1]?.rank} (Tied)` : 'Runner-Up'} · {winners[1]?.percent || 25}%
+                  </span>
                 </div>
                 <div>
                   <h4 className="text-lg font-black text-white truncate">{winners[1]?.name || 'Runner Up'}</h4>
@@ -300,13 +298,15 @@ export default function SeasonCeremonyModal({
               {/* #1 Champion */}
               <div className="order-1 md:order-2 bg-gradient-to-b from-amber-500/20 via-[#181308] to-black border-2 border-amber-400/60 rounded-3xl p-6 flex flex-col justify-between relative shadow-[0_0_40px_rgba(245,158,11,0.25)] md:-mt-3">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-400 text-black font-black text-[10px] uppercase tracking-widest shadow-md">
-                  👑 Grand Champion
+                  👑 Grand Champion{champion.isTied ? ' (Tied)' : ''}
                 </div>
                 <div className="flex items-center justify-between mb-3 pt-2">
                   <span className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-black font-black text-sm flex items-center justify-center shadow-lg">
-                    #1
+                    #{champion.rank || 1}
                   </span>
-                  <span className="text-[10px] font-black uppercase text-amber-300">Tier 1 · 35%</span>
+                  <span className="text-[10px] font-black uppercase text-amber-300">
+                    {champion.isTied ? `Tier 1 (Tied)` : 'Tier 1'} · {champion.percent || 35}%
+                  </span>
                 </div>
                 <div>
                   <h4 className="text-2xl font-black text-white tracking-tight truncate">{champion.name}</h4>
@@ -324,9 +324,11 @@ export default function SeasonCeremonyModal({
               <div className="order-3 bg-amber-950/30 border border-amber-800/40 rounded-2xl p-5 flex flex-col justify-between relative overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <span className="w-8 h-8 rounded-full bg-amber-700 text-amber-100 font-black text-xs flex items-center justify-center shadow">
-                    #3
+                    #{winners[2]?.rank || 3}
                   </span>
-                  <span className="text-[10px] font-black uppercase text-amber-500">Bronze · 20%</span>
+                  <span className="text-[10px] font-black uppercase text-amber-500">
+                    {winners[2]?.isTied ? `#${winners[2]?.rank} (Tied)` : 'Bronze'} · {winners[2]?.percent || 20}%
+                  </span>
                 </div>
                 <div>
                   <h4 className="text-lg font-black text-white truncate">{winners[2]?.name || 'Third Place'}</h4>
@@ -341,41 +343,27 @@ export default function SeasonCeremonyModal({
               </div>
             </div>
 
-            {/* #4 & #5 Honourable Mentions */}
-            {(winners[3] || winners[4]) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {winners[3] && (
-                  <div className="bg-black/30 border border-white/5 rounded-xl p-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-lg bg-white/10 text-gray-300 font-bold text-xs flex items-center justify-center">
-                        #4
+            {/* Additional Winners (#4 up to Top 10) */}
+            {winners.length > 3 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                {winners.slice(3).map((w) => (
+                  <div key={`${w.rank}-${w.name}`} className="bg-black/30 border border-white/5 rounded-xl p-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-7 h-7 rounded-lg bg-white/10 text-gray-300 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                        #{w.rank}
                       </span>
-                      <div>
-                        <p className="text-sm font-black text-white">{winners[3].name}</p>
-                        <p className="text-[11px] text-gray-400">{winners[3].teamName} • 12% cut</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-white truncate">{w.name}</p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {w.teamName} • {w.percent}% cut{w.isTied ? ' (Tied)' : ''}
+                        </p>
                       </div>
                     </div>
-                    <span className="text-sm font-black text-emerald-400 tabular-nums">
-                      KES {Number(winners[3].amount).toLocaleString()}
+                    <span className="text-sm font-black text-emerald-400 tabular-nums flex-shrink-0 ml-2">
+                      KES {Number(w.amount).toLocaleString()}
                     </span>
                   </div>
-                )}
-                {winners[4] && (
-                  <div className="bg-black/30 border border-white/5 rounded-xl p-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-lg bg-white/10 text-gray-300 font-bold text-xs flex items-center justify-center">
-                        #5
-                      </span>
-                      <div>
-                        <p className="text-sm font-black text-white">{winners[4].name}</p>
-                        <p className="text-[11px] text-gray-400">{winners[4].teamName} • 8% cut</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-black text-emerald-400 tabular-nums">
-                      KES {Number(winners[4].amount).toLocaleString()}
-                    </span>
-                  </div>
-                )}
+                ))}
               </div>
             )}
 

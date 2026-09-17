@@ -180,21 +180,23 @@ export default function ChampionFlexCardModal({
     ];
   };
 
+  const winnerFirstName = (winnerName || 'Champion').trim().split(/\s+/)[0] || 'Champion';
+
   useEffect(() => {
     const initialBanters = isSideBet
-      ? getSideBetBanters(winnerName)
-      : getGameweekBanters(winnerName, points !== undefined ? points : 0);
+      ? getSideBetBanters(winnerFirstName)
+      : getGameweekBanters(winnerFirstName, points !== undefined ? points : 0);
     setCustomMessage(initialBanters[0]?.text || '');
     setActiveBanterIndex(0);
-  }, [winnerName, points, isOpen, winType, leagueCode]);
+  }, [winnerFirstName, points, isOpen, winType, leagueCode]);
 
   const handleShuffleBanter = () => {
     setIsRollingDice(true);
     haptics.selection();
     setTimeout(() => {
       const currentList = isSideBet
-        ? getSideBetBanters(winnerName)
-        : getGameweekBanters(winnerName, points !== undefined ? points : 0);
+        ? getSideBetBanters(winnerFirstName)
+        : getGameweekBanters(winnerFirstName, points !== undefined ? points : 0);
       const nextIdx = (activeBanterIndex + 1 + Math.floor(Math.random() * (currentList.length - 1))) % currentList.length;
       setActiveBanterIndex(nextIdx);
       setCustomMessage(currentList[nextIdx]?.text || '');
@@ -270,7 +272,7 @@ export default function ChampionFlexCardModal({
       // 6. Winner Name
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '900 58px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillText((winnerName || 'Champion').trim(), 540, 410);
+      ctx.fillText(winnerFirstName, 540, 410);
 
       // 7. Team Name / Duel Subtitle
       if (isSideBet) {
@@ -429,7 +431,7 @@ export default function ChampionFlexCardModal({
           </p>
 
           <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">
-            {winnerName || 'Champion'}
+            {winnerFirstName}
           </h3>
 
           {isSideBet ? (
