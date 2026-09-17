@@ -621,12 +621,12 @@ export default function Profile() {
                                 haptics.selection();
                                 setShowPendingOnboarding(true);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.15)] group active:scale-95"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)] group active:scale-95"
                             title="Click to view and onboard pending FPL members"
                         >
                             <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
                             <span>{pendingMembers.length} Pending Onboarding</span>
                         </button>
@@ -644,18 +644,18 @@ export default function Profile() {
                     onClick={() => setShowPendingOnboarding(false)}
                 >
                     <div
-                        className="relative w-full max-w-xl bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-blue-500/30 rounded-3xl shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white"
+                        className="relative w-full max-w-xl bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-emerald-500/30 rounded-3xl shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
                         <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-white/10 shrink-0">
                             <div className="flex items-center gap-2.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                                 <div>
                                     <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white">
                                         🔗 FPL Sync • Pending Onboarding
                                     </h3>
-                                    <p className="text-[10px] text-blue-600 dark:text-blue-300 font-bold uppercase tracking-wider mt-0.5">
+                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mt-0.5">
                                         {pendingMembers.length} Members to Activate
                                     </p>
                                 </div>
@@ -691,7 +691,7 @@ export default function Profile() {
                                 value={onboardingSearch}
                                 onChange={(e) => setOnboardingSearch(e.target.value)}
                                 placeholder="Search member name or FPL team..."
-                                className="w-full pl-10 pr-12 py-2.5 bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:border-blue-500 focus:outline-none transition-all"
+                                className="w-full pl-10 pr-12 py-2.5 bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:border-emerald-500 focus:outline-none transition-all"
                             />
                             {onboardingSearch && (
                                 <button
@@ -712,12 +712,12 @@ export default function Profile() {
                                 </div>
                             ) : (
                                 filteredPendingMembers.map((m: any) => (
-                                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 hover:border-blue-500/40 transition-all">
+                                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition-all">
                                     <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
                                         <UserAvatar name={m.displayName} size="md" />
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-black text-slate-900 dark:text-white break-words leading-tight">{m.displayName}</p>
-                                            <p className="text-[11px] text-blue-600 dark:text-blue-300 font-semibold break-words mt-0.5">
+                                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold break-words mt-0.5">
                                                 {m.fplTeamName || 'FPL Team'} <span className="text-slate-500 dark:text-slate-400">· Pending Phone</span>
                                             </p>
                                         </div>
@@ -728,7 +728,7 @@ export default function Profile() {
                                             value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
                                             onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
                                             placeholder="07XXXXXXXX"
-                                            className="flex-1 sm:w-36 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/15 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white font-mono focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            className="flex-1 sm:w-36 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/15 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                                         />
                                         <button
                                             type="button"
@@ -743,15 +743,17 @@ export default function Profile() {
                                                     const { doc: docFn, updateDoc: updateDocFn, deleteDoc: deleteDocFn } = await import('firebase/firestore');
                                                     const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                                                     
-                                                    // Check if an active member exists with matching name or squad
+                                                    // Check if an existing member matches name or squad
                                                     const existingActive = members.find((existing: any) => 
                                                         existing.id !== m.id &&
-                                                        existing.isActive !== false &&
                                                         ((norm(existing.displayName) && norm(existing.displayName) === norm(m.displayName)) ||
-                                                         (norm((existing as any).fplTeamName) && norm((existing as any).fplTeamName) === norm(m.fplTeamName)))
+                                                         (norm((existing as any).fplTeamName) && norm((existing as any).fplTeamName) === norm(m.fplTeamName)) ||
+                                                         (norm((existing as any).teamName) && norm((existing as any).teamName) === norm(m.fplTeamName)))
                                                     );
 
                                                     if (existingActive) {
+                                                        const combinedPaid = Boolean(existingActive.hasPaid || m.hasPaid);
+                                                        const combinedBalance = Math.max(Number(existingActive.walletBalance || 0), Number(m.walletBalance || 0));
                                                         await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', existingActive.id), {
                                                             phoneNumber: phone,
                                                             phone: phone,
@@ -759,6 +761,8 @@ export default function Profile() {
                                                             fplTeamName: m.fplTeamName || (existingActive as any).fplTeamName || null,
                                                             isPending: false,
                                                             isActive: true,
+                                                            hasPaid: combinedPaid,
+                                                            walletBalance: combinedBalance,
                                                         });
                                                         await deleteDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id));
                                                     } else {
@@ -778,7 +782,7 @@ export default function Profile() {
                                                 }
                                             }}
                                             disabled={isSavingPendingPhone === m.id || !((pendingPhoneMap[m.id] || m.phoneNumber)?.length >= 9)}
-                                            className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 border border-blue-600 dark:border-blue-500/40 text-white dark:text-blue-300 text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                            className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 text-black text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
                                         >
                                             {isSavingPendingPhone === m.id ? (
                                                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1078,6 +1082,30 @@ export default function Profile() {
                     {/* Active Members / Chama Directory — Balanced in Column */}
                     {renderActiveMembersStrip('w-full')}
 
+                    {/* Chama Guides & Constitution Card — Directly above Account & Session Details */}
+                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#161d24] dark:to-[#0f141a] border border-slate-200 dark:border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.15)]">
+                                    <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        Chama Guides & Constitution
+                                    </h2>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Official league governance, manual, rules, and FAQ</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { haptics.selection(); setShowDocsModal(true); }}
+                                className="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                            >
+                                <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
+                            </button>
+                        </div>
+                    </div>
+
                     {isAdminView && (
                         <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#121920] dark:to-[#0b1014] border border-slate-200 dark:border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
@@ -1153,7 +1181,7 @@ export default function Profile() {
                                     </div>
                                     <div className="flex items-center justify-between gap-2 bg-slate-100/90 dark:bg-[#090d11] px-2.5 py-2 rounded-xl border border-slate-200 dark:border-white/5">
                                         <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-                                            {chairmanId ? `•••${chairmanId.slice(-6)}` : "None"}
+                                            {chairmanId ? `•••${chairmanId.slice(-6)}` : "Unset"}
                                         </span>
                                         {chairmanId && (
                                             <button
@@ -1173,14 +1201,14 @@ export default function Profile() {
                                 </div>
 
                                 {/* Co-Chair ID */}
-                                <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-black/30 p-3.5 flex flex-col justify-between hover:border-blue-500/40 transition-all shadow-xs">
+                                <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-black/30 p-3.5 flex flex-col justify-between hover:border-emerald-500/40 transition-all shadow-xs">
                                     <div className="flex items-center justify-between gap-2 mb-2">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Co-Chair ID
+                                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Co-Chair ID
                                         </span>
                                         <span className={clsx(
                                             "text-[9px] font-bold px-1.5 py-0.5 rounded border",
-                                            coAdminId ? "text-blue-700 dark:text-blue-400 bg-blue-500/15 dark:bg-blue-500/10 border-blue-500/30 dark:border-blue-500/20" : "text-slate-500 dark:text-gray-500 bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10"
+                                            coAdminId ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 dark:bg-emerald-500/10 border-emerald-500/30 dark:border-emerald-500/20" : "text-slate-500 dark:text-gray-500 bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10"
                                         )}>
                                             {coAdminId ? "Dual-Sign" : "Unset"}
                                         </span>
@@ -1228,7 +1256,7 @@ export default function Profile() {
                                             <span className={clsx(
                                                 "px-2 py-0.5 rounded-lg border text-[11px]",
                                                 coAdminId && auth.currentUser?.uid === coAdminId
-                                                    ? "bg-blue-500/15 border-blue-500/40 text-blue-800 dark:text-blue-300"
+                                                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-800 dark:text-emerald-300"
                                                     : "text-slate-400 dark:text-gray-500 border-transparent"
                                             )}>
                                                 Co-Admin
@@ -1563,9 +1591,9 @@ export default function Profile() {
 
                                 <div className="space-y-3 mt-1">
                                     {coAdminId && (
-                                        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
                                             <div className="min-w-0">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Designated Successor (Co-Chair)</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Designated Successor (Co-Chair)</p>
                                                 <p className="text-xs font-bold text-white truncate">
                                                     {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
                                                 </p>
@@ -1576,7 +1604,7 @@ export default function Profile() {
                                                     setSelectedSuccessorId(coAdminId);
                                                     setShowRetireModal(true);
                                                 }}
-                                                className="px-3.5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                                                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
                                             >
                                                 Pass to Co-Chair →
                                             </button>
@@ -1610,57 +1638,6 @@ export default function Profile() {
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Chama Guides & Constitution Card — Below League Governance, rendered last on mobile */}
-                            <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                                <div className="flex items-center justify-between gap-3 flex-wrap">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-                                            <BookOpen className="w-4 h-4 text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
-                                                Chama Guides & Constitution
-                                            </h2>
-                                            <p className="text-[10px] text-gray-500 font-medium">Official league governance, manual, rules, and FAQ</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => { haptics.selection(); setShowDocsModal(true); }}
-                                        className="px-3.5 py-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-                                    >
-                                        <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {!isAdminView && (
-                        <div className="xl:col-span-12">
-                            <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                                <div className="flex items-center justify-between gap-3 flex-wrap">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
-                                            <BookOpen className="w-4 h-4 text-blue-400" />
-                                        </div>
-                                        <div>
-                                            <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider">
-                                                Chama Guides & Constitution
-                                            </h2>
-                                            <p className="text-[10px] text-gray-500 font-medium">Official league governance, manual, rules, and FAQ</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => { haptics.selection(); setShowDocsModal(true); }}
-                                        className="px-3.5 py-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-                                    >
-                                        <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
-                                    </button>
                                 </div>
                             </div>
                         </div>

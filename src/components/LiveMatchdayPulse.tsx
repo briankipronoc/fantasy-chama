@@ -140,6 +140,8 @@ export default function LiveMatchdayPulse({
 
     // Resolved values prioritizing props
     const gw = propGw ?? fetchedData?.gw ?? 4;
+    const leagueStartGw = Number((league as any)?.startGw || (league as any)?.effectiveStartGw || 1);
+    const isPreLeague = Number(gw) < leagueStartGw;
     const leaderName = propLeaderName ?? fetchedData?.leaderName ?? 'Leading Manager';
     const leaderTeam = propLeaderTeam ?? fetchedData?.leaderTeam ?? 'Chama XI';
     const leaderPoints = propLeaderPoints ?? fetchedData?.leaderPoints ?? 0;
@@ -170,10 +172,13 @@ export default function LiveMatchdayPulse({
                         </span>
                         <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
                             <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                            Matchday Pulse • GW{gw} {isFinished ? 'Finished' : isLive ? 'Live' : 'Upcoming'}
+                            {isPreLeague 
+                                ? `Matchday Pulse • Pre-Season (GW${gw}) · Kickoff at GW${leagueStartGw}`
+                                : `Matchday Pulse • GW${gw} ${isFinished ? 'Finished' : isLive ? 'Live' : 'Upcoming'}`}
                         </span>
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
-                            <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" /> High Score Active
+                            <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                            {isPreLeague ? `Kickoff GW${leagueStartGw}` : "High Score Active"}
                         </span>
                     </div>
 
@@ -204,59 +209,76 @@ export default function LiveMatchdayPulse({
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
                         {/* Leader Details */}
                         <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                            <div className="relative shrink-0">
-                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-md flex items-center justify-center">
-                                    <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
-                                        <Trophy className="w-5 h-5 text-amber-400" />
+                            {isPreLeague ? (
+                                <div className="flex items-center gap-3.5 py-1">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[2px] shadow-md flex items-center justify-center shrink-0">
+                                        <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
+                                            <Trophy className="w-5 h-5 text-emerald-400" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                            League Starts at GW{leagueStartGw}
+                                        </p>
+                                        <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                                            First Official Matchday: GW{leagueStartGw}
+                                        </h4>
+                                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                                            Fund account ahead of the GW{leagueStartGw} deadline to qualify for the weekly cash pot.
+                                        </p>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                    <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-700 dark:text-[#FBBF24]">
-                                        <ShieldCheck className="w-3.5 h-3.5 fill-current" />
-                                        {isFinished ? 'POT CHAMPION' : 'POT LEADER'}
-                                    </p>
-                                    <span className={clsx(
-                                        "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                                        isFinished
-                                            ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
-                                            : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                    )}>
-                                        {isFinished ? `GW${gw} Final` : `GW${gw} Live`}
-                                    </span>
-                                </div>
-                                <h4 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                                    {isCurrentUserLeader ? `${leaderName} (You!)` : leaderName}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    <span className="text-xs font-semibold text-slate-600 dark:text-gray-300 truncate max-w-[200px]">
-                                        {leaderTeam}
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 font-black px-2 py-0.5 rounded-full text-[11px] tabular-nums bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-[#10B981]/15 dark:border-[#10B981]/30 dark:text-emerald-300">
-                                        {leaderPoints} pts
-                                    </span>
-                                </div>
-
-                                {!isFinished && leadMargin !== undefined && (
-                                    <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            +{leadMargin} pts ahead of {runnerUpName || 'Rival'}
-                                        </span>
-                                        <span className={clsx(
-                                            "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border",
-                                            leadMargin >= 15
-                                                ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300"
-                                                : leadMargin >= 5
-                                                ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
-                                                : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:border-red-500/30 dark:text-red-300 animate-pulse"
-                                        )}>
-                                            {leadMargin >= 15 ? "Dominant Lead 🛡️" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
-                                        </span>
+                            ) : (
+                                <>
+                                    <div className="relative shrink-0">
+                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-md flex items-center justify-center">
+                                            <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center">
+                                                <Trophy className="w-5 h-5 text-amber-400" />
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-700 dark:text-[#FBBF24]">
+                                                <ShieldCheck className="w-3.5 h-3.5 fill-current" />
+                                                {isFinished ? 'POT CHAMPION' : 'POT LEADER'}
+                                            </p>
+                                            <span className={clsx(
+                                                "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                                                isFinished
+                                                    ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
+                                                    : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
+                                            )}>
+                                                {isFinished ? `GW${gw} Final` : `GW${gw} Live`}
+                                            </span>
+                                        </div>
+                                        <h4 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                            {isCurrentUserLeader ? `${leaderName} (You!)` : leaderName}
+                                        </h4>
+                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                            <span className="text-xs font-semibold text-slate-600 dark:text-gray-300 truncate max-w-[200px]">
+                                                {leaderTeam}
+                                            </span>
+                                            <span className="text-xs text-slate-400 dark:text-gray-500">•</span>
+                                            <span className="text-xs font-black text-emerald-600 dark:text-[#10B981]">
+                                                {leaderPoints} pts
+                                            </span>
+                                            {leadMargin !== null && leadMargin !== undefined && (
+                                                <span className={clsx(
+                                                    "text-[10px] font-bold px-2 py-0.2 rounded border",
+                                                    leadMargin >= 15
+                                                        ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300"
+                                                        : leadMargin >= 5
+                                                        ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300"
+                                                        : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-300"
+                                                )}>
+                                                    +{leadMargin} pts lead{runnerUpName ? ` vs ${runnerUpName}` : ''}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Pot & Action */}

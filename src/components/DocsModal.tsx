@@ -51,10 +51,10 @@ const docCards = [
   },
   {
     icon: HelpCircle,
-    color: 'text-blue-400',
-    border: 'border-blue-500/20',
-    bg: 'bg-blue-500/5',
-    glow: 'hover:shadow-[0_0_20px_rgba(59,130,246,0.1)]',
+    color: 'text-emerald-400',
+    border: 'border-emerald-500/20',
+    bg: 'bg-emerald-500/5',
+    glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]',
     title: 'FAQ',
     desc: 'Frequently asked questions about payments, FPL data, payout rules, and platform fees.',
     badge: 'Quick Reference',
@@ -131,8 +131,8 @@ export default function DocsModal({ isOpen, onClose }: DocsModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-[#0d1117]/90 backdrop-blur-md sticky top-0 z-10 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-blue-400" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
               <h2 className="text-lg md:text-xl font-black text-white tracking-tight">Help &amp; Docs</h2>

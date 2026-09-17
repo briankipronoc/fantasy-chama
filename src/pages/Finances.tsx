@@ -1061,83 +1061,129 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {/* Main Treasury Metric Cards (1 Row with ample breathing room) */}
                 <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 mb-8">
                     {/* Card 1: Projected Weekly / Season Collection */}
-                    <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400">
-                                    <ShieldCheck className="w-4 h-4" />
+                    {(() => {
+                        const weeklyPercent = Number(rules?.weekly || 0);
+                        const vaultPercent = Number(rules?.vault || 0);
+                        const isSeasonOnlyLeague = weeklyPercent === 0 && vaultPercent > 0;
+                        const isWeeklyOnlyLeague = vaultPercent === 0 && weeklyPercent > 0;
+                        const memberPlayMode = (currentUser as any)?.playMode || 'full';
+                        const effectivePayoutMode: 'weekly_only' | 'season_only' | 'both' = 
+                            isSeasonOnlyLeague || memberPlayMode === 'season_only'
+                                ? 'season_only'
+                                : isWeeklyOnlyLeague || memberPlayMode === 'weekly_only'
+                                ? 'weekly_only'
+                                : 'both';
+
+                        return (
+                            <>
+                                <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
+                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400">
+                                                <ShieldCheck className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
+                                                    {effectivePayoutMode === 'weekly_only'
+                                                        ? "Projected Weekly Payout"
+                                                        : effectivePayoutMode === 'season_only'
+                                                        ? "Projected Season Collection"
+                                                        : projectedCardIndex === 0
+                                                        ? "Projected Weekly Payout"
+                                                        : "Projected Season Collection"}
+                                                </h3>
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                                    {effectivePayoutMode === 'weekly_only'
+                                                        ? `Weekly Cash Pot (${weeklyPercent}%)`
+                                                        : effectivePayoutMode === 'season_only'
+                                                        ? `Season Podium Vault (${vaultPercent}%)`
+                                                        : projectedCardIndex === 0
+                                                        ? `Current Gameweek Pot (${weeklyPercent}%)`
+                                                        : `Join-aware remaining estimate (${vaultPercent}%)`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {effectivePayoutMode === 'both' ? (
+                                            <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setProjectedCardIndex(0)}
+                                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                >
+                                                    GW
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setProjectedCardIndex(1)}
+                                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                >
+                                                    Season
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                                                {effectivePayoutMode === 'weekly_only' ? 'Weekly Only' : 'Season Only'}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        {(effectivePayoutMode === 'weekly_only' || (effectivePayoutMode === 'both' && projectedCardIndex === 0)) ? (
+                                            <>
+                                                <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-gray-900 dark:text-white">
+                                                    KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}
+                                                </p>
+                                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                                    {projectedWeeklyPayoutFormula}
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
+                                                    KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}
+                                                </p>
+                                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                                    {projectedSeasonCollectionsFormula}
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
-                                        {projectedCardIndex === 0 ? "Projected Weekly Payout" : "Projected Season Collection"}
-                                    </h3>
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                        {projectedCardIndex === 0 ? "Current Gameweek Pot" : "Join-aware remaining estimate"}
-                                    </p>
+
+                                {/* Card 2: Total Payouts Yielded */}
+                                <div className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
+                                    <div className="flex items-center gap-2.5 mb-3">
+                                        <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400">
+                                            <Trophy className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
+                                                {effectivePayoutMode === 'weekly_only'
+                                                    ? "Weekly Payouts Yielded"
+                                                    : effectivePayoutMode === 'season_only'
+                                                    ? "Season Payouts Yielded"
+                                                    : (projectedCardIndex === 0 ? "Weekly Payouts Yielded" : "Season Payouts Yielded")}
+                                            </h3>
+                                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Issued from ledger</p>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-amber-600 dark:text-[#FBBF24]">
+                                            KES {isStealthMode ? '****' : totalPayoutsYielded.toLocaleString()}
+                                        </p>
+                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
+                                            {effectivePayoutMode === 'weekly_only'
+                                                ? "Settled weekly gameweek payouts already disbursed and approved from the ledger."
+                                                : effectivePayoutMode === 'season_only'
+                                                ? "Settled season championship payouts already disbursed and approved from the ledger."
+                                                : "Settled payouts already disbursed and approved from the ledger."}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
-                                <button
-                                    type="button"
-                                    onClick={() => setProjectedCardIndex(0)}
-                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
-                                >
-                                    GW
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setProjectedCardIndex(1)}
-                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
-                                >
-                                    Season
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            {projectedCardIndex === 0 ? (
-                                <>
-                                    <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-gray-900 dark:text-white">
-                                        KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}
-                                    </p>
-                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
-                                        {projectedWeeklyPayoutFormula}
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
-                                        KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}
-                                    </p>
-                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
-                                        {projectedSeasonCollectionsFormula}
-                                    </p>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Card 2: Total Payouts Yielded */}
-                    <div className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                        <div className="flex items-center gap-2.5 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400">
-                                <Trophy className="w-4 h-4" />
-                            </div>
-                            <div>
-                                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">Total Payouts Yielded</h3>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Issued from ledger</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-amber-600 dark:text-[#FBBF24]">
-                                KES {isStealthMode ? '****' : totalPayoutsYielded.toLocaleString()}
-                            </p>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
-                                Settled payouts already disbursed and approved from the ledger.
-                            </p>
-                        </div>
-                    </div>
+                            </>
+                        );
+                    })()}
 
                     {/* Card 3: League Treasury Split */}
                     {(() => {

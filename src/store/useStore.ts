@@ -183,15 +183,17 @@ export const useStore = create<AppState>((set) => ({
                 for (const m of liveMembers) {
                     const rawPhone = (m.phone || (m as any).phoneNumber || '').replace(/\D/g, '');
                     const cleanName = (m.displayName || '').trim().toLowerCase();
+                    const cleanTeam = ((m as any).fplTeamName || (m as any).teamName || '').trim().toLowerCase();
                     const phoneKey = rawPhone.length >= 8 ? rawPhone.slice(-8) : '';
                     const fplId = (m as any).fplTeamId ? Number((m as any).fplTeamId) : 0;
 
-                    // Match against any existing entry by FPL ID, phone, or normalized name
+                    // Match against any existing entry by FPL ID, phone, team name, or normalized name
                     let existingKey: string | null = null;
                     for (const [key, existing] of deduplicatedMap.entries()) {
                         const exPhone = (existing.phone || (existing as any).phoneNumber || '').replace(/\D/g, '');
                         const exPhoneKey = exPhone.length >= 8 ? exPhone.slice(-8) : '';
                         const exName = (existing.displayName || '').trim().toLowerCase();
+                        const exTeam = ((existing as any).fplTeamName || (existing as any).teamName || '').trim().toLowerCase();
                         const exFpl = (existing as any).fplTeamId ? Number((existing as any).fplTeamId) : 0;
 
                         if (fplId && exFpl && fplId === exFpl) {
@@ -202,7 +204,11 @@ export const useStore = create<AppState>((set) => ({
                             existingKey = key;
                             break;
                         }
-                        if (cleanName && exName && cleanName === exName) {
+                        if (cleanTeam && exTeam && (cleanTeam === exTeam || cleanTeam.includes(exTeam) || exTeam.includes(cleanTeam))) {
+                            existingKey = key;
+                            break;
+                        }
+                        if (cleanName && exName && (cleanName === exName || (cleanName.length >= 4 && (cleanName.includes(exName) || exName.includes(cleanName))))) {
                             existingKey = key;
                             break;
                         }

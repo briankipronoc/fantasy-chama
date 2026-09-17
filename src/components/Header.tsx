@@ -446,17 +446,17 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                         onClick={(e) => { e.stopPropagation(); setActiveTab('system'); }}
                                         className={clsx(
                                             "fc-notif-tab flex-1 py-3 text-xs font-bold tracking-wider uppercase transition-colors relative flex items-center justify-center gap-2",
-                                            activeTab === 'system' ? "text-blue-600 dark:text-blue-400 font-black" : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
+                                            activeTab === 'system' ? "text-emerald-600 dark:text-emerald-400 font-black" : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                                         )}
                                     >
                                         System
                                         {unreadSystemCount > 0 && (
-                                            <span className="bg-blue-500/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
+                                            <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-md text-[10px] leading-none">
                                                 {unreadSystemCount}
                                             </span>
                                         )}
                                         {activeTab === 'system' && (
-                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 dark:bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                                         )}
                                     </button>
                                 </div>
@@ -525,7 +525,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                                 <AlertTriangle className="w-4 h-4" />
                                                             </div>
                                                         ) : notif.type === 'info' ? (
-                                                            <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-500 dark:text-blue-400">
+                                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
                                                                 <Info className="w-4 h-4" />
                                                             </div>
                                                         ) : (

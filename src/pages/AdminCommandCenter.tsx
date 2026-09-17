@@ -16,6 +16,7 @@ import {
   Banknote,
   ChevronDown,
   ChevronRight,
+  Check,
   CheckCircle2,
   Trophy,
   AlertTriangle,
@@ -3376,6 +3377,7 @@ burstFrame();
                 (finishedAtStored ? hoursSinceFinished <= 48 : true) &&
                 hoursUntilNextDeadline > 36
               );
+              const isPreLeagueRound = Boolean((currentGwNumber || 0) < effectiveStartGw);
 
               return (
                 <div
@@ -3399,15 +3401,20 @@ burstFrame();
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-xs">
                         <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                        Matchday Pulse • GW{currentGwNumber || 4} {isCurrentEventFinished ? (isCelebrationWindowActive ? "Finished" : "Finalized") : "Live"}
+                        {isPreLeagueRound 
+                          ? `Matchday Pulse • Pre-Season (GW${currentGwNumber || 4}) · Kickoff at GW${effectiveStartGw}`
+                          : `Matchday Pulse • GW${currentGwNumber || 4} ${isCurrentEventFinished ? (isCelebrationWindowActive ? "Finished" : "Finalized") : "Live"}`}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
-                        <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" /> High Score Active
+                        <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                        {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : "High Score Active"}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
-                        {isCurrentEventFinished 
-                          ? (isCelebrationWindowActive ? "Official final standings locked in." : "GW finalized · Upcoming Gameweek deadline approaching.") 
-                          : "Scores updating in real-time as fixtures progress."}
+                        {isPreLeagueRound
+                          ? `League officially begins with Gameweek ${effectiveStartGw}. Previous gameweek concluded prior to league activation.`
+                          : isCurrentEventFinished 
+                            ? (isCelebrationWindowActive ? "Official final standings locked in." : "GW finalized · Upcoming Gameweek deadline approaching.") 
+                            : "Scores updating in real-time as fixtures progress."}
                       </span>
                     </div>
 
@@ -3427,7 +3434,26 @@ burstFrame();
                   <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 relative z-10">
                     {/* Left: Leader Profile & Margins */}
                     <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
-                      {leaderName ? (
+                      {isPreLeagueRound ? (
+                        <div className="flex items-center gap-3.5 py-2">
+                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border bg-emerald-500/10 border-emerald-500/25 text-emerald-400 shadow-xs">
+                            <Trophy className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                Official League Kickoff: GW{effectiveStartGw}
+                              </p>
+                            </div>
+                            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                              First Competitive Matchday: Gameweek {effectiveStartGw}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                              League officially begins at GW{effectiveStartGw}. Fund accounts ahead of the GW{effectiveStartGw} deadline to qualify for the first cash pot!
+                            </p>
+                          </div>
+                        </div>
+                      ) : leaderName ? (
                         <>
                           <div className="relative shrink-0 mt-1 sm:mt-0">
                             <div className="absolute inset-0 rounded-full bg-amber-500/20 dark:bg-[#FBBF24]/20 animate-ping" />
@@ -3587,34 +3613,42 @@ burstFrame();
                         </p>
                       </div>
 
-                      {/* Resolve button directly below Projected Cash Pot — matching width */}
-                      <button
-                        id="tour-resolve-gw"
-                        onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                        disabled={isResolved}
-                        className={clsx(
-                          "w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
-                          isResolved
-                            ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
-                            : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
-                        )}
-                      >
-                        <Trophy className="w-3.5 h-3.5" />
-                        <span>{isResolved ? "Resolved ✓" : "Resolve"}</span>
-                      </button>
+                      {isPreLeagueRound ? (
+                        <div className="w-full text-center px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shadow-xs">
+                          Kickoff GW{effectiveStartGw} Active
+                        </div>
+                      ) : (
+                        <>
+                          {/* Resolve button directly below Projected Cash Pot — matching width */}
+                          <button
+                            id="tour-resolve-gw"
+                            onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                            disabled={isResolved}
+                            className={clsx(
+                              "w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
+                              isResolved
+                                ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
+                                : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
+                            )}
+                          >
+                            <Trophy className="w-3.5 h-3.5" />
+                            <span>{isResolved ? "Resolved ✓" : "Resolve"}</span>
+                          </button>
 
-                      {leaderName && (
-                        <button
-                          onClick={() => {
-                            haptics.celebrate();
-                            setShowChairmanFlexModal(true);
-                          }}
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                          title="Generate Champion Victory Card for WhatsApp"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          <span>Victory Card</span>
-                        </button>
+                          {leaderName && (
+                            <button
+                              onClick={() => {
+                                haptics.celebrate();
+                                setShowChairmanFlexModal(true);
+                              }}
+                              className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                              title="Generate Champion Victory Card for WhatsApp"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                              <span>Victory Card</span>
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -4792,16 +4826,30 @@ burstFrame();
                         )}
                       </div>
 
-                      {/* Toggle */}
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer fc-ledger-verify-input"
-                          checked={row.hasPaid}
-                          onChange={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
-                        />
-                        <div className="fc-ledger-switch-track w-11 h-6 bg-[#1a232b] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981] border border-white/10" />
-                      </label>
+                      {/* Tactile Funding Button: Grey Unfunded vs Green Funded (No Apple slider) */}
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
+                        className={clsx(
+                          "relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer select-none active:scale-95 shrink-0 shadow-xs",
+                          row.hasPaid
+                            ? "bg-[#10B981] hover:bg-[#0ea372] text-black border border-[#10B981]/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                            : "bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border border-slate-300 dark:border-white/10"
+                        )}
+                        title={row.hasPaid ? "Click to mark as unpaid / reverse" : "Click to mark as paid / fund"}
+                      >
+                        {row.hasPaid ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Funded</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500" />
+                            <span>Unfunded</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   );
                 })
