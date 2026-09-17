@@ -230,6 +230,8 @@ export default function Standings() {
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [trajectoryView, setTrajectoryView] = useState<'top5' | 'top10' | 'all'>('top5');
+    const [spotlightPlayer, setSpotlightPlayer] = useState<string | null>(null);
 
     const resolvedTitle = leagueName || league?.name || localStorage.getItem('activeLeagueName') || 'Chama League';
 
@@ -260,6 +262,8 @@ export default function Standings() {
         if (members.length === 0) listenToLeagueMembers(activeLeagueId);
 
         const fetchFPLStandings = async () => {
+            setIsLoading(true);
+            setError(null);
             try {
                 let targetFplId: number | null = null;
 
@@ -283,8 +287,25 @@ export default function Standings() {
                     console.warn('[standings] league metadata read skipped:', leagueErr?.message || leagueErr);
                 }
 
+                try {
+                    const bootstrapRes = await fetch(`/fpl-api/bootstrap-static/`);
+                    if (bootstrapRes.ok) {
+                        const bootstrapData = await bootstrapRes.json();
+                        const events = bootstrapData?.events || [];
+                        const current = events.find((event: any) => event.is_current)
+                            || events.find((event: any) => event.is_previous)
+                            || events.filter((event: any) => event.finished).pop()
+                            || events[0];
+                        if (current?.id) {
+                            setCurrentEvent(current.id);
+                            setIsCurrentEventFinished(Boolean(current.finished === true && current.data_checked === true));
+                        }
+                    }
+                } catch (bootErr) {
+                    console.warn('[standings] bootstrap static fetch skipped:', bootErr);
+                }
+
                 if (!targetFplId) {
-                    // No FPL league linked yet - do NOT fallback to global FPL league 314
                     setStandingsData([]);
                     setPerformanceData([]);
                     setIsLoading(false);
@@ -293,14 +314,12 @@ export default function Standings() {
                 }
 
                 const results = await fetchFplStandings(targetFplId);
-                setStandingsData(results);
-                setError(null);
+                setStandingsData(results || []);
 
-                // Fetch trajectory for Top 5 members + current user
                 const fetchPerformances = async () => {
                     let aggData: any[] = [];
-                    const top5 = results.slice(0, 5);
-                    const teamIds = top5.map((r: any) => r.entry);
+                    const candidateManagers = results.slice(0, 10);
+                    const teamIds = candidateManagers.map((r: any) => r.entry);
                     
                     const activeUserId = localStorage.getItem('activeUserId') || '';
                     const myMember = members.find(m => m.id === activeUserId);
@@ -575,14 +594,16 @@ export default function Standings() {
     const seasonSnapshotLabel = `Top ${visibleSeasonWinnerCount}`;
 
 
-    // End-season snapshot: ONLY funded active members can be on the winners list
-    const eligibleSeasonStandings = standingsData.filter(isMemberEligibleWinner);
-    const seasonPool = eligibleSeasonStandings.length > 0
-        ? eligibleSeasonStandings
-        : standingsData.filter((r: any) => {
-            const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
-            return !m || m.isActive !== false;
-        });
+    // End-season snapshot: Omit spectators and eliminated members; rank contenders by total score
+    const seasonPool = standingsData.filter((r: any) => {
+        const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
+        if (m) {
+            if ((m as any).playMode === 'sidebets_only') return false;
+            if ((m as any).isEliminated === true) return false;
+            if (m.isActive === false) return false;
+        }
+        return true;
+    });
 
     // Competition tie-ranking (e.g. 1, 1, 3)
     const sortedSeasonPool = [...seasonPool].sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
@@ -959,7 +980,7 @@ export default function Standings() {
                                                             winnerName: row.player_name,
                                                             teamName: row.entry_name,
                                                             points: Number(row.event_total || 0),
-                                                            amountWon: Math.round((eligibleSeasonStandings.length * (stake || 100)) * (Number((league as any)?.rules?.weekly || 70) / 100)),
+                                                            amountWon: Math.round((eligibleGwStandings.length * (stake || 100)) * (Number((league as any)?.rules?.weekly || 70) / 100)),
                                                             gameweek: currentEvent || '',
                                                             isJointWinner: isGwTied,
                                                             tiedCount: tiedGwWinners.length
@@ -990,89 +1011,140 @@ export default function Standings() {
                         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-gray-300 uppercase tracking-wider">
-                                    <BarChart3 className="w-4 h-4 text-emerald-500" /> Performance Trajectory (Top 5 + You)
+                                    <BarChart3 className="w-4 h-4 text-emerald-500" /> Performance Trajectory ({trajectoryView === 'top5' ? 'Top 5 + You' : trajectoryView === 'top10' ? 'Top 10' : 'All Contenders'})
                                 </h4>
                                 <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
-                                    Recent Gameweek points progression comparing leaders against your score and the league average
+                                    Recent Gameweek points progression comparing leaders against your score and the league average. Tap any manager to spotlight.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTrajectoryView('top5')}
+                                        className={clsx('px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all', trajectoryView === 'top5' ? 'bg-emerald-500 text-black shadow-xs' : 'text-gray-400 hover:text-white')}
+                                    >
+                                        Top 5 + You
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setTrajectoryView('top10')}
+                                        className={clsx('px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all', trajectoryView === 'top10' ? 'bg-emerald-500 text-black shadow-xs' : 'text-gray-400 hover:text-white')}
+                                    >
+                                        Top 10
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setTrajectoryView('all')}
+                                        className={clsx('px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all', trajectoryView === 'all' ? 'bg-emerald-500 text-black shadow-xs' : 'text-gray-400 hover:text-white')}
+                                    >
+                                        All Loaded
+                                    </button>
+                                </div>
                                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-400/10 border border-amber-300 dark:border-amber-400/25 text-amber-800 dark:text-[#FBBF24] text-xs font-bold shadow-xs">
                                     <span className="w-2.5 h-0.5 bg-amber-500 dark:bg-[#FBBF24] inline-block" />
-                                    <span>GW Average: <strong className="tabular-nums font-black">{currentGwAverage}</strong> pts</span>
+                                    <span>GW Avg: <strong className="tabular-nums font-black">{currentGwAverage}</strong> pts</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Interactive & Clear Legend Chips for PC & Mobile */}
                         {(() => {
-                            const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
-                            const playerKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
+                            const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4', '#EAB308', '#EC4899', '#8B5CF6', '#14B8A6'];
+                            const allKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
                             const myMember = members.find(m => m.id === (localStorage.getItem('activeUserId') || ''));
                             const myFirstName = myMember?.displayName ? myMember.displayName.split(' ')[0] : '';
+                            const playerKeys = trajectoryView === 'top5'
+                                ? allKeys.filter((k, idx) => idx < 5 || (myFirstName && k.toLowerCase().includes(myFirstName.toLowerCase())))
+                                : trajectoryView === 'top10'
+                                ? allKeys.filter((k, idx) => idx < 10 || (myFirstName && k.toLowerCase().includes(myFirstName.toLowerCase())))
+                                : allKeys;
 
                             return (
-                                <div className="flex items-center gap-2 flex-wrap mb-4 pt-1">
-                                    {playerKeys.map((playerKey, idx) => {
-                                        const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
-                                        const lastScore = performanceData[performanceData.length - 1]?.[playerKey];
-                                        const color = colors[idx % colors.length];
-                                        return (
-                                            <div
-                                                key={playerKey}
-                                                className={clsx(
-                                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all shadow-xs",
-                                                    isYou
-                                                        ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-500/40 text-emerald-900 dark:text-emerald-300 ring-1 ring-emerald-500/30"
-                                                        : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
-                                                )}
+                                <>
+                                    <div className="flex items-center gap-2 flex-wrap mb-4 pt-1">
+                                        {playerKeys.map((playerKey, idx) => {
+                                             const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
+                                            const isSpotlit = spotlightPlayer === playerKey;
+                                            const isMuted = spotlightPlayer && !isSpotlit;
+                                            const lastScore = performanceData[performanceData.length - 1]?.[playerKey];
+                                            const color = colors[idx % colors.length];
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    key={playerKey}
+                                                    onClick={() => setSpotlightPlayer((prev: string | null) => prev === playerKey ? null : playerKey)}
+                                                    className={clsx(
+                                                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer active:scale-95",
+                                                        isSpotlit
+                                                            ? "bg-amber-400/20 border-[#FBBF24] text-white ring-2 ring-[#FBBF24]/50 shadow-[0_0_12px_rgba(251,191,36,0.3)]"
+                                                            : isYou
+                                                            ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-500/40 text-emerald-900 dark:text-emerald-300 ring-1 ring-emerald-500/30"
+                                                            : isMuted
+                                                            ? "opacity-40 bg-slate-100/50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-400 dark:text-gray-500"
+                                                            : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:border-white/25"
+                                                    )}
+                                                    title={`Click to ${isSpotlit ? 'un-spotlight' : 'spotlight'} ${playerKey}'s line`}
+                                                >
+                                                    <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: color }} />
+                                                    <span>{playerKey} {isYou && <strong className="text-emerald-600 dark:text-emerald-400 font-black">(You)</strong>}</span>
+                                                    {lastScore !== undefined && (
+                                                        <span className="text-[10px] font-black text-slate-500 dark:text-gray-400 tabular-nums ml-0.5">
+                                                            {lastScore} pts
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300">
+                                            <span className="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" />
+                                            <span>League Avg: <strong className="tabular-nums">{currentGwAverage}</strong> pts</span>
+                                        </div>
+                                        {spotlightPlayer && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setSpotlightPlayer(null)}
+                                                className="text-[10px] font-bold text-amber-400 hover:underline px-1.5 py-0.5"
                                             >
-                                                <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: color }} />
-                                                <span>{playerKey} {isYou && <strong className="text-emerald-600 dark:text-emerald-400 font-black">(You)</strong>}</span>
-                                                {lastScore !== undefined && (
-                                                    <span className="text-[10px] font-black text-slate-500 dark:text-gray-400 tabular-nums ml-0.5">
-                                                        {lastScore} pts
-                                                    </span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300">
-                                        <span className="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" />
-                                        <span>League Avg: <strong className="tabular-nums">{currentGwAverage}</strong> pts</span>
+                                                ✕ Clear spotlight
+                                            </button>
+                                        )}
                                     </div>
-                                </div>
+
+                                    <div className="h-64 sm:h-72 w-full" style={{ position: 'relative' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={performanceData}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
+                                                <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={30} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '14px', fontSize: '12px', color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                                    itemStyle={{ fontWeight: 'bold' }}
+                                                />
+                                                {playerKeys.map((playerKey, idx) => {
+                                                    const color = colors[idx % colors.length];
+                                                    const isSpotlit = spotlightPlayer === playerKey;
+                                                    const isMuted = spotlightPlayer && !isSpotlit;
+                                                    return (
+                                                        <Line
+                                                            key={playerKey}
+                                                            type="monotone"
+                                                            dataKey={playerKey}
+                                                            stroke={color}
+                                                            strokeWidth={isSpotlit ? 4.5 : isMuted ? 1 : 2.5}
+                                                            strokeOpacity={isMuted ? 0.2 : 1}
+                                                            dot={isMuted ? false : { r: isSpotlit ? 5 : 3.5, fill: color, strokeWidth: 0 }}
+                                                            activeDot={{ r: 6 }}
+                                                        />
+                                                    );
+                                                })}
+                                                <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="5 5" dot={false} name="League Avg" strokeOpacity={spotlightPlayer ? 0.4 : 1} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </>
                             );
                         })()}
-
-                        <div className="h-64 sm:h-72 w-full" style={{ position: 'relative' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={performanceData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
-                                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={30} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '14px', fontSize: '12px', color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
-                                        itemStyle={{ fontWeight: 'bold' }}
-                                    />
-                                    {Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average').map((playerKey, idx) => {
-                                        const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
-                                        return (
-                                            <Line
-                                                key={playerKey}
-                                                type="monotone"
-                                                dataKey={playerKey}
-                                                stroke={colors[idx % colors.length]}
-                                                strokeWidth={3}
-                                                dot={{ r: 4, fill: colors[idx % colors.length], strokeWidth: 0 }}
-                                                activeDot={{ r: 6 }}
-                                            />
-                                        );
-                                    })}
-                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="5 5" dot={false} name="League Avg" />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
                     </div>
                 )}
 
@@ -1100,6 +1172,7 @@ export default function Standings() {
                             {topSeasonLeaders.map((leader: any, idx: number) => {
                                 const leaderRank = Number(leader.calculatedRank || idx + 1);
                                 const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
+                                const isLeaderFunded = isMemberEligibleWinner(leader);
                                 const isLeaderTied = Boolean(leader.isTied);
                                 return (
                                     <div key={leader.id || idx} className="min-w-[170px] flex-1 max-w-[240px] rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all">
@@ -1113,9 +1186,15 @@ export default function Standings() {
                                                         </span>
                                                     )}
                                                 </span>
-                                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                    Funded
-                                                </span>
+                                                {isLeaderFunded ? (
+                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                        ✓ Funded
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-[#FBBF24] border border-amber-500/30" title="Deposit required to claim vault prize">
+                                                        ⏳ Pending Deposit
+                                                    </span>
+                                                )}
                                             </div>
                                             <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
                                             <p className="text-[10px] text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
@@ -1123,9 +1202,13 @@ export default function Standings() {
                                         <div className="mt-3 pt-2.5 border-t border-white/5">
                                             <p className="text-base font-black text-emerald-400 tabular-nums">{Number(leader.total || 0).toLocaleString()} pts</p>
                                             <p className="text-[10px] text-gray-500 font-bold mt-0.5">
-                                                {Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
-                                                    ? (isLeaderTied ? 'Tied for Vault Lead' : 'Vault leader')
-                                                    : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`}
+                                                {isLeaderFunded ? (
+                                                    Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
+                                                        ? (isLeaderTied ? 'Tied for Vault Lead' : 'Vault leader')
+                                                        : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`
+                                                ) : (
+                                                    <span className="text-amber-400/90 font-medium">Deposit required for vault</span>
+                                                )}
                                             </p>
                                         </div>
                                     </div>

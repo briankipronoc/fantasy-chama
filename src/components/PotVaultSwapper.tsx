@@ -9,17 +9,31 @@ interface SwapperProps {
     projectedSeasonVault?: number;
 }
 
-export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPercent, isStealthMode, projectedSeasonVault }: SwapperProps) {
-    const [showWeeklyPot, setShowWeeklyPot] = useState(true);
+export function PotVaultSwapper({
+    weeklyPot,
+    seasonVault,
+    weeklyRulesPercent,
+    isStealthMode,
+    projectedSeasonVault
+}: SwapperProps) {
+    const isWeeklyOnly = weeklyRulesPercent >= 100;
+    const isVaultOnly = weeklyRulesPercent <= 0;
+    const hasBothPots = !isWeeklyOnly && !isVaultOnly;
+
+    const [showWeeklyPot, setShowWeeklyPot] = useState(!isVaultOnly);
     const animatedWeeklyPot = useCountUp(weeklyPot);
     const animatedSeasonVault = useCountUp(seasonVault);
 
     useEffect(() => {
+        if (!hasBothPots) {
+            setShowWeeklyPot(!isVaultOnly);
+            return;
+        }
         const interval = setInterval(() => {
             setShowWeeklyPot(prev => !prev);
-        }, 5000);
+        }, 6000);
         return () => clearInterval(interval);
-    }, []);
+    }, [hasBothPots, isVaultOnly]);
 
     const vaultPercent = 100 - weeklyRulesPercent;
     const progressPercent = (projectedSeasonVault && projectedSeasonVault > 0)
@@ -34,30 +48,36 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
 
             {/* Quick Interactive Switch Tabs */}
             <div className="flex items-center justify-between gap-2 mb-3 relative z-20">
-                <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/10 rounded-full backdrop-blur-md">
-                    <button
-                        type="button"
-                        onClick={() => setShowWeeklyPot(true)}
-                        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                            showWeeklyPot
-                                ? 'bg-amber-500/25 border border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]'
-                                : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        🏆 Weekly Pot
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setShowWeeklyPot(false)}
-                        className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                            !showWeeklyPot
-                                ? 'bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
-                                : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        🏦 Season Vault
-                    </button>
-                </div>
+                {hasBothPots ? (
+                    <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/10 rounded-full backdrop-blur-md">
+                        <button
+                            type="button"
+                            onClick={() => setShowWeeklyPot(true)}
+                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                showWeeklyPot
+                                    ? 'bg-amber-500/25 border border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]'
+                                    : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            🏆 Weekly Pot
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowWeeklyPot(false)}
+                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                !showWeeklyPot
+                                    ? 'bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
+                                    : 'text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            🏦 Season Vault
+                        </button>
+                    </div>
+                ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/40 border border-white/10 rounded-full backdrop-blur-md text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                        {isVaultOnly ? '🏦 100% Season Vault League' : '🏆 100% Weekly Pot League'}
+                    </div>
+                )}
 
                 <div className="flex items-center gap-1 text-[10px] font-mono text-gray-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -125,3 +145,5 @@ export default function PotVaultSwapper({ weeklyPot, seasonVault, weeklyRulesPer
         </div>
     );
 }
+
+export default PotVaultSwapper;

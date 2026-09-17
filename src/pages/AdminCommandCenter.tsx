@@ -364,7 +364,7 @@ export default function AdminCommandCenter() {
 
   // Clean Slate / Season Reset state
   const [showCleanSlateModal, setShowCleanSlateModal] = useState(false);
-  const [cleanSlateTargetGw, setCleanSlateTargetGw] = useState(10);
+  const [cleanSlateTargetGw, setCleanSlateTargetGw] = useState<number | string>(5);
   const [cleanSlateConfirmText, setCleanSlateConfirmText] = useState('');
   const [isExecutingCleanSlate, setIsExecutingCleanSlate] = useState(false);
 
@@ -1290,12 +1290,12 @@ export default function AdminCommandCenter() {
       ? Math.max(rawStartGw, nextPlayableGw)
       : (rawStartGw || nextPlayableGw || 1)
   );
-  // Pre-league gameweeks prior to effectiveStartGw are automatically voided/forfeited
-  const preLeagueGws = effectiveStartGw > 1 ? Array.from({ length: effectiveStartGw - 1 }, (_, i) => i + 1) : [];
+  const isPreLeagueRound = (currentGwNumber || firestoreGw || 1) < effectiveStartGw;
+  // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
+  const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
   const forfeitedGws: number[] = Array.from(new Set([
-    ...preLeagueGws,
-    ...((leagueSettings as any)?.forfeitedGws || []),
-    ...pendingPayouts.filter((p: any) => p.status === 'forfeited').map((p: any) => Number(p.gw))
+    ...actualForfeitedGws,
+    ...pendingPayouts.filter((p: any) => p.status === 'forfeited' && Number(p.gw) >= effectiveStartGw).map((p: any) => Number(p.gw))
   ]));
   const totalGwsThroughNow = (currentGwNumber || firestoreGw) ? Math.max(0, (currentGwNumber || firestoreGw || 1) - effectiveStartGw + (isCurrentEventFinished ? 1 : 0)) : 0;
   const gwPlayed = Math.max(0, totalGwsThroughNow - forfeitedGws.filter(g => g >= effectiveStartGw && g <= (currentGwNumber || firestoreGw || 38)).length);
@@ -1821,6 +1821,7 @@ export default function AdminCommandCenter() {
       batch.update(leagueDocRef, {
         startGw: targetGw,
         currentGw: targetGw,
+        forfeitedGws: [],
         vaultBalance: 0,
         totalPot: 0,
         lastResetAt: serverTimestamp(),
@@ -1828,7 +1829,7 @@ export default function AdminCommandCenter() {
       });
       await batch.commit();
 
-      // 2. Clear subcollections
+      // 2. Clear subcollections in safe chunked batches
       const subcollections = [
         'transactions',
         'side_bets',
@@ -1843,14 +1844,20 @@ export default function AdminCommandCenter() {
         try {
           const subSnap = await getDocs(collection(db, 'leagues', activeLeagueId, sub));
           if (!subSnap.empty) {
-            const subBatch = writeBatch(db);
-            subSnap.docs.forEach(d => subBatch.delete(d.ref));
-            await subBatch.commit();
+            for (let i = 0; i < subSnap.docs.length; i += 400) {
+              const chunk = subSnap.docs.slice(i, i + 400);
+              const subBatch = writeBatch(db);
+              chunk.forEach(d => subBatch.delete(d.ref));
+              await subBatch.commit();
+            }
           }
         } catch (subErr) {
           console.warn(`[clean-slate] clear ${sub} skipped:`, subErr);
         }
       }
+
+      setStartGw(targetGw);
+      setPendingPayouts([]);
 
       // 3. Post notification
       await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
@@ -3293,7 +3300,7 @@ burstFrame();
                 </button>
                 <button
                   onClick={() => {
-                    setCleanSlateTargetGw(currentGwNumber || 10);
+                    setCleanSlateTargetGw(String(nextPlayableGw || currentGwNumber || 5));
                     setCleanSlateConfirmText('');
                     setShowCleanSlateModal(true);
                   }}
@@ -3761,9 +3768,11 @@ burstFrame();
                     <div className="flex items-center justify-between gap-1 w-full">
                       <p className={clsx(
                         "fc-metric-label text-xs tracking-wide font-semibold",
-                        gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-white" : "text-emerald-400"
+                        isPreLeagueRound ? "text-emerald-300" : gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-white" : "text-emerald-400"
                       )}>
-                        {gwAlreadySettled
+                        {isPreLeagueRound
+                          ? `Season Kickoff`
+                          : gwAlreadySettled
                           ? "GW Settled ✓"
                           : Number(rules?.weekly ?? 70) === 0
                             ? (isCurrentEventFinished ? "Standings Updated ✓" : "Season Vault Mode")
@@ -3783,13 +3792,17 @@ burstFrame();
                     <div className="my-auto py-1 flex flex-col items-center justify-center text-center w-full">
                       <span className={clsx(
                         "text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-block max-w-full truncate",
-                        gwAlreadySettled 
+                        isPreLeagueRound
+                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                          : gwAlreadySettled 
                           ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
                           : isCurrentEventFinished
                             ? "text-[#FBBF24] bg-amber-500/15 border border-amber-500/30"
                             : "text-emerald-300 bg-emerald-500/10 border border-emerald-500/30"
                       )}>
-                        {gwAlreadySettled 
+                        {isPreLeagueRound
+                          ? `Kickoff at GW${effectiveStartGw}`
+                          : gwAlreadySettled 
                           ? `GW${currentGwNumber || ''} Settled ✓` 
                           : isCurrentEventFinished
                             ? `Pay GW${currentGwNumber || ''} Winner`
@@ -3798,7 +3811,9 @@ burstFrame();
                     </div>
 
                     <p className="text-[10px] text-gray-500 text-center font-medium">
-                      {gwAlreadySettled
+                      {isPreLeagueRound
+                        ? `Accepting deposits for GW${effectiveStartGw}`
+                        : gwAlreadySettled
                         ? "Tap to review settlement"
                         : isCurrentEventFinished
                           ? "Tap to disburse or resolve"
@@ -3971,7 +3986,7 @@ burstFrame();
                 </div>
               </div>
               <div ref={gwLedgerScrollRef} className="flex md:justify-center gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-                {Array.from({ length: 38 }, (_, i) => i + 1)
+                {Array.from({ length: 38 - effectiveStartGw + 1 }, (_, i) => effectiveStartGw + i)
                   .filter(gw => gw <= Math.max(effectiveStartGw, nextPlayableGw))
                   .map((gw) => {
                   const approvedPayout = pendingPayouts.find(
@@ -3981,9 +3996,10 @@ burstFrame();
                     (p) => Number(p.gw) === gw && p.status === 'awaiting_approval'
                   );
                   const isPreLeague = effectiveStartGw > 1 && gw < effectiveStartGw;
-                  const isForfeited = isPreLeague || pendingPayouts.some(
-                    (p) => Number(p.gw) === gw && p.status === 'forfeited'
-                  ) || (leagueSettings?.forfeitedGws || []).includes(gw);
+                  const isForfeited = !isPreLeague && (
+                    pendingPayouts.some((p) => Number(p.gw) === gw && p.status === 'forfeited') ||
+                    (leagueSettings?.forfeitedGws || []).includes(gw)
+                  );
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
                   const isNextPending = isCurrentEventFinished && gw === nextPlayableGw;
                   const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isCurrent && !isNextPending && gw < (currentGwNumber || firestoreGw || 99);
@@ -3994,7 +4010,7 @@ burstFrame();
                       data-gw={gw}
                       title={
                         isPreLeague
-                          ? `GW${gw} occurred before league start (GW${effectiveStartGw}) — voided`
+                          ? `GW${gw} occurred before league start (GW${effectiveStartGw})`
                           : isForfeited
                           ? `GW${gw} is forfeited (no play) — click to manage`
                           : approvedPayout
@@ -4021,16 +4037,16 @@ burstFrame();
                           : isForfeited
                           ? 'border-slate-300 dark:border-white/10 bg-white dark:bg-black/40 hover:border-slate-400 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/5 opacity-90 text-slate-800 dark:text-gray-200 shadow-sm'
                           : isNextPending
-                          ? 'border-sky-500/40 bg-sky-500/10 hover:border-sky-500/70 hover:bg-sky-500/20'
+                          ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
                           : isCurrent
-                          ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                          ? 'border-[#10B981]/50 bg-[#10B981]/10 ring-1 ring-[#10B981]/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
                           : isSkipped
                           ? 'border-amber-500/35 bg-amber-500/10 hover:border-amber-500/65 hover:bg-amber-500/20 animate-pulse'
                           : 'border-slate-200 dark:border-white/5 bg-transparent hover:border-slate-300 dark:hover:border-white/15'
                       }`}
                     >
                       <span className={`text-[9px] font-black uppercase tracking-widest ${
-                        isNextPending ? 'text-sky-600 dark:text-sky-400 font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isForfeited ? 'text-slate-700 dark:text-gray-300 font-bold' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
+                        isNextPending ? 'text-[#FBBF24] font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isForfeited ? 'text-slate-700 dark:text-gray-300 font-bold' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
                       }`}>GW{gw}</span>
                       <span className={`text-[8px] font-bold ${
                         approvedPayout
@@ -4040,9 +4056,9 @@ burstFrame();
                           : isForfeited
                           ? 'text-rose-600 dark:text-rose-400 font-black'
                           : isNextPending
-                          ? 'text-sky-600 dark:text-sky-400 font-black'
+                          ? 'text-[#FBBF24] font-black'
                           : isCurrent
-                          ? 'text-emerald-600 dark:text-emerald-400 font-black'
+                          ? 'text-[#10B981] font-black'
                           : isSkipped
                           ? 'text-amber-500 dark:text-amber-400'
                           : 'text-slate-400 dark:text-gray-600'
@@ -4067,16 +4083,16 @@ burstFrame();
                         </span>
                       )}
                       {isForfeited && (
-                        <span className="text-[7px] text-slate-600 dark:text-gray-400 font-extrabold uppercase tracking-widest">{isPreLeague ? 'Pre-League' : 'Forfeited'}</span>
+                        <span className="text-[7px] text-slate-600 dark:text-gray-400 font-extrabold uppercase tracking-widest">Forfeited</span>
                       )}
                       {isNextPending && (
-                        <span className="text-[7px] text-sky-600 dark:text-sky-400 font-bold uppercase tracking-widest">Upcoming</span>
+                        <span className="text-[7px] text-[#FBBF24] font-bold uppercase tracking-widest">Upcoming</span>
                       )}
                       {isSkipped && (
                         <span className="text-[7px] text-amber-500 dark:text-amber-300 font-black uppercase tracking-widest">Tap</span>
                       )}
                       {isCurrent && !isCurrentEventFinished && (
-                        <span className="text-[7px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">Active</span>
+                        <span className="text-[7px] text-[#10B981] font-bold uppercase tracking-widest">Active</span>
                       )}
                     </button>
                   );
@@ -4407,49 +4423,61 @@ burstFrame();
                   {/* Dynamic GW status card */}
                   <div className={clsx(
                     "flex gap-4 p-4 rounded-xl border transition-colors",
-                    gwAlreadySettled
-                      ? "bg-emerald-500/5 border-emerald-500/20"
-                      : isCurrentEventFinished
-                        ? "bg-amber-500/5 border-amber-500/20"
-                        : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+                    (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                      ? "bg-[#10B981]/5 border-[#10B981]/20"
+                      : gwAlreadySettled
+                        ? "bg-emerald-500/5 border-emerald-500/20"
+                        : isCurrentEventFinished
+                          ? "bg-amber-500/5 border-amber-500/20"
+                          : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
                   )}>
                     <div className={clsx(
                       "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-                      gwAlreadySettled
-                        ? "bg-emerald-500/10 border border-emerald-500/20"
-                        : isCurrentEventFinished
-                          ? "bg-amber-500/10 border border-amber-500/20"
-                          : "bg-[#10B981]/10 border border-[#10B981]/20"
+                      (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                        ? "bg-[#10B981]/10 border border-[#10B981]/25"
+                        : gwAlreadySettled
+                          ? "bg-emerald-500/10 border border-emerald-500/20"
+                          : isCurrentEventFinished
+                            ? "bg-amber-500/10 border border-amber-500/20"
+                            : "bg-[#10B981]/10 border border-[#10B981]/20"
                     )}>
-                      {gwAlreadySettled
-                        ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                        : isCurrentEventFinished
-                          ? <Trophy className="w-5 h-5 text-amber-400" />
-                          : <UserPlus className="w-5 h-5 text-[#10B981]" />
+                      {(currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                        ? <Trophy className="w-5 h-5 text-[#10B981]" />
+                        : gwAlreadySettled
+                          ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                          : isCurrentEventFinished
+                            ? <Trophy className="w-5 h-5 text-amber-400" />
+                            : <UserPlus className="w-5 h-5 text-[#10B981]" />
                       }
                     </div>
                     <div>
                       <h5 className={clsx(
                         "text-sm font-bold tracking-wide",
-                        gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-amber-300" : "text-white"
+                        (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                          ? "text-emerald-300"
+                          : gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-amber-300" : "text-white"
                       )}>
-                        {gwAlreadySettled
-                          ? `GW${currentGwNumber || ''} Settled ✓`
-                          : isCurrentEventFinished
-                            ? (Number(rules?.weekly ?? 70) === 0
-                                ? `GW${currentGwNumber || ''} Concluded — Standings Updated`
-                                : `GW${currentGwNumber || ''} Ended — Settle Winner Now`)
-                            : `League Open for Gameweek ${currentGwNumber || firestoreGw || '--'}`
+                        {(currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                          ? `Season Kickoff: GW${effectiveStartGw}`
+                          : gwAlreadySettled
+                            ? `GW${currentGwNumber || ''} Settled ✓`
+                            : isCurrentEventFinished
+                              ? (Number(rules?.weekly ?? 70) === 0
+                                  ? `GW${currentGwNumber || ''} Concluded — Standings Updated`
+                                  : `GW${currentGwNumber || ''} Ended — Settle Winner Now`)
+                              : `League Open for Gameweek ${currentGwNumber || firestoreGw || '--'}`
                         }
                       </h5>
                       <p className="text-xs text-gray-400 mt-1">
-                        {gwAlreadySettled
-                          ? `Winner paid. System is preparing for GW${currentGwNumber ? currentGwNumber + 1 : ''}.`
-                          : isCurrentEventFinished
-                            ? (Number(rules?.weekly ?? 70) === 0
-                                ? `GW${currentGwNumber || ''} matches finished on FPL. 100% Season Vault league — points credited to championship table.`
-                                : `GW${currentGwNumber || ''} is finished on FPL. Go to Priority Actions → Settle GW Winner.`)
-                            : `Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || '--'}. Deadline approaches.`
+                        {(currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                          ? `League officially begins at Gameweek ${effectiveStartGw}. All managers active and collecting stakes before kickoff.`
+                          : gwAlreadySettled
+                            ? `Winner paid. System is preparing for GW${currentGwNumber ? currentGwNumber + 1 : ''}.`
+                            : isCurrentEventFinished
+                              ? (Number(rules?.weekly ?? 70) === 0
+                                  ? `GW${currentGwNumber || ''} matches finished on FPL. 100% Season Vault league — points credited to championship table.`
+                                  : `GW${currentGwNumber || ''} is finished on FPL. Go to Priority Actions → Settle GW Winner.`)
+                              : `Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || '--'}. Deadline approaches.`
                         }
                       </p>
                       <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">
@@ -4798,19 +4826,14 @@ burstFrame();
                         </div>
                       </div>
 
-                      {/* Status badge */}
+                      {/* Status / Nudge */}
                       <div className="flex-shrink-0 flex items-center gap-1 sm:gap-2">
                         {(row as any).playMode === "sidebets_only" ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold" title="Spectator & 1v1 Side-Bets Only">
                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
                             <span>Spectator</span>
                           </span>
-                        ) : memberHasFunding(row) ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 text-[10px] font-bold">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                            <span className="hidden sm:inline">Funded</span>
-                          </span>
-                        ) : (
+                        ) : !memberHasFunding(row) && (
                           <>
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] font-bold">
                               <div className="w-1.5 h-1.5 rounded-full bg-[#FBBF24]" />
@@ -4826,29 +4849,34 @@ burstFrame();
                         )}
                       </div>
 
-                      {/* Tactile Funding Button: Grey Unfunded vs Green Funded (No Apple slider) */}
+                      {/* Bespoke Fantasy Chama Toggle Switch (Dark slate track, emerald glow when funded, no duplicate text) */}
                       <button
                         type="button"
+                        role="switch"
+                        aria-checked={Boolean(row.hasPaid)}
                         onClick={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
                         className={clsx(
-                          "relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer select-none active:scale-95 shrink-0 shadow-xs",
+                          "relative inline-flex h-7 w-14 items-center rounded-full p-0.5 border transition-all duration-200 ease-in-out cursor-pointer select-none shrink-0 shadow-xs focus:outline-none",
                           row.hasPaid
-                            ? "bg-[#10B981] hover:bg-[#0ea372] text-black border border-[#10B981]/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
-                            : "bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border border-slate-300 dark:border-white/10"
+                            ? "bg-[#10B981]/25 border-[#10B981]/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                            : "bg-slate-800/90 border-slate-700/80 hover:border-slate-600"
                         )}
-                        title={row.hasPaid ? "Click to mark as unpaid / reverse" : "Click to mark as paid / fund"}
+                        title={row.hasPaid ? "Funded — Click to mark unpaid / reverse" : "Unpaid — Click to mark funded"}
                       >
-                        {row.hasPaid ? (
-                          <>
+                        <span
+                          className={clsx(
+                            "inline-flex h-6 w-6 items-center justify-center rounded-full shadow-md transform transition-transform duration-200 ease-in-out",
+                            row.hasPaid
+                              ? "translate-x-7 bg-[#10B981] text-black"
+                              : "translate-x-0 bg-slate-600 text-slate-300"
+                          )}
+                        >
+                          {row.hasPaid ? (
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            <span>Funded</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500" />
-                            <span>Unfunded</span>
-                          </>
-                        )}
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          )}
+                        </span>
                       </button>
                     </div>
                   );
@@ -5884,18 +5912,37 @@ burstFrame();
                     <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
                       New Official Starting Round
                     </label>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <span className="text-sm font-bold text-gray-400">Gameweek</span>
                       <input
-                        type="number"
-                        min="1"
-                        max="38"
+                        type="text"
+                        inputMode="numeric"
                         value={cleanSlateTargetGw}
                         onFocus={(e) => e.target.select()}
-                        onChange={(e) => setCleanSlateTargetGw(Math.max(1, Math.min(38, Number(e.target.value || 1))))}
-                        className="w-24 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
+                        onChange={(e) => {
+                          const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                          setCleanSlateTargetGw(cleaned);
+                        }}
+                        placeholder="5"
+                        className="w-20 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
                       />
-                      <span className="text-xs text-gray-500 font-medium">e.g. 10 (players start clean from GW10)</span>
+                      <div className="flex items-center gap-1.5">
+                        {[nextPlayableGw || 5, (nextPlayableGw || 5) + 1, (nextPlayableGw || 5) + 2].map((gwOpt) => (
+                          <button
+                            key={gwOpt}
+                            type="button"
+                            onClick={() => setCleanSlateTargetGw(String(gwOpt))}
+                            className={clsx(
+                              "px-2 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer",
+                              String(cleanSlateTargetGw) === String(gwOpt)
+                                ? "bg-red-500/20 border-red-500/40 text-red-300"
+                                : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+                            )}
+                          >
+                            GW{gwOpt}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

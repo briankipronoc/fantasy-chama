@@ -70,6 +70,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [seasonFilter, setSeasonFilter] = useState<'current' | 'all'>('current');
     const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
+    const [isCurrentEventFinished, setIsCurrentEventFinished] = useState<boolean>(false);
     const [leagueCreatedAtMs, setLeagueCreatedAtMs] = useState<number | null>(null);
     const [startGw, setStartGw] = useState<number>(1);
     const [lastResetAtMs, setLastResetAtMs] = useState<number | null>(null);
@@ -105,7 +106,10 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     if (bootstrapRes.ok) {
                         const bootstrapData = await bootstrapRes.json();
                         const currentEvent = (bootstrapData?.events || []).find((event: any) => event.is_current);
-                        if (!cancelled) setCurrentGwNumber(Number(currentEvent?.id || 0) || null);
+                        if (!cancelled) {
+                            setCurrentGwNumber(Number(currentEvent?.id || 0) || null);
+                            setIsCurrentEventFinished(Boolean(currentEvent?.finished));
+                        }
                     }
                 } catch (bootstrapErr: any) {
                     console.warn('[finances] bootstrap current GW fetch failed:', bootstrapErr?.message || bootstrapErr);
@@ -294,18 +298,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Number.isFinite(value) && value > 0 ? Math.min(minGw, value) : minGw;
     }, 999);
     
-    const inferredGw = transactions.reduce((maxGw, tx) => {
-        const value = Number(tx.gameweek || tx.gw || 0);
-        return Number.isFinite(value) ? Math.max(maxGw, value) : maxGw;
-    }, 0);
-    const estimatedGwFromLeagueAge = leagueCreatedAtMs
-        ? Math.min(38, Math.max(1, Math.floor((Date.now() - leagueCreatedAtMs) / (7 * 24 * 60 * 60 * 1000)) + 1))
-        : 1;
-    const projectionSourceGw = currentGwNumber || inferredGw || estimatedGwFromLeagueAge || 1;
-    const projectionGwNumber = Math.min(38, Math.max(1, projectionSourceGw));
     const leagueStartGw = Number(startGw || (firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1)));
     
-    const remainingGameweeks = Math.max(1, 39 - projectionGwNumber);
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     
     const toJoinedGw = (joinedMs?: number | null) => {
@@ -427,19 +421,22 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     : 'Top 3';
 
     const tiedSeasonVaultPreview = useMemo(() => {
+        const activeContenders = activeMembers.filter(m => (m as any).playMode !== 'sidebets_only' && (m as any).isEliminated !== true);
         const activeStandings = standingsData.filter((entry) => {
-            return activeMembers.some((m) =>
+            return activeContenders.some((m) =>
                 (m.fplTeamId && Number(m.fplTeamId) === Number(entry.entry)) ||
                 (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(entry.entry)) ||
-                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase()
+                (m.displayName || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase() ||
+                (m.teamName || '').trim().toLowerCase() === (entry.entry_name || '').trim().toLowerCase()
             );
         });
-        const dedupedStandings = activeStandings.filter((entry, idx, arr) => 
+        const poolSource = activeStandings.length > 0 ? activeStandings : standingsData;
+        const dedupedStandings = poolSource.filter((entry, idx, arr) => 
             arr.findIndex(e => (e.entry && e.entry === entry.entry) || ((e.player_name || '').trim().toLowerCase() === (entry.player_name || '').trim().toLowerCase())) === idx
         );
         const cleanStandings = (dedupedStandings.length > 0 
             ? dedupedStandings 
-            : activeMembers.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad', total: 0 }))
+            : activeContenders.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad', total: 0 }))
         ).sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
 
         const totalVault = Math.round(totalPreviewPayout || projectedSeasonVault || 0);
@@ -567,10 +564,12 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
     const currentSeasonStartMs = new Date('2026-08-01T00:00:00Z').getTime();
     const displayedTransactions = myTransactions.filter((tx: any) => {
-        if (seasonFilter === 'all') return true;
         const ts = toMillis(tx.timestamp);
-        if (!ts) return true;
-        return ts >= currentSeasonStartMs;
+        if (seasonFilter === 'current') {
+            if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
+            if (ts && ts < currentSeasonStartMs) return false;
+        }
+        return true;
     });
 
     const memberTotalLoadedAllTime = useMemo(() => {
@@ -1402,32 +1401,41 @@ const handleRejectPendingPayout = async (payout: any) => {
                             const memberName = tx.memberName || tx.winnerName
                                 || resolvedMember?.displayName
                                 || 'Member';
-                            const ledgerDirection = tx.type === 'payout' ? (isAdmin ? '-' : '+') : '+';
+                            const isReversal = Number(tx.amount || 0) < 0
+                                || tx.type === 'ledger_adjustment'
+                                || tx.source === 'manual_reversal'
+                                || String(tx.receiptId || '').startsWith('REV');
+                            const isPayout = tx.type === 'payout';
+                            const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                             const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
-                            const statusLabel = isWalletFunding
-                                ? 'Wallet Credit'
-                                : ledgerDirection === '+'
-                                    ? 'Inflow'
-                                    : 'Outflow';
-                            const activityLabel = tx.type === 'payout'
-                                ? `GW${tx.gw || ''} Payout → ${tx.winnerName || memberName}`
+                            const statusLabel = isReversal
+                                ? 'Reversal'
                                 : isWalletFunding
-                                    ? `Wallet Top-Up • ${memberName}`
-                                    : `Deposit • ${memberName}`;
+                                    ? 'Wallet Credit'
+                                    : ledgerDirection === '+'
+                                        ? 'Inflow'
+                                        : 'Outflow';
+                            const activityLabel = isReversal
+                                ? (tx.note || `Reversal • ${memberName}`)
+                                : tx.type === 'payout'
+                                    ? `GW${tx.gw || ''} Payout → ${tx.winnerName || memberName}`
+                                    : isWalletFunding
+                                        ? `Wallet Top-Up • ${memberName}`
+                                        : `Deposit • ${memberName}`;
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
                                         <span className={clsx(
                                             'text-sm font-extrabold',
-                                            ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                            isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
                                         )}>
-                                            {ledgerDirection} KES {tx.amount?.toLocaleString()}
+                                            {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
                                         </span>
                                         <span className={clsx(
                                             'text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border',
-                                            isWalletFunding
-                                                ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
-                                                : ledgerDirection === '+'
+                                            isReversal
+                                                ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
+                                                : isWalletFunding || ledgerDirection === '+'
                                                 ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
                                                 : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
                                         )}>
@@ -1499,18 +1507,27 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const memberName = tx.memberName || tx.winnerName
                                             || resolvedMember?.displayName
                                             || 'Member';
-                                        const ledgerDirection = tx.type === 'payout' ? (isAdmin ? '-' : '+') : '+';
+                                        const isReversal = Number(tx.amount || 0) < 0
+                                            || tx.type === 'ledger_adjustment'
+                                            || tx.source === 'manual_reversal'
+                                            || String(tx.receiptId || '').startsWith('REV');
+                                        const isPayout = tx.type === 'payout';
+                                        const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
-                                        const statusLabel = isWalletFunding
-                                            ? 'Wallet Credit'
-                                            : ledgerDirection === '+'
-                                                ? 'Inflow'
-                                                : 'Outflow';
-                                        const activityLabel = tx.type === 'payout'
-                                            ? `GW${tx.gw || ''} Payout → ${tx.winnerName || memberName}`
+                                        const statusLabel = isReversal
+                                            ? 'Reversal'
                                             : isWalletFunding
-                                                ? `Wallet Top-Up • ${memberName}`
-                                                : `Deposit • ${memberName}`;
+                                                ? 'Wallet Credit'
+                                                : ledgerDirection === '+'
+                                                    ? 'Inflow'
+                                                    : 'Outflow';
+                                        const activityLabel = isReversal
+                                            ? (tx.note || `Reversal • ${memberName}`)
+                                            : tx.type === 'payout'
+                                                ? `GW${tx.gw || ''} Payout → ${tx.winnerName || memberName}`
+                                                : isWalletFunding
+                                                    ? `Wallet Top-Up • ${memberName}`
+                                                    : `Deposit • ${memberName}`;
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
@@ -1529,7 +1546,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         {activityLabel}
                                                     </div>
                                                     <div className="text-xs text-gray-600 dark:text-gray-400">
-                                                        {tx.type === 'payout'
+                                                        {isReversal
+                                                            ? `Manual Reversal • ${tx.receiptId || 'Adjustment'}`
+                                                            : tx.type === 'payout'
                                                             ? `GW ${tx.gameweek || tx.gw || 'N/A'} • ${tx.winnerPhone || tx.phoneNumber || 'phone not set'}`
                                                             : `Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
                                                     </div>
@@ -1537,17 +1556,17 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 <td className="px-6 py-4 text-right">
                                                     <span className={clsx(
                                                         'font-bold text-sm',
-                                                        ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                                        isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
                                                     )}>
-                                                        {ledgerDirection} KES {tx.amount?.toLocaleString()}
+                                                        {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 text-center">
                                                     <span className={clsx(
                                                         'inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-md border',
-                                                        isWalletFunding
-                                                            ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                                                            : ledgerDirection === '+'
+                                                        isReversal
+                                                            ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
+                                                            : isWalletFunding || ledgerDirection === '+'
                                                             ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
                                                             : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
                                                     )}>
@@ -1592,17 +1611,28 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* ── Season Vault Trajectory Graph ──────────────────────────── */}
                 {(() => {
-                    const totalGWs = 38;
+                    const effectiveLeagueStart = Math.max(1, Number(startGw || (leagueSettings as any)?.startGw || 1));
+                    const totalSeasonGWs = Math.max(1, 38 - effectiveLeagueStart + 1);
                     const vaultRatePerGW = totalSecured > 0
-                        ? totalSecured * (rules.vault / 100)
-                        : (rules.vault / 100) * (paidMembers.length || 8) * (gameweekStake || 200);
-                    const chartData = Array.from({ length: totalGWs }, (_, i) => ({
-                        gw: `GW${i + 1}`,
-                        vault: Math.round(vaultRatePerGW * (i + 1)),
-                        active: i < 12 // highlight resolved GWs
-                    }));
-                    const currentVault = vaultRatePerGW * 12; // approx 12 GWs resolved
-                    const projectedFinal = vaultRatePerGW * totalGWs;
+                        ? totalSecured * (Number(rules.vault || 30) / 100)
+                        : (Number(rules.vault || 30) / 100) * (paidMembers.length || 8) * (gameweekStake || 200);
+
+                    const effectiveGw = Number(currentGwNumber || 1);
+                    const completedSeasonGws = effectiveGw >= effectiveLeagueStart
+                        ? Math.max(0, effectiveGw - effectiveLeagueStart + (isCurrentEventFinished ? 1 : 0))
+                        : 0;
+
+                    const chartData = Array.from({ length: totalSeasonGWs }, (_, i) => {
+                        const roundGw = effectiveLeagueStart + i;
+                        return {
+                            gw: `GW${roundGw}`,
+                            vault: Math.round(vaultRatePerGW * (i + 1)),
+                            active: (i + 1) <= completedSeasonGws
+                        };
+                    });
+                    const currentVault = completedSeasonGws * vaultRatePerGW;
+                    const projectedFinal = vaultRatePerGW * totalSeasonGWs;
+                    const remainingLeagueGws = Math.max(0, totalSeasonGWs - completedSeasonGws);
 
                     return (
                         <div className="fc-card mt-8 bg-[#0b1014] border border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden">
@@ -1613,7 +1643,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         <TrendingUp className="w-5 h-5 text-emerald-400" />
                                         <h3 className="font-bold text-lg text-white">Season Vault Trajectory</h3>
                                     </div>
-                                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Projected pot growth over {remainingGameweeks} remaining gameweeks</p>
+                                    <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Projected pot growth over {remainingLeagueGws} remaining gameweeks (GW{effectiveLeagueStart} → GW38)</p>
                                 </div>
                                 <div className="flex gap-4">
                                     <div className="text-right">
