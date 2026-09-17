@@ -37,6 +37,10 @@
     @apply bg-chama-bg text-white antialiased selection:bg-chama-success/30;
   }
 
+  input, button, textarea, select {
+    font-family: inherit;
+  }
+
   #root {
     width: 100%;
     min-height: 100vh;

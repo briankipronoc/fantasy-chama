@@ -9,7 +9,7 @@ interface SkeletonProps {
 }
 
 export default function Skeleton({ className, variant = 'text', width, height, count = 1 }: SkeletonProps) {
-    const baseClasses = 'animate-pulse bg-gradient-to-r from-white/[0.04] via-white/[0.08] to-white/[0.04] bg-[length:200%_100%]';
+    const baseClasses = 'animate-pulse bg-gradient-to-r from-slate-200/80 via-slate-300/80 to-slate-200/80 dark:from-white/[0.04] dark:via-white/[0.08] dark:to-white/[0.04] bg-[length:200%_100%]';
 
     const variantClasses = {
         text: 'h-3 rounded-md',

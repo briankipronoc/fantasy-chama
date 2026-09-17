@@ -37,7 +37,7 @@ const SideBets = lazy(() => import('./pages/SideBets'));
 import { DashboardSkeleton } from './components/Skeleton';
 
 const RouteLoader = () => (
-  <div className="min-h-screen w-full bg-[#070b10] text-white">
+  <div className="min-h-screen w-full bg-transparent text-slate-900 dark:text-white">
     <DashboardSkeleton />
   </div>
 );

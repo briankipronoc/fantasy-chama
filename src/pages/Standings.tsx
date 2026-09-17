@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Download, Trophy, Star, Zap, Circle, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
@@ -50,6 +51,7 @@ const fetchFplStandings = async (leagueId: number) => {
 };
 
 export default function Standings() {
+    const navigate = useNavigate();
     const role = useStore(state => state.role);
     const league = useStore(state => state.league);
 
@@ -497,7 +499,28 @@ export default function Standings() {
             const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
             return !m || m.isActive !== false;
         });
-    const topSeasonLeaders = seasonPool.slice(0, Math.min(visibleSeasonWinnerCount, seasonPool.length));
+
+    // Competition tie-ranking (e.g. 1, 1, 3)
+    const sortedSeasonPool = [...seasonPool].sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
+    const rankedSeasonPool: any[] = [];
+    for (let i = 0; i < sortedSeasonPool.length; i++) {
+        const current = sortedSeasonPool[i];
+        let rank = i + 1;
+        let isTied = false;
+        if (i > 0 && Number(current.total || 0) === Number(sortedSeasonPool[i - 1].total || 0)) {
+            rank = rankedSeasonPool[i - 1].calculatedRank;
+            isTied = true;
+            rankedSeasonPool[i - 1].isTied = true;
+        } else if (i < sortedSeasonPool.length - 1 && Number(current.total || 0) === Number(sortedSeasonPool[i + 1].total || 0)) {
+            isTied = true;
+        }
+        rankedSeasonPool.push({
+            ...current,
+            calculatedRank: rank,
+            isTied
+        });
+    }
+    const topSeasonLeaders = rankedSeasonPool.slice(0, Math.min(visibleSeasonWinnerCount, rankedSeasonPool.length));
     const seasonPhase = currentEvent
         ? currentEvent >= 33
             ? 'Final Stretch'
@@ -554,7 +577,7 @@ export default function Standings() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full sm:w-64 bg-[#161d24] border border-white/10 rounded-xl py-2 pl-11 pr-4 text-sm focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-gray-500 text-white outline-none shadow-lg"
+                                className="w-full sm:w-64 font-sans font-medium bg-[#161d24] border border-white/10 rounded-xl py-2 pl-11 pr-4 text-sm focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-gray-500 text-white outline-none shadow-lg"
                                 placeholder="Search members or teams..."
                             />
                         </div>
@@ -599,10 +622,19 @@ export default function Standings() {
                 )}
                 {/* Stats swapper + user hero */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Honest Funded Pot Members Card */}
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px]">
+                    {/* Honest Funded Pot Members Card — clickable to /finances */}
+                    <div
+                        onClick={() => navigate('/finances')}
+                        className="fc-card bg-[#161d24] border border-white/5 hover:border-emerald-500/30 rounded-2xl p-5 flex items-center justify-between min-h-[88px] cursor-pointer transition-all hover:scale-[1.01] group"
+                        title="Click to view Red Zone and manage manager payments"
+                    >
                         <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Funded Pot Members</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Funded Pot Members</p>
+                                <span className="text-[9px] font-black text-emerald-400 group-hover:underline flex items-center gap-0.5 mb-1">
+                                    Manage & Nudge →
+                                </span>
+                            </div>
                             <p className="text-2xl font-black text-white">
                                 {eligibleGwStandings.length} <span className="text-sm font-bold text-gray-400">/ {standingsData.length || members.length} Paid</span>
                             </p>
@@ -621,7 +653,7 @@ export default function Standings() {
                                 );
                             })()}
                         </div>
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/40 flex items-center justify-center transition-colors">
                             <Users className="w-5 h-5 text-emerald-400" />
                         </div>
                     </div>
@@ -956,14 +988,20 @@ export default function Standings() {
                         </div>
                         <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar justify-start sm:justify-center">
                             {topSeasonLeaders.map((leader: any, idx: number) => {
-                                const leaderRank = Number(leader.rank || idx + 1);
+                                const leaderRank = Number(leader.calculatedRank || idx + 1);
                                 const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
+                                const isLeaderTied = Boolean(leader.isTied);
                                 return (
-                                    <div key={leader.id} className="min-w-[170px] flex-1 max-w-[240px] rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all">
+                                    <div key={leader.id || idx} className="min-w-[170px] flex-1 max-w-[240px] rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all">
                                         <div>
                                             <div className="flex items-center justify-between gap-1 mb-2">
-                                                <span className="text-[10px] uppercase tracking-widest font-black text-amber-400">
+                                                <span className="text-[10px] uppercase tracking-widest font-black text-amber-400 flex items-center gap-1">
                                                     {leaderMedal ? `${leaderMedal} #${leaderRank}` : `#${leaderRank}`}
+                                                    {isLeaderTied && (
+                                                        <span className="text-[8px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
+                                                            Tied
+                                                        </span>
+                                                    )}
                                                 </span>
                                                 <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                     Funded
@@ -975,8 +1013,8 @@ export default function Standings() {
                                         <div className="mt-3 pt-2.5 border-t border-white/5">
                                             <p className="text-base font-black text-emerald-400 tabular-nums">{Number(leader.total || 0).toLocaleString()} pts</p>
                                             <p className="text-[10px] text-gray-500 font-bold mt-0.5">
-                                                {idx === 0
-                                                    ? 'Vault leader'
+                                                {Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
+                                                    ? (isLeaderTied ? 'Tied for Vault Lead' : 'Vault leader')
                                                     : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`}
                                             </p>
                                         </div>
@@ -1020,57 +1058,57 @@ export default function Standings() {
                                                 : isAwaitingPayment
                                                 ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
                                                 : isPreLeague
-                                                ? 'border-slate-500/25 bg-slate-500/8 opacity-75'
+                                                ? 'border-slate-300 dark:border-slate-500/25 bg-slate-100/90 dark:bg-slate-500/8 text-slate-700 dark:text-slate-300'
                                                 : isVoided || isSkipped
-                                                ? 'border-amber-500/25 bg-amber-500/8'
+                                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                                                 : isCurrentGw
                                                 ? 'border-[#FBBF24]/50 bg-[#FBBF24]/10'
-                                                : 'border-white/10 bg-black/25',
+                                                : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25',
                                             isCurrentGw && 'ring-2 ring-[#FBBF24]/55'
                                         )}
                                     >
                                         <div className="flex items-center justify-between gap-2 mb-1">
-                                            <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">GW {item.gw}</p>
+                                            <p className="text-[9px] uppercase tracking-widest font-black text-slate-500 dark:text-gray-400">GW {item.gw}</p>
                                             {isPreLeague ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-400 border border-slate-500/30">
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-500/30">
                                                     Voided
                                                 </span>
                                             ) : isVoided || isSkipped ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
                                                     Skipped
                                                 </span>
                                             ) : isAwaitingPayment ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40">
                                                     Awaiting Payout
                                                 </span>
                                             ) : resolved ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                                                     Paid ✓
                                                 </span>
                                             ) : isCurrentLive ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-[#FBBF24] border border-[#FBBF24]/40">
-                                                    Live
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40">
+                                                    {isCurrentEventFinished ? 'Final' : 'Live'}
                                                 </span>
                                             ) : (
-                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-gray-500 border border-white/10">
+                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
                                                     Upcoming
                                                 </span>
                                             )}
                                         </div>
                                         <p className={clsx(
                                             'text-xs font-black truncate',
-                                            resolved ? 'text-white' : isPreLeague ? 'text-slate-400' : isVoided || isSkipped ? 'text-amber-300' : isCurrentGw ? 'text-[#FBBF24]' : 'text-gray-500'
+                                            resolved ? 'text-slate-900 dark:text-white' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided || isSkipped ? 'text-amber-600 dark:text-amber-300' : isCurrentGw ? 'text-amber-600 dark:text-[#FBBF24]' : 'text-slate-400 dark:text-gray-500'
                                         )}>
                                             {item.winnerName}
                                         </p>
-                                        <p className="text-[10px] text-gray-400 truncate mt-1">
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-1">
                                             {isPreLeague
                                                 ? 'Pre-League · No fees'
                                                 : isVoided || isSkipped
                                                 ? (item.winnerTeam || 'Not resolved / Unplayed')
                                                 : isAwaitingPayment
                                                 ? `${item.winnerTeam || 'Awaiting Payment'}`
-                                                : item.winnerTeam || (resolved ? 'Winner recorded' : isCurrentGw ? 'Active Gameweek' : 'Pending kickoff')}
+                                                : item.winnerTeam || (resolved ? 'Winner recorded' : isCurrentGw ? (isCurrentEventFinished ? 'Gameweek Concluded' : 'Active Gameweek') : 'Pending kickoff')}
                                         </p>
                                         {resolved && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>

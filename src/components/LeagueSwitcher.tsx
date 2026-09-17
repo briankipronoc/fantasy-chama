@@ -392,16 +392,13 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                     <button
                         type="button"
                         onClick={() => { haptics.selection(); setOpen(!open); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/80 dark:bg-white/[0.04] hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold text-slate-800 dark:text-white transition-all cursor-pointer backdrop-blur-md shadow-sm active:scale-95"
+                        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-slate-100/80 dark:bg-white/[0.04] hover:bg-slate-200 dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/10 rounded-xl text-xs font-black text-slate-800 dark:text-white transition-all cursor-pointer backdrop-blur-md shadow-sm active:scale-95"
                         title="Switch active League"
                     >
                         <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
-                        <span className="max-w-[130px] truncate">{active.leagueName}</span>
-                        {leagues.length > 1 && (
-                            <span className="hidden sm:inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-300">
-                                {leagues.length} Leagues
-                            </span>
-                        )}
+                        <span className="text-[11px] font-bold tracking-tight">
+                            {leagues.length > 1 ? `${leagues.length} Leagues` : 'Switch League'}
+                        </span>
                         <ChevronDown className={`w-3.5 h-3.5 text-slate-500 dark:text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
                     </button>
                 )}

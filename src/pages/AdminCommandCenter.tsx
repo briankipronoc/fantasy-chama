@@ -2899,7 +2899,7 @@ burstFrame();
 
   if (isLoading) {
     return (
-      <div className="fc-admin-loading min-h-screen w-full font-sans text-white bg-[#070b10] py-6 md:py-10">
+      <div className="fc-admin-loading min-h-screen w-full font-sans text-slate-900 dark:text-white bg-transparent py-6 md:py-10">
         <div className="max-w-7xl mx-auto px-6 md:px-10">
           <DashboardSkeleton />
         </div>
@@ -2910,7 +2910,7 @@ burstFrame();
   return (
     <div
       className={clsx(
-        "min-h-[100dvh] w-full text-white font-sans relative bg-[#0a0e17]",
+        "min-h-[100dvh] w-full text-slate-900 dark:text-white font-sans relative bg-transparent",
         isSuspended ? "overflow-hidden h-screen" : "",
       )}
     >
@@ -3873,7 +3873,7 @@ burstFrame();
                     <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
                   </h4>
                   {forfeitedGws.length > 0 && (
-                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-500/20 border border-gray-500/30 text-gray-300">
+                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-200/90 dark:bg-gray-500/20 border border-slate-300 dark:border-gray-500/30 text-slate-800 dark:text-gray-200 shadow-sm">
                       {forfeitedGws.length} Forfeited
                     </span>
                   )}
@@ -3933,29 +3933,29 @@ burstFrame();
                           : pendingPayout
                           ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
                           : isForfeited
-                          ? 'border-white/10 bg-black/40 hover:border-white/20 hover:bg-white/5 opacity-85'
+                          ? 'border-slate-300 dark:border-white/10 bg-slate-100/90 dark:bg-black/40 hover:border-slate-400 dark:hover:border-white/20 hover:bg-slate-200 dark:hover:bg-white/5 opacity-90 text-slate-800 dark:text-gray-200'
                           : isCurrent
                           ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
                           : isSkipped
                           ? 'border-amber-500/35 bg-amber-500/10 hover:border-amber-500/65 hover:bg-amber-500/20 animate-pulse'
-                          : 'border-white/5 bg-transparent hover:border-white/15'
+                          : 'border-slate-200 dark:border-white/5 bg-transparent hover:border-slate-300 dark:hover:border-white/15'
                       }`}
                     >
                       <span className={`text-[9px] font-black uppercase tracking-widest ${
-                        isCurrent ? 'text-white' : isForfeited ? 'text-gray-500' : isSkipped ? 'text-amber-400' : approvedPayout ? 'text-emerald-300' : 'text-gray-400'
+                        isCurrent ? 'text-slate-900 dark:text-white font-black' : isForfeited ? 'text-slate-700 dark:text-gray-300 font-bold' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
                       }`}>GW{gw}</span>
                       <span className={`text-[8px] font-bold ${
                         approvedPayout
-                          ? (Number(approvedPayout.amount || 0) === 0 ? 'text-amber-300' : 'text-emerald-400')
+                          ? (Number(approvedPayout.amount || 0) === 0 ? 'text-amber-500 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-400')
                           : pendingPayout
-                          ? 'text-[#FBBF24]'
+                          ? 'text-amber-500 dark:text-[#FBBF24]'
                           : isForfeited
-                          ? 'text-gray-400'
+                          ? 'text-slate-600 dark:text-gray-300 font-black'
                           : isCurrent
-                          ? 'text-emerald-400 font-black'
+                          ? 'text-emerald-600 dark:text-emerald-400 font-black'
                           : isSkipped
-                          ? 'text-amber-400'
-                          : 'text-gray-600'
+                          ? 'text-amber-500 dark:text-amber-400'
+                          : 'text-slate-400 dark:text-gray-600'
                       }`}>
                         {approvedPayout
                           ? (Number(approvedPayout.amount || 0) === 0 ? '🏆 Crown' : '✓ Paid')
@@ -3964,24 +3964,24 @@ burstFrame();
                           : isForfeited
                           ? '🚫 Void'
                           : isCurrent
-                          ? 'Live'
+                          ? (isCurrentEventFinished ? 'Final' : 'Live')
                           : isSkipped
                           ? '⚠ Skip'
                           : '—'}
                       </span>
                       {approvedPayout && (
-                        <span className="text-[8px] text-emerald-300 font-bold truncate max-w-[56px] text-center">
+                        <span className="text-[8px] text-emerald-600 dark:text-emerald-300 font-bold truncate max-w-[56px] text-center">
                           {approvedPayout.winnerName?.split(' ')[0]}
                         </span>
                       )}
                       {isForfeited && (
-                        <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">{isPreLeague ? 'Pre-League' : 'No Play'}</span>
+                        <span className="text-[7px] text-slate-600 dark:text-gray-400 font-extrabold uppercase tracking-widest">{isPreLeague ? 'Pre-League' : 'Forfeited'}</span>
                       )}
                       {isSkipped && (
-                        <span className="text-[7px] text-amber-300 font-black uppercase tracking-widest">Tap</span>
+                        <span className="text-[7px] text-amber-500 dark:text-amber-300 font-black uppercase tracking-widest">Tap</span>
                       )}
                       {isCurrent && (
-                        <span className="text-[7px] text-emerald-400 font-bold uppercase tracking-widest">Active</span>
+                        <span className="text-[7px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">{isCurrentEventFinished ? 'Unsettled' : 'Active'}</span>
                       )}
                     </button>
                   );
