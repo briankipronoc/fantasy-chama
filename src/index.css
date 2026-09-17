@@ -476,10 +476,11 @@
     letter-spacing: -0.025em;
   }
   [data-theme="light"] .fc-frosty-title {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
+    background: linear-gradient(135deg, #090d16 0%, #1e293b 30%, #0f172a 65%, #334155 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    filter: none !important;
+    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.14)) !important;
+    letter-spacing: -0.025em;
   }
   .fc-frosty-sub {
     color: #94a3b8;
@@ -495,7 +496,7 @@
     text-shadow: none;
   }
   [data-theme="light"] .fc-metallic-sub {
-    background: linear-gradient(120deg, #1e293b 0%, #334155 40%, #475569 60%, #334155 100%) !important;
+    background: linear-gradient(120deg, #1e293b 0%, #334155 35%, #475569 65%, #1e293b 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
   }
@@ -509,9 +510,10 @@
     font-weight: 900;
   }
   [data-theme="light"] .fc-metallic-badge {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 40%, #475569 70%, #334155 100%) !important;
+    background: linear-gradient(135deg, #090d16 0%, #1e293b 35%, #475569 70%, #1e293b 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8)) !important;
   }
 
   .fc-dashboard-header-title {
@@ -520,9 +522,10 @@
     -webkit-text-fill-color: transparent;
   }
   [data-theme="light"] .fc-dashboard-header-title {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
+    background: linear-gradient(135deg, #090d16 0%, #1e293b 30%, #0f172a 65%, #334155 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
+    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.14)) !important;
   }
   .fc-dashboard-header-copy {
     color: #94a3b8;
@@ -1098,9 +1101,9 @@
 
   .fc-shell-standings {
     background:
-      radial-gradient(980px 460px at 82% -14%, rgba(56, 189, 248, 0.1), transparent 64%),
-      radial-gradient(780px 380px at 8% 100%, rgba(16, 185, 129, 0.12), transparent 66%),
-      linear-gradient(180deg, #0a0e17 0%, #101a24 100%);
+      radial-gradient(1200px 700px at 85% 5%, rgba(56, 189, 248, 0.07) 0%, transparent 70%),
+      radial-gradient(1100px 650px at 15% 95%, rgba(16, 185, 129, 0.08) 0%, transparent 70%),
+      linear-gradient(180deg, #0a0e17 0%, #0d151c 100%);
   }
 
   .fc-shell-finances {
@@ -1748,9 +1751,9 @@
 }
 [data-theme="light"] .fc-shell-standings {
   background:
-    radial-gradient(980px 460px at 82% -14%, rgba(59, 130, 246, 0.11), transparent 64%),
-    radial-gradient(780px 380px at 8% 100%, rgba(16, 185, 129, 0.12), transparent 66%),
-    linear-gradient(180deg, #f8fafc 0%, #eef5ff 100%) !important;
+    radial-gradient(1200px 700px at 85% 5%, rgba(59, 130, 246, 0.06) 0%, transparent 70%),
+    radial-gradient(1100px 650px at 15% 95%, rgba(16, 185, 129, 0.07) 0%, transparent 70%),
+    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
 }
 [data-theme="light"] .fc-shell-finances {
   background:
@@ -1967,10 +1970,7 @@
   color: #0f172a !important;
 }
 [data-theme="light"] .fc-standings-page {
-  background:
-    radial-gradient(920px 440px at 84% -14%, rgba(59, 130, 246, 0.12), transparent 64%),
-    radial-gradient(760px 400px at 10% 100%, rgba(16, 185, 129, 0.13), transparent 66%),
-    linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%) !important;
+  background: transparent !important;
 }
 [data-theme="light"] .fc-greeting-copy {
   color: #0f172a !important;
@@ -2229,10 +2229,7 @@ html {
 }
 
 .fc-standings-page {
-  background:
-    radial-gradient(900px 420px at 80% -12%, rgba(56, 189, 248, 0.1), transparent 64%),
-    radial-gradient(720px 380px at 8% 100%, rgba(16, 185, 129, 0.12), transparent 66%),
-    linear-gradient(180deg, #0a0e17 0%, #111827 100%);
+  background: transparent !important;
 }
 
 .fc-greeting-copy {

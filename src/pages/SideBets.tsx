@@ -448,11 +448,11 @@ export default function SideBets() {
                 {/* Clean Unboxed Title Module (League Control Snapshot style) */}
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-0 pb-1">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-indigo-400 mb-1 flex items-center gap-1.5">
-                            ⚔️ League Features
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400 mb-1">
+                            League Features
                         </p>
                         <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
-                            <Swords className="w-6 h-6 text-indigo-400" /> Side Bets & Wagers
+                            <Swords className="w-6 h-6 text-amber-400" /> Side Bets & Wagers
                         </h2>
                         <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
                             Direct head-to-head wagers between managers. Chairman approved, wallets auto-settled.

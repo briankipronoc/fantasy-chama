@@ -3208,16 +3208,18 @@ burstFrame();
 
       <div
         className={clsx(
-          "fc-standings-page transition-all duration-700 min-h-screen w-full font-sans text-white relative overflow-hidden",
+          "min-h-screen w-full font-sans text-white relative overflow-hidden bg-transparent",
           isSuspended
             ? "blur-xl opacity-20 pointer-events-none select-none scale-[0.98]"
             : "",
           isWithinGracePeriod ? "pt-12" : "",
         )}
       >
-        <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
-        <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
-        <div className="fixed bottom-0 left-0 w-full h-[600px] pointer-events-none z-0" style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%)' }} />
+        {/* Ambient Lighting Background — smoothly blended without lines */}
+        <div className="absolute inset-0 pointer-events-none opacity-60">
+          <div className="absolute -top-24 right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute bottom-10 left-[8%] h-80 w-80 rounded-full bg-amber-500/8 blur-3xl" />
+        </div>
         {/* Unified Global Toast Notification */}
         <div
           className={clsx(

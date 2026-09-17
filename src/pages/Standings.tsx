@@ -64,7 +64,7 @@ export default function Standings() {
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [leagueName, setLeagueName] = useState('');
+    const [leagueName, setLeagueName] = useState(() => league?.name || localStorage.getItem('activeLeagueName') || '');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
     const [dbFplLeagueId, setDbFplLeagueId] = useState<number | null>(null);
@@ -78,6 +78,14 @@ export default function Standings() {
     const [gwWinnersLedger, setGwWinnersLedger] = useState<Array<{ gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isVoided?: boolean }>>([]);
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+
+    const resolvedTitle = leagueName || league?.name || localStorage.getItem('activeLeagueName') || 'Chama League';
+
+    useEffect(() => {
+        if (leagueName) {
+            localStorage.setItem('activeLeagueName', leagueName);
+        }
+    }, [leagueName]);
     const [flexCardData, setFlexCardData] = useState<{
         winnerName: string;
         teamName?: string;
@@ -501,9 +509,9 @@ export default function Standings() {
 
     if (isLoading) {
         return (
-            <div className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden bg-[#070b10]">
-                <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-10">
-                    <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Live Standings" />
+            <div className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden bg-transparent">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-6">
+                    <Header role={role || 'member'} title={resolvedTitle} subtitle="Gameweek Rankings" />
                     <StandingsSkeleton />
                 </div>
             </div>
@@ -512,22 +520,22 @@ export default function Standings() {
 
     return (
         <div
-            className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden"
+            className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden bg-transparent"
         >
-            {/* ── Ambient background grid ─────────────────────────── */}
-            <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
-                style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '48px 48px' }} />
-            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/6 rounded-full blur-3xl pointer-events-none z-0" />
-            <div className="fixed bottom-0 left-0 w-full h-[600px] pointer-events-none z-0" style={{ background: 'radial-gradient(ellipse 60% 50% at 0% 100%, rgba(16,185,129,0.05) 0%, rgba(10,14,23,0) 60%)' }} />
+            {/* Ambient Lighting Background — smoothly blended like SideBets */}
+            <div className="absolute inset-0 pointer-events-none opacity-60">
+                <div className="absolute -top-24 right-[10%] h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+                <div className="absolute bottom-10 left-[8%] h-80 w-80 rounded-full bg-emerald-500/8 blur-3xl" />
+            </div>
 
             <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-6 space-y-4 md:space-y-5 pb-6 lg:pb-8">
                 {/* Header — matches other pages */}
-                <Header role={role || 'member'} title={leagueName || 'League'} subtitle="Gameweek Rankings" />
+                <Header role={role || 'member'} title={resolvedTitle} subtitle="Gameweek Rankings" />
 
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 pt-0 pb-1 mb-2">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400 mb-1 flex items-center gap-1.5">
-                            🏆 League Table
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400 mb-1">
+                            League Table
                         </p>
                         <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
                             <Trophy className="w-6 h-6 text-emerald-400" /> Live Standings
@@ -602,11 +610,13 @@ export default function Standings() {
                                 const spectatorCount = members.filter(m => m.isActive !== false && m.playMode === 'sidebets_only').length;
                                 const unpaidCount = Math.max(0, (standingsData.length || members.length) - eligibleGwStandings.length - spectatorCount);
                                 return (
-                                    <p className="text-[10px] font-semibold mt-0.5 text-amber-400">
-                                        {unpaidCount > 0
-                                            ? `${unpaidCount} in Red Zone (unpaid)`
-                                            : 'All pot members funded ✓'}
-                                        {spectatorCount > 0 ? ` · ${spectatorCount} Spectators (1v1 Bets)` : ''}
+                                    <p className="text-[10px] font-semibold mt-0.5">
+                                        {unpaidCount > 0 ? (
+                                            <span className="text-rose-500 font-bold">{unpaidCount} in Red Zone (unpaid)</span>
+                                        ) : (
+                                            <span className="text-emerald-400 font-bold">All pot members funded ✓</span>
+                                        )}
+                                        {spectatorCount > 0 ? <span className="text-gray-400 font-normal"> · {spectatorCount} Spectators (1v1 Bets)</span> : null}
                                     </p>
                                 );
                             })()}
