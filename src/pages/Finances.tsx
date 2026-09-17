@@ -303,7 +303,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         : 1;
     const projectionSourceGw = currentGwNumber || inferredGw || estimatedGwFromLeagueAge || 1;
     const projectionGwNumber = Math.min(38, Math.max(1, projectionSourceGw));
-    const leagueStartGw = firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1);
+    const leagueStartGw = Number(startGw || (firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1)));
     
     const remainingGameweeks = Math.max(1, 39 - projectionGwNumber);
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -342,6 +342,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 if (matched?.id) {
                     const key = String(matched.id);
                     acc[key] = (acc[key] || 0) + Number(tx.amount || 0);
+                    return acc;
                 }
             }
             return acc;
@@ -351,7 +352,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .reduce((sum, member: any) => {
             const joinedMs = member?.joinedAt?.toDate ? member.joinedAt.toDate().getTime() : leagueCreatedAtMs;
             const joinedGw = toJoinedGw(joinedMs);
-            const memberSeasonCap = Math.max(0, (39 - joinedGw) * (gameweekStake || 1400));
+            const effectiveMemberGw = Math.max(leagueStartGw, joinedGw);
+            const memberSeasonCap = Math.max(0, (39 - effectiveMemberGw) * (gameweekStake || 1400));
             const collectedForMember = Number(contributionByMemberId[String(member.id)] || 0);
             const remainingForMember = Math.max(0, memberSeasonCap - collectedForMember);
             return sum + remainingForMember;

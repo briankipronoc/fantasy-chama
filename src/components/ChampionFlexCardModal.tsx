@@ -57,17 +57,10 @@ export default function ChampionFlexCardModal({
       label: '🏎️ Nilisema Mapema',
       title: 'Confidence Banter',
       text: [
-        `⚔️ *${leagueName} — Side Bet Victory!*`,
-        ``,
-        `Nilisema mapema hii duel ni yangu 😂!`,
-        `🥇 Winner: *${name}*`,
-        `🥊 Humbled: *${defeatedOpponent || 'Rival'}*`,
-        `💰 Wager Claimed: *KES ${amountWon.toLocaleString()}* safi via Pochi!`,
-        `Duel: "${betTitle || 'Head-to-Head Wager'}"`,
-        ``,
-        `Form is temporary, class is permanent. 🐐🔥`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `⚔️ *${leagueName} — Side Bet Victory!* 🏎️`,
+        `Nilisema mapema hii duel ni yangu! 🥇 *${name}* beat *${defeatedOpponent || 'Rival'}*`,
+        `💰 Wager Won: *KES ${amountWon.toLocaleString()}* safi! Form is permanent. 🐐🔥`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -75,16 +68,10 @@ export default function ChampionFlexCardModal({
       label: '🐐 Humbled Huyu Ndugu',
       title: 'Class is Permanent',
       text: [
-        `⚔️ *Duel Settled — ${leagueName}*`,
-        ``,
-        `Pole sana ndugu yangu *${defeatedOpponent || 'Rival'}* 🤝😂`,
-        `Scoreboard haidanganyi:`,
-        `🥇 Winner: *${name}*`,
-        `💰 Cash Claimed: *KES ${amountWon.toLocaleString()}*`,
-        ``,
-        `Wallets auto-settled safi kabisa kwa Chama.`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `⚔️ *Duel Settled — ${leagueName}* 🐐`,
+        `Pole sana *${defeatedOpponent || 'Rival'}* 🤝😂 Scoreboard haidanganyi:`,
+        `🥇 Winner: *${name}* · 💰 Wager: *KES ${amountWon.toLocaleString()}*`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -92,15 +79,10 @@ export default function ChampionFlexCardModal({
       label: '☕ Chezeni Chini',
       title: 'Cool & Collected',
       text: [
-        `⚔️ *${leagueName} — Head-to-Head Duel*`,
-        ``,
-        `🥇 Winner: *${name}*`,
-        `Cash secured: *KES ${amountWon.toLocaleString()}* ☕`,
+        `⚔️ *${leagueName} — Duel Result* ☕`,
+        `Winner: *${name}* 🥇 · Cash Secured: *KES ${amountWon.toLocaleString()}*`,
         `Gg *${defeatedOpponent || 'Rival'}*, chezeni chini next time! 🤝⚽`,
-        ``,
-        `Nani mwingine anataka duel ya next gameweek?`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -108,15 +90,10 @@ export default function ChampionFlexCardModal({
       label: '🔄 Rematch Inakubaliwa',
       title: 'Rematch Policy',
       text: [
-        `⚔️ *Head-to-Head Settled — ${leagueName}* 🤝`,
-        ``,
-        `Winner: *${name}* 🥇`,
-        `Bounty Won: *KES ${amountWon.toLocaleString()}* 💰`,
-        `Humbled: *${defeatedOpponent || 'Rival'}*`,
-        ``,
-        `Rematch inakubaliwa ukijipanga next gameweek!`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `⚔️ *Head-to-Head Settled — ${leagueName}* 🔄`,
+        `Winner: *${name}* 🥇 (KES ${amountWon.toLocaleString()}) vs *${defeatedOpponent || 'Rival'}*`,
+        `Rematch inakubaliwa ukijipanga next gameweek! 🔥`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
   ];
@@ -128,14 +105,9 @@ export default function ChampionFlexCardModal({
       title: 'Official Winner Announcement',
       text: [
         `🏆 *${leagueName} — GW${gameweek} Champion!*`,
-        ``,
-        `🥇 Champion: *${name}* ${teamName ? `(${teamName})` : ''}`,
-        `🎯 Gameweek Score: *${pts} pts*`,
+        `🥇 *${name}* ${teamName ? `(${teamName})` : ''} tops with *${pts} pts*!`,
         `💰 Pot Secured: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`,
-        ``,
-        `Verified by FantasyChama official FPL sync.`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -144,14 +116,9 @@ export default function ChampionFlexCardModal({
       title: 'Points Master',
       text: [
         `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
-        ``,
-        `Hii wiki *${name}* ndiye mwizi wa points rasmi 😂!`,
-        `🎯 Score: *${pts} pts* (Highest in the Chama)`,
-        `💰 Pot: *KES ${amountWon.toLocaleString()}* safi kwa wallet!`,
-        ``,
-        `Poleni sana wazee kwa mshtuko wa moyo, chezeni chini next gameweek! 🏁`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `Hii wiki *${name}* ndiye mwizi wa points (*${pts} pts*) 😂!`,
+        `💰 Pot: *KES ${amountWon.toLocaleString()}* safi kwa wallet. Chezeni chini wazee! 🏁`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -159,15 +126,10 @@ export default function ChampionFlexCardModal({
       label: '🐐 Mapema Ndio Best',
       title: 'Class is Permanent',
       text: [
-        `🏆 *GW${gameweek} Champion — ${leagueName}*`,
-        ``,
-        `Mapema ndio best! Form is temporary, class is permanent. 🐐`,
-        `🥇 *${name}* ${teamName ? `(${teamName})` : ''}`,
-        `Points: *${pts} pts* | Payout: *KES ${amountWon.toLocaleString()}* 🎉`,
-        ``,
-        `Nani mwingine anataka kufunzwa FPL hapa? 😎`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `🏆 *GW${gameweek} Champion — ${leagueName}* 🐐`,
+        `Mapema ndio best! Form is temporary, class is permanent.`,
+        `🥇 *${name}* (*${pts} pts*) | Payout: *KES ${amountWon.toLocaleString()}* 🎉`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -175,14 +137,10 @@ export default function ChampionFlexCardModal({
       label: '☕ Respect & Chai',
       title: 'Cool & Collected',
       text: [
-        `🏆 *${leagueName} — Gameweek ${gameweek}*`,
-        ``,
-        `Champion: *${name}* 🥇`,
-        `Score: *${pts} pts* | Pot: *KES ${amountWon.toLocaleString()}* ☕`,
-        ``,
-        `Nilikuwa nawangoja lakini hamkufika kwa podium leo. Tutaonana next GW! 🤝⚽`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `🏆 *${leagueName} — Gameweek ${gameweek}* ☕`,
+        `Champion: *${name}* 🥇 (*${pts} pts*) | Pot: *KES ${amountWon.toLocaleString()}*`,
+        `Nilikuwa nawangoja lakini hamkufika podium leo. Tutaonana next GW! 🤝⚽`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -191,15 +149,9 @@ export default function ChampionFlexCardModal({
       title: 'Pep Guardiola wa Chama',
       text: [
         `🏆 *${leagueName} Tactical Masterclass — GW${gameweek}* 🧠⚽`,
-        ``,
-        `Mnaniita Pep Guardiola wa Chama kuanzia leo!`,
-        `Captain pick ilikuwa pure genius:`,
-        `Champion: *${name}* (*${pts} pts*)`,
-        `Pot Won: *KES ${amountWon.toLocaleString()}* 💸`,
-        ``,
-        `Classes zinaanza Monday, admission ni free kwa table-trailers! 📚😂`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `Mnaniita Pep wa Chama kuanzia leo! 🥇 *${name}* (*${pts} pts*)`,
+        `Pot Won: *KES ${amountWon.toLocaleString()}* 💸. Classes zinaanza Monday! 📚`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
     {
@@ -207,15 +159,10 @@ export default function ChampionFlexCardModal({
       label: '🥩 Asanteni kwa Lunch',
       title: 'Pot ya Wiki',
       text: [
-        `🏆 *${leagueName} — GW${gameweek} Settled!*`,
-        ``,
-        `Asanteni sana wadau kwa kunilipia lunch na fuel ya wiki mzima! 😂🥩`,
-        `Winner: *${name}* (*${pts} pts*)`,
-        `Pot Secured: *KES ${amountWon.toLocaleString()}*`,
-        ``,
-        `Jiandaeni kwa kichapo kingine next gameweek! 🔥`,
-        ...(leagueCode ? [`🔑 League Code: *${leagueCode}*`] : []),
-        `👉 ${joinUrl}`,
+        `🏆 *${leagueName} — GW${gameweek} Settled!* 🥩`,
+        `Asanteni sana wadau kwa kunilipia lunch na fuel ya wiki! 😂`,
+        `Winner: *${name}* (*${pts} pts*) | Pot: *KES ${amountWon.toLocaleString()}*`,
+        ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
       ].join('\n'),
     },
   ];
@@ -523,10 +470,10 @@ export default function ChampionFlexCardModal({
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               rows={4}
-              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:border-amber-500/50 text-xs font-mono text-slate-800 dark:text-gray-200 leading-relaxed outline-none resize-none custom-scrollbar"
+              className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:border-amber-500/50 text-[11px] font-mono text-slate-800 dark:text-gray-200 leading-snug outline-none resize-none custom-scrollbar"
               placeholder="Edit your banter message..."
             />
-            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 px-1 mt-1 font-medium">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 px-1 mt-0.5 font-medium">
               <span>✏️ Tap inside to edit or personalize</span>
               <span>{customMessage.length} chars</span>
             </div>

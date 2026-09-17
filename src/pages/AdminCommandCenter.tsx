@@ -444,12 +444,10 @@ export default function AdminCommandCenter() {
     (state) => state.togglePaymentStatus,
   );
   const isStealthMode = useStore((state) => state.isStealthMode);
-  const tutorialSeenKey = activeLeagueId
-    ? `chairman_initialized_${activeLeagueId}`
-    : null;
-  const adminTourSeenKey = activeLeagueId
-    ? `hasSeenAdminTour_${activeLeagueId}`
-    : null;
+  // Store tutorial & tour completion per user account (not per league) so switching or creating leagues never re-triggers the wizard
+  const userAccountKey = activeUserId || auth.currentUser?.uid || "chairman";
+  const tutorialSeenKey = `chairman_initialized_${userAccountKey}`;
+  const adminTourSeenKey = `hasSeenAdminTour_${userAccountKey}`;
   const coChairMember = members.find((m) => m.id === coAdminId);
   
   const hasValidCoChair =
@@ -481,12 +479,14 @@ export default function AdminCommandCenter() {
   };
 
   const handleInitializeOperations = () => {
+    localStorage.setItem(tutorialSeenKey, "true");
+    localStorage.setItem("chairman_initialized_any", "true");
+    localStorage.setItem("chairman_initialized_global", "true");
     if (activeLeagueId) {
       localStorage.setItem(`chairman_initialized_${activeLeagueId}`, "true");
       localStorage.setItem(`chairman_checklist_done_${activeLeagueId}`, "true");
       if (activeUserId) localStorage.setItem(`chairman_initialized_${activeLeagueId}_${activeUserId}`, "true");
     }
-    localStorage.setItem("chairman_initialized_any", "true");
     setShowTutorial(false);
   };
 
@@ -518,11 +518,14 @@ export default function AdminCommandCenter() {
     }
 
     const hasDismissed = Boolean(
-      tutorialSeenKey && (
-        localStorage.getItem(tutorialSeenKey) === "true" ||
+      localStorage.getItem("chairman_initialized_any") === "true" ||
+      localStorage.getItem("chairman_initialized_global") === "true" ||
+      (tutorialSeenKey && localStorage.getItem(tutorialSeenKey) === "true") ||
+      (activeLeagueId && (
+        localStorage.getItem(`chairman_initialized_${activeLeagueId}`) === "true" ||
         localStorage.getItem(`chairman_checklist_done_${activeLeagueId}`) === "true" ||
         (activeUserId && localStorage.getItem(`chairman_initialized_${activeLeagueId}_${activeUserId}`) === "true")
-      )
+      ))
     );
     if (!hasDismissed && activeLeagueId) {
       setShowTutorial(true);
@@ -944,10 +947,20 @@ export default function AdminCommandCenter() {
     }
   };
 
-  // Admin Tour
+  // Admin Tour - strictly once per user account
   useEffect(() => {
     if (!adminTourSeenKey || showTutorial || isLoading) return;
-    const hasSeenTour = localStorage.getItem(adminTourSeenKey);
+    const hasSeenTour =
+      localStorage.getItem("hasSeenAdminTour_any") === "true" ||
+      localStorage.getItem(adminTourSeenKey) === "true" ||
+      (activeLeagueId && localStorage.getItem(`hasSeenAdminTour_${activeLeagueId}`) === "true");
+
+    const markTourDone = () => {
+      localStorage.setItem(adminTourSeenKey, "true");
+      localStorage.setItem("hasSeenAdminTour_any", "true");
+      if (activeLeagueId) localStorage.setItem(`hasSeenAdminTour_${activeLeagueId}`, "true");
+    };
+
     if (!hasSeenTour) {
       try {
         const driverObj = driver({
@@ -961,6 +974,10 @@ export default function AdminCommandCenter() {
           nextBtnText: "Next →",
           prevBtnText: "← Back",
           doneBtnText: "Get Started ✨",
+          onDestroyStarted: () => {
+            markTourDone();
+            driverObj.destroy();
+          },
           onNextClick: (_element: any, _step: any, options: any) => {
             const activeIndex = options?.state?.activeIndex ?? 0;
             if (activeIndex === 0) {
@@ -1023,12 +1040,12 @@ export default function AdminCommandCenter() {
           ],
         });
         driverObj.drive();
-        localStorage.setItem(adminTourSeenKey, "true");
+        markTourDone();
       } catch (e) {
         console.error("Tour failed to load", e);
       }
     }
-  }, [adminTourSeenKey, isLoading, showTutorial]);
+  }, [adminTourSeenKey, isLoading, showTutorial, activeLeagueId]);
 
   const handleTogglePayment = async (
     memberId: string,
@@ -1249,10 +1266,14 @@ export default function AdminCommandCenter() {
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-
-  // Effective startGw: use Firestore value, or fall back to currentGw-4 (handles leagues that started at GW33)
-  const effectiveStartGw = startGw || (leagueSettings as any)?.startGw || (currentGwNumber ? Math.max(1, currentGwNumber - 4) : firestoreGw ? Math.max(1, firestoreGw - 4) : 1);
+  // Effective startGw: use startGw from state or leagueSettings, default to currentGw or 1
+  const effectiveStartGw = Number(
+    startGw || (leagueSettings as any)?.startGw || (currentGwNumber || firestoreGw || 1)
+  );
+  // Pre-league gameweeks prior to effectiveStartGw are automatically voided/forfeited
+  const preLeagueGws = effectiveStartGw > 1 ? Array.from({ length: effectiveStartGw - 1 }, (_, i) => i + 1) : [];
   const forfeitedGws: number[] = Array.from(new Set([
+    ...preLeagueGws,
     ...((leagueSettings as any)?.forfeitedGws || []),
     ...pendingPayouts.filter((p: any) => p.status === 'forfeited').map((p: any) => Number(p.gw))
   ]));
@@ -2153,12 +2174,94 @@ export default function AdminCommandCenter() {
         return dbMember && memberHasFunding(dbMember);
       });
 
-      if (fundedParticipants.length < 2) {
-        // Gameweek Voided: Contest requires at least 2 funded managers
+      const isZeroPotLeague = weeklyPot === 0 || Number(rules.weekly || 0) === 0;
+
+      if (isZeroPotLeague || fundedParticipants.length < 2) {
+        // Honorary resolution for season-only / zero-pot leagues / brag rights
+        const honoraryWinners: any[] = [];
+        let honoraryWinningPoints = 0;
+
+        for (const fplManager of sortedStandings) {
+          const dbMember = members.find(
+            (m) =>
+              (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
+              (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
+              m.displayName === fplManager.player_name ||
+              (m as any).fplTeamName === fplManager.entry_name,
+          );
+
+          if (dbMember && dbMember.isActive !== false && Number(fplManager.event_total || 0) > 0) {
+            const pts = Number(fplManager.event_total || 0);
+            if (honoraryWinners.length === 0) {
+              honoraryWinners.push(dbMember);
+              honoraryWinningPoints = pts;
+            } else if (pts === honoraryWinningPoints) {
+              honoraryWinners.push(dbMember);
+            } else {
+              break;
+            }
+          }
+        }
+
+        if (honoraryWinners.length > 0) {
+          const pendingPayoutsRef = collection(db, "leagues", activeLeagueId, "pending_payouts");
+          for (const w of honoraryWinners) {
+            await addDoc(pendingPayoutsRef, {
+              winnerId: w.id,
+              winnerName: w.displayName + (honoraryWinners.length > 1 ? " (Tie)" : ""),
+              winnerPhone: w.phone || "",
+              amount: 0,
+              points: honoraryWinningPoints,
+              gw: gwNumber,
+              status: "approved",
+              isHonorary: true,
+              method: "honorary",
+              requestedBy: auth.currentUser?.displayName || "Chairman",
+              timestamp: serverTimestamp(),
+            });
+          }
+
+          const notifsRef = collection(db, "leagues", activeLeagueId, "notifications");
+          await addDoc(notifsRef, {
+            type: "success",
+            message: `🏆 GW${gwNumber} Champion (Honorary): ${honoraryWinners.map(w => w.displayName).join(' & ')} topped with ${honoraryWinningPoints} pts! (Season Standings Updated)`,
+            timestamp: serverTimestamp(),
+            readBy: [],
+          });
+
+          await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
+            eventType: "resolution",
+            message: `GW${gwNumber} resolved (Honorary) — ${honoraryWinners.map(w => w.displayName).join(' & ')} crowned with ${honoraryWinningPoints} pts. 0 KES weekly payout (Season Vault focus).`,
+            actor: auth.currentUser?.displayName || "Chairman",
+            timestamp: serverTimestamp(),
+          });
+
+          setShowResolveModal(false);
+          showToast(`GW${gwNumber} resolved! ${honoraryWinners[0].displayName} crowned honorary champion 🏆`);
+          triggerResolutionPulse();
+          const endTime = Date.now() + 3000;
+          const burstFrame = () => {
+            confetti({ particleCount: 8, angle: 60, spread: 65, origin: { x: 0, y: 0.75 }, colors: ['#10B981','#FBBF24','#FFFFFF'] });
+            confetti({ particleCount: 8, angle: 120, spread: 65, origin: { x: 1, y: 0.75 }, colors: ['#10B981','#FBBF24','#FFFFFF'] });
+            if (Date.now() < endTime) requestAnimationFrame(burstFrame);
+          };
+          burstFrame();
+          setActionTimeline((prev) => ({
+            ...prev,
+            resolved: true,
+            approvalPending: false,
+            payoutSent: true,
+            confirmed: true,
+          }));
+          setIsResolving(false);
+          return;
+        }
+
+        // Only void if truly zero active participants
         await addDoc(collection(db, "leagues", activeLeagueId, "pending_payouts"), {
           gw: gwNumber,
           status: "voided",
-          reason: `GW${gwNumber} Voided: Minimum 2 funded managers required (${fundedParticipants.length} participated).`,
+          reason: `GW${gwNumber} Voided: No active participants with positive scores found.`,
           amount: 0,
           timestamp: serverTimestamp(),
           settledBy: isCoChairSession ? "Co-Chair" : "Chairman",
@@ -2166,12 +2269,12 @@ export default function AdminCommandCenter() {
 
         await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
           eventType: "gw_voided",
-          message: `GW${gwNumber} VOIDED — Insufficient funded managers (${fundedParticipants.length} participated). 0 KES moved to vault; wallet balances preserved.`,
+          message: `GW${gwNumber} VOIDED — No active participants found with positive scores.`,
           actor: auth.currentUser?.displayName || "Chairman",
           timestamp: serverTimestamp(),
         });
 
-        showToast(`GW${gwNumber} Voided: Minimum 2 funded managers required. All funds preserved.`);
+        showToast(`GW${gwNumber} Voided: No active participants scored points.`);
         setIsResolving(false);
         setShowResolveModal(false);
         return;
@@ -3426,17 +3529,19 @@ burstFrame();
                       </div>
 
                       <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <button
-                          onClick={() => {
-                            haptics.celebrate();
-                            setShowChairmanFlexModal(true);
-                          }}
-                          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                          title="Generate Champion Victory Card for WhatsApp"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          <span>Victory Card</span>
-                        </button>
+                        {leaderName && (
+                          <button
+                            onClick={() => {
+                              haptics.celebrate();
+                              setShowChairmanFlexModal(true);
+                            }}
+                            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                            title="Generate Champion Victory Card for WhatsApp"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                            <span>Victory Card</span>
+                          </button>
+                        )}
 
                         <button
                           id="tour-resolve-gw"
@@ -3568,9 +3673,7 @@ burstFrame();
                       )}>
                         {gwAlreadySettled
                           ? "GW Settled ✓"
-                          : isCurrentEventFinished
-                            ? "Settle GW Winner"
-                            : "GW In Play"
+                          : "Settle GW Winner"
                         }
                       </p>
                       {gwAlreadySettled ? (
@@ -3583,33 +3686,19 @@ burstFrame();
                       ) : null}
                     </div>
 
-                    <div className="my-auto py-1.5 flex flex-col items-center justify-center text-center w-full">
-                      {(gwAlreadySettled || isCurrentEventFinished) && (
-                        <p className={clsx(
-                          "text-lg md:text-xl font-black tracking-tight",
-                          gwAlreadySettled
-                            ? "text-emerald-300"
-                            : "text-[#FBBF24]"
-                        )}>
-                          {gwAlreadySettled
-                            ? `GW${currentGwNumber || ''} Done`
-                            : `Pay GW${currentGwNumber || ''} Winner`
-                          }
-                        </p>
-                      )}
+                    <div className="my-auto py-2 flex flex-col items-center justify-center text-center w-full">
                       <span className={clsx(
-                        "text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-block",
-                        (gwAlreadySettled || isCurrentEventFinished) ? "mt-1" : "my-1",
+                        "text-xs md:text-sm font-bold px-3 py-1 rounded-full inline-block",
                         gwAlreadySettled 
                           ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
                           : isCurrentEventFinished
-                            ? "text-amber-300 bg-amber-500/10 border border-amber-500/20"
+                            ? "text-[#FBBF24] bg-amber-500/15 border border-amber-500/30"
                             : "text-emerald-300 bg-emerald-500/10 border border-emerald-500/30"
                       )}>
                         {gwAlreadySettled 
-                          ? `Awaiting GW${currentGwNumber ? currentGwNumber + 1 : ''}` 
+                          ? `GW${currentGwNumber || ''} Settled ✓` 
                           : isCurrentEventFinished
-                            ? "Deadline Finalized"
+                            ? `Pay GW${currentGwNumber || ''} Winner`
                             : "Fixtures in Progress"}
                       </span>
                     </div>
@@ -3618,7 +3707,7 @@ burstFrame();
                       {gwAlreadySettled
                         ? "Tap to review settlement"
                         : isCurrentEventFinished
-                          ? "Ready for payout"
+                          ? "Tap to disburse or resolve"
                           : "Resolves after final whistle"}
                     </p>
                   </div>
@@ -3797,7 +3886,8 @@ burstFrame();
                   const pendingPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'awaiting_approval'
                   );
-                  const isForfeited = pendingPayouts.some(
+                  const isPreLeague = effectiveStartGw > 1 && gw < effectiveStartGw;
+                  const isForfeited = isPreLeague || pendingPayouts.some(
                     (p) => Number(p.gw) === gw && p.status === 'forfeited'
                   ) || (leagueSettings?.forfeitedGws || []).includes(gw);
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
@@ -3808,10 +3898,12 @@ burstFrame();
                       type="button"
                       data-gw={gw}
                       title={
-                        isForfeited
+                        isPreLeague
+                          ? `GW${gw} occurred before league start (GW${effectiveStartGw}) — voided`
+                          : isForfeited
                           ? `GW${gw} is forfeited (no play) — click to manage`
                           : approvedPayout
-                          ? `GW${gw} paid to ${approvedPayout.winnerName} — click to view`
+                          ? `GW${gw} won by ${approvedPayout.winnerName} — click to view`
                           : pendingPayout
                           ? `GW${gw} payout pending approval — click to view`
                           : isSkipped
@@ -3843,7 +3935,7 @@ burstFrame();
                       }`}>GW{gw}</span>
                       <span className={`text-[8px] font-bold ${
                         approvedPayout
-                          ? 'text-emerald-400'
+                          ? (Number(approvedPayout.amount || 0) === 0 ? 'text-amber-300' : 'text-emerald-400')
                           : pendingPayout
                           ? 'text-[#FBBF24]'
                           : isForfeited
@@ -3855,7 +3947,7 @@ burstFrame();
                           : 'text-gray-600'
                       }`}>
                         {approvedPayout
-                          ? '✓ Paid'
+                          ? (Number(approvedPayout.amount || 0) === 0 ? '🏆 Crown' : '✓ Paid')
                           : pendingPayout
                           ? '⏳ Pending'
                           : isForfeited
@@ -3872,7 +3964,7 @@ burstFrame();
                         </span>
                       )}
                       {isForfeited && (
-                        <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">No Play</span>
+                        <span className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">{isPreLeague ? 'Pre-League' : 'No Play'}</span>
                       )}
                       {isSkipped && (
                         <span className="text-[7px] text-amber-300 font-black uppercase tracking-widest">Tap</span>
@@ -4084,35 +4176,21 @@ burstFrame();
           }
         >
           {/* Generate League Access Section */}
-            <section className="fc-vault-explainer space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#FBBF24] mb-1">
-                  {tabCopy.finance.eyebrow}
-                </p>
-                <h2 className="text-3xl font-extrabold tracking-tight mb-1 flex items-center gap-3 text-white">
-                  <ShieldCheck className="w-8 h-8 md:w-10 md:h-10 text-[#FBBF24]" />{" "}
-                  {tabCopy.finance.title}
-                </h2>
-                <p className="text-gray-400 text-sm max-w-xl">
-                  {tabCopy.finance.description}
-                </p>
+          <section className="fc-vault-explainer space-y-6 px-1 sm:px-3">
+            {!isCoChairSession && (
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={openPrefundModal}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-xs md:text-sm font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  <Banknote className="w-4 h-4" /> Pilot Prefund
+                </button>
               </div>
-              <div className="flex items-center gap-3">
-                {!isCoChairSession && (
-                  <button
-                    onClick={openPrefundModal}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-[#FBBF24]/10 border border-[#FBBF24]/30 hover:bg-[#FBBF24]/20 text-[#FBBF24] text-sm font-bold rounded-xl transition-colors"
-                  >
-                    <Banknote className="w-4 h-4" /> Pilot Prefund
-                  </button>
-                )}
-              </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-8 w-full">
-              <div className="xl:col-span-12 flex flex-col gap-6 md:gap-8 w-full">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-8 w-full">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-8 w-full">
+              <div className="xl:col-span-12 flex flex-col gap-5 md:gap-8 w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:gap-8 w-full">
                   <PotVaultSwapper
                     weeklyPot={weeklyPot}
                     seasonVault={seasonVault}
@@ -4124,7 +4202,7 @@ burstFrame();
                   {/* Total Collections Card */}
                   <div
                     id="tour-ledger"
-                    className="bg-[#161d24] border border-[#10B981]/10 rounded-[2rem] p-6 sm:p-8 md:p-10 relative overflow-hidden shadow-lg hover:border-[#10B981]/30 transition-colors w-full min-h-[240px] flex flex-col justify-center"
+                    className="bg-[#161d24] border border-[#10B981]/10 rounded-2xl sm:rounded-[2rem] p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-lg hover:border-[#10B981]/30 transition-colors w-full min-h-[220px] flex flex-col justify-center"
                   >
                     <div className="absolute top-6 right-6 opacity-[0.03] pointer-events-none">
                       <Banknote className="w-24 h-24" />
@@ -4712,7 +4790,26 @@ burstFrame();
                 {(() => {
                   const targetApproved = pendingPayouts.find((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'approved');
                   const targetPending = pendingPayouts.find((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'awaiting_approval');
-                  const targetForfeited = pendingPayouts.some((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'forfeited') || (leagueSettings?.forfeitedGws || []).includes(selectedGwForAction);
+                  const targetPreLeague = effectiveStartGw > 1 && selectedGwForAction < effectiveStartGw;
+                  const targetForfeited = targetPreLeague || pendingPayouts.some((p: any) => Number(p.gw) === selectedGwForAction && p.status === 'forfeited') || (leagueSettings?.forfeitedGws || []).includes(selectedGwForAction);
+
+                  if (targetPreLeague) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-gray-600/30 bg-gray-800/30 p-4">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-base">🚫</span>
+                            <p className="text-xs font-black uppercase tracking-wider text-gray-200">
+                              Gameweek {selectedGwForAction} is Voided (Pre-League)
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-400 leading-relaxed">
+                            This Gameweek occurred before your league officially started (League started at GW{effectiveStartGw}). No stakes were collected and member balances remained untouched.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   if (targetForfeited) {
                     return (
@@ -4725,7 +4822,7 @@ burstFrame();
                             </p>
                           </div>
                           <p className="text-xs text-gray-400 leading-relaxed">
-                            This Gameweek is marked as unplayed because your league started later. No pot or stakes were deducted, and any deposited funds remain intact in member wallets.
+                            This Gameweek is marked as unplayed. No pot or stakes were deducted, and deposited funds remain intact in member wallets.
                           </p>
                         </div>
                         <button
@@ -4741,16 +4838,23 @@ burstFrame();
                   }
 
                   if (targetApproved) {
+                    const isZeroPot = Number(targetApproved.amount || 0) === 0;
                     return (
                       <div className="space-y-4">
                         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">✓ Settled & Paid</span>
-                            <span className="text-sm font-black text-[#FBBF24]">KES {Number(targetApproved.amount || 0).toLocaleString()}</span>
+                            <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">
+                              {isZeroPot ? "🏆 Honorary Winner" : "✓ Settled & Paid"}
+                            </span>
+                            <span className="text-sm font-black text-[#FBBF24]">
+                              {isZeroPot ? "Bragging Rights" : `KES ${Number(targetApproved.amount || 0).toLocaleString()}`}
+                            </span>
                           </div>
                           <p className="text-sm text-white font-bold">{targetApproved.winnerName}</p>
                           <p className="text-[11px] text-gray-400 mt-1">
-                            Disbursement: {targetApproved.method === 'cash' ? 'Cash Handoff' : 'M-Pesa B2C'}
+                            {isZeroPot 
+                              ? `Topped GW with ${targetApproved.points || '--'} pts · Season Vault League` 
+                              : `Disbursement: ${targetApproved.method === 'cash' ? 'Cash Handoff' : 'M-Pesa B2C'}`}
                           </p>
                         </div>
 
@@ -4944,45 +5048,59 @@ burstFrame();
                     </div>
                   )}
 
-                  {/* Payout summary */}
-                  <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Winner Payout</p>
-                      <p className="text-2xl font-black text-[#FBBF24] tabular-nums mt-0.5">
-                        KES {isStealthMode ? "****" : weeklyPot.toLocaleString()}
+                  {weeklyPot === 0 ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-amber-400">
+                        <Trophy className="w-5 h-5" />
+                        <p className="text-xs font-black uppercase tracking-wider">Honorary Gameweek Crown (KES 0 Cash Pot)</p>
+                      </div>
+                      <p className="text-xs text-gray-300 leading-relaxed">
+                        This league operates on Season Vault focus or zero weekly cash pot. Resolving will officially award Gameweek {currentGwNumber || ''} bragging rights and crown the top-scoring manager on the ledger without disbursing cash.
                       </p>
                     </div>
-                    <Banknote className="w-8 h-8 text-[#FBBF24]/30" />
-                  </div>
+                  ) : (
+                    <>
+                      {/* Payout summary */}
+                      <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Winner Payout</p>
+                          <p className="text-2xl font-black text-[#FBBF24] tabular-nums mt-0.5">
+                            KES {isStealthMode ? "****" : weeklyPot.toLocaleString()}
+                          </p>
+                        </div>
+                        <Banknote className="w-8 h-8 text-[#FBBF24]/30" />
+                      </div>
 
-                  {/* Method toggle */}
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Disbursement Method</p>
-                    <div className="flex bg-black/30 rounded-xl p-1 border border-white/5">
-                      <button
-                        onClick={() => setPayoutMethod("mpesa")}
-                        className={clsx(
-                          "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
-                          payoutMethod === "mpesa"
-                            ? "bg-[#10B981]/15 text-[#10B981] shadow-sm border border-[#10B981]/25"
-                            : "text-gray-500 hover:text-gray-300 border border-transparent"
-                        )}
-                      >
-                        M-Pesa B2C
-                      </button>
-                      <button
-                        onClick={() => setPayoutMethod("cash")}
-                        className={clsx(
-                          "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
-                          payoutMethod === "cash"
-                            ? "bg-[#FBBF24]/15 text-[#FBBF24] shadow-sm border border-[#FBBF24]/25"
-                            : "text-gray-500 hover:text-gray-300 border border-transparent"
-                        )}
-                      >
-                        Cash Handoff
-                      </button>
-                    </div>
-                  </div>
+                      {/* Method toggle */}
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Disbursement Method</p>
+                        <div className="flex bg-black/30 rounded-xl p-1 border border-white/5">
+                          <button
+                            onClick={() => setPayoutMethod("mpesa")}
+                            className={clsx(
+                              "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
+                              payoutMethod === "mpesa"
+                                ? "bg-[#10B981]/15 text-[#10B981] shadow-sm border border-[#10B981]/25"
+                                : "text-gray-500 hover:text-gray-300 border border-transparent"
+                            )}
+                          >
+                            M-Pesa B2C
+                          </button>
+                          <button
+                            onClick={() => setPayoutMethod("cash")}
+                            className={clsx(
+                              "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
+                              payoutMethod === "cash"
+                                ? "bg-[#FBBF24]/15 text-[#FBBF24] shadow-sm border border-[#FBBF24]/25"
+                                : "text-gray-500 hover:text-gray-300 border border-transparent"
+                            )}
+                          >
+                            Cash Handoff
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Footer */}
@@ -4990,14 +5108,14 @@ burstFrame();
                   <button
                     onClick={() => setShowResolveModal(false)}
                     disabled={isResolving}
-                    className="flex-1 px-4 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white border border-white/8 hover:border-white/15 hover:bg-white/5 transition-all text-sm"
+                    className="flex-1 px-4 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white border border-white/8 hover:border-white/15 hover:bg-white/5 transition-all text-sm cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleResolveGameweek}
                     disabled={isResolving}
-                    className="flex-1 px-4 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-[0_0_20px_rgba(251,191,36,0.2)]"
+                    className="flex-1 px-4 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-[0_0_20px_rgba(251,191,36,0.2)] cursor-pointer"
                   >
                     {isResolving ? (
                       <>
@@ -5007,7 +5125,7 @@ burstFrame();
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4" />
-                        Confirm & Resolve
+                        {weeklyPot === 0 ? "Crown GW Winner 🏆" : "Confirm & Resolve"}
                       </>
                     )}
                   </button>

@@ -84,7 +84,14 @@ service cloud.firestore {
             // Member claiming an unlinked pending imported team
             isAuthenticated() &&
             (resource.data.get('isPending', false) == true || resource.data.get('phone', '') == '') &&
-            !touchesFinancialFields() &&
+            (
+              !touchesFinancialFields() ||
+              (
+                request.resource.data.get('walletBalance', 0) == 0 &&
+                request.resource.data.get('hasPaid', false) == false &&
+                request.resource.data.get('role', 'member') == 'member'
+              )
+            ) &&
             request.resource.data.authUid == request.auth.uid
           )
           ||

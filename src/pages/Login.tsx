@@ -476,6 +476,18 @@ export default function Login() {
                 return;
             }
 
+            // Ensure anonymous Firebase Auth session exists before querying or writing memberships
+            let currentAuthUser = auth.currentUser;
+            if (!currentAuthUser) {
+                try {
+                    const userCredential = await signInAnonymously(auth);
+                    currentAuthUser = userCredential.user;
+                } catch (authErr) {
+                    console.warn("[onboarding] Auth sign-in retry:", authErr);
+                }
+            }
+            const activeAuthUid = currentAuthUser?.uid || onboardData.userUid;
+
             // If this phone is already an active member in this league, sign them in directly!
             const membershipsRef = collection(db, 'leagues', onboardData.leagueId, 'memberships');
             const allMembersSnap = await getDocs(membershipsRef);
@@ -529,7 +541,7 @@ export default function Login() {
                     isActive: true,
                     playMode: onboardPlayMode,
                     joinedGw: onboardData.currentGw,
-                    authUid: onboardData.userUid,
+                    authUid: activeAuthUid,
                     walletBalance: 0,
                     hasPaid: false,
                     updatedAt: serverTimestamp(),
@@ -549,7 +561,7 @@ export default function Login() {
                     role: 'member',
                     playMode: onboardPlayMode,
                     joinedGw: onboardData.currentGw,
-                    authUid: onboardData.userUid,
+                    authUid: activeAuthUid,
                     walletBalance: 0,
                     hasPaid: false,
                     totalEarned: 0,
