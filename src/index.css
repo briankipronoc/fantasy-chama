@@ -778,11 +778,12 @@
   .react-hot-toast,
   [data-theme="light"] div[data-toaster-container] div[role="status"],
   [data-theme="light"] div[data-toaster-container] div[role="alert"] {
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
     white-space: normal !important;
     line-height: 1.45 !important;
     max-width: min(28rem, calc(100vw - 2rem)) !important;
+    min-width: 260px !important;
     box-sizing: border-box !important;
   }
 

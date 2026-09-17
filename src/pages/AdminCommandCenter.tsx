@@ -1750,7 +1750,12 @@ export default function AdminCommandCenter() {
     setIsSavingMemberEdit(true);
     try {
       const updates: Record<string, any> = {};
-      if (editMemberPhone) updates.phone = editMemberPhone;
+      if (editMemberPhone) {
+        updates.phone = editMemberPhone;
+        updates.phoneNumber = editMemberPhone;
+        updates.isPending = false;
+        updates.isActive = true;
+      }
       if (editMemberFplId) updates.fplTeamId = Number(editMemberFplId);
       if (editMemberName) updates.displayName = editMemberName;
       updates.playMode = editMemberPlayMode;
@@ -3570,14 +3575,14 @@ burstFrame();
 
                     {/* Right: Projected Pot + Action Buttons — Resolve placed directly below Projected Cash Pot with matching length */}
                     <div className="flex flex-col gap-2.5 w-full sm:w-56 md:w-64 pt-3 xl:pt-0 border-t xl:border-t-0 xl:border-l xl:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
-                      <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-left sm:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5">
+                      <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
                           Projected Cash Pot
                         </p>
-                        <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
+                        <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
                           KES {isStealthMode ? "****" : calculatedPot.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
                           {members.filter((m) => m.hasPaid && m.isActive !== false && (m as any).playMode !== 'sidebets_only').length} active contributions
                         </p>
                       </div>

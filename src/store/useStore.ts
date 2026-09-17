@@ -22,6 +22,9 @@ export interface Member {
     paymentStreak?: number;     // Consecutive GWs paid without missing (Streak engine)
     fcmToken?: string;          // FCM device push token
     teamName?: string;          // FPL Team Name
+    fplTeamName?: string;       // FPL Team Name alternate key
+    phoneNumber?: string;       // Alternate phone field
+    isPending?: boolean;        // Whether member is pending onboarding
     playMode?: 'pot' | 'sidebets_only' | 'season_only'; // 'pot': regular weekly/season cash pot, 'season_only': season vault only, 'sidebets_only': free spectator & 1v1 side bets
     joinedGw?: number;          // Gameweek joined (contributions only apply from this GW forward)
 }
@@ -175,32 +178,63 @@ export const useStore = create<AppState>((set) => ({
                     ...doc.data()
                 })) as Member[];
 
-                // Deduplicate members to prevent duplicate counts (e.g. chairman registered both as admin and member)
+                // Deduplicate members to prevent duplicate counts (e.g. chairman registered both as admin and member, or FPL sync imports)
                 const deduplicatedMap = new Map<string, Member>();
                 for (const m of liveMembers) {
                     const rawPhone = (m.phone || (m as any).phoneNumber || '').replace(/\D/g, '');
                     const cleanName = (m.displayName || '').trim().toLowerCase();
-                    const phoneKey = rawPhone.length >= 9 ? rawPhone.slice(-9) : '';
-                    const dedupKey = phoneKey ? `p_${phoneKey}` : (cleanName ? `n_${cleanName}` : `id_${m.id}`);
+                    const phoneKey = rawPhone.length >= 8 ? rawPhone.slice(-8) : '';
+                    const fplId = (m as any).fplTeamId ? Number((m as any).fplTeamId) : 0;
 
-                    if (!deduplicatedMap.has(dedupKey)) {
-                        deduplicatedMap.set(dedupKey, m);
+                    // Match against any existing entry by FPL ID, phone, or normalized name
+                    let existingKey: string | null = null;
+                    for (const [key, existing] of deduplicatedMap.entries()) {
+                        const exPhone = (existing.phone || (existing as any).phoneNumber || '').replace(/\D/g, '');
+                        const exPhoneKey = exPhone.length >= 8 ? exPhone.slice(-8) : '';
+                        const exName = (existing.displayName || '').trim().toLowerCase();
+                        const exFpl = (existing as any).fplTeamId ? Number((existing as any).fplTeamId) : 0;
+
+                        if (fplId && exFpl && fplId === exFpl) {
+                            existingKey = key;
+                            break;
+                        }
+                        if (phoneKey && exPhoneKey && phoneKey === exPhoneKey) {
+                            existingKey = key;
+                            break;
+                        }
+                        if (cleanName && exName && cleanName === exName) {
+                            existingKey = key;
+                            break;
+                        }
+                    }
+
+                    if (!existingKey) {
+                        const newKey = fplId ? `fpl_${fplId}` : (phoneKey ? `p_${phoneKey}` : (cleanName ? `n_${cleanName}` : `id_${m.id}`));
+                        deduplicatedMap.set(newKey, m);
                     } else {
-                        const existing = deduplicatedMap.get(dedupKey)!;
-                        const preferExisting = existing.role === 'admin' || (existing.hasPaid && !m.hasPaid);
-                        const primary = preferExisting ? existing : m;
-                        const secondary = preferExisting ? m : existing;
+                        const existing = deduplicatedMap.get(existingKey)!;
+                        const existingActive = existing.isActive !== false;
+                        const mActive = m.isActive !== false;
+                        const preferM = (!existingActive && mActive) || (m.hasPaid && !existing.hasPaid) || (Number(m.walletBalance || 0) > Number(existing.walletBalance || 0)) || (Boolean(m.phone || (m as any).phoneNumber) && !existing.phone && !(existing as any).phoneNumber);
+                        const primary = preferM ? m : existing;
+                        const secondary = preferM ? existing : m;
 
                         const merged: Member = {
                             ...secondary,
                             ...primary,
-                            id: primary.id,
+                            id: (primary.phone || (primary as any).phoneNumber) ? primary.id : (secondary.id || primary.id),
+                            phone: primary.phone || secondary.phone || (primary as any).phoneNumber || (secondary as any).phoneNumber || undefined,
                             role: (existing.role === 'admin' || m.role === 'admin') ? 'admin' : (existing.role === 'co-chair' || m.role === 'co-chair') ? 'co-chair' : primary.role,
                             hasPaid: Boolean(existing.hasPaid || m.hasPaid),
                             walletBalance: Math.max(Number(existing.walletBalance || 0), Number(m.walletBalance || 0)),
-                            isActive: existing.isActive !== false && m.isActive !== false,
+                            // If either record is active, member is ACTIVE
+                            isActive: existing.isActive !== false || m.isActive !== false,
+                            isPending: Boolean(existing.isPending && m.isPending && !existing.phone && !m.phone && !(existing as any).phoneNumber && !(m as any).phoneNumber),
+                            fplTeamId: primary.fplTeamId || secondary.fplTeamId || undefined,
+                            teamName: (primary as any).teamName || (secondary as any).teamName || undefined,
+                            fplTeamName: (primary as any).fplTeamName || (secondary as any).fplTeamName || undefined,
                         };
-                        deduplicatedMap.set(dedupKey, merged);
+                        deduplicatedMap.set(existingKey, merged);
                     }
                 }
 

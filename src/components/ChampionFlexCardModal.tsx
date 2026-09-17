@@ -15,6 +15,8 @@ interface ChampionFlexCardModalProps {
   betTitle?: string;
   defeatedOpponent?: string;
   leagueCode?: string;
+  isJointWinner?: boolean;
+  tiedCount?: number;
 }
 
 interface BanterItem {
@@ -37,6 +39,8 @@ export default function ChampionFlexCardModal({
   betTitle,
   defeatedOpponent,
   leagueCode,
+  isJointWinner,
+  tiedCount,
 }: ChampionFlexCardModalProps) {
   const [activeBanterIndex, setActiveBanterIndex] = useState(0);
   const [customMessage, setCustomMessage] = useState('');
@@ -100,16 +104,21 @@ export default function ChampionFlexCardModal({
 
   const getGameweekBanters = (name: string, pts: string | number): BanterItem[] => {
     const isCashPot = amountWon > 0;
+    const isTied = Boolean(isJointWinner && (tiedCount || 0) > 1);
+    const tieNote = isTied ? ` (Joint tie with ${Number(tiedCount) - 1} other${Number(tiedCount) > 2 ? 's' : ''})` : '';
+
     return [
       {
         id: 'official',
-        label: '🏆 Official Result',
-        title: 'Official Winner Announcement',
+        label: isTied ? '🤝 Joint Result' : '🏆 Official Result',
+        title: isTied ? 'Joint Winner Announcement' : 'Official Winner Announcement',
         text: [
-          `🏆 *${leagueName} — GW${gameweek} Champion!*`,
-          `🥇 *${name}* ${teamName ? `(${teamName})` : ''} tops with *${pts} pts*!`,
+          isTied
+            ? `🏆 *${leagueName} — GW${gameweek} Joint Champion!* 🤝`
+            : `🏆 *${leagueName} — GW${gameweek} Champion!*`,
+          `🥇 *${name}* ${teamName ? `(${teamName})` : ''} tops with *${pts} pts*${tieNote}!`,
           isCashPot
-            ? `💰 Pot Secured: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`
+            ? `${isTied ? '💰 Split Pot Secured' : '💰 Pot Secured'}: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`
             : `👑 Gameweek MVP & Bragging Rights Secured! (Season Grand Vault Contender 🏆)`,
           ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
         ].join('\n'),
@@ -120,9 +129,9 @@ export default function ChampionFlexCardModal({
         title: 'Points Master',
         text: [
           `🏆 *${leagueName} — GW${gameweek} Mwizi wa Points!* 🥷`,
-          `Hii wiki *${name}* ndiye mwizi wa points (*${pts} pts*) 😂!`,
+          `Hii wiki *${name}* ndiye mwizi wa points (*${pts} pts*${isTied ? ' - Shared Honor' : ''}) 😂!`,
           isCashPot
-            ? `💰 Pot: *KES ${amountWon.toLocaleString()}* safi kwa wallet. Chezeni chini wazee! 🏁`
+            ? `💰 ${isTied ? 'Split Pot' : 'Pot'}: *KES ${amountWon.toLocaleString()}* safi kwa wallet. Chezeni chini wazee! 🏁`
             : `👑 Bragging rights safi kwa kibindoni. Chezeni chini wazee! 🏁`,
           ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
         ].join('\n'),
@@ -132,10 +141,10 @@ export default function ChampionFlexCardModal({
         label: '🐐 Mapema Ndio Best',
         title: 'Class is Permanent',
         text: [
-          `🏆 *GW${gameweek} Champion — ${leagueName}* 🐐`,
+          `🏆 *GW${gameweek} ${isTied ? 'Joint Winner' : 'Champion'} — ${leagueName}* 🐐`,
           `Mapema ndio best! Form is temporary, class is permanent.`,
           isCashPot
-            ? `🥇 *${name}* (*${pts} pts*) | Payout: *KES ${amountWon.toLocaleString()}* 🎉`
+            ? `🥇 *${name}* (*${pts} pts*) | ${isTied ? 'Split Payout' : 'Payout'}: *KES ${amountWon.toLocaleString()}* 🎉`
             : `🥇 *${name}* (*${pts} pts*) | Gameweek MVP & King of the Week 👑🎉`,
           ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
         ].join('\n'),
@@ -405,7 +414,7 @@ export default function ChampionFlexCardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[125000] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-[125000] bg-slate-900/35 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
       <div className="w-full max-w-lg md:max-w-xl bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-3xl p-5 md:p-6 shadow-2xl relative text-slate-900 dark:text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
@@ -415,7 +424,7 @@ export default function ChampionFlexCardModal({
             </div>
             <div>
               <h2 className="text-base md:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none">
-                {isSideBet ? 'Side Bet Victory Card' : 'Gameweek Victory Card'}
+                {isSideBet ? 'Side Bet Victory Card' : isJointWinner && (tiedCount || 0) > 1 ? 'Joint Gameweek Victory Card' : 'Gameweek Victory Card'}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">
                 Official Chama result ready for WhatsApp
@@ -435,7 +444,11 @@ export default function ChampionFlexCardModal({
         <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 dark:from-[#161d26] dark:to-[#0d1218] p-4 text-center shadow-md dark:shadow-lg overflow-hidden mb-4">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-2 flex items-center justify-center gap-1.5">
             <Sparkles className="w-3 h-3 text-amber-500 dark:text-amber-400" />
-            {isSideBet ? `DUEL SETTLED • ${leagueName}` : `GW${gameweek} CHAMPION • ${leagueName}`}
+            {isSideBet
+              ? `DUEL SETTLED • ${leagueName}`
+              : isJointWinner && (tiedCount || 0) > 1
+                ? `GW${gameweek} JOINT CHAMPION (${tiedCount}-WAY TIE) • ${leagueName}`
+                : `GW${gameweek} CHAMPION • ${leagueName}`}
           </p>
 
           <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -467,7 +480,7 @@ export default function ChampionFlexCardModal({
             </div>
             <div className="bg-amber-100/70 dark:bg-amber-500/10 rounded-xl p-2.5 border border-amber-300 dark:border-amber-500/20">
               <p className="text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400 mb-0.5">
-                Pot Secured
+                {isJointWinner && (tiedCount || 0) > 1 ? 'Split Pot' : 'Pot Secured'}
               </p>
               <p className="text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums">
                 KES {amountWon.toLocaleString()}
@@ -475,7 +488,7 @@ export default function ChampionFlexCardModal({
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-slate-200 dark:border-white/5">
+          <div className="flex items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-slate-200 dark:border-white/10">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <p className="text-[8px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
               Verified Chama Settlement • Official FPL Sync
@@ -483,7 +496,7 @@ export default function ChampionFlexCardModal({
           </div>
         </div>
 
-        {/* Banter Caption Box — Spacious rows=5 so all 4 lines are clearly readable without scroll */}
+        {/* Banter Caption Box — Spacious rows=5 with clean sans-serif typography */}
         <div className="mb-4">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <p className="text-xs font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
@@ -506,7 +519,7 @@ export default function ChampionFlexCardModal({
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               rows={5}
-              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:border-amber-500/50 text-xs font-mono text-slate-800 dark:text-gray-200 leading-relaxed outline-none resize-none custom-scrollbar"
+              className="w-full p-3.5 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/60 font-sans text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100 leading-relaxed outline-none resize-none custom-scrollbar transition-all"
               placeholder="Edit your banter message..."
             />
             <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 px-1 mt-0.5 font-medium">

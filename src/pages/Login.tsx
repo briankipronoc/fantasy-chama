@@ -263,13 +263,21 @@ export default function Login() {
             const membershipsRef = collection(db, 'leagues', leagueId, 'memberships');
             const allMembersSnap = await getDocs(membershipsRef);
 
+            const leagueDocData = leagueData.data();
             const activePhone = userPhone || phone;
             if (activePhone) {
                 const phoneVariants = getPhoneVariants(activePhone);
                 const normalizedInput = normalizeKenyanPhone(activePhone);
                 const cleanDigitsInput = activePhone.replace(/\D/g, '');
 
-                const matchedMemberDoc = allMembersSnap.docs.find(d => {
+                const cleanChairPhone = String(leagueDocData?.chairmanPhone || '').replace(/\D/g, '');
+                const isChairmanPhone = Boolean(
+                    cleanChairPhone.length >= 8 &&
+                    cleanDigitsInput.length >= 8 &&
+                    (cleanChairPhone.endsWith(cleanDigitsInput.slice(-8)) || cleanDigitsInput.endsWith(cleanChairPhone.slice(-8)))
+                );
+
+                let matchedMemberDoc = allMembersSnap.docs.find(d => {
                     const data = d.data();
                     const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
                     const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
@@ -285,13 +293,27 @@ export default function Login() {
                         (cleanDigitsInput.length >= 9 && cleanP2.endsWith(cleanDigitsInput.slice(-9)))
                     );
 
-                    return (matchesVariant || matchesNormalized || matchesLast9) && data.isPending !== true;
+                    return matchesVariant || matchesNormalized || matchesLast9;
                 });
+
+                // If not found by phone on membership doc, but phone matches the Chairman's phone on league:
+                if (!matchedMemberDoc && isChairmanPhone) {
+                    matchedMemberDoc = allMembersSnap.docs.find(d => {
+                        const data = d.data();
+                        return data.role === 'admin' || data.isChairman === true || d.id === leagueDocData?.chairmanId;
+                    });
+                }
 
                 if (matchedMemberDoc) {
                     const memberDocRef = matchedMemberDoc.ref;
                     try {
-                        await updateDoc(memberDocRef, { authUid: userUid });
+                        await updateDoc(memberDocRef, { 
+                            authUid: userUid,
+                            isPending: false,
+                            isActive: true,
+                            phone: activePhone,
+                            phoneNumber: activePhone
+                        });
                     } catch (updateErr) {
                         console.warn("[login] Non-critical: could not update authUid on member document:", updateErr);
                     }
@@ -353,7 +375,6 @@ export default function Login() {
                 .map(d => ({ id: d.id, ...d.data() } as any))
                 .filter(m => (!m.phone && !m.phoneNumber) || m.isPending === true);
 
-            const leagueDocData = leagueData.data();
             const leagueFplId = leagueDocData?.fplLeagueId;
 
             // If Chairman set up an FPL league number, pull unclaimed squads strictly for THIS league

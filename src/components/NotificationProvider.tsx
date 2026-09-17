@@ -241,13 +241,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         borderRadius: '16px',
                         fontWeight: 700,
                         fontSize: '13px',
-                        padding: '12px 16px',
+                        padding: '12px 18px',
                         boxShadow: 'var(--fc-toast-shadow, 0 16px 40px rgba(0,0,0,0.3))',
                         backdropFilter: 'blur(20px) saturate(140%)',
                         WebkitBackdropFilter: 'blur(20px) saturate(140%)',
                         maxWidth: 'min(28rem, calc(100vw - 2rem))',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'anywhere',
+                        width: 'auto',
+                        whiteSpace: 'normal',
+                        wordBreak: 'normal',
+                        overflowWrap: 'break-word',
                         lineHeight: '1.45',
                         boxSizing: 'border-box',
                     },
@@ -259,8 +261,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                             background: 'var(--fc-toast-bg, rgba(14, 20, 25, 0.96))',
                             color: 'var(--fc-toast-color, #f8fafc)',
                             border: '1px solid rgba(239,68,68,0.35)',
-                            wordBreak: 'break-word',
-                            overflowWrap: 'anywhere',
+                            whiteSpace: 'normal',
+                            wordBreak: 'normal',
+                            overflowWrap: 'break-word',
                             lineHeight: '1.45',
                         },
                         iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
@@ -268,7 +271,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 }}
                 containerStyle={{
                     top: isMobile ? 16 : 84,
-                    right: isMobile ? 'auto' : 20,
                     zIndex: 999999,
                 }}
             />

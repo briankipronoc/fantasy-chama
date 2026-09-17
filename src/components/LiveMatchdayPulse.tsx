@@ -261,14 +261,14 @@ export default function LiveMatchdayPulse({
 
                         {/* Pot & Action */}
                         <div className="flex items-center gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-slate-200 dark:border-white/5 justify-between md:justify-end">
-                            <div className="rounded-2xl px-4 py-2.5 border text-left md:text-right bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10">
-                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5">
+                            <div className="rounded-2xl px-4 py-2.5 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
                                     Projected Cash Pot
                                 </p>
-                                <p className="text-lg sm:text-xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
+                                <p className="text-lg sm:text-xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
                                     KES {potAmount.toLocaleString()}
                                 </p>
-                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium text-center">
                                     {contributorCount} active contributions
                                 </p>
                             </div>

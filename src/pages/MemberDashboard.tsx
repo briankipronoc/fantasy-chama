@@ -852,6 +852,13 @@ export default function MemberDashboard() {
 
     const handleSendReaction = async (emoji: string) => {
         if (!activeLeagueId || !gwWinner) return;
+
+        // Check if user has already sent 2 distinct emojis
+        if (mySentEmojis.length >= 2 && !mySentEmojis.includes(emoji)) {
+            showToast('You can only send up to 2 props per gameweek!', 'error');
+            return;
+        }
+
         haptics.celebrate();
         try {
             confetti({
@@ -932,7 +939,7 @@ export default function MemberDashboard() {
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     // Season vault: use actual GWs remaining since league start
-    const leagueStartGw = (leagueSettings as any)?.startGw || (currentFplEvent?.id ? Math.max(1, currentFplEvent.id - 2) : 1);
+    const leagueStartGw = Number((leagueSettings as any)?.startGw || (leagueSettings as any)?.startGameweek || (leagueSettings as any)?.rules?.startGw || 1);
     const totalLeagueGws = Math.max(1, 38 - leagueStartGw + 1);
     const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * (rules.vault / 100);
 
@@ -966,8 +973,32 @@ export default function MemberDashboard() {
             gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
         )
     );
-    const hasFinalGwChampion = Boolean(!isCurrentGwVoided && !currentFplEvent?.isPreparingForNextGw && gwWinner && Number(gwWinner.event_total) > 0);
+    const isPreLeagueGw = Boolean(currentFplEvent?.id && leagueStartGw > 1 && currentFplEvent.id < leagueStartGw);
+    const hasFinalGwChampion = Boolean(
+        !isPreLeagueGw &&
+        !isCurrentGwVoided &&
+        !currentFplEvent?.isPreparingForNextGw &&
+        currentFplEvent?.finished &&
+        gwWinner &&
+        Number(gwWinner.event_total) > 0
+    );
     const isRecentWinner = isCurrentUserGwWinner && hasFinalGwChampion;
+
+    // Set of distinct emojis already sent by the current user for this gameweek (max 2 distinct allowed)
+    const mySentEmojis = useMemo<string[]>(() => {
+        const targetGw = Number(currentFplEvent?.id);
+        const sent = new Set<string>();
+        notifications.forEach((n: any) => {
+            if (
+                (n.type === 'champion_reaction' || n.eventType === 'reaction') &&
+                (!n.gw || Number(n.gw) === targetGw) &&
+                (n.fromId === activeUserId || (currentUser?.displayName && n.fromName === currentUser.displayName))
+            ) {
+                if (n.emoji) sent.add(n.emoji);
+            }
+        });
+        return Array.from(sent);
+    }, [notifications, currentFplEvent?.id, activeUserId, currentUser?.displayName]);
 
     // Aggregate real-time reactions for this GW champion (WhatsApp/iMessage style)
     interface ChampionReactionSummary {
@@ -1369,27 +1400,40 @@ export default function MemberDashboard() {
 
                                     return (
                                         <div className="w-full lg:w-auto bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 flex-shrink-0">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
-                                                Send Props to {gwWinner.player_name.split(' ')[0]} 💬
-                                            </p>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
+                                                    Send Props to {gwWinner.player_name.split(' ')[0]} 💬
+                                                </p>
+                                                <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30 tabular-nums">
+                                                    {mySentEmojis.length}/2 sent
+                                                </span>
+                                            </div>
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => {
-                                                    const myReaction = gwChampionReactions.find(r => r.emoji === emoji && r.hasReacted);
-                                                    const isSelected = Boolean(myReaction);
+                                                    const isSelected = mySentEmojis.includes(emoji);
+                                                    const isLocked = mySentEmojis.length >= 2 && !isSelected;
                                                     return (
                                                         <button
                                                             key={emoji}
                                                             type="button"
+                                                            disabled={isLocked}
                                                             onClick={() => handleSendReaction(emoji)}
                                                             className={clsx(
-                                                                "w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-90 shadow-sm cursor-pointer",
+                                                                "relative w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition-all shadow-sm select-none",
                                                                 isSelected
-                                                                    ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 scale-105"
-                                                                    : "bg-white/5 hover:bg-amber-500/25 border-white/10 hover:border-amber-400/50"
+                                                                    ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 scale-105 cursor-pointer"
+                                                                    : isLocked
+                                                                    ? "bg-white/5 border-white/5 opacity-40 cursor-not-allowed"
+                                                                    : "bg-white/5 hover:bg-amber-500/25 border-white/10 hover:border-amber-400/50 hover:scale-110 active:scale-90 cursor-pointer"
                                                             )}
-                                                            title={isSelected ? `You sent ${emoji}` : `React with ${emoji}`}
+                                                            title={isSelected ? `You sent ${emoji} (Sent ✓)` : isLocked ? 'Limit of 2 props reached' : `React with ${emoji}`}
                                                         >
                                                             {emoji}
+                                                            {isSelected && (
+                                                                <span className="absolute -top-1 -right-1 text-[8px] bg-emerald-500 text-black font-black rounded-full px-1 shadow-sm leading-tight">
+                                                                    ✓
+                                                                </span>
+                                                            )}
                                                         </button>
                                                     );
                                                 })}

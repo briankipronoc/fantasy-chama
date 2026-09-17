@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -19,7 +19,9 @@ export default function Profile() {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id'; // Fallback for MVP
     const navigate = useNavigate();
     const role = useStore(state => state.role);
+    const setRole = useStore(state => state.setRole);
     const members = useStore(state => state.members);
+    const currentUser = members.find(m => m.id === activeUserId || (m.authUid && m.authUid === activeUserId));
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
 
@@ -68,6 +70,9 @@ export default function Profile() {
     const [isDeletingMember, setIsDeletingMember] = useState(false);
     const [showDocsModal, setShowDocsModal] = useState(false);
     const [onboardingSearch, setOnboardingSearch] = useState('');
+    const [showRetireModal, setShowRetireModal] = useState(false);
+    const [selectedSuccessorId, setSelectedSuccessorId] = useState('');
+    const [isRetiring, setIsRetiring] = useState(false);
 
     const isMemberFunded = (m: any) =>
         m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
@@ -219,14 +224,26 @@ export default function Profile() {
                         setFplStandings(results);
 
                         let mergedCount = 0;
+                        const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                         for (const result of results) {
                             const fplTeamId = String(result.entry);
-                            const existingMember = members.find((m: any) => 
-                                String(m.fplTeamId) === fplTeamId || 
-                                String(m.secondFplTeamId) === fplTeamId
-                            );
+                            const existingMember = members.find((m: any) => {
+                                if (m.fplTeamId && String(m.fplTeamId) === fplTeamId) return true;
+                                if (m.secondFplTeamId && String(m.secondFplTeamId) === fplTeamId) return true;
+                                const nameMatch = norm(m.displayName) && (norm(m.displayName) === norm(result.player_name) || norm(m.displayName).includes(norm(result.player_name)) || norm(result.player_name).includes(norm(m.displayName)));
+                                const teamMatch = norm(m.fplTeamName || (m as any).teamName) && (norm(m.fplTeamName || (m as any).teamName) === norm(result.entry_name) || norm(m.fplTeamName || (m as any).teamName).includes(norm(result.entry_name)) || norm(result.entry_name).includes(norm(m.fplTeamName || (m as any).teamName)));
+                                return (nameMatch && teamMatch) || (nameMatch && !m.fplTeamId) || (teamMatch && !m.fplTeamId);
+                            });
                             
-                            if (!existingMember) {
+                            if (existingMember) {
+                                if (!existingMember.fplTeamId || !(existingMember.fplTeamName || existingMember.teamName)) {
+                                    updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', existingMember.id), {
+                                        fplTeamId: fplTeamId,
+                                        fplTeamName: result.entry_name,
+                                        teamName: result.entry_name
+                                    }).catch(() => {});
+                                }
+                            } else {
                                 const newMemberRef = doc(collection(db, 'leagues', activeLeagueId, 'memberships'));
                                 await setDoc(newMemberRef, {
                                     displayName: result.player_name,
@@ -507,6 +524,72 @@ export default function Profile() {
         }
     };
 
+    const handleRetireChairman = async () => {
+        if (!activeLeagueId || !selectedSuccessorId) {
+            toast.error('Please select a manager to succeed as Chairman.');
+            return;
+        }
+        const successor = members.find(m => m.id === selectedSuccessorId);
+        if (!successor) {
+            toast.error('Selected manager could not be found.');
+            return;
+        }
+
+        setIsRetiring(true);
+        try {
+            const { doc: docFn, updateDoc: updateDocFn, collection: collFn, addDoc: addDocFn } = await import('firebase/firestore');
+
+            const successorPhone = successor.phone || successor.phoneNumber || '';
+            // 1. Update League Document
+            await updateDocFn(docFn(db, 'leagues', activeLeagueId), {
+                chairmanId: successor.id,
+                chairmanPhone: successorPhone,
+                coAdminId: coAdminId === successor.id ? null : (coAdminId || null)
+            });
+
+            // 2. Promote successor to admin
+            await updateDocFn(docFn(db, 'leagues', activeLeagueId, 'memberships', successor.id), {
+                role: 'admin',
+                isChairman: true,
+                isActive: true
+            });
+
+            // 3. Demote current user (former chairman) to standard member
+            const currentChairmanMember = members.find(m => m.id === activeUserId || (m.authUid && m.authUid === activeUserId) || m.role === 'admin');
+            if (currentChairmanMember && currentChairmanMember.id !== successor.id) {
+                await updateDocFn(docFn(db, 'leagues', activeLeagueId, 'memberships', currentChairmanMember.id), {
+                    role: 'member',
+                    isChairman: false
+                });
+            }
+
+            // 4. Log governance event
+            try {
+                const eventsRef = collFn(db, 'leagues', activeLeagueId, 'league_events');
+                await addDocFn(eventsRef, {
+                    type: 'chairman_succession',
+                    message: `Chairman stepped down. Chairmanship successfully transferred to ${successor.displayName}.`,
+                    actor: currentUser?.displayName || 'Chairman',
+                    successor: successor.displayName,
+                    timestamp: new Date().toISOString()
+                });
+            } catch {}
+
+            haptics.celebrate();
+            toast.success(`You have stepped down. ${successor.displayName} is now the League Chairman!`);
+            setShowRetireModal(false);
+            setRole('member');
+            setTimeout(() => {
+                navigate('/dashboard', { replace: true });
+            }, 1200);
+        } catch (err: any) {
+            console.error('Failed to transfer chairmanship:', err);
+            toast.error('Failed to transfer role: ' + (err?.message || 'Error'));
+        } finally {
+            setIsRetiring(false);
+        }
+    };
+
     const renderActiveMembersStrip = (extraClassName = '') => {
         // Funded members are considered active regardless of phone status
         // Only show as "Pending Onboarding" if they have no phone AND are not funded
@@ -657,13 +740,35 @@ export default function Profile() {
                                                 }
                                                 setIsSavingPendingPhone(m.id);
                                                 try {
-                                                    const { doc: docFn, updateDoc: updateDocFn } = await import('firebase/firestore');
-                                                    await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
-                                                        phoneNumber: phone,
-                                                        phone: phone,
-                                                        isPending: false,
-                                                        isActive: true,
-                                                    });
+                                                    const { doc: docFn, updateDoc: updateDocFn, deleteDoc: deleteDocFn } = await import('firebase/firestore');
+                                                    const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                                                    
+                                                    // Check if an active member exists with matching name or squad
+                                                    const existingActive = members.find((existing: any) => 
+                                                        existing.id !== m.id &&
+                                                        existing.isActive !== false &&
+                                                        ((norm(existing.displayName) && norm(existing.displayName) === norm(m.displayName)) ||
+                                                         (norm((existing as any).fplTeamName) && norm((existing as any).fplTeamName) === norm(m.fplTeamName)))
+                                                    );
+
+                                                    if (existingActive) {
+                                                        await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', existingActive.id), {
+                                                            phoneNumber: phone,
+                                                            phone: phone,
+                                                            fplTeamId: m.fplTeamId || existingActive.fplTeamId || null,
+                                                            fplTeamName: m.fplTeamName || (existingActive as any).fplTeamName || null,
+                                                            isPending: false,
+                                                            isActive: true,
+                                                        });
+                                                        await deleteDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id));
+                                                    } else {
+                                                        await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
+                                                            phoneNumber: phone,
+                                                            phone: phone,
+                                                            isPending: false,
+                                                            isActive: true,
+                                                        });
+                                                    }
                                                     haptics.success();
                                                     toast.success(`${m.displayName} activated!`);
                                                 } catch (_e) {
@@ -1442,6 +1547,72 @@ export default function Profile() {
 
                             </div>
 
+                            {/* Chairman Retirement & Succession Protocol Card */}
+                            <div className="fc-card w-full bg-gradient-to-br from-[#161d24] via-[#1a1518] to-[#201214] border border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                                <div className="flex items-center gap-2.5 mb-3">
+                                    <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                                        <Crown className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-300">
+                                            Chairman Retirement & Succession
+                                        </h2>
+                                        <p className="text-[10px] text-gray-400 font-medium">Step down and safely transfer chairmanship to the Co-Chair or a chosen manager</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 mt-1">
+                                    {coAdminId && (
+                                        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Designated Successor (Co-Chair)</p>
+                                                <p className="text-xs font-bold text-white truncate">
+                                                    {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedSuccessorId(coAdminId);
+                                                    setShowRetireModal(true);
+                                                }}
+                                                className="px-3.5 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                                            >
+                                                Pass to Co-Chair →
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+                                            Or Transfer Chairmanship to Any Manager:
+                                        </label>
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <select
+                                                value={selectedSuccessorId}
+                                                onChange={(e) => setSelectedSuccessorId(e.target.value)}
+                                                className="flex-1 bg-[#0c1218] border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-rose-500"
+                                            >
+                                                <option value="">-- Choose New Chairman --</option>
+                                                {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
+                                                    <option key={m.id} value={m.id}>
+                                                        {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                disabled={!selectedSuccessorId}
+                                                onClick={() => setShowRetireModal(true)}
+                                                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                                            >
+                                                Transfer Role
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Chama Guides & Constitution Card — Below League Governance, rendered last on mobile */}
                             <div className="fc-card w-full bg-[#161d24] border border-blue-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
                                 <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1544,6 +1715,19 @@ export default function Profile() {
                 cancelText="Cancel"
                 variant="danger"
                 isLoading={isDeletingMember}
+            />
+
+            {/* Chairman Retirement & Succession Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showRetireModal}
+                onClose={() => setShowRetireModal(false)}
+                onConfirm={handleRetireChairman}
+                title="Transfer Chairmanship & Step Down?"
+                message={`Are you sure you want to transfer full Chairmanship to ${members.find(m => m.id === selectedSuccessorId)?.displayName || 'the selected manager'}? They will become the primary administrator with authority over the pot, payouts, and rules. You will return to a standard member.`}
+                confirmText="Yes, Transfer Chairmanship"
+                cancelText="Cancel"
+                variant="danger"
+                isLoading={isRetiring}
             />
 
             {/* Chama Constitution & Guides Modal */}
