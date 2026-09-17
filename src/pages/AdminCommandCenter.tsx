@@ -495,6 +495,11 @@ export default function AdminCommandCenter() {
     currentRole: string | undefined,
   ) => {
     if (!activeLeagueId) return;
+    if (memberId === activeUserId || memberId === chairmanId || currentRole === "chairman") {
+      setToastMessage("Cannot revoke primary Chairman admin status 👑");
+      setTimeout(() => setToastMessage(""), 3000);
+      return;
+    }
     try {
       await useStore
         .getState()
@@ -3467,24 +3472,47 @@ burstFrame();
                             </div>
 
                             {/* Quick Emoji Reactions from Chairman — well-grouped to prevent awkward wrapping */}
-                            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 shrink-0">
-                                Send Props to {leaderName.split(' ')[0]} 💬
-                              </span>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
-                                  <button
-                                    key={emoji}
-                                    type="button"
-                                    onClick={() => handleSendReaction(emoji)}
-                                    className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-slate-100/80 dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs shrink-0"
-                                    title={`Send ${emoji} to ${leaderName}`}
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
+                            {(() => {
+                              const isMeLeader = Boolean(
+                                (leaderName && (
+                                  leaderName.toLowerCase() === (currentMember?.displayName || '').toLowerCase() ||
+                                  leaderName.toLowerCase() === (chairmanName || '').toLowerCase() ||
+                                  (auth.currentUser?.displayName && leaderName.toLowerCase() === auth.currentUser.displayName.toLowerCase())
+                                )) ||
+                                ((((currentMember as any)?.fplTeamName || currentMember?.teamName) && leaderTeam && (((currentMember as any)?.fplTeamName || currentMember?.teamName)).toLowerCase() === leaderTeam.toLowerCase()))
+                              );
+
+                              if (isMeLeader) {
+                                return (
+                                  <div className="mt-3 flex items-center gap-2">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1.5">
+                                      👑 You are leading this round!
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 shrink-0">
+                                    Send Props to {leaderName.split(' ')[0]} 💬
+                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
+                                      <button
+                                        key={emoji}
+                                        type="button"
+                                        onClick={() => handleSendReaction(emoji)}
+                                        className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-slate-100/80 dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs shrink-0"
+                                        title={`Send ${emoji} to ${leaderName}`}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {!isCurrentEventFinished && leadMargin !== null && leadMargin !== undefined && (
                               <div className="mt-2.5 flex items-center gap-2 flex-wrap">
@@ -3698,7 +3726,9 @@ burstFrame();
                       )}>
                         {gwAlreadySettled
                           ? "GW Settled ✓"
-                          : "Settle GW Winner"
+                          : Number(rules?.weekly ?? 70) === 0
+                            ? (isCurrentEventFinished ? "Standings Updated ✓" : "Season Vault Mode")
+                            : "Settle GW Winner"
                         }
                       </p>
                       {gwAlreadySettled ? (
@@ -4367,7 +4397,9 @@ burstFrame();
                         {gwAlreadySettled
                           ? `GW${currentGwNumber || ''} Settled ✓`
                           : isCurrentEventFinished
-                            ? `GW${currentGwNumber || ''} Ended — Settle Winner Now`
+                            ? (Number(rules?.weekly ?? 70) === 0
+                                ? `GW${currentGwNumber || ''} Concluded — Standings Updated`
+                                : `GW${currentGwNumber || ''} Ended — Settle Winner Now`)
                             : `League Open for Gameweek ${currentGwNumber || firestoreGw || '--'}`
                         }
                       </h5>
@@ -4375,7 +4407,9 @@ burstFrame();
                         {gwAlreadySettled
                           ? `Winner paid. System is preparing for GW${currentGwNumber ? currentGwNumber + 1 : ''}.`
                           : isCurrentEventFinished
-                            ? `GW${currentGwNumber || ''} is finished on FPL. Go to Priority Actions → Settle GW Winner.`
+                            ? (Number(rules?.weekly ?? 70) === 0
+                                ? `GW${currentGwNumber || ''} matches finished on FPL. 100% Season Vault league — points credited to championship table.`
+                                : `GW${currentGwNumber || ''} is finished on FPL. Go to Priority Actions → Settle GW Winner.`)
                             : `Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || '--'}. Deadline approaches.`
                         }
                       </p>
@@ -4690,10 +4724,14 @@ burstFrame();
                         <div className="text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
                           <span className="font-mono">{row.phone || '—'}</span>
                           <span className="text-white/20">•</span>
-                          <button onClick={() => handleToggleAdmin(row.id, (row as any).role)} className="hover:text-white transition-colors">
-                            {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
-                          </button>
-                          <span className="text-white/20">•</span>
+                          {row.id !== activeUserId && row.id !== chairmanId && (row as any).role !== "chairman" && (row as any).authUid !== auth.currentUser?.uid && (
+                            <>
+                              <button onClick={() => handleToggleAdmin(row.id, (row as any).role)} className="hover:text-white transition-colors">
+                                {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
+                              </button>
+                              <span className="text-white/20">•</span>
+                            </>
+                          )}
                           <button onClick={() => openEditMemberModal(row)} className="hover:text-[#FBBF24] transition-colors">✏️ Edit</button>
                           <span className="text-white/20">•</span>
                           <button

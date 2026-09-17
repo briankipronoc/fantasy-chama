@@ -372,6 +372,9 @@ export default function Profile() {
 
         try {
             const leagueRef = doc(db, 'leagues', activeLeagueId);
+            const matchedCoChair = members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId) || m.role === 'co-chair');
+            const targetCoAdminId = matchedCoChair ? matchedCoChair.id : (coAdminId || null);
+
             const updates: any = {
                 gameweekStake: Number(gameweekStake),
                 'rules.weekly': Number(weeklyPrizePercent),
@@ -380,7 +383,7 @@ export default function Profile() {
                 'rules.seasonWinnersMode': seasonWinnersMode,
                 'rules.seasonDistribution': effectiveSeasonDistribution,
                 fplLeagueId: fplLeagueId ? Number(fplLeagueId) : null,
-                coAdminId: coAdminId || null,
+                coAdminId: targetCoAdminId,
                 chairmanPhone: chairmanPhone || null
             };
             if (leagueName.trim()) {
@@ -388,6 +391,20 @@ export default function Profile() {
                 updates.leagueName = leagueName.trim();
             }
             await setDoc(leagueRef, updates, { merge: true });
+
+            if (targetCoAdminId) {
+                const coChairRef = doc(db, 'leagues', activeLeagueId, 'memberships', targetCoAdminId);
+                await updateDoc(coChairRef, { role: 'co-chair' }).catch(() => {});
+                const formerCoChairs = members.filter(m => m.id !== targetCoAdminId && m.role === 'co-chair' && m.id !== chairmanId);
+                for (const former of formerCoChairs) {
+                    await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', former.id), { role: 'member' }).catch(() => {});
+                }
+            } else if (coAdminId === '') {
+                const formerCoChairs = members.filter(m => m.role === 'co-chair' && m.id !== chairmanId);
+                for (const former of formerCoChairs) {
+                    await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', former.id), { role: 'member' }).catch(() => {});
+                }
+            }
             
             // Sync zustand store immediately for responsive header & tabs
             const currentLeague = useStore.getState().league;
@@ -540,22 +557,22 @@ export default function Profile() {
             {/* Centered Interactive Modal: FPL Sync • Pending Onboarding */}
             {showPendingOnboarding && pendingMembers.length > 0 && typeof document !== 'undefined' && createPortal(
                 <div
-                    className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
                     onClick={() => setShowPendingOnboarding(false)}
                 >
                     <div
-                        className="relative w-full max-w-xl bg-[#0c1218] border border-blue-500/30 rounded-3xl shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden"
+                        className="relative w-full max-w-xl bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-blue-500/30 rounded-3xl shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between gap-3 pb-4 border-b border-white/10 shrink-0">
+                        <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-white/10 shrink-0">
                             <div className="flex items-center gap-2.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
                                 <div>
-                                    <h3 className="text-sm md:text-base font-black text-white">
+                                    <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white">
                                         🔗 FPL Sync • Pending Onboarding
                                     </h3>
-                                    <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider mt-0.5">
+                                    <p className="text-[10px] text-blue-600 dark:text-blue-300 font-bold uppercase tracking-wider mt-0.5">
                                         {pendingMembers.length} Members to Activate
                                     </p>
                                 </div>
@@ -564,14 +581,14 @@ export default function Profile() {
                                 <button
                                     type="button"
                                     onClick={handleShare}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
                                 >
                                     <Share2 className="w-3 h-3" /> Share Code ({inviteCode || '------'})
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setShowPendingOnboarding(false)}
-                                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all active:scale-95 cursor-pointer"
+                                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
                                     aria-label="Close"
                                 >
                                     <X className="w-4 h-4" />
@@ -579,25 +596,25 @@ export default function Profile() {
                             </div>
                         </div>
 
-                        <p className="text-xs text-slate-300 my-3 font-medium leading-relaxed shrink-0">
+                        <p className="text-xs text-slate-600 dark:text-slate-300 my-3 font-medium leading-relaxed shrink-0">
                             Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger. Or share the code so members can join directly.
                         </p>
 
                         {/* Search Bar for Member Matching */}
                         <div className="relative mb-3 shrink-0">
-                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <Search className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
                                 type="text"
                                 value={onboardingSearch}
                                 onChange={(e) => setOnboardingSearch(e.target.value)}
                                 placeholder="Search member name or FPL team..."
-                                className="w-full pl-10 pr-12 py-2.5 bg-[#141b22] border border-white/10 rounded-xl text-xs text-white placeholder-gray-500 focus:border-blue-400 focus:outline-none transition-all"
+                                className="w-full pl-10 pr-12 py-2.5 bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:border-blue-500 focus:outline-none transition-all"
                             />
                             {onboardingSearch && (
                                 <button
                                     type="button"
                                     onClick={() => setOnboardingSearch('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 hover:text-white uppercase font-bold"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white uppercase font-bold"
                                 >
                                     Clear
                                 </button>
@@ -607,18 +624,18 @@ export default function Profile() {
                         {/* Scrollable Members List */}
                         <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
                             {filteredPendingMembers.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500 text-xs">
+                                <div className="text-center py-8 text-slate-400 dark:text-gray-500 text-xs font-medium">
                                     No pending members match "{onboardingSearch}"
                                 </div>
                             ) : (
                                 filteredPendingMembers.map((m: any) => (
-                                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#141b22] border border-white/10 hover:border-blue-500/40 transition-all">
+                                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 hover:border-blue-500/40 transition-all">
                                     <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
                                         <UserAvatar name={m.displayName} size="md" />
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-black text-white break-words leading-tight">{m.displayName}</p>
-                                            <p className="text-[11px] text-blue-300 font-semibold break-words mt-0.5">
-                                                {m.fplTeamName || 'FPL Team'} <span className="text-slate-400">· Pending Phone</span>
+                                            <p className="text-sm font-black text-slate-900 dark:text-white break-words leading-tight">{m.displayName}</p>
+                                            <p className="text-[11px] text-blue-600 dark:text-blue-300 font-semibold break-words mt-0.5">
+                                                {m.fplTeamName || 'FPL Team'} <span className="text-slate-500 dark:text-slate-400">· Pending Phone</span>
                                             </p>
                                         </div>
                                     </div>
@@ -628,7 +645,7 @@ export default function Profile() {
                                             value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
                                             onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
                                             placeholder="07XXXXXXXX"
-                                            className="flex-1 sm:w-36 bg-[#0c1218] border border-white/15 rounded-xl py-2 px-3 text-xs text-white font-mono focus:ring-1 focus:ring-blue-400 outline-none"
+                                            className="flex-1 sm:w-36 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/15 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white font-mono focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                                         />
                                         <button
                                             type="button"
@@ -656,7 +673,7 @@ export default function Profile() {
                                                 }
                                             }}
                                             disabled={isSavingPendingPhone === m.id || !((pendingPhoneMap[m.id] || m.phoneNumber)?.length >= 9)}
-                                            className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-300 text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                                            className="shrink-0 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 border border-blue-600 dark:border-blue-500/40 text-white dark:text-blue-300 text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
                                         >
                                             {isSavingPendingPhone === m.id ? (
                                                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -856,11 +873,11 @@ export default function Profile() {
                                             <select
                                                 value={fplTeamName}
                                                 onChange={(e) => setFplTeamName(e.target.value)}
-                                                className="w-full bg-white dark:bg-[#0b1014] border border-gray-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-10 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] transition-all outline-none font-semibold text-left appearance-none cursor-pointer shadow-sm"
+                                                className="w-full bg-slate-50 dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-11 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] transition-all outline-none text-left appearance-none cursor-pointer shadow-sm hover:border-[#10B981]/50"
                                             >
-                                                <option value="" disabled className="text-gray-500 dark:text-gray-400 bg-white dark:bg-[#0b1014]">Select your actual FPL Team</option>
+                                                <option value="" disabled className="text-gray-500 dark:text-gray-400 bg-white dark:bg-[#0c1218]">Select your actual FPL Team</option>
                                                 {fplStandings.map((team: any) => (
-                                                    <option key={team.entry} value={team.entry} className="bg-white dark:bg-[#0b1014] text-gray-900 dark:text-white py-1.5 font-medium">
+                                                    <option key={team.entry} value={team.entry} className="bg-white dark:bg-[#0c1218] text-gray-900 dark:text-white py-1.5 font-medium">
                                                         {team.entry_name} — (Mgr: {team.player_name})
                                                     </option>
                                                 ))}
@@ -1241,17 +1258,25 @@ export default function Profile() {
                                         </label>
                                     </div>
                                     <div className="relative">
-                                        <select
-                                            disabled={isFinancialsLocked}
-                                            value={coAdminId}
-                                            onChange={(e) => setCoAdminId(e.target.value)}
-                                            className="w-full bg-white dark:bg-[#0b1014] border border-gray-300 dark:border-white/10 rounded-xl py-2.5 pl-4 pr-10 text-sm font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer shadow-sm"
-                                        >
-                                            <option value="" className="bg-white dark:bg-[#0b1014] text-gray-500 dark:text-gray-400 py-1.5 font-medium">-- No Co-Chair Selected --</option>
-                                            {members.filter(m => m.id !== activeUserId).map(m => (
-                                                <option key={m.id} value={m.authUid || m.id} className="bg-white dark:bg-[#0b1014] text-gray-900 dark:text-white py-1.5 font-medium">{m.displayName} {m.authUid ? '' : '(Not Logged In)'}</option>
-                                            ))}
-                                        </select>
+                                        {(() => {
+                                            const matchedCoChair = members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId) || m.role === 'co-chair');
+                                            const resolvedCoAdminValue = matchedCoChair ? matchedCoChair.id : (coAdminId || '');
+                                            return (
+                                                <select
+                                                    disabled={isFinancialsLocked}
+                                                    value={resolvedCoAdminValue}
+                                                    onChange={(e) => setCoAdminId(e.target.value)}
+                                                    className="w-full bg-slate-50 dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-11 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer shadow-sm hover:border-[#FBBF24]/50"
+                                                >
+                                                    <option value="" className="bg-white dark:bg-[#0c1218] text-gray-500 dark:text-gray-400 py-1.5 font-medium">-- No Co-Chair Selected --</option>
+                                                    {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.id !== chairmanId && (m as any).role !== 'chairman').map(m => (
+                                                        <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-gray-900 dark:text-white py-1.5 font-medium">
+                                                            {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.role === 'co-chair' ? '👑 Active Co-Chair' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            );
+                                        })()}
                                         <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
                                     </div>
                                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>

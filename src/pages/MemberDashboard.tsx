@@ -1348,33 +1348,55 @@ export default function MemberDashboard() {
                                 </div>
 
                                 {/* Quick Emoji Reactions to the Champion */}
-                                <div className="w-full lg:w-auto bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 flex-shrink-0">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
-                                        Send Props to {gwWinner.player_name.split(' ')[0]} 💬
-                                    </p>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => {
-                                            const myReaction = gwChampionReactions.find(r => r.emoji === emoji && r.hasReacted);
-                                            const isSelected = Boolean(myReaction);
-                                            return (
-                                                <button
-                                                    key={emoji}
-                                                    type="button"
-                                                    onClick={() => handleSendReaction(emoji)}
-                                                    className={clsx(
-                                                        "w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-90 shadow-sm cursor-pointer",
-                                                        isSelected
-                                                            ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 scale-105"
-                                                            : "bg-white/5 hover:bg-amber-500/25 border-white/10 hover:border-amber-400/50"
-                                                    )}
-                                                    title={isSelected ? `You sent ${emoji}` : `React with ${emoji}`}
-                                                >
-                                                    {emoji}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                                {(() => {
+                                    const isCurrentUserGwWinner = Boolean(
+                                        (currentUser?.displayName && gwWinner?.player_name && currentUser.displayName.toLowerCase() === gwWinner.player_name.toLowerCase()) ||
+                                        (((currentUser as any)?.fplTeamName || currentUser?.teamName) && gwWinner?.entry_name && ((currentUser as any)?.fplTeamName || currentUser?.teamName).toLowerCase() === gwWinner.entry_name.toLowerCase()) ||
+                                        (currentUser?.fplTeamId && gwWinner?.entry && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
+                                        (currentUser?.id && (gwWinner as any)?.memberId && currentUser.id === (gwWinner as any).memberId)
+                                    );
+
+                                    if (isCurrentUserGwWinner) {
+                                        return (
+                                            <div className="w-full lg:w-auto bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+                                                <p className="text-[11px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+                                                    👑 You are the GW {currentFplEvent?.id || ''} Champion!
+                                                </p>
+                                                <p className="text-[10px] text-gray-300 font-medium">Bask in the victory — pot secured & brag recorded.</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="w-full lg:w-auto bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 flex-shrink-0">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
+                                                Send Props to {gwWinner.player_name.split(' ')[0]} 💬
+                                            </p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map(emoji => {
+                                                    const myReaction = gwChampionReactions.find(r => r.emoji === emoji && r.hasReacted);
+                                                    const isSelected = Boolean(myReaction);
+                                                    return (
+                                                        <button
+                                                            key={emoji}
+                                                            type="button"
+                                                            onClick={() => handleSendReaction(emoji)}
+                                                            className={clsx(
+                                                                "w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-90 shadow-sm cursor-pointer",
+                                                                isSelected
+                                                                    ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 scale-105"
+                                                                    : "bg-white/5 hover:bg-amber-500/25 border-white/10 hover:border-amber-400/50"
+                                                            )}
+                                                            title={isSelected ? `You sent ${emoji}` : `React with ${emoji}`}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     )

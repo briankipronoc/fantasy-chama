@@ -135,12 +135,7 @@ export default function Standings() {
             ...Array.from(pendingForfeited),
         ]);
 
-        const hasPayoutForCurrent = Array.from(winnerByGw.keys()).includes(currentEvent || 0);
-        const effectiveStartGw = Math.max(1, Number(
-            (leagueStartGw && leagueStartGw <= (currentEvent || 0) && isCurrentEventFinished && !hasPayoutForCurrent)
-                ? (currentEvent ? currentEvent + 1 : leagueStartGw)
-                : (leagueStartGw > 1 ? leagueStartGw : ((leagueRules as any)?.startGw || (isCurrentEventFinished && currentEvent ? currentEvent + 1 : currentEvent) || 1))
-        ));
+        const effectiveTargetGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1);
 
         return Array.from({ length: 38 }, (_, index) => {
             const gw = index + 1;
@@ -149,18 +144,7 @@ export default function Standings() {
                 return winnerByGw.get(gw)!;
             }
 
-            // 2. Pre-league gameweeks (prior to league officially starting) -> strictly voided
-            if (effectiveStartGw > 1 && gw < effectiveStartGw) {
-                return {
-                    gw,
-                    winnerName: 'Voided',
-                    winnerTeam: 'Pre-League',
-                    isVoided: true,
-                    isPreLeague: true,
-                };
-            }
-
-            // 3. Explicitly forfeited gameweeks
+            // 2. Explicitly forfeited gameweeks
             if (effectiveForfeited.has(gw)) {
                 return {
                     gw,
@@ -170,7 +154,7 @@ export default function Standings() {
                 };
             }
 
-            // 4. Pending payouts awaiting co-chair or chairman approval
+            // 3. Pending payouts awaiting co-chair or chairman approval
             if (pendingPayoutsMap.has(gw)) {
                 const p = pendingPayoutsMap.get(gw);
                 return {
@@ -182,7 +166,7 @@ export default function Standings() {
                 };
             }
 
-            // 5. Current active live gameweek
+            // 4. Current active live gameweek (during live matches before final check)
             if (currentEvent && gw === currentEvent && !isCurrentEventFinished) {
                 if (topGwMember && Number(topGwMember.event_total) > 0) {
                     return {
@@ -201,18 +185,40 @@ export default function Standings() {
                 };
             }
 
-            // 6. Past gameweeks that already concluded but were never resolved or had insufficient players -> Skipped
-            if (currentEvent && gw < currentEvent) {
+            // 5. Past gameweeks that already finished without payout (pre-league or unplayed) -> Strictly Voided
+            if (currentEvent && (isCurrentEventFinished ? gw <= currentEvent : gw < currentEvent)) {
                 return {
                     gw,
-                    winnerName: 'Skipped',
-                    winnerTeam: 'Not resolved / Insufficient players',
+                    winnerName: 'Voided',
+                    winnerTeam: 'Pre-League · No fees',
                     isVoided: true,
-                    isSkipped: true,
+                    isPreLeague: true,
                 };
             }
 
-            // 7. Future gameweeks
+            // 6. Pre-league gameweeks based on configured start GW
+            if (leagueStartGw > 1 && gw < leagueStartGw) {
+                return {
+                    gw,
+                    winnerName: 'Voided',
+                    winnerTeam: 'Pre-League · No fees',
+                    isVoided: true,
+                    isPreLeague: true,
+                };
+            }
+
+            // 7. Next target active pending kickoff
+            if (gw === effectiveTargetGw) {
+                return {
+                    gw,
+                    winnerName: 'Upcoming',
+                    winnerTeam: isCurrentEventFinished ? 'Next Round Kickoff' : 'Pending kickoff',
+                    isUpcoming: true,
+                    isTargetActiveGw: true,
+                };
+            }
+
+            // 8. Future upcoming gameweeks
             return {
                 gw,
                 winnerName: 'Upcoming',
@@ -356,7 +362,11 @@ export default function Standings() {
                     const bResp = await fetch(`/fpl-api/bootstrap-static/`);
                     if (bResp.ok) {
                         const bData = await bResp.json();
-                        const current = (bData?.events || []).find((event: any) => event.is_current);
+                        const events = bData?.events || [];
+                        const current = events.find((event: any) => event.is_current)
+                            || events.find((event: any) => event.is_previous)
+                            || events.filter((event: any) => event.finished).pop()
+                            || events[0];
                         if (current?.id) {
                             setCurrentEvent(current.id);
                             setIsCurrentEventFinished(Boolean(current.finished === true && current.data_checked === true));
@@ -382,7 +392,11 @@ export default function Standings() {
                 const response = await fetch(`/fpl-api/bootstrap-static/`);
                 if (!response.ok) return;
                 const data = await response.json();
-                const current = (data?.events || []).find((event: any) => event.is_current);
+                const events = data?.events || [];
+                const current = events.find((event: any) => event.is_current)
+                    || events.find((event: any) => event.is_previous)
+                    || events.filter((event: any) => event.finished).pop()
+                    || events[0];
                 if (current?.id) {
                     setCurrentEvent(current.id);
                     setIsCurrentEventFinished(Boolean(current.finished === true && current.data_checked === true));
@@ -591,19 +605,19 @@ export default function Standings() {
 
                     <div className="flex gap-3 flex-wrap items-center">
                         <div className="relative group">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 group-focus-within:text-[#10B981] transition-colors">
-                                <Search className="w-4 h-4" />
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-gray-500 group-focus-within:text-[#10B981] transition-colors">
+                                <Search className="w-3.5 h-3.5" />
                             </span>
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full sm:w-64 font-sans font-medium bg-[#161d24] border border-white/10 rounded-xl py-2 pl-11 pr-4 text-sm focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-gray-500 text-white outline-none shadow-lg"
+                                className="w-full sm:w-60 font-sans font-medium bg-slate-100 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl py-1.5 pl-9 pr-3 text-[11px] sm:text-xs focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-[11px] placeholder:text-slate-400 dark:placeholder:text-gray-500 text-slate-900 dark:text-white outline-none shadow-sm"
                                 placeholder="Search members or teams..."
                             />
                         </div>
-                        <button onClick={exportStandingsCSV} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-widest rounded-xl transition whitespace-nowrap active:scale-95">
-                            <Download className="w-4 h-4" /> Export CSV
+                        <button onClick={exportStandingsCSV} className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-black uppercase tracking-wider rounded-xl transition whitespace-nowrap active:scale-95">
+                            <Download className="w-3.5 h-3.5" /> Export CSV
                         </button>
                     </div>
                 </div>
@@ -770,12 +784,19 @@ export default function Standings() {
                                 const isInPodium = index < visibleSeasonWinnerCount;
                                 const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
                                 const isSpectator = (matchedMember as any)?.playMode === 'sidebets_only';
-                                const stake = Number((league as any)?.gameweekStake || (league as any)?.monthlyFee || 0);
+                                const stake = Number(
+                                    leagueRules?.gameweekStake ||
+                                    (league as any)?.gameweekStake ||
+                                    (league as any)?.rules?.gameweekStake ||
+                                    (league as any)?.monthlyFee ||
+                                    0
+                                );
+                                const memberBalance = Number(matchedMember?.walletBalance || 0);
                                 const isFunded = Boolean(
                                     matchedMember &&
                                     matchedMember.isActive !== false &&
                                     !isSpectator &&
-                                    (matchedMember.hasPaid === true || (stake > 0 && (matchedMember.walletBalance || 0) >= stake))
+                                    (matchedMember.hasPaid === true || memberBalance > 0 || (stake > 0 && memberBalance >= stake))
                                 );
                                 const isGwWinnerRow = Boolean(
                                     isFunded &&
@@ -796,8 +817,7 @@ export default function Standings() {
                                             podiumBorder,
                                             isTop1Overall ? 'bg-[#10B981]/5' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02]' : 'hover:bg-white/[0.02]',
                                             isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
-                                            isMe ? 'ring-1 ring-[#FBBF24]/40' : '',
-                                            !isFunded && !isSpectator && 'opacity-40 blur-[0.4px] hover:blur-none hover:opacity-85 transition-all saturate-50'
+                                            isMe ? 'ring-1 ring-[#FBBF24]/40' : ''
                                         )}
                                     >
                                         {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
@@ -818,9 +838,15 @@ export default function Standings() {
                                                     {isSpectator ? (
                                                         <span className="bg-indigo-500/15 text-indigo-300 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-indigo-500/30">Spectator</span>
                                                     ) : !isFunded ? (
-                                                        <span className="bg-red-500/15 text-red-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-red-500/25">Unfunded</span>
+                                                        (matchedMember as any)?.isEliminated ? (
+                                                            <span className="bg-red-500/15 text-red-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-red-500/25">Eliminated</span>
+                                                        ) : (
+                                                            <span className="bg-amber-500/15 text-amber-400 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-bold border border-amber-500/25">Pending Deposit</span>
+                                                        )
                                                     ) : (
-                                                        <Circle className="w-2 h-2 fill-current text-[#10B981]" />
+                                                        <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-1.5 py-0.5 rounded">
+                                                            <Circle className="w-1.5 h-1.5 fill-current text-emerald-400" /> Funded
+                                                        </span>
                                                     )}
                                                 </span>
                                                 <p className="text-[11px] text-gray-500 truncate md:hidden">{row.entry_name}</p>
@@ -838,9 +864,7 @@ export default function Standings() {
                                                     'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
                                                     isGwWinnerRow
                                                         ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
-                                                        : (isFunded || isSpectator)
-                                                            ? 'bg-white/5 text-slate-200 border-white/5'
-                                                            : 'bg-white/5 text-gray-500 border-white/5 line-through'
+                                                        : 'bg-white/5 text-slate-200 border-white/5'
                                                 )}>
                                                     {row.event_total}
                                                 </span>
@@ -855,10 +879,21 @@ export default function Standings() {
                                                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" /> Spectator
                                                     </span>
                                                 ) : !isFunded ? (
-                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
+                                                    (matchedMember as any)?.isEliminated ? (
+                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
+                                                        </span>
+                                                    ) : (
+                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-amber-500 dark:text-amber-400 border-amber-500/25 bg-amber-500/10 flex items-center gap-1">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Pending Deposit
+                                                        </span>
+                                                    )
+                                                ) : (
+                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-emerald-600 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Funded
                                                     </span>
-                                                ) : isGwWinnerRow && (role === 'admin' || isMe) ? (
+                                                )}
+                                                {isGwWinnerRow && (role === 'admin' || isMe) && (
                                                     <button
                                                         onClick={() => setFlexCardData({
                                                             winnerName: row.player_name,
@@ -867,12 +902,12 @@ export default function Standings() {
                                                             amountWon: Math.round((eligibleSeasonStandings.length * (stake || 100)) * (Number((league as any)?.rules?.weekly || 70) / 100)),
                                                             gameweek: currentEvent || '',
                                                         })}
-                                                        className="font-black text-[10px] md:text-xs tracking-tight border px-2.5 py-1 rounded-lg text-[#10B981] border-[#10B981]/40 bg-[#10B981]/15 hover:bg-[#10B981]/25 flex items-center gap-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all active:scale-95 cursor-pointer"
+                                                        className="font-black text-[10px] md:text-xs tracking-tight border px-2.5 py-1 rounded-lg text-[#10B981] border-[#10B981]/40 bg-[#10B981]/15 hover:bg-[#10B981]/25 flex items-center gap-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all active:scale-95 cursor-pointer ml-2"
                                                         title={hasFinalGwChampion ? "Share GW Champion Victory Card on WhatsApp" : "Share Live Leader Victory Card on WhatsApp"}
                                                     >
                                                         <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Victory Card
                                                     </button>
-                                                ) : null}
+                                                )}
                                             </div>
                                         </div>
                                     </div>

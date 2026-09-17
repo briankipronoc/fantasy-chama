@@ -565,7 +565,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         ))
     );
 
-    // Current season started in August 2026; filter out previous season transactions by default
     const currentSeasonStartMs = new Date('2026-08-01T00:00:00Z').getTime();
     const displayedTransactions = myTransactions.filter((tx: any) => {
         if (seasonFilter === 'all') return true;
@@ -573,6 +572,22 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         if (!ts) return true;
         return ts >= currentSeasonStartMs;
     });
+
+    const memberTotalLoadedAllTime = useMemo(() => {
+        if (!currentUser) return 0;
+        const txTotal = transactions
+            .filter((tx: any) => {
+                const isDeposit = tx.type === 'deposit' || tx.type === 'wallet_funding' || tx.type === 'manual_deposit' || tx.category === 'deposit';
+                if (!isDeposit) return false;
+                return (
+                    (currentUser.id && tx.memberId === currentUser.id) ||
+                    (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
+                    (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
+                );
+            })
+            .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+        return Math.max(txTotal, Number((currentUser as any)?.totalDeposited || 0));
+    }, [transactions, currentUser]);
 
 
         const isSpectator = (currentUser as any)?.playMode === 'sidebets_only';
@@ -945,7 +960,7 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
-                    <section className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6 mb-8">
+                    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 mb-8">
                         <article className={clsx("fc-card rounded-2xl p-6 sm:p-7 border flex flex-col justify-between shadow-md", isSpectator ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
                             <div>
                                 <div className="flex items-center justify-between mb-4">
@@ -974,7 +989,29 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </div>
                         </article>
 
-                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] shadow-md">
+                        <article className="fc-card rounded-2xl p-6 sm:p-7 border border-blue-500/25 bg-gradient-to-br from-blue-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between shadow-md">
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-300">
+                                        Total Loaded (All-Time)
+                                    </p>
+                                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                                </div>
+                                <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
+                                    KES {memberTotalLoadedAllTime.toLocaleString()}
+                                </p>
+                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
+                                    All deposits and top-ups loaded for the 2026/27 season.
+                                </p>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between gap-2">
+                                <span className="inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300">
+                                    Current Balance: KES {Number(currentUser.walletBalance || 0).toLocaleString()}
+                                </span>
+                            </div>
+                        </article>
+
+                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] shadow-md sm:col-span-2 lg:col-span-1">
                             <div className="flex items-center justify-between mb-4">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">Wallet Top-Up</p>
                                 <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-300" />

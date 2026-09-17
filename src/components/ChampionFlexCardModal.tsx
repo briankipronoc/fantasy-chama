@@ -231,20 +231,28 @@ export default function ChampionFlexCardModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // 1. Toned-down, elegant graphite background
+      const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
+      // 1. Background gradient
       const bgGrad = ctx.createRadialGradient(540, 540, 150, 540, 540, 750);
-      bgGrad.addColorStop(0, '#151b24');
-      bgGrad.addColorStop(0.6, '#0d1219');
-      bgGrad.addColorStop(1, '#070a0e');
+      if (!isDark) {
+        bgGrad.addColorStop(0, '#FFFFFF');
+        bgGrad.addColorStop(0.6, '#FCF9F2');
+        bgGrad.addColorStop(1, '#F5EFE1');
+      } else {
+        bgGrad.addColorStop(0, '#151b24');
+        bgGrad.addColorStop(0.6, '#0d1219');
+        bgGrad.addColorStop(1, '#070a0e');
+      }
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, 1080, 1080);
 
       // 2. Refined gold hairline borders
-      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.45)' : 'rgba(245, 158, 11, 0.45)';
+      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.45)' : 'rgba(245, 158, 11, 0.5)';
       ctx.lineWidth = 2;
       ctx.strokeRect(48, 48, 984, 984);
 
-      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
+      ctx.strokeStyle = isSideBet ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.25)';
       ctx.lineWidth = 1;
       ctx.strokeRect(60, 60, 960, 960);
 
@@ -253,14 +261,14 @@ export default function ChampionFlexCardModal({
       ctx.fillRect(440, 75, 200, 3);
 
       // 3. Header
-      ctx.fillStyle = isSideBet ? '#F87171' : '#FBBF24';
+      ctx.fillStyle = isSideBet ? '#DC2626' : (isDark ? '#FBBF24' : '#D97706');
       ctx.font = '800 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textAlign = 'center';
       ctx.letterSpacing = '5px';
       ctx.fillText(isSideBet ? 'HEAD-TO-HEAD DUEL SETTLED' : `GAMEWEEK ${gameweek} CHAMPION`, 540, 140);
 
       // 4. League Name Subheader
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(30, 41, 59, 0.7)';
       ctx.font = '600 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.letterSpacing = '2px';
       ctx.fillText(leagueName.toUpperCase(), 540, 185);
@@ -270,17 +278,17 @@ export default function ChampionFlexCardModal({
       ctx.fillText(isSideBet ? '⚔️' : '🏆', 540, 305);
 
       // 6. Winner Name
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = isDark ? '#FFFFFF' : '#0F172A';
       ctx.font = '900 58px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(winnerFirstName, 540, 410);
 
       // 7. Team Name / Duel Subtitle
       if (isSideBet) {
-        ctx.fillStyle = '#F87171';
+        ctx.fillStyle = '#EF4444';
         ctx.font = '600 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText(`Defeated ${defeatedOpponent || 'Rival'} in "${betTitle || 'Side Bet'}"`, 540, 465);
       } else if (teamName) {
-        ctx.fillStyle = '#94A3B8';
+        ctx.fillStyle = isDark ? '#94A3B8' : '#475569';
         ctx.font = '600 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText(teamName, 540, 465);
       }
@@ -288,54 +296,54 @@ export default function ChampionFlexCardModal({
       // 8. Stats Cards Container (Toned-down, clean)
       if (isSideBet) {
         // Opponent Card
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.05)';
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.fillStyle = isDark ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.08)';
+        ctx.strokeStyle = isDark ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.35)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.roundRect(160, 540, 350, 200, 20);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#F87171';
+        ctx.fillStyle = '#EF4444';
         ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText('HUMBLED RIVAL', 335, 600);
 
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = isDark ? '#FFFFFF' : '#0F172A';
         ctx.font = '800 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText(`${defeatedOpponent || 'Opponent'}`, 335, 680);
       } else {
         // Score Card
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(241, 245, 249, 0.85)';
+        ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(203, 213, 225, 0.8)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.roundRect(160, 540, 350, 200, 20);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#94A3B8';
+        ctx.fillStyle = isDark ? '#94A3B8' : '#64748B';
         ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText('GAMEWEEK SCORE', 335, 600);
 
-        ctx.fillStyle = '#34D399';
+        ctx.fillStyle = isDark ? '#34D399' : '#059669';
         ctx.font = '900 70px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText(`${points !== undefined ? points : 0}`, 335, 685);
 
-        ctx.fillStyle = '#10B981';
+        ctx.fillStyle = isDark ? '#10B981' : '#047857';
         ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText('POINTS', 335, 715);
       }
 
       // Pot Won Card
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.25)';
+      ctx.fillStyle = isDark ? 'rgba(245, 158, 11, 0.05)' : 'rgba(254, 243, 199, 0.7)';
+      ctx.strokeStyle = isDark ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.45)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.roundRect(570, 540, 350, 200, 20);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#FBBF24';
+      ctx.fillStyle = isDark ? '#FBBF24' : '#B45309';
       ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(
         isSideBet ? 'DUEL POT CLAIMED' : (amountWon > 0 ? 'POT SECURED' : 'GAMEWEEK HONOR'),
@@ -343,7 +351,7 @@ export default function ChampionFlexCardModal({
         600
       );
 
-      ctx.fillStyle = '#FDE68A';
+      ctx.fillStyle = isDark ? '#FDE68A' : '#78350F';
       if (amountWon > 0) {
         ctx.font = '900 52px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText(`KES ${amountWon.toLocaleString()}`, 745, 685);
@@ -352,7 +360,7 @@ export default function ChampionFlexCardModal({
         ctx.fillText('GW MVP 👑', 745, 685);
       }
 
-      ctx.fillStyle = '#F59E0B';
+      ctx.fillStyle = isDark ? '#F59E0B' : '#92400E';
       ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillText(
         amountWon > 0 ? 'AUTO-DISBURSED M-PESA' : 'SEASON VAULT CONTENDER',
@@ -362,21 +370,21 @@ export default function ChampionFlexCardModal({
 
       // 9. League Code Pill if available
       if (leagueCode) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(241, 245, 249, 0.9)';
+        ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(203, 213, 225, 0.8)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.roundRect(390, 800, 300, 48, 24);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#E2E8F0';
+        ctx.fillStyle = isDark ? '#E2E8F0' : '#334155';
         ctx.font = '700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         ctx.fillText(`LEAGUE CODE: ${leagueCode}`, 540, 832);
       }
 
       // 10. Bottom Footer / Verified Stamp
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(71, 85, 105, 0.7)';
       ctx.font = '600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.letterSpacing = '3px';
       ctx.fillText('VERIFIED BY FANTASYCHAMA • OFFICIAL FPL SYNC', 540, 960);
@@ -397,8 +405,8 @@ export default function ChampionFlexCardModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[125000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-3xl p-5 md:p-6 shadow-2xl relative text-slate-900 dark:text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
+    <div className="fixed inset-0 z-[125000] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-lg md:max-w-xl bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-3xl p-5 md:p-6 shadow-2xl relative text-slate-900 dark:text-white my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
           <div className="flex items-center gap-2.5">
@@ -423,59 +431,59 @@ export default function ChampionFlexCardModal({
           </button>
         </div>
 
-        {/* Digital Flex Card Preview */}
-        <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#161d26] to-[#0d1218] p-4 text-center shadow-lg overflow-hidden mb-4">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400 mb-2 flex items-center justify-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-amber-400" />
+        {/* Digital Flex Card Preview — Adaptive Light & Dark Mode */}
+        <div className="relative rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 dark:from-[#161d26] dark:to-[#0d1218] p-4 text-center shadow-md dark:shadow-lg overflow-hidden mb-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 mb-2 flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-amber-500 dark:text-amber-400" />
             {isSideBet ? `DUEL SETTLED • ${leagueName}` : `GW${gameweek} CHAMPION • ${leagueName}`}
           </p>
 
-          <h3 className="text-xl md:text-2xl font-black text-white tracking-tight">
+          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             {winnerFirstName}
           </h3>
 
           {isSideBet ? (
-            <p className="text-xs text-red-400 font-bold mt-0.5">
+            <p className="text-xs text-red-500 dark:text-red-400 font-bold mt-0.5">
               Humbled {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
             </p>
           ) : (
-            teamName && <p className="text-xs text-slate-400 font-medium mt-0.5">{teamName}</p>
+            teamName && <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-0.5">{teamName}</p>
           )}
 
           {leagueCode && (
-            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-medium text-gray-400 mt-1.5">
-              League Code: <span className="font-mono font-bold text-amber-300">{leagueCode}</span>
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[9px] font-medium text-slate-600 dark:text-gray-400 mt-1.5">
+              League Code: <span className="font-mono font-bold text-amber-600 dark:text-amber-300">{leagueCode}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2.5 mt-3 pt-3 border-t border-white/10">
-            <div className="bg-white/[0.04] rounded-xl p-2.5 border border-white/5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-0.5">
+          <div className="grid grid-cols-2 gap-2.5 mt-3 pt-3 border-t border-slate-200 dark:border-white/10">
+            <div className="bg-slate-100/90 dark:bg-white/[0.04] rounded-xl p-2.5 border border-slate-200 dark:border-white/5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5">
                 {isSideBet ? 'Rival' : 'Gameweek Score'}
               </p>
-              <p className="text-lg font-black text-emerald-400 truncate">
+              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 truncate">
                 {isSideBet ? (defeatedOpponent || 'Rival') : `${points !== undefined ? points : 0} pts`}
               </p>
             </div>
-            <div className="bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/20">
-              <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-0.5">
+            <div className="bg-amber-100/70 dark:bg-amber-500/10 rounded-xl p-2.5 border border-amber-300 dark:border-amber-500/20">
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400 mb-0.5">
                 Pot Secured
               </p>
-              <p className="text-lg font-black text-amber-300 tabular-nums">
+              <p className="text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums">
                 KES {amountWon.toLocaleString()}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-white/5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+          <div className="flex items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-slate-200 dark:border-white/5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <p className="text-[8px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
               Verified Chama Settlement • Official FPL Sync
             </p>
           </div>
         </div>
 
-        {/* Banter Caption Box */}
+        {/* Banter Caption Box — Spacious rows=5 so all 4 lines are clearly readable without scroll */}
         <div className="mb-4">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <p className="text-xs font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
@@ -497,8 +505,8 @@ export default function ChampionFlexCardModal({
             <textarea
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
-              rows={4}
-              className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:border-amber-500/50 text-[11px] font-mono text-slate-800 dark:text-gray-200 leading-snug outline-none resize-none custom-scrollbar"
+              rows={5}
+              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-[#0a0e14] border border-slate-200 dark:border-white/10 focus:border-amber-500/50 text-xs font-mono text-slate-800 dark:text-gray-200 leading-relaxed outline-none resize-none custom-scrollbar"
               placeholder="Edit your banter message..."
             />
             <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-gray-500 px-1 mt-0.5 font-medium">
