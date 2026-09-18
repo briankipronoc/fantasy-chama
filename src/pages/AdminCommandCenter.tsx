@@ -346,7 +346,6 @@ export default function AdminCommandCenter() {
   const [fundMethod, setFundMethod] = useState<"mpesa" | "cash">("mpesa");
   const [fundTransactionCode, setFundTransactionCode] = useState("");
   const [fundCashDate, setFundCashDate] = useState("");
-  const [fundGameweek, setFundGameweek] = useState("");
   const [fundNote, setFundNote] = useState("");
   const [isFundingWallet, setIsFundingWallet] = useState(false);
   const [isSendingWalletPrompt, setIsSendingWalletPrompt] = useState(false);
@@ -1960,7 +1959,7 @@ export default function AdminCommandCenter() {
           "Payment server is not configured. Set VITE_API_URL for production.",
         );
 
-      const targetGw = Number(fundGameweek || currentGwNumber || firestoreGw || 1);
+      const targetGw = Number(currentGwNumber || firestoreGw || 1);
       const data = await secureApiPost(`${payoutApiUrl}/api/mpesa/stkpush`, {
         phoneNumber: member.phone,
         amount,
@@ -2034,7 +2033,7 @@ export default function AdminCommandCenter() {
         paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
       });
 
-      const targetGw = Number(fundGameweek || currentGwNumber || firestoreGw || 1);
+      const targetGw = Number(currentGwNumber || firestoreGw || 1);
       await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
         type: "wallet_funding",
         source: fundMethod,
@@ -3459,8 +3458,8 @@ burstFrame();
                     </Link>
                   </div>
 
-                  {/* Main Leader & Pot Row — responsive xl:flex-row to prevent half-screen compression */}
-                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 relative z-10">
+                  {/* Main Leader & Pot Row — responsive lg:flex-row to prevent half-screen compression */}
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
                     {/* Left: Leader Profile & Margins */}
                     <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
                       {isPreLeagueRound ? (
@@ -3629,7 +3628,7 @@ burstFrame();
                     </div>
 
                     {/* Right: Projected Pot + Action Buttons — Resolve placed directly below Projected Cash Pot with matching length */}
-                    <div className="flex flex-col gap-2.5 w-full sm:w-56 md:w-64 pt-3 xl:pt-0 border-t xl:border-t-0 xl:border-l xl:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
+                    <div className="flex flex-col gap-2.5 w-full lg:w-64 xl:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
                       <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
                           Projected Cash Pot
@@ -3701,7 +3700,7 @@ burstFrame();
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 w-full">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4 w-full">
                   <div
                     className={clsx(
                       "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
@@ -5584,29 +5583,6 @@ burstFrame();
                       Prompt sent. Waiting for callback. Use Manual Confirm only if the callback does not arrive.
                     </div>
                   )}
-
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Funded For Gameweek
-                  </span>
-                  <div className="relative">
-                    <select
-                      value={fundGameweek || (currentGwNumber || firestoreGw || 1)}
-                      onChange={(e) => setFundGameweek(e.target.value)}
-                      className="fc-prefund-input w-full appearance-none rounded-xl border border-gray-300 dark:border-white/10 px-3.5 py-3 pr-10 bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] font-semibold"
-                    >
-                      <option value={currentGwNumber || firestoreGw || 1}>
-                        Gameweek {currentGwNumber || firestoreGw || 1} (Current Matchday)
-                      </option>
-                      {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => (
-                        <option key={gw} value={gw}>
-                          Gameweek {gw}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
-                  </div>
-                </label>
 
                 <label className="space-y-2 md:col-span-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">

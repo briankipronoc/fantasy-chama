@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Download, Trophy, Star, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
 import { collection, doc, getDoc, getDocs, updateDoc } from 'firebase/firestore';
@@ -398,7 +398,7 @@ export default function Standings() {
                                 const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
 
                                 aggData = recent.map((gw: any, index: number) => {
-                                    const existing = aggData[index] || { name: `GW${gw.event}`, Average: leagueAvg };
+                                    const existing = aggData[index] || { name: `GW${gw.event}` };
                                     return {
                                         ...existing,
                                         [playerName]: gw.points
@@ -409,7 +409,21 @@ export default function Standings() {
                             console.warn('Error fetching performance:', e);
                         }
                     }
-                    if (aggData.length > 0) setPerformanceData(aggData);
+                    if (aggData.length > 0) {
+                        // Compute true per-gameweek average across all loaded managers
+                        const finalData = aggData.map(row => {
+                            const scores = Object.keys(row)
+                                .filter(k => k !== 'name' && k !== 'Average')
+                                .map(k => Number(row[k]))
+                                .filter(n => Number.isFinite(n));
+                            const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : leagueAvg;
+                            return {
+                                ...row,
+                                Average: avg
+                            };
+                        });
+                        setPerformanceData(finalData);
+                    }
                 };
                 fetchPerformances();
 
@@ -1186,6 +1200,9 @@ export default function Standings() {
                                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-400/10 border border-amber-300 dark:border-amber-400/25 text-amber-800 dark:text-[#FBBF24] text-xs font-bold shadow-xs">
                                     <span className="w-2.5 h-0.5 bg-amber-500 dark:bg-[#FBBF24] inline-block" />
                                     <span>GW Avg: <strong className="tabular-nums font-black">{currentGwAverage}</strong> pts</span>
+                                    {!isCurrentEventFinished && Number(currentGwAverage) <= 5 && (
+                                        <span className="text-[8px] uppercase font-black tracking-wider text-amber-600 dark:text-amber-400 ml-0.5 animate-pulse">Live</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1233,6 +1250,9 @@ export default function Standings() {
                                                     {lastScore !== undefined && (
                                                         <span className="text-[10px] font-black text-slate-500 dark:text-gray-400 tabular-nums ml-0.5">
                                                             {lastScore} pts
+                                                            {!isCurrentEventFinished && lastScore === 0 && (
+                                                                <span className="text-[8px] text-amber-500 font-bold ml-0.5">• live</span>
+                                                            )}
                                                         </span>
                                                     )}
                                                 </button>
@@ -1263,6 +1283,22 @@ export default function Standings() {
                                                     contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '14px', fontSize: '12px', color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
                                                     itemStyle={{ fontWeight: 'bold' }}
                                                 />
+                                                {leagueStartGw && leagueStartGw > 1 && (
+                                                    <ReferenceLine
+                                                        x={`GW${leagueStartGw}`}
+                                                        stroke="#10B981"
+                                                        strokeDasharray="4 4"
+                                                        strokeWidth={2}
+                                                        label={{
+                                                            value: `🏁 Kickoff (GW${leagueStartGw})`,
+                                                            position: 'insideTopLeft',
+                                                            fill: '#10B981',
+                                                            fontSize: 10,
+                                                            fontWeight: 800,
+                                                            offset: 8
+                                                        }}
+                                                    />
+                                                )}
                                                 {playerKeys.map((playerKey, idx) => {
                                                     const color = colors[idx % colors.length];
                                                     const isSpotlit = spotlightPlayer === playerKey;

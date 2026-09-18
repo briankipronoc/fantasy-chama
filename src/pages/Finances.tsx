@@ -1225,7 +1225,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                 )}
 
                 {/* Main Treasury Metric Cards (1 Row with ample breathing room) */}
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 mb-8">
+                <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 mb-8">
                     {/* Card 1: Projected Weekly / Season Collection */}
                     {(() => {
                         const weeklyPercent = Number(rules?.weekly || 0);
@@ -1243,9 +1243,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                         return (
                             <>
                                 <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                                    <div className="flex items-center justify-between gap-2 mb-3">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 shrink-0">
                                                 <ShieldCheck className="w-4 h-4" />
                                             </div>
                                             <div>
@@ -1269,7 +1269,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                        <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0">
                                             {effectivePayoutMode === 'both' && (
                                                 <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
                                                     <button
@@ -1414,13 +1414,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400 flex-shrink-0">
                                             <Wallet className="w-3.5 h-3.5" />
                                         </div>
-                                        <div className="min-w-0">
-                                            <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white truncate">League Treasury Split</h3>
-                                            <p className="text-[9px] text-gray-500 dark:text-gray-400 font-medium truncate">Current GW secured funds snapshot</p>
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">League Treasury Split</h3>
+                                            <p className="text-[9px] text-gray-500 dark:text-gray-400 font-medium">Current GW secured funds snapshot</p>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-1.5">
+                                    <div className="grid grid-cols-2 gap-2">
                                         <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
                                             <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Chairman</p>
                                             <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(chairmanShare).toLocaleString()}</p>
@@ -1740,7 +1740,7 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                                             {/* Tagged Gameweek Badges */}
                                             {m.recentGwsFunded && m.recentGwsFunded.length > 0 && (
-                                                <div className="hidden md:flex items-center gap-1 flex-wrap max-w-[150px] justify-end">
+                                                <div className="flex items-center gap-1 flex-wrap max-w-[200px] justify-start sm:justify-end">
                                                     {m.recentGwsFunded.slice(0, 4).map((gw: any, idx: number) => (
                                                         <span key={idx} className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                             GW{gw}

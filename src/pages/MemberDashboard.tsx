@@ -10,7 +10,7 @@ import { getApiBaseUrl, secureApiPost } from '../utils/api';
 import { useNotifications } from '../components/NotificationProvider';
 import PotVaultSwapper from '../components/PotVaultSwapper';
 import clsx from 'clsx';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { DashboardSkeleton } from '../components/Skeleton';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import { haptics } from '../utils/haptics';
@@ -225,12 +225,9 @@ export default function MemberDashboard() {
                                             const current = histData?.current;
                                             if (current && current.length > 0) {
                                                 const recent = current.slice(-5);
-                                                const leagueAvg = results.length > 0
-                                                    ? Math.round(results.reduce((s: number, curRes: any) => s + curRes.event_total, 0) / results.length)
-                                                    : 50;
                                                 
                                                 aggData = recent.map((gw: any, index: number) => {
-                                                    const existing = aggData[index] || { name: `GW${gw.event}`, Average: leagueAvg };
+                                                    const existing = aggData[index] || { name: `GW${gw.event}` };
                                                     return {
                                                         ...existing,
                                                         [`Team ${tId}`]: gw.points
@@ -241,7 +238,20 @@ export default function MemberDashboard() {
                                             console.error('Error fetching performance:', e);
                                         }
                                     }
-                                    if (aggData.length > 0) setPerformanceData(aggData);
+                                    if (aggData.length > 0) {
+                                        const finalData = aggData.map(row => {
+                                            const scores = Object.keys(row)
+                                                .filter(k => k !== 'name' && k !== 'Average')
+                                                .map(k => Number(row[k]))
+                                                .filter(n => Number.isFinite(n));
+                                            const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 50;
+                                            return {
+                                                ...row,
+                                                Average: avg
+                                            };
+                                        });
+                                        setPerformanceData(finalData);
+                                    }
                                 };
                                 fetchPerformances();
                             }
@@ -1945,7 +1955,7 @@ export default function MemberDashboard() {
                                                 ? "Spectator & Side-Bets Only 🛡️"
                                                 : (hasPaid ? "Verified & Active" : "Action Required")))}
                                 </h3>
-                                <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                                <p className="text-xs text-gray-400 leading-relaxed mb-3">
                                     {isRecentWinner
                                         ? "Incredible! You secured the highest points this GW. Payout processing."
                                         : (isCurrentGwVoided
@@ -1958,6 +1968,37 @@ export default function MemberDashboard() {
                                                         ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
                                                         : "Your contribution is missing. Pay before the FPL deadline."))))}
                                 </p>
+
+                                {!isSpectator && !isRecentWinner && !isCurrentGwVoided && (
+                                    <div className="mb-4 p-3 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-2">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                                Gameweek {currentFplEvent?.id || 1} Stake
+                                            </span>
+                                            <span className={clsx(
+                                                "text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider",
+                                                hasPaid
+                                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                                                    : "bg-rose-500/20 text-rose-400 border-rose-500/40"
+                                            )}>
+                                                {hasPaid ? "Funded ✓" : "Unpaid"}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs font-semibold">
+                                            <span className="text-gray-300">
+                                                {hasPaid ? `Secured: KES ${gameweekStake.toLocaleString()}` : `Due: KES ${gameweekStake.toLocaleString()}`}
+                                            </span>
+                                            <span className="text-gray-400 text-[11px]">
+                                                Wallet: <strong className="text-white">KES {walletBalance.toLocaleString()}</strong>
+                                            </span>
+                                        </div>
+                                        {gameweekStake > 0 && walletBalance >= gameweekStake && (
+                                            <p className="text-[10px] text-emerald-400/90 font-medium">
+                                                Auto-covers {Math.floor(walletBalance / gameweekStake)} round{Math.floor(walletBalance / gameweekStake) > 1 ? 's' : ''} (GW{currentFplEvent?.id || 1} → GW{(currentFplEvent?.id || 1) + Math.floor(walletBalance / gameweekStake) - 1})
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {isSpectator ? (
@@ -2098,6 +2139,22 @@ export default function MemberDashboard() {
                                         contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', fontSize: '12px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
                                         itemStyle={{ fontWeight: 'bold' }}
                                     />
+                                    {leagueStartGw && leagueStartGw > 1 && (
+                                        <ReferenceLine
+                                            x={`GW${leagueStartGw}`}
+                                            stroke="#10B981"
+                                            strokeDasharray="4 4"
+                                            strokeWidth={2}
+                                            label={{
+                                                value: `🏁 Kickoff (GW${leagueStartGw})`,
+                                                position: 'insideTopLeft',
+                                                fill: '#10B981',
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                offset: 8
+                                            }}
+                                        />
+                                    )}
                                     {currentUser?.fplTeamId && (
                                         <Line type="monotone" dataKey={`Team ${currentUser.fplTeamId}`} stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Your Team" />
                                     )}
