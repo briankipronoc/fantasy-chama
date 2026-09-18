@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Star, Zap, Save, ShieldAlert, BarChart3, Users } from 'lucide-react';
+import { Search, Download, Trophy, Star, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -11,14 +11,21 @@ import UserAvatar from '../components/UserAvatar';
 import { StandingsSkeleton } from '../components/Skeleton';
 
 const fetchFplStandings = async (leagueId: number) => {
-    // Check cache
     const cacheKey = `fpl_standings_${leagueId}`;
     const cached = localStorage.getItem(cacheKey);
+    let cachedData: any[] | null = null;
     if (cached) {
-        const { timestamp, data } = JSON.parse(cached);
-        // 5-minute TTL caching to prevent Firebase/FPL quota limits during mass refreshes
-        if (Date.now() - timestamp < 300000) {
-            return data;
+        try {
+            const { timestamp, data } = JSON.parse(cached);
+            if (Array.isArray(data) && data.length > 0) {
+                cachedData = data;
+                // 5-minute TTL caching to prevent Firebase/FPL quota limits during mass refreshes
+                if (Date.now() - timestamp < 300000) {
+                    return { results: data, isCached: false, isMaintenance: false };
+                }
+            }
+        } catch {
+            cachedData = null;
         }
     }
     const endpoints = [
@@ -26,19 +33,26 @@ const fetchFplStandings = async (leagueId: number) => {
     ];
 
     let lastError = 'Could not connect to FPL servers.';
+    let isMaintenance = false;
     for (const endpoint of endpoints) {
         try {
             const response = await fetch(endpoint);
             if (!response.ok) {
-                lastError = `FPL API returned ${response.status}. League ID may be invalid.`;
+                if (response.status === 503 || response.status === 502 || response.status === 504) {
+                    isMaintenance = true;
+                    lastError = `Official Premier League servers are currently updating matchday scores and bonus points (HTTP ${response.status}).`;
+                } else if (response.status === 404) {
+                    lastError = `FPL league #${leagueId} was not found (HTTP 404). Please verify your League ID.`;
+                } else {
+                    lastError = `FPL API returned ${response.status}. League ID may be invalid.`;
+                }
                 continue;
             }
 
             const data = await response.json();
             if (data?.standings?.results) {
-                
                 localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: data.standings.results }));
-                return data.standings.results;
+                return { results: data.standings.results, isCached: false, isMaintenance: false };
             }
             lastError = 'FPL response format was unexpected.';
         } catch (err: any) {
@@ -46,7 +60,19 @@ const fetchFplStandings = async (leagueId: number) => {
         }
     }
 
-    throw new Error(lastError);
+    // Graceful fallback: If FPL servers are updating (503/network) and we have previously cached standings, return them!
+    if (cachedData && cachedData.length > 0) {
+        return {
+            results: cachedData,
+            isCached: true,
+            isMaintenance,
+            maintenanceMessage: isMaintenance ? lastError : null
+        };
+    }
+
+    const err = new Error(lastError) as any;
+    err.isMaintenance = isMaintenance;
+    throw err;
 };
 
 export default function Standings() {
@@ -64,6 +90,8 @@ export default function Standings() {
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isFplMaintenance, setIsFplMaintenance] = useState(false);
+    const [isCachedStandings, setIsCachedStandings] = useState(false);
     const [leagueName, setLeagueName] = useState(() => league?.name || localStorage.getItem('activeLeagueName') || '');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [coAdminId, setCoAdminId] = useState<string | null>(null);
@@ -313,8 +341,11 @@ export default function Standings() {
                     return;
                 }
 
-                const results = await fetchFplStandings(targetFplId);
-                setStandingsData(results || []);
+                const fetchRes = await fetchFplStandings(targetFplId);
+                const results = fetchRes?.results || [];
+                setStandingsData(results);
+                setIsCachedStandings(Boolean(fetchRes?.isCached));
+                setIsFplMaintenance(Boolean(fetchRes?.isMaintenance));
 
                 const fetchPerformances = async () => {
                     let aggData: any[] = [];
@@ -398,6 +429,8 @@ export default function Standings() {
                 }
             } catch (err: any) {
                 console.error('FPL Fetch Error:', err);
+                const is503 = err?.isMaintenance || String(err?.message || '').includes('503') || String(err?.message || '').includes('updating matchday') || String(err?.message || '').includes('Premier League servers');
+                setIsFplMaintenance(Boolean(is503));
                 setError(err.message || 'Could not connect to FPL servers.');
             } finally {
                 setIsLoading(false);
@@ -694,15 +727,15 @@ export default function Standings() {
 
                 {/* Stats Cards */}
                 {/* Quick Fix Inline FPL ID Linker */}
-                {role === 'admin' && (!dbFplLeagueId || error) && (
-                    <div className="fc-card bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                        <div>
-                            <h3 className="font-bold text-[#10B981] flex items-center gap-2 mb-1">
-                                <Zap className="w-5 h-5" /> {error ? 'Update FPL League Link' : 'Link Official FPL League'}
+                {role === 'admin' && (!dbFplLeagueId || (error && !isFplMaintenance)) && (
+                    <div className="fc-card bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 w-full">
+                        <div className="w-full md:flex-1 min-w-0">
+                            <h3 className="font-bold text-[#10B981] flex items-center gap-2 mb-1 text-sm sm:text-base">
+                                <Zap className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> {error ? 'Update FPL League Link' : 'Link Official FPL League'}
                             </h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">Paste your full FPL Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 break-words">Paste your full FPL Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
                         </div>
-                        <div className="flex gap-2 w-full md:w-auto">
+                        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
                             <input
                                 type="text"
                                 placeholder="Paste Standings URL..."
@@ -713,16 +746,59 @@ export default function Standings() {
                                     if (match && match[1]) val = match[1];
                                     setInputFplLeagueId(val.replace(/\D/g, ''));
                                 }}
-                                className="w-full sm:w-64 bg-[#161d24] border border-[#10B981]/30 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#10B981]"
+                                className="w-full sm:w-64 bg-[#161d24] border border-[#10B981]/30 rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#10B981]"
                             />
                             <button
                                 onClick={handleSaveFplId}
                                 disabled={isSavingFplId || !inputFplLeagueId}
-                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex flex-shrink-0 items-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors text-xs sm:text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)] w-full sm:w-auto shrink-0 cursor-pointer"
                             >
                                 <Save className="w-4 h-4" /> Save Link
                             </button>
                         </div>
+                    </div>
+                )}
+
+                {/* Graceful banner when using cached standings while FPL is 503 updating */}
+                {isCachedStandings && isFplMaintenance && (
+                    <div className="fc-card bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-200 animate-in fade-in duration-300">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+                                <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-amber-300 flex items-center gap-2">
+                                    <span>Official FPL Servers Updating</span>
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 font-bold uppercase">HTTP 503</span>
+                                </p>
+                                <p className="text-[11px] text-gray-300 mt-0.5">
+                                    Displaying your chama's latest verified standings. Pot calculations and standings will refresh live as soon as Premier League servers finish crunching scores.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => {
+                                const reload = async () => {
+                                    setIsLoading(true);
+                                    setError(null);
+                                    if (!dbFplLeagueId) { setIsLoading(false); return; }
+                                    try {
+                                        const res = await fetchFplStandings(dbFplLeagueId);
+                                        setStandingsData(res?.results || []);
+                                        setIsCachedStandings(Boolean(res?.isCached));
+                                        setIsFplMaintenance(Boolean(res?.isMaintenance));
+                                    } catch (e: any) {
+                                        setError(e?.message || 'Sync failed');
+                                    } finally {
+                                        setIsLoading(false);
+                                    }
+                                };
+                                reload();
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-bold transition-all shrink-0 self-end sm:self-center cursor-pointer active:scale-95"
+                        >
+                            Check Live Status
+                        </button>
                     </div>
                 )}
                 {/* Stats swapper + user hero */}
@@ -779,7 +855,7 @@ export default function Standings() {
                         </p>
                         {role === 'admin' ? (
                             <div className="max-w-md mx-auto space-y-3">
-                                <div className="flex gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
                                     <input
                                         type="text"
                                         placeholder="Paste FPL Standings URL or ID..."
@@ -790,12 +866,12 @@ export default function Standings() {
                                             if (match && match[1]) val = match[1];
                                             setInputFplLeagueId(val.replace(/\D/g, ''));
                                         }}
-                                        className="flex-1 bg-[#0b1014] border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400"
+                                        className="flex-1 bg-[#0b1014] border border-white/15 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 w-full"
                                     />
                                     <button
                                         onClick={handleSaveFplId}
                                         disabled={isSavingFplId || !inputFplLeagueId}
-                                        className="bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black px-5 py-2.5 rounded-xl text-sm transition-all"
+                                        className="bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs sm:text-sm transition-all w-full sm:w-auto shrink-0 cursor-pointer"
                                     >
                                         {isSavingFplId ? 'Saving...' : 'Link League'}
                                     </button>
@@ -811,17 +887,57 @@ export default function Standings() {
                         )}
                     </div>
                 ) : error ? (
-                    <div className="fc-card w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center relative overflow-hidden mt-6">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-red-500 blur-[80px] opacity-10 pointer-events-none"></div>
-                        <ShieldAlert className="w-10 h-10 text-red-400 mx-auto mb-4" />
-                        <h3 className="text-xl font-black text-white mb-2">Sync Interrupted</h3>
-                        <p className="text-red-400 font-bold mb-4 text-sm">{error}</p>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
-                            {role === 'admin' 
-                                ? "This usually happens if your FPL League ID is incorrect or missing. Use the green 'Update FPL League Link' box above to paste your exact Standings URL and restore the connection."
-                                : "The Chairman needs to update the FPL League link, or the official FPL servers are undergoing maintenance."}
-                        </p>
-                    </div>
+                    isFplMaintenance ? (
+                        <div className="fc-card w-full bg-[#161d24] border border-amber-500/25 p-8 sm:p-10 rounded-[2rem] text-center relative overflow-hidden mt-6 shadow-2xl">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/10 blur-[100px] pointer-events-none" />
+                            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+                                <RefreshCw className="w-7 h-7 animate-spin text-amber-400" />
+                            </div>
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-3">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                Chama & Vault Secured
+                            </div>
+                            <h3 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight">Official FPL Servers Updating</h3>
+                            <p className="text-sm text-gray-300 max-w-md mx-auto leading-relaxed mb-6">
+                                Official Premier League servers are currently crunching matchday scores, bonus points, or undergoing scheduled maintenance right now (HTTP 503). Your chama records and escrow pot are completely safe and will refresh live here automatically once FPL finishes updating.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setIsLoading(true);
+                                    setError(null);
+                                    if (dbFplLeagueId) {
+                                        fetchFplStandings(dbFplLeagueId)
+                                            .then((res: any) => {
+                                                setStandingsData(res?.results || []);
+                                                setIsCachedStandings(Boolean(res?.isCached));
+                                                setIsFplMaintenance(Boolean(res?.isMaintenance));
+                                            })
+                                            .catch((err: any) => {
+                                                setError(err?.message || 'Sync retry failed');
+                                            })
+                                            .finally(() => setIsLoading(false));
+                                    } else {
+                                        setIsLoading(false);
+                                    }
+                                }}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-lg cursor-pointer"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" /> Check FPL Status
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="fc-card w-full bg-[#161d24] border border-red-500/20 p-8 rounded-[2rem] text-center relative overflow-hidden mt-6">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-red-500 blur-[80px] opacity-10 pointer-events-none"></div>
+                            <ShieldAlert className="w-10 h-10 text-red-400 mx-auto mb-4" />
+                            <h3 className="text-xl font-black text-white mb-2">Sync Interrupted</h3>
+                            <p className="text-red-400 font-bold mb-4 text-sm">{error}</p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
+                                {role === 'admin' 
+                                    ? "This usually happens if your FPL League ID is incorrect or missing. Use the green 'Update FPL League Link' box above to paste your exact Standings URL and restore the connection."
+                                    : "The Chairman needs to update the FPL League link, or the official FPL servers are undergoing maintenance."}
+                            </p>
+                        </div>
+                    )
                 ) : (
                     <div className="fc-card w-full bg-[#161d24] border border-white/5 rounded-2xl overflow-hidden">
                         {/* Desktop table header — hidden on mobile */}

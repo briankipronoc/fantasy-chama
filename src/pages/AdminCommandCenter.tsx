@@ -3255,7 +3255,7 @@ burstFrame();
         {/* Unified Global Toast Notification */}
         <div
           className={clsx(
-            "fixed top-4 right-4 px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
+            "fixed top-4 right-4 left-4 sm:left-auto max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
             toastMessage
               ? "opacity-100 translate-y-0 scale-100 visible"
               : "opacity-0 -translate-y-2 scale-95 invisible",

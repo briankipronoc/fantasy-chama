@@ -12,6 +12,22 @@ import SeasonCeremonyModal from '../components/SeasonCeremonyModal';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 
 const fetchFplStandings = async (leagueId: number) => {
+    const cacheKey = `fpl_standings_${leagueId}`;
+    const cached = localStorage.getItem(cacheKey);
+    let cachedData: any[] | null = null;
+    if (cached) {
+        try {
+            const { timestamp, data } = JSON.parse(cached);
+            if (Array.isArray(data) && data.length > 0) {
+                cachedData = data;
+                if (Date.now() - timestamp < 300000) {
+                    return data;
+                }
+            }
+        } catch {
+            cachedData = null;
+        }
+    }
     const endpoints = [
         `/fpl-api/leagues-classic/${leagueId}/standings/`
     ];
@@ -21,18 +37,23 @@ const fetchFplStandings = async (leagueId: number) => {
         try {
             const response = await fetch(endpoint);
             if (!response.ok) {
-                lastError = `FPL API returned ${response.status}. League ID may be invalid.`;
+                lastError = `FPL API returned ${response.status}.`;
                 continue;
             }
 
             const data = await response.json();
             if (data?.standings?.results) {
+                localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: data.standings.results }));
                 return data.standings.results;
             }
             lastError = 'FPL response format was unexpected.';
         } catch (err: any) {
             lastError = err?.message || 'Could not connect to FPL servers.';
         }
+    }
+
+    if (cachedData && cachedData.length > 0) {
+        return cachedData;
     }
 
     throw new Error(lastError);

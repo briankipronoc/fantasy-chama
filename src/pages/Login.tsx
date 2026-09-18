@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Shield, User, ArrowRight, ArrowLeft, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown } from 'lucide-react';
+import { Shield, User, ArrowRight, ArrowLeft, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown, Users, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
@@ -835,56 +835,91 @@ export default function Login() {
 
                 {/* Staged Loading Overlay — reveals who has joined and preloads dashboard in background */}
                 {loginTransition && (
-                    <div className="absolute inset-0 z-30 bg-white/95 dark:bg-[#10171d]/95 backdrop-blur-2xl rounded-[2rem] p-6 md:p-8 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 border border-slate-200 dark:border-emerald-500/30 shadow-2xl text-slate-900 dark:text-white">
+                    <div className="absolute inset-0 z-30 bg-[#0e151a]/98 backdrop-blur-2xl rounded-[2rem] p-5 sm:p-7 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 border border-emerald-500/30 shadow-[0_0_50px_rgba(0,0,0,0.8)] text-white overflow-hidden">
+                        {/* Top subtle glow */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-emerald-500/10 blur-[50px] pointer-events-none" />
+
+                        {/* Top: League & Welcome Header */}
                         <div>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-4">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
-                                Vault Connected
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10B981]" />
+                                    Vault Connected
+                                </div>
+                                <span className="text-[10px] font-mono text-gray-400 font-bold uppercase tracking-widest">
+                                    100% Escrow
+                                </span>
                             </div>
-                            <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
                                 {loginTransition.leagueName}
                             </h3>
-                            <p className="text-xs text-slate-600 dark:text-gray-400 mt-1 font-medium">
-                                Welcome back, <span className="text-slate-900 dark:text-white font-bold">{loginTransition.memberName}</span>
+                            <p className="text-xs text-gray-300 mt-1 font-medium">
+                                Welcome back, <span className="text-emerald-400 font-bold">{loginTransition.memberName}</span>
                             </p>
                         </div>
 
-                        {/* Member preview badges */}
-                        <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 space-y-2.5">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">
-                                Active League Managers ({loginTransition.totalCount})
-                            </p>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                                {loginTransition.members.slice(0, 4).map((mName, i) => (
-                                    <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                        {mName}
-                                    </span>
+                        {/* Middle: Active Joined Managers Showcase (Fully utilizes card space) */}
+                        <div className="p-3.5 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3 flex-1 flex flex-col justify-center my-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                                    <Users className="w-3.5 h-3.5 text-emerald-400" />
+                                    Active League Managers ({loginTransition.totalCount})
+                                </p>
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                    Joined & Verified
+                                </span>
+                            </div>
+
+                            {/* Manager avatar chips wrap */}
+                            <div className="flex items-center gap-2 flex-wrap max-h-[160px] overflow-y-auto fc-mini-scroll pr-1">
+                                {loginTransition.members.slice(0, 10).map((mName, i) => (
+                                    <div
+                                        key={i}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#162028] border border-emerald-500/25 text-[11px] font-bold text-white shadow-sm hover:border-emerald-400/50 transition-colors"
+                                    >
+                                        <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px] font-black uppercase shrink-0">
+                                            {mName.charAt(0)}
+                                        </div>
+                                        <span className="truncate max-w-[90px]">{mName}</span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_4px_#10B981]" />
+                                    </div>
                                 ))}
-                                {loginTransition.totalCount > 4 && (
-                                    <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 px-1">
-                                        +{loginTransition.totalCount - 4} others
-                                    </span>
+                                {loginTransition.totalCount > 10 && (
+                                    <div className="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold text-gray-400">
+                                        +{loginTransition.totalCount - 10} more managers
+                                    </div>
                                 )}
+                            </div>
+
+                            {/* League Trust Mini Features */}
+                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
+                                <div className="flex items-center gap-1.5 text-[10px] text-gray-300 font-medium">
+                                    <Shield className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    <span>Weekly Pot Locked</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-gray-300 font-medium">
+                                    <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                                    <span>Real-time FPL Sync</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Dynamic Progress Steps */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-gray-300">
+                        {/* Bottom: Dynamic Progress Steps */}
+                        <div className="space-y-2.5 pt-1">
+                            <div className="flex items-center justify-between text-xs font-bold text-gray-300">
                                 <span className="flex items-center gap-2">
-                                    <span className="w-4 h-4 border-2 border-emerald-500 dark:border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                    <span className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
                                     {loginTransition.step === 1 && "Connecting to Escrow Vault..."}
                                     {loginTransition.step === 2 && "Syncing Managers & Standings..."}
                                     {loginTransition.step === 3 && "Opening Live Dashboard..."}
                                 </span>
-                                <span className="text-emerald-600 dark:text-emerald-400 font-mono font-black">
+                                <span className="text-emerald-400 font-mono font-black text-xs">
                                     {loginTransition.step === 1 ? '35%' : loginTransition.step === 2 ? '75%' : '100%'}
                                 </span>
                             </div>
-                            <div className="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden p-[1px]">
                                 <div 
-                                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out rounded-full"
+                                    className="h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-300 transition-all duration-700 ease-out rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                                     style={{ width: loginTransition.step === 1 ? '35%' : loginTransition.step === 2 ? '75%' : '100%' }}
                                 />
                             </div>

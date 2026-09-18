@@ -1086,10 +1086,7 @@ export default function MemberDashboard() {
 
     return (
         <div className={clsx(
-            "fc-member-dashboard min-h-[100dvh] text-slate-900 dark:text-white flex flex-col font-sans relative pb-6 w-full overflow-x-hidden transition-colors duration-700",
-            isCurrentUserGwWinner
-                ? "bg-gradient-to-br from-[#0b1014] via-[#1a1608] to-[#2a1f05] dark:from-[#0b1014] dark:via-[#1a1608] dark:to-[#2a1f05]"
-                : hasPaid ? "bg-slate-50 dark:bg-[#0b1014]" : "bg-gradient-to-br from-slate-100 to-red-50 dark:from-[#0b1014] dark:to-[#2a0808]",
+            "fc-member-dashboard min-h-[100dvh] text-slate-900 dark:text-white flex flex-col font-sans relative pb-6 w-full overflow-x-hidden bg-slate-50 dark:bg-[#0b1014] transition-colors duration-300",
             isSuspended ? "overflow-hidden h-screen" : ""
         )}>
             {/* Constitution first-login modal */}
@@ -1168,11 +1165,10 @@ export default function MemberDashboard() {
 
             <div className={clsx("transition-all duration-700 w-full flex-1 flex flex-col", isSuspended ? "blur-xl opacity-30 pointer-events-none select-none scale-[0.98]" : "")}>
 
-            {/* Golden Glow Overlay for GW Winner */}
+            {/* Subtle Top Ambient Glow for GW Winner */}
             {isCurrentUserGwWinner && (
                 <div className="fixed inset-0 pointer-events-none z-0">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#FBBF24] blur-[200px] opacity-[0.06]"></div>
-                    <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#F59E0B] blur-[150px] opacity-[0.04]"></div>
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-[#FBBF24] blur-[220px] opacity-[0.05]"></div>
                 </div>
             )}
 
@@ -1195,21 +1191,21 @@ export default function MemberDashboard() {
                     </div>
                 </div>
             )}
-            {/* Background Element */}
-            <div className="fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-20 pointer-events-none z-0">
+            {/* Background Element — Neutral subtle lines */}
+            <div className="fixed right-[-10%] bottom-[-10%] w-[600px] h-[600px] opacity-15 pointer-events-none z-0">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="none" stroke={isCurrentUserGwWinner ? "rgba(251,191,36,0.15)" : "rgba(255,255,255,0.1)"} strokeWidth="0.5" d="M10,100 L190,100 M100,10 L100,190 M30,30 L170,170 M30,170 L170,30" />
-                    <circle cx="10" cy="100" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
-                    <circle cx="190" cy="100" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
-                    <circle cx="100" cy="10" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
-                    <circle cx="100" cy="190" r="1.5" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.3)"} />
-                    <circle cx="100" cy="100" r="3" fill={isCurrentUserGwWinner ? "rgba(251,191,36,0.6)" : "rgba(255,255,255,0.5)"} />
+                    <path fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" d="M10,100 L190,100 M100,10 L100,190 M30,30 L170,170 M30,170 L170,30" />
+                    <circle cx="10" cy="100" r="1.5" fill="rgba(255,255,255,0.2)" />
+                    <circle cx="190" cy="100" r="1.5" fill="rgba(255,255,255,0.2)" />
+                    <circle cx="100" cy="10" r="1.5" fill="rgba(255,255,255,0.2)" />
+                    <circle cx="100" cy="190" r="1.5" fill="rgba(255,255,255,0.2)" />
+                    <circle cx="100" cy="100" r="3" fill="rgba(255,255,255,0.3)" />
                 </svg>
             </div>
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed top-4 right-4 px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
+                "fixed top-4 right-4 left-4 sm:left-auto max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
                 toastMessage ? "opacity-100 translate-y-0 scale-100 visible" : "opacity-0 -translate-y-2 scale-95 invisible",
                 toastType === 'error'
                     ? "fc-inline-toast-error"
