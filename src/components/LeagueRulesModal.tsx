@@ -32,13 +32,25 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
         });
     }, [activeLeagueId]);
 
-    // Close on Escape key only if they have accepted
+    const handleDismissOrClose = () => {
+        if (activeLeagueId) {
+            try {
+                localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                localStorage.setItem(`fc_constitution_dismissed_${activeLeagueId}`, 'true');
+                localStorage.setItem('fc_constitution_dismissed', 'true');
+                sessionStorage.removeItem('fc_show_constitution_onboarded');
+            } catch {}
+        }
+        onClose();
+    };
+
+    // Close on Escape key
     useEffect(() => {
-        if (!isOpen || !hasAccepted) return;
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        if (!isOpen) return;
+        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleDismissOrClose(); };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
-    }, [isOpen, onClose, hasAccepted]);
+    }, [isOpen, onClose]);
 
     // Prevent body scroll when open
     useEffect(() => {
@@ -46,17 +58,29 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
+    // Check if content already fits on screen or is scrolled to bottom
     useEffect(() => {
         if (!isOpen) return;
-        setHasScrolledToBottom(hasAccepted); // if already accepted, unlock immediately
-        const timer = window.requestAnimationFrame(() => {
-            if (contentRef.current) contentRef.current.scrollTop = 0;
-            if (overlayRef.current) overlayRef.current.scrollTop = 0;
-        });
-        return () => window.cancelAnimationFrame(timer);
+        if (hasAccepted) {
+            setHasScrolledToBottom(true);
+            return;
+        }
+
+        const checkFit = () => {
+            const el = contentRef.current;
+            if (!el) return;
+            // On tablets / large screens where the entire modal content fits without scrolling,
+            // or when already scrolled near bottom, unlock immediately.
+            if (el.scrollHeight - el.clientHeight <= 60 || (el.scrollHeight - el.scrollTop - el.clientHeight < 80)) {
+                setHasScrolledToBottom(true);
+            }
+        };
+
+        const timer = setTimeout(checkFit, 100);
+        return () => clearTimeout(timer);
     }, [isOpen, hasAccepted]);
 
-    // Track scroll position to unlock the sign button
+    // Track scroll position
     const handleContentScroll = () => {
         if (hasScrolledToBottom || hasAccepted) return;
         const el = contentRef.current;
@@ -65,23 +89,55 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
         if (nearBottom) setHasScrolledToBottom(true);
     };
 
+    const handleAccept = async () => {
+        setIsAccepting(true);
+        try {
+            if (activeLeagueId) {
+                try {
+                    localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
+                    localStorage.setItem(`fc_constitution_dismissed_${activeLeagueId}`, 'true');
+                    localStorage.setItem('fc_constitution_dismissed', 'true');
+                    sessionStorage.removeItem('fc_show_constitution_onboarded');
+                } catch {}
+            }
+
+            const targetMemberId = currentMember?.id || localStorage.getItem('activeUserId');
+            if (activeLeagueId && targetMemberId) {
+                // Asynchronously update Firestore without blocking UI transition if network is slow
+                updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', targetMemberId), {
+                    hasAcceptedRules: true
+                }).catch(err => {
+                    console.warn('[rules-modal] Firestore updateDoc failed:', err);
+                });
+            }
+
+            toast.success('League Constitution accepted! Welcome aboard!');
+            onClose();
+        } catch (e: any) {
+            console.error("Failed to accept rules:", e);
+            onClose();
+        } finally {
+            setIsAccepting(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return createPortal(
         <div
             ref={overlayRef}
             className="fc-rules-overlay fixed inset-0 z-[99999] flex items-center justify-center overflow-y-auto p-2 md:p-4"
-            onClick={(e) => { if (e.target === overlayRef.current && hasAccepted) onClose(); }}
+            onClick={(e) => { if (e.target === overlayRef.current) handleDismissOrClose(); }}
         >
             {/* Backdrop */}
-            <div className="fc-rules-backdrop absolute inset-0 bg-black/70 backdrop-blur-md animate-in fade-in duration-200" />
+            <div className="fc-rules-backdrop absolute inset-0 bg-black/75 backdrop-blur-md animate-in fade-in duration-200" />
 
             {/* Modal Body - Centered Card */}
-            <div className="fc-rules-modal relative w-full max-w-2xl max-h-[85vh] my-auto flex flex-col bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/80 animate-in zoom-in-95 slide-in-from-bottom-3 fade-in duration-300 overflow-hidden">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.06),transparent_34%)]" />
+            <div className="fc-rules-modal relative w-full max-w-2xl max-h-[88vh] my-auto flex flex-col bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl shadow-black/80 animate-in zoom-in-95 slide-in-from-bottom-3 fade-in duration-300 overflow-hidden">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(251,191,36,0.06),transparent_34%)]" />
 
                 {/* Header */}
-                <div className="fc-rules-header sticky top-0 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/90 backdrop-blur-md z-10">
+                <div className="fc-rules-header sticky top-0 flex items-center justify-between px-6 py-5 border-b border-white/[0.06] flex-shrink-0 bg-[#0d1117]/95 backdrop-blur-md z-10">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
                             <Shield className="w-4.5 h-4.5 text-emerald-400" />
@@ -95,23 +151,15 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                             </h2>
                         </div>
                     </div>
-                    {hasAccepted && (
-                        <button
-                            onClick={() => {
-                                if (activeLeagueId) {
-                                    try {
-                                        localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
-                                        localStorage.setItem('fc_constitution_dismissed', 'true');
-                                    } catch {}
-                                }
-                                onClose();
-                            }}
-                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.06] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-white transition-all active:scale-95"
-                            aria-label="Close"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={handleDismissOrClose}
+                        className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white transition-all active:scale-95 cursor-pointer"
+                        aria-label="Close"
+                        title="Close"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
 
                 {/* First-login intro banner */}
@@ -129,10 +177,19 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                                 </p>
                             </div>
                             {!hasScrolledToBottom && (
-                                <div className="flex items-center gap-1.5 text-gray-500 text-xs animate-bounce flex-shrink-0">
-                                    <ChevronDown className="w-4 h-4" />
-                                    <span>Scroll to unlock</span>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (contentRef.current) {
+                                            contentRef.current.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'smooth' });
+                                            setHasScrolledToBottom(true);
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 text-gray-400 hover:text-emerald-400 text-xs transition-colors flex-shrink-0 cursor-pointer"
+                                >
+                                    <ChevronDown className="w-4 h-4 animate-bounce text-emerald-400" />
+                                    <span>Scroll rules</span>
+                                </button>
                             )}
                         </div>
                     </div>
@@ -151,7 +208,7 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                             <p className="text-sm text-emerald-50/90 mt-1">You have already accepted the constitution. Review it anytime without signing again.</p>
                         </div>
                     )}
-                    {/* Rules map moved inline */}
+                    {/* Rules */}
                     {[
                         {
                             id: 'escrow',
@@ -164,10 +221,10 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                         },
                         {
                             id: 'wallet',
-                            icon: <Wallet className="w-5 h-5 text-blue-400 flex-shrink-0" />,
-                            iconBg: 'bg-blue-500/10 border-blue-500/20',
+                            icon: <Wallet className="w-5 h-5 text-[#10B981] flex-shrink-0" />,
+                            iconBg: 'bg-emerald-500/10 border-emerald-500/20',
                             label: 'WALLET ARCHITECTURE',
-                            labelColor: 'text-blue-400',
+                            labelColor: 'text-emerald-400',
                             title: 'Deposit Once. Play All Season.',
                             body: `There are no weekly manual transfers. Deposit your contribution securely via M-Pesa STK Push (e.g. KES ${gameweekStake !== null ? gameweekStake : '...'}) and the system automatically deducts your Gameweek stake before each FPL deadline. Top up at any time from the Deposit screen.`,
                         },
@@ -188,12 +245,12 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                                     <div className="fc-golden-rule-alert bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
                                         <p className="font-black text-red-400 text-xs uppercase tracking-widest mb-1">No Exceptions</p>
                                         <p>
-                                                If you are the <strong className="fc-golden-rule-strong text-white">top FPL scorer</strong> in a Gameweek but your wallet is in the Red Zone,
+                                            If you are the <strong className="fc-golden-rule-strong text-white">top FPL scorer</strong> in a Gameweek but your wallet is in the Red Zone,
                                             you <strong className="text-red-400">forfeit the weekly pot</strong>. The winnings go to the next
                                             highest-scoring member in the <span className="text-emerald-400 font-bold">Green Zone</span>.
                                         </p>
                                     </div>
-                                        <p className="fc-golden-rule-note text-xs text-gray-500">
+                                    <p className="fc-golden-rule-note text-xs text-gray-500">
                                         The Red Zone banner on your dashboard persists until you top up.
                                     </p>
                                 </div>
@@ -201,10 +258,10 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                         },
                         {
                             id: 'transparency',
-                            icon: <Scale className="w-5 h-5 text-purple-400 flex-shrink-0" />,
-                            iconBg: 'bg-purple-500/10 border-purple-500/20',
+                            icon: <Scale className="w-5 h-5 text-[#FBBF24] flex-shrink-0" />,
+                            iconBg: 'bg-amber-500/10 border-amber-500/20',
                             label: 'TRANSPARENCY & DISPUTES',
-                            labelColor: 'text-purple-400',
+                            labelColor: 'text-[#FBBF24]',
                             title: 'Maker/Checker & Claim Payment',
                             body: 'All payouts require Maker/Checker Co-Chair approval to make sure no single person can unilaterally move funds. If an M-Pesa STK Push fails or your balance doesn\'t update, use the "Claim Payment" feature in your Profile with your M-Pesa SMS receipt code. The Chairman will verify and credit your wallet.',
                         },
@@ -236,59 +293,47 @@ export default function LeagueRulesModal({ isOpen, onClose, currentMember, leagu
                     ))}
 
                     {/* Footer note */}
-                    <p className="fc-rules-footnote text-[10px] text-gray-600 text-center pb-2">
+                    <p className="fc-rules-footnote text-[10px] text-gray-500 text-center pb-2">
                         These rules are enforced automatically by the FantasyChama smart escrow system.
                         Questions? Contact your Chairman or use the Dispute feature.
                     </p>
                 </div>
 
-                {/* Footer CTA - Only show if they haven't accepted yet */}
-                {!hasAccepted && (
-                    <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 bg-[#0d1117]/80 space-y-2">
-                        {!hasScrolledToBottom && (
-                            <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1.5">
-                                <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
-                                Read the full constitution to unlock your signature
-                            </p>
-                        )}
+                {/* Footer CTA */}
+                <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 bg-[#0d1117]/95 space-y-2">
+                    {!hasAccepted && !hasScrolledToBottom && (
                         <button
-                            onClick={async () => {
-                                if (!hasScrolledToBottom) return;
-                                setIsAccepting(true);
-                                try {
-                                    if (activeLeagueId) {
-                                        try {
-                                            localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
-                                            localStorage.setItem(`fc_constitution_dismissed_${activeLeagueId}`, 'true');
-                                            sessionStorage.removeItem('fc_show_constitution_onboarded');
-                                        } catch {}
-                                    }
-                                    if (activeLeagueId && currentMember) {
-                                        await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', currentMember.id), {
-                                            hasAcceptedRules: true
-                                        });
-                                    }
-                                    toast.success('League Constitution accepted!');
-                                    onClose();
-                                } catch (e: any) {
-                                    console.error("Failed to accept rules:", e);
-                                    toast.error(e.message || "Failed to save preference. Please check your connection.");
-                                } finally {
-                                    setIsAccepting(false);
+                            type="button"
+                            onClick={() => {
+                                if (contentRef.current) {
+                                    contentRef.current.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'smooth' });
+                                    setHasScrolledToBottom(true);
                                 }
                             }}
-                            disabled={isAccepting || !hasScrolledToBottom}
-                            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-black rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] active:scale-[0.98] text-sm flex items-center justify-center gap-2"
+                            className="w-full text-center text-[11px] text-gray-400 hover:text-emerald-400 flex items-center justify-center gap-1.5 transition-colors cursor-pointer py-0.5"
                         >
-                            {isAccepting
-                                ? <Loader2 className="w-5 h-5 animate-spin" />
-                                : hasScrolledToBottom
-                                    ? <>🛡️ I Accept & Enter League</>
-                                    : <>Scroll to unlock signature</>
-                            }
+                            <ChevronDown className="w-3.5 h-3.5 animate-bounce text-emerald-400" />
+                            <span>Tap or scroll to review full constitution</span>
                         </button>
-                    </div>
-                )}
+                    )}
+                    <button
+                        type="button"
+                        onClick={handleAccept}
+                        disabled={isAccepting}
+                        className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-black rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] active:scale-[0.98] text-sm flex items-center justify-center gap-2 cursor-pointer select-none"
+                    >
+                        {isAccepting ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                <span>Entering League...</span>
+                            </>
+                        ) : hasAccepted ? (
+                            <>✓ Constitution Signed · Continue</>
+                        ) : (
+                            <>🛡️ I Accept & Enter League</>
+                        )}
+                    </button>
+                </div>
             </div>
         </div>,
         document.body

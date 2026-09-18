@@ -263,20 +263,23 @@ export default function MemberDashboard() {
         if (!leagueName) return;
         setIsLoading(false);
 
+        // Check if already dismissed or accepted in this league
+        const isDismissedOrAccepted = Boolean(
+            activeLeagueId && (
+                localStorage.getItem(`fc_rules_accepted_${activeLeagueId}`) === 'true' ||
+                localStorage.getItem(`fc_constitution_dismissed_${activeLeagueId}`) === 'true' ||
+                localStorage.getItem('fc_constitution_dismissed') === 'true'
+            )
+        );
+
+        if (isDismissedOrAccepted) return;
+
         const shouldForceShowConstitution = Boolean(
             location.state?.showConstitution ||
             sessionStorage.getItem('fc_show_constitution_onboarded') === 'true'
         );
 
-        // Show constitution modal on first login (only for non-admin members who haven't accepted or dismissed in this league)
-        const isDismissedOrAccepted = Boolean(
-            activeLeagueId && (
-                localStorage.getItem(`fc_rules_accepted_${activeLeagueId}`) === 'true' ||
-                localStorage.getItem(`fc_constitution_dismissed_${activeLeagueId}`) === 'true'
-            )
-        );
-
-        if (shouldForceShowConstitution || (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules && !isDismissedOrAccepted)) {
+        if (shouldForceShowConstitution || (currentUser && currentUser?.role !== 'admin' && !(currentUser as any)?.hasAcceptedRules)) {
             const timer = setTimeout(() => setShowRulesModal(true), 350);
             return () => clearTimeout(timer);
         }
@@ -1094,10 +1097,16 @@ export default function MemberDashboard() {
                 isOpen={showRulesModal}
                 onClose={() => {
                     sessionStorage.removeItem('fc_show_constitution_onboarded');
+                    if (location.state?.showConstitution) {
+                        try {
+                            window.history.replaceState({ ...location.state, showConstitution: false }, document.title);
+                        } catch {}
+                    }
                     if (activeLeagueId) {
                         try {
                             localStorage.setItem(`fc_rules_accepted_${activeLeagueId}`, 'true');
                             localStorage.setItem(`fc_constitution_dismissed_${activeLeagueId}`, 'true');
+                            localStorage.setItem('fc_constitution_dismissed', 'true');
                         } catch {}
                     }
                     setShowRulesModal(false);
