@@ -36,14 +36,17 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
 
     const currentMember = members.find(m => m.id === realActiveUser) || members.find(m => m.id === activeUserId) || null;
     const leagueSettings = useStore(state => state.league) as any;
-    const currentUid = auth.currentUser?.uid;
-    const isChairmanUser = Boolean(
-        role === 'admin' ||
-        (currentMember as any)?.role === 'admin' ||
-        (currentMember as any)?.isChairman === true ||
-        members.some(m => (m as any).role === 'admin' && (m.id === activeUserId || (currentUid && m.authUid === currentUid))) ||
-        (leagueSettings?.chairmanId && currentUid && leagueSettings.chairmanId === currentUid) ||
-        (leagueSettings?.chairmanId && currentMember?.id && leagueSettings.chairmanId === currentMember.id)
+    const currentUser = auth.currentUser;
+    const isAnonymousAuth = Boolean(currentUser?.isAnonymous);
+    const currentUid = !isAnonymousAuth ? currentUser?.uid : null;
+    const currentAuthEmail = !isAnonymousAuth ? currentUser?.email?.toLowerCase() : null;
+
+    // Strictly verify if the user has authenticated as the Chairman via Firebase Auth (Email/Password)
+    const isEmailAuthenticatedChairman = Boolean(
+        !isAnonymousAuth && (
+            (leagueSettings?.chairmanId && currentUid && leagueSettings.chairmanId === currentUid) ||
+            (leagueSettings?.chairmanEmail && currentAuthEmail && leagueSettings.chairmanEmail.toLowerCase() === currentAuthEmail)
+        )
     );
 
     // Unsolicited auto-popup removed — constitution is accessible on-demand or on designated first-login
@@ -276,28 +279,40 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
                         <div className="flex items-center gap-2 mt-1 truncate">
-                            {isChairmanUser ? (
+                            {isEmailAuthenticatedChairman && role === 'admin' ? (
                                 <button
                                     type="button"
                                     onClick={() => {
                                         haptics.selection();
-                                        const newRole = role === 'admin' ? 'member' : 'admin';
-                                        useStore.getState().setRole(newRole);
-                                        localStorage.setItem('activeUserRole', newRole);
+                                        useStore.getState().setRole('member');
                                     }}
                                     className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shadow-sm group"
-                                    title={role === 'admin' ? "Switch to your Member Hub" : "Switch back to Chairman Hub"}
+                                    title="Switch to your Member Hub view"
                                 >
-                                    {role === 'admin' ? (
-                                        <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
-                                    ) : (
-                                        <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
-                                    )}
+                                    <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
                                     <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-700 dark:text-gray-300 group-hover:text-emerald-400 transition-colors">
-                                        {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                                        Chairman Hub
                                     </span>
                                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
-                                        Switch
+                                        View Member Hub
+                                    </span>
+                                </button>
+                            ) : isEmailAuthenticatedChairman && role === 'member' ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        useStore.getState().setRole('admin');
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer shadow-sm group"
+                                    title="Return to Chairman Command Center"
+                                >
+                                    <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-700 dark:text-gray-300 group-hover:text-amber-400 transition-colors">
+                                        Member Hub
+                                    </span>
+                                    <span className="text-[9px] font-bold text-amber-400 bg-amber-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
+                                        Chairman HQ
                                     </span>
                                 </button>
                             ) : (
