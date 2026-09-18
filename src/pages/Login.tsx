@@ -264,20 +264,44 @@ export default function Login() {
             const allMembersSnap = await getDocs(membershipsRef);
 
             const leagueDocData = leagueData.data();
-            const activePhone = userPhone || phone;
-            if (activePhone) {
-                const phoneVariants = getPhoneVariants(activePhone);
-                const normalizedInput = normalizeKenyanPhone(activePhone);
-                const cleanDigitsInput = activePhone.replace(/\D/g, '');
+            const activePhone = (userPhone || phone || '').trim();
+            const cleanDigitsInput = activePhone.replace(/\D/g, '');
+            const normalizedInput = activePhone ? normalizeKenyanPhone(activePhone) : '';
+            const phoneVariants = activePhone ? getPhoneVariants(activePhone) : [];
 
-                const cleanChairPhone = String(leagueDocData?.chairmanPhone || '').replace(/\D/g, '');
-                const isChairmanPhone = Boolean(
-                    cleanChairPhone.length >= 8 &&
-                    cleanDigitsInput.length >= 8 &&
-                    (cleanChairPhone.endsWith(cleanDigitsInput.slice(-8)) || cleanDigitsInput.endsWith(cleanChairPhone.slice(-8)))
-                );
+            // Detect if the user logging in is the Chairman or already preloaded by Email, UID, or Phone
+            const currentAuthEmail = (auth.currentUser?.email || email || localStorage.getItem('fc-login-email') || '').trim().toLowerCase();
+            const currentAuthUid = auth.currentUser?.uid;
+            const leagueChairmanEmail = (leagueDocData?.chairmanEmail || '').trim().toLowerCase();
+            const leagueChairmanId = leagueDocData?.chairmanId;
+            const cleanChairPhone = String(leagueDocData?.chairmanPhone || '').replace(/\D/g, '');
 
-                let matchedMemberDoc = allMembersSnap.docs.find(d => {
+            const isChairmanByEmail = Boolean(currentAuthEmail && leagueChairmanEmail && currentAuthEmail === leagueChairmanEmail);
+            const isChairmanByUid = Boolean(currentAuthUid && leagueChairmanId && currentAuthUid === leagueChairmanId);
+            const isChairmanPhone = Boolean(
+                cleanChairPhone.length >= 8 &&
+                cleanDigitsInput.length >= 8 &&
+                (cleanChairPhone.endsWith(cleanDigitsInput.slice(-8)) || cleanDigitsInput.endsWith(cleanChairPhone.slice(-8)))
+            );
+            const isChairmanUser = isChairmanByEmail || isChairmanByUid || isChairmanPhone;
+
+            let matchedMemberDoc: any = null;
+
+            // 1. If Chairman, match their Chairman / Admin player doc directly
+            if (isChairmanUser) {
+                matchedMemberDoc = allMembersSnap.docs.find(d => {
+                    const data = d.data();
+                    const cleanDocPhone = String(data.phone || data.phoneNumber || '').replace(/\D/g, '');
+                    const matchesPhone = cleanDigitsInput && cleanDocPhone && (cleanDocPhone.endsWith(cleanDigitsInput.slice(-8)) || cleanDigitsInput.endsWith(cleanDocPhone.slice(-8)));
+                    const matchesAuth = data.authUid && (data.authUid === currentAuthUid || data.authUid === userUid);
+                    const isAdmin = data.role === 'admin' || data.isChairman === true || d.id === leagueChairmanId;
+                    return (isAdmin && (matchesPhone || matchesAuth || !data.phone || isChairmanByEmail || isChairmanByUid)) || isAdmin;
+                });
+            }
+
+            // 2. Otherwise find by phone number
+            if (!matchedMemberDoc && activePhone) {
+                matchedMemberDoc = allMembersSnap.docs.find(d => {
                     const data = d.data();
                     const p1 = data.phone ? normalizeKenyanPhone(String(data.phone)) : '';
                     const p2 = data.phoneNumber ? normalizeKenyanPhone(String(data.phoneNumber)) : '';
@@ -295,78 +319,78 @@ export default function Login() {
 
                     return matchesVariant || matchesNormalized || matchesLast9;
                 });
+            }
 
-                // If not found by phone on membership doc, but phone matches the Chairman's phone on league:
-                if (!matchedMemberDoc && isChairmanPhone) {
-                    matchedMemberDoc = allMembersSnap.docs.find(d => {
-                        const data = d.data();
-                        return data.role === 'admin' || data.isChairman === true || d.id === leagueDocData?.chairmanId;
+            // 3. Check by Auth UID if anonymous or persistent UID already stamped
+            if (!matchedMemberDoc && userUid) {
+                matchedMemberDoc = allMembersSnap.docs.find(d => d.data().authUid === userUid);
+            }
+
+            if (matchedMemberDoc) {
+                const memberDocRef = matchedMemberDoc.ref;
+                const memberData = matchedMemberDoc.data();
+                const resolvedPhone = activePhone || memberData.phone || memberData.phoneNumber || leagueDocData?.chairmanPhone || '';
+
+                try {
+                    await updateDoc(memberDocRef, { 
+                        authUid: userUid,
+                        isPending: false,
+                        isActive: true,
+                        ...(resolvedPhone ? { phone: resolvedPhone, phoneNumber: resolvedPhone } : {})
                     });
+                } catch (updateErr) {
+                    console.warn("[login] Non-critical: could not update authUid on member document:", updateErr);
                 }
 
-                if (matchedMemberDoc) {
-                    const memberDocRef = matchedMemberDoc.ref;
-                    try {
-                        await updateDoc(memberDocRef, { 
-                            authUid: userUid,
-                            isPending: false,
-                            isActive: true,
-                            phone: activePhone,
-                            phoneNumber: activePhone
-                        });
-                    } catch (updateErr) {
-                        console.warn("[login] Non-critical: could not update authUid on member document:", updateErr);
+                // Save session to localStorage
+                localStorage.setItem('activeLeagueId', leagueId);
+                if (resolvedPhone) {
+                    localStorage.setItem('memberPhone', resolvedPhone);
+                }
+                localStorage.setItem('activeUserId', memberDocRef.id);
+                localStorage.setItem('activeUserName', memberData.displayName || 'Manager');
+                localStorage.setItem('activeUserRole', 'member');
+
+                // Clear sensitive login inputs from localStorage after success
+                localStorage.removeItem('fc-login-code');
+                localStorage.removeItem('fc-login-phone');
+
+                // Extract active member names to show the user during the warm-up transition
+                const rawNames: string[] = [];
+                allMembersSnap.docs.forEach(docSnap => {
+                    const d = docSnap.data();
+                    const raw = (d.displayName || d.name || '').trim();
+                    if (raw && d.isActive !== false && d.role !== 'admin') {
+                        const first = raw.split(' ')[0];
+                        if (first && !rawNames.includes(first)) rawNames.push(first);
                     }
+                });
 
-                    const memberData = matchedMemberDoc.data();
+                const leagueDisplayName = leagueDocData?.name || leagueDocData?.leagueName || 'FPL Chama';
 
-                    // Save session to localStorage
-                    localStorage.setItem('activeLeagueId', leagueId);
-                    localStorage.setItem('memberPhone', activePhone);
-                    localStorage.setItem('activeUserId', memberDocRef.id);
+                setLoginTransition({
+                    leagueName: leagueDisplayName,
+                    memberName: memberData.displayName || (isChairmanUser ? 'Chairman' : 'Manager'),
+                    members: rawNames,
+                    totalCount: allMembersSnap.docs.filter(d => d.data().isActive !== false && d.data().role !== 'admin').length,
+                    step: 1
+                });
 
-                    // Clear sensitive login inputs from localStorage after success
-                    localStorage.removeItem('fc-login-code');
-                    localStorage.removeItem('fc-login-phone');
+                setTimeout(() => {
+                    setLoginTransition(prev => prev ? { ...prev, step: 2 } : null);
+                }, 1100);
 
-                    // Extract active member names to show the user during the warm-up transition
-                    const rawNames: string[] = [];
-                    allMembersSnap.docs.forEach(docSnap => {
-                        const d = docSnap.data();
-                        const raw = (d.displayName || d.name || '').trim();
-                        if (raw && d.isActive !== false && d.role !== 'admin') {
-                            const first = raw.split(' ')[0];
-                            if (first && !rawNames.includes(first)) rawNames.push(first);
-                        }
-                    });
+                setTimeout(() => {
+                    setLoginTransition(prev => prev ? { ...prev, step: 3 } : null);
+                }, 2300);
 
-                    const leagueDocData = leagueData.data();
-                    const leagueDisplayName = leagueDocData?.name || 'FPL Chama';
+                setTimeout(() => {
+                    setShowSelfOnboardModal(false);
+                    setRole('member');
+                    navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName || 'Manager'}!` }, replace: true });
+                }, 3500);
 
-                    setLoginTransition({
-                        leagueName: leagueDisplayName,
-                        memberName: memberData.displayName || 'Manager',
-                        members: rawNames,
-                        totalCount: allMembersSnap.docs.filter(d => d.data().isActive !== false && d.data().role !== 'admin').length,
-                        step: 1
-                    });
-
-                    setTimeout(() => {
-                        setLoginTransition(prev => prev ? { ...prev, step: 2 } : null);
-                    }, 1100);
-
-                    setTimeout(() => {
-                        setLoginTransition(prev => prev ? { ...prev, step: 3 } : null);
-                    }, 2300);
-
-                    setTimeout(() => {
-                        setShowSelfOnboardModal(false);
-                        setRole('member');
-                        navigate('/dashboard', { state: { welcomeMsg: `Welcome back, ${memberData.displayName}!` }, replace: true });
-                    }, 3500);
-
-                    return;
-                }
+                return;
             }
 
             // User is not yet registered: launch Self-Onboarding wizard

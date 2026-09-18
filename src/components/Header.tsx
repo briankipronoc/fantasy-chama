@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
+import { auth } from '../firebase';
 import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut } from 'lucide-react';
 
 import clsx from 'clsx';
@@ -34,6 +35,16 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const [headerMotion, setHeaderMotion] = useState('');
 
     const currentMember = members.find(m => m.id === realActiveUser) || members.find(m => m.id === activeUserId) || null;
+    const leagueSettings = useStore(state => state.league) as any;
+    const currentUid = auth.currentUser?.uid;
+    const isChairmanUser = Boolean(
+        role === 'admin' ||
+        (currentMember as any)?.role === 'admin' ||
+        (currentMember as any)?.isChairman === true ||
+        members.some(m => (m as any).role === 'admin' && (m.id === activeUserId || (currentUid && m.authUid === currentUid))) ||
+        (leagueSettings?.chairmanId && currentUid && leagueSettings.chairmanId === currentUid) ||
+        (leagueSettings?.chairmanId && currentMember?.id && leagueSettings.chairmanId === currentMember.id)
+    );
 
     // Unsolicited auto-popup removed — constitution is accessible on-demand or on designated first-login
 
@@ -265,16 +276,42 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
                         <div className="flex items-center gap-2 mt-1 truncate">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/[0.04] backdrop-blur-md shadow-sm">
-                                {role === 'admin' ? (
-                                    <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
-                                ) : (
-                                    <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
-                                )}
-                                <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-700 dark:text-gray-300">
-                                    {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                            {isChairmanUser ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        const newRole = role === 'admin' ? 'member' : 'admin';
+                                        useStore.getState().setRole(newRole);
+                                        localStorage.setItem('activeUserRole', newRole);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shadow-sm group"
+                                    title={role === 'admin' ? "Switch to your Member Hub" : "Switch back to Chairman Hub"}
+                                >
+                                    {role === 'admin' ? (
+                                        <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
+                                    ) : (
+                                        <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
+                                    )}
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-700 dark:text-gray-300 group-hover:text-emerald-400 transition-colors">
+                                        {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                                    </span>
+                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
+                                        Switch
+                                    </span>
+                                </button>
+                            ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/[0.04] backdrop-blur-md shadow-sm">
+                                    {role === 'admin' ? (
+                                        <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
+                                    ) : (
+                                        <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
+                                    )}
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-700 dark:text-gray-300">
+                                        {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
+                                    </span>
                                 </span>
-                            </span>
+                            )}
                         </div>
                     </div>
                 </div>
