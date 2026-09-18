@@ -346,6 +346,7 @@ export default function AdminCommandCenter() {
   const [fundMethod, setFundMethod] = useState<"mpesa" | "cash">("mpesa");
   const [fundTransactionCode, setFundTransactionCode] = useState("");
   const [fundCashDate, setFundCashDate] = useState("");
+  const [fundGameweek, setFundGameweek] = useState("");
   const [fundNote, setFundNote] = useState("");
   const [isFundingWallet, setIsFundingWallet] = useState(false);
   const [isSendingWalletPrompt, setIsSendingWalletPrompt] = useState(false);
@@ -1100,9 +1101,10 @@ export default function AdminCommandCenter() {
           activeLeagueId,
           "notifications",
         );
+        const targetGw = Number(currentGwNumber || firestoreGw || 1);
         await addDoc(notifsRef, {
           type: "success",
-          message: `Deposit verified for ${memberName}. Account is now funded.`,
+          message: `Deposit verified for ${memberName}. Account is now funded for GW${targetGw}.`,
           timestamp: serverTimestamp(),
           readBy: [adminId], // Admin has already read it basically
           targetMemberId: memberId,
@@ -1117,8 +1119,8 @@ export default function AdminCommandCenter() {
           memberName: memberName,
           phoneNumber: targetMember?.phone || "",
           amount: gameweekStake,
-          gameweek: currentGwNumber || firestoreGw || null,
-          gw: currentGwNumber || firestoreGw || null,
+          gameweek: targetGw,
+          gw: targetGw,
           timestamp: serverTimestamp(),
           receiptId:
             "DEP" + Math.random().toString(36).substring(2, 10).toUpperCase(),
@@ -1958,11 +1960,14 @@ export default function AdminCommandCenter() {
           "Payment server is not configured. Set VITE_API_URL for production.",
         );
 
+      const targetGw = Number(fundGameweek || currentGwNumber || firestoreGw || 1);
       const data = await secureApiPost(`${payoutApiUrl}/api/mpesa/stkpush`, {
         phoneNumber: member.phone,
         amount,
         userId: fundTargetMemberId,
         leagueId: activeLeagueId,
+        gameweek: targetGw,
+        gw: targetGw,
       });
       if (!data.success) {
         throw new Error(data.message || "Failed to send M-Pesa prompt.");
@@ -2029,6 +2034,7 @@ export default function AdminCommandCenter() {
         paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
       });
 
+      const targetGw = Number(fundGameweek || currentGwNumber || firestoreGw || 1);
       await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
         type: "wallet_funding",
         source: fundMethod,
@@ -2039,8 +2045,10 @@ export default function AdminCommandCenter() {
         winnerName: member?.displayName || "Member",
         phoneNumber: member?.phone || "",
         receiptId,
+        gameweek: targetGw,
+        gw: targetGw,
         cashHandoffDate: fundMethod === "cash" ? fundCashDate : null,
-        note: fundNote.trim() || null,
+        note: fundNote.trim() ? `${fundNote.trim()} (Funded for GW${targetGw})` : `Funded for GW${targetGw}`,
         timestamp: serverTimestamp(),
       });
 
@@ -4770,6 +4778,14 @@ burstFrame();
                   const wallet = (row as any).walletBalance ?? 0;
                   const gwCost = gameweekStake;
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
+                  const isRowSpectator = (row as any).playMode === "sidebets_only";
+                  const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
+                  const currentGw = Number(currentGwNumber || start);
+                  const totalCompletedOrCurrent = Math.max(0, currentGw - start + 1);
+                  const rowHasPaidCurrent = Boolean(row.hasPaid) || (gwCost > 0 && wallet >= gwCost);
+                  const rowFundedCount = rowHasPaidCurrent ? Math.max(1, gwsLeft) : gwsLeft;
+                  const rowSkippedGws = isRowSpectator ? 0 : Math.max(0, totalCompletedOrCurrent - rowFundedCount);
+                  const rowOwedArrears = rowSkippedGws * gwCost;
                   const walletColor =
                     wallet <= 0
                       ? "text-red-400"
@@ -4799,6 +4815,14 @@ burstFrame();
                           {(row as any).paymentStreak >= 2 && (
                             <span className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black" title={`${(row as any).paymentStreak}-GW streak!`}>
                               🔥{(row as any).paymentStreak}
+                            </span>
+                          )}
+                          {rowSkippedGws > 0 && !isRowSpectator && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                              title={`Skipped ${rowSkippedGws} GWs — KES ${rowOwedArrears.toLocaleString()} in arrears`}
+                            >
+                              ⚠️ {rowSkippedGws} GW{rowSkippedGws > 1 ? 's' : ''} Skipped · KES {rowOwedArrears.toLocaleString()} Dues
                             </span>
                           )}
                         </div>
@@ -5560,6 +5584,29 @@ burstFrame();
                       Prompt sent. Waiting for callback. Use Manual Confirm only if the callback does not arrive.
                     </div>
                   )}
+
+                <label className="space-y-2 md:col-span-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    Funded For Gameweek
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={fundGameweek || (currentGwNumber || firestoreGw || 1)}
+                      onChange={(e) => setFundGameweek(e.target.value)}
+                      className="fc-prefund-input w-full appearance-none rounded-xl border border-gray-300 dark:border-white/10 px-3.5 py-3 pr-10 bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] font-semibold"
+                    >
+                      <option value={currentGwNumber || firestoreGw || 1}>
+                        Gameweek {currentGwNumber || firestoreGw || 1} (Current Matchday)
+                      </option>
+                      {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => (
+                        <option key={gw} value={gw}>
+                          Gameweek {gw}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-[#10B981] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                </label>
 
                 <label className="space-y-2 md:col-span-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">

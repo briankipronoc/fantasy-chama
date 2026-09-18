@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, ShieldCheck, Wallet, TrendingUp, Clock3, Trophy } from 'lucide-react';
+import { ReceiptText, History, Download, ShieldCheck, Wallet, TrendingUp, Clock3, Trophy, AlertTriangle, Check, MessageCircle } from 'lucide-react';
+import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
 import { collection, onSnapshot, query, orderBy, doc, getDoc, addDoc, updateDoc, serverTimestamp, where, increment } from 'firebase/firestore';
@@ -82,6 +83,8 @@ const [isRejectingPayoutId, setIsRejectingPayoutId] = useState<string | null>(nu
     // @ts-ignore
 const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [projectedCardIndex, setProjectedCardIndex] = useState(0);
+    const [seasonCardTab, setSeasonCardTab] = useState<'projected' | 'collected'>('projected');
+    const [fundingAuditFilter, setFundingAuditFilter] = useState<'all' | 'skipped' | 'funded' | 'spectators'>('all');
     const [pendingWalletTopUpRequests, setPendingWalletTopUpRequests] = useState<any[]>([]);
     const [cashTopUpAmount, setCashTopUpAmount] = useState('');
     const [cashTopUpNote, setCashTopUpNote] = useState('');
@@ -245,12 +248,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return () => observer.disconnect();
     }, []);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setProjectedCardIndex(prev => (prev + 1) % 2);
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
+
 
     useEffect(() => {
         if (!activeLeagueId || role !== 'admin') {
@@ -329,11 +327,20 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Math.min(38, leagueStartGw + weeksSinceStart);
     };
     const contributionTypes = new Set(['deposit', 'wallet_funding', 'wallet_prefund', 'ledger_adjustment']);
+    const isTxValidInflow = (tx: any) => {
+        if (!contributionTypes.has(String(tx.type || ''))) return false;
+        const status = String(tx.status || '').toLowerCase();
+        if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || tx.isReversed === true || tx.reversed === true) {
+            return false;
+        }
+        return true;
+    };
     const seasonCollectedSoFarGross = transactions
-        .filter((tx) => contributionTypes.has(String(tx.type || '')))
+        .filter(isTxValidInflow)
         .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+    const seasonVaultCollectedSoFar = Math.round(seasonCollectedSoFarGross * (Number(rules.vault || 30) / 100));
     const contributionByMemberId = transactions
-        .filter((tx) => contributionTypes.has(String(tx.type || '')))
+        .filter(isTxValidInflow)
         .reduce((acc: Record<string, number>, tx: any) => {
             const txMemberId = String(tx.userId || tx.memberId || '');
             if (txMemberId) {
@@ -633,7 +640,102 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, [transactions, currentUser]);
 
 
-        const isSpectator = (currentUser as any)?.playMode === 'sidebets_only';
+    const totalCompletedOrCurrentGws = useMemo(() => {
+        const start = Math.max(1, Number(startGw || 1));
+        const currentGw = Number(currentGwNumber || start);
+        return Math.max(0, currentGw - start + 1);
+    }, [startGw, currentGwNumber]);
+
+    const memberFundingSummary = useMemo(() => {
+        const start = Math.max(1, Number(startGw || 1));
+        const currentGw = Number(currentGwNumber || start);
+        const totalCompleted = Math.max(0, currentGw - start + 1);
+        const stake = Number(gameweekStake || 0);
+
+        return members
+            .filter((m: any) => m.isActive !== false && (m as any).isEliminated !== true)
+            .map((m: any) => {
+                const isMemberSpectator = (m as any).playMode === 'sidebets_only';
+                const memberBalance = Number(m.walletBalance || 0);
+                const hasPaidCurrent = Boolean(m.hasPaid) || (stake > 0 && memberBalance >= stake);
+
+                // Identify all deposit / inflow transactions associated with this member
+                const memberInflowTxs = transactions.filter((tx: any) => {
+                    if (!isTxValidInflow(tx)) return false;
+                    return (
+                        (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+                        (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+                        (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName))
+                    );
+                });
+
+                const totalDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+                // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
+                const rawFundedCount = stake > 0 ? Math.floor(totalDeposited / stake) : totalCompleted;
+                const gwsFundedCount = hasPaidCurrent ? Math.max(1, rawFundedCount) : rawFundedCount;
+                const gwsSkippedCount = isMemberSpectator ? 0 : Math.max(0, totalCompleted - gwsFundedCount);
+                const totalOwedArrears = isMemberSpectator ? 0 : gwsSkippedCount * stake;
+
+                const taggedGws = Array.from(
+                    new Set(
+                        memberInflowTxs
+                            .map((tx: any) => Number(tx.gw || tx.gameweek || 0))
+                            .filter((g: number) => g > 0)
+                    )
+                ).sort((a: number, b: number) => b - a);
+
+                return {
+                    id: m.id,
+                    displayName: m.displayName || 'Member',
+                    phone: m.phone || '',
+                    role: m.role || 'member',
+                    isSpectator: isMemberSpectator,
+                    walletBalance: memberBalance,
+                    hasPaidCurrent,
+                    totalDeposited,
+                    gwsFundedCount,
+                    gwsSkippedCount,
+                    totalOwedArrears,
+                    recentGwsFunded: taggedGws,
+                };
+            })
+            .sort((a, b) => b.gwsSkippedCount - a.gwsSkippedCount);
+    }, [members, transactions, startGw, currentGwNumber, gameweekStake]);
+
+    const totalChamaArrears = useMemo(() => {
+        return memberFundingSummary.reduce((acc, m) => acc + (m.totalOwedArrears || 0), 0);
+    }, [memberFundingSummary]);
+
+    const skippedMembersCount = useMemo(() => {
+        return memberFundingSummary.filter(m => !m.isSpectator && m.gwsSkippedCount > 0).length;
+    }, [memberFundingSummary]);
+
+    const fundedMembersCount = useMemo(() => {
+        return memberFundingSummary.filter(m => !m.isSpectator && m.gwsSkippedCount === 0).length;
+    }, [memberFundingSummary]);
+
+    const spectatorsCount = useMemo(() => {
+        return memberFundingSummary.filter(m => m.isSpectator).length;
+    }, [memberFundingSummary]);
+
+    const regularMembersCount = useMemo(() => {
+        return memberFundingSummary.filter(m => !m.isSpectator).length;
+    }, [memberFundingSummary]);
+
+    const filteredAuditMembers = useMemo(() => {
+        if (fundingAuditFilter === 'skipped') {
+            return memberFundingSummary.filter(m => !m.isSpectator && m.gwsSkippedCount > 0);
+        }
+        if (fundingAuditFilter === 'funded') {
+            return memberFundingSummary.filter(m => !m.isSpectator && m.gwsSkippedCount === 0);
+        }
+        if (fundingAuditFilter === 'spectators') {
+            return memberFundingSummary.filter(m => m.isSpectator);
+        }
+        return memberFundingSummary;
+    }, [memberFundingSummary, fundingAuditFilter]);
+
+    const isSpectator = (currentUser as any)?.playMode === 'sidebets_only';
         const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nowMs + 72 * 60 * 60 * 1000);
         const dueDate = new Date(dueTs);
         const nextDueStatus = isSpectator ? 'spectator' : (currentUser?.hasPaid ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue'));
@@ -658,7 +760,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 tx.amount || 0,
                 isPayout ? 'GW payout' : 'Deposit',
                 tx.mpesaCode || tx.reference || '',
-                tx.gameweek || '',
+                tx.gameweek || tx.gw || '',
                 isPayout ? (tx.winnerName || currentUser?.displayName || '') : (tx.memberName || currentUser?.displayName || '')
             ];
         });
@@ -685,6 +787,28 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
     const openWhatsApp = (message: string) => {
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    };
+
+    const handleNudgeArrears = (member: any) => {
+        const appUrl = window.location.origin;
+        const message = [
+            `🚨 *${leagueName || 'Fantasy Chama'} — Payment Arrears Notice*`,
+            ``,
+            `Habari *${member.displayName}*! 👋`,
+            `Friendly reminder from the Chairman: according to our Chama ledger since league kickoff (GW${startGw || 1}), you have *${member.gwsSkippedCount} skipped gameweek${member.gwsSkippedCount > 1 ? 's' : ''}* with *KES ${Number(member.totalOwedArrears || 0).toLocaleString()}* in outstanding dues.`,
+            ``,
+            `Please clear your dues to ensure your squad remains eligible for weekly cash pots and season vault championship prizes! 🏆`,
+            ``,
+            `👉 Top up directly: ${appUrl}/deposit`,
+        ].join('\n');
+
+        if (member.phone) {
+            const phone = member.phone.replace(/[^0-9]/g, '');
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+        } else {
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+        }
+        showActionMessage('success', `Opened WhatsApp reminder for ${member.displayName}.`);
     };
 
     const shareTransactionReceipt = (tx: any) => {
@@ -1129,44 +1253,78 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     {effectivePayoutMode === 'weekly_only'
                                                         ? "Projected Weekly Payout"
                                                         : effectivePayoutMode === 'season_only'
-                                                        ? "Projected Season Collection"
+                                                        ? (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")
                                                         : projectedCardIndex === 0
                                                         ? "Projected Weekly Payout"
-                                                        : "Projected Season Collection"}
+                                                        : (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")}
                                                 </h3>
                                                 <p className="text-[10px] text-gray-500 dark:text-gray-400">
                                                     {effectivePayoutMode === 'weekly_only'
                                                         ? `Weekly Cash Pot (${weeklyPercent}%)`
                                                         : effectivePayoutMode === 'season_only'
-                                                        ? `Season Podium Vault (${vaultPercent}%)`
+                                                        ? (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Season Podium Vault (${vaultPercent}%)`)
                                                         : projectedCardIndex === 0
                                                         ? `Current Gameweek Pot (${weeklyPercent}%)`
-                                                        : `Join-aware remaining estimate (${vaultPercent}%)`}
+                                                        : (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Join-aware remaining estimate (${vaultPercent}%)`)}
                                                 </p>
                                             </div>
                                         </div>
-                                        {effectivePayoutMode === 'both' ? (
-                                            <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setProjectedCardIndex(0)}
-                                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
-                                                >
-                                                    GW
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setProjectedCardIndex(1)}
-                                                    className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
-                                                >
-                                                    Season
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                                                {effectivePayoutMode === 'weekly_only' ? 'Weekly Only' : 'Season Only'}
-                                            </span>
-                                        )}
+                                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                            {effectivePayoutMode === 'both' && (
+                                                <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setProjectedCardIndex(0)}
+                                                        className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                    >
+                                                        GW
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setProjectedCardIndex(1)}
+                                                        className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                    >
+                                                        Season
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {(effectivePayoutMode === 'season_only' || projectedCardIndex === 1) && (
+                                                <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shadow-xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSeasonCardTab('collected')}
+                                                        className={clsx(
+                                                            "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                                                            seasonCardTab === 'collected' ? "bg-amber-400 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                        title="Actual funds secured in the vault right now"
+                                                    >
+                                                        Now
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSeasonCardTab('projected')}
+                                                        className={clsx(
+                                                            "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                                                            seasonCardTab === 'projected' ? "bg-emerald-500 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                        title="Projected season collection across remaining rounds"
+                                                    >
+                                                        Projected
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {effectivePayoutMode === 'season_only' && (
+                                                <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+                                                    Season Only
+                                                </span>
+                                            )}
+                                            {effectivePayoutMode === 'weekly_only' && (
+                                                <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                                                    Weekly Only
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div>
@@ -1177,6 +1335,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 </p>
                                                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
                                                     {projectedWeeklyPayoutFormula}
+                                                </p>
+                                            </>
+                                        ) : seasonCardTab === 'collected' ? (
+                                            <>
+                                                <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-amber-400">
+                                                    KES {isStealthMode ? '****' : seasonVaultCollectedSoFar.toLocaleString()}
+                                                </p>
+                                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                                    Actual verified vault funds secured to date: KES {Number(seasonCollectedSoFarGross || 0).toLocaleString()} gross × {vaultPercent}% = KES {Number(seasonVaultCollectedSoFar || 0).toLocaleString()}
                                                 </p>
                                             </>
                                         ) : (
@@ -1388,6 +1555,233 @@ const handleRejectPendingPayout = async (payout: any) => {
                 )}
 
 
+                {/* Member Gameweek Funding & Arrears Audit */}
+                <section className="fc-card mb-8 rounded-3xl border border-white/10 bg-[#151c18] overflow-hidden shadow-xl">
+                    <div className="p-5 md:p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-start sm:items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-1 sm:mt-0">
+                                <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-bold text-lg text-white">Gameweek Funding & Arrears Audit</h3>
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                        Since GW{startGw || 1}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Track member contributions, skipped gameweeks, and outstanding dues across active rounds.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Filter Pills */}
+                        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 overflow-x-auto self-start md:self-auto">
+                            <button
+                                type="button"
+                                onClick={() => setFundingAuditFilter('all')}
+                                className={clsx(
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+                                    fundingAuditFilter === 'all'
+                                        ? 'bg-emerald-500 text-black shadow-sm'
+                                        : 'text-gray-400 hover:text-white'
+                                )}
+                            >
+                                All ({memberFundingSummary.length})
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFundingAuditFilter('skipped')}
+                                className={clsx(
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5',
+                                    fundingAuditFilter === 'skipped'
+                                        ? 'bg-rose-500 text-white shadow-sm'
+                                        : 'text-rose-400/90 hover:text-rose-300'
+                                )}
+                            >
+                                <span>Behind / Skipped</span>
+                                <span className={clsx(
+                                    "px-1.5 py-0.2 rounded-full text-[10px] font-black border",
+                                    fundingAuditFilter === 'skipped'
+                                        ? "bg-white/20 text-white border-white/30"
+                                        : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                )}>
+                                    {skippedMembersCount}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setFundingAuditFilter('funded')}
+                                className={clsx(
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+                                    fundingAuditFilter === 'funded'
+                                        ? 'bg-emerald-500 text-black shadow-sm'
+                                        : 'text-emerald-400/90 hover:text-emerald-300'
+                                )}
+                            >
+                                Up to Date ({fundedMembersCount})
+                            </button>
+                            {spectatorsCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setFundingAuditFilter('spectators')}
+                                    className={clsx(
+                                        'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
+                                        fundingAuditFilter === 'spectators'
+                                            ? 'bg-indigo-500 text-white shadow-sm'
+                                            : 'text-indigo-400/90 hover:text-indigo-300'
+                                    )}
+                                >
+                                    Spectators ({spectatorsCount})
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Metric Bar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 md:p-6 bg-black/20 border-b border-white/5">
+                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Arrears Owed</p>
+                            <p className={clsx("text-lg sm:text-xl font-black tabular-nums mt-0.5", totalChamaArrears > 0 ? "text-rose-400" : "text-emerald-400")}>
+                                KES {isStealthMode ? '****' : totalChamaArrears.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{totalChamaArrears > 0 ? `${skippedMembersCount} members have skipped rounds` : "All accounts square"}</p>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Rounds Tracked</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-white mt-0.5">
+                                {totalCompletedOrCurrentGws} GW{totalCompletedOrCurrentGws !== 1 ? 's' : ''}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">GW{startGw || 1} → GW{currentGwNumber || startGw || 1}</p>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Regular Players</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-400 mt-0.5">
+                                {regularMembersCount}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{fundedMembersCount} fully funded</p>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Gameweek Stake</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-amber-400 mt-0.5">
+                                KES {gameweekStake.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Per member / GW</p>
+                        </div>
+                    </div>
+
+                    {/* Members Audit List */}
+                    <div className="divide-y divide-white/[0.04]">
+                        {filteredAuditMembers.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500 text-sm">
+                                No members found for this filter.
+                            </div>
+                        ) : (
+                            filteredAuditMembers.map((m: any) => {
+                                const isCurrentUser = m.id === activeUserId || (currentUser && m.phone && m.phone === currentUser.phone);
+                                return (
+                                    <div key={m.id} className="p-4 md:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <UserAvatar name={m.displayName} size="md" />
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-bold text-white text-sm truncate">{m.displayName}</span>
+                                                    {isCurrentUser && (
+                                                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                            You
+                                                        </span>
+                                                    )}
+                                                    {m.role === 'admin' && (
+                                                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                            Admin
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    <span className="font-mono">{m.phone || 'No phone'}</span>
+                                                    <span>•</span>
+                                                    <span>Wallet: <strong className="text-gray-300 font-mono">KES {Number(m.walletBalance || 0).toLocaleString()}</strong></span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Status & Arrears */}
+                                        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 flex-wrap">
+                                            <div className="text-left sm:text-right">
+                                                {m.isSpectator ? (
+                                                    <div>
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 text-[10px] font-black uppercase tracking-wider">
+                                                            Spectator (Exempt)
+                                                        </span>
+                                                        <p className="text-[10px] text-gray-500 mt-0.5">1v1 Side-Bets Only</p>
+                                                    </div>
+                                                ) : m.gwsSkippedCount > 0 ? (
+                                                    <div>
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-black uppercase tracking-wider">
+                                                            <AlertTriangle className="w-3 h-3 text-rose-400" />
+                                                            Skipped {m.gwsSkippedCount} GW{m.gwsSkippedCount > 1 ? 's' : ''}
+                                                        </span>
+                                                        <p className="text-xs font-black text-rose-400 mt-0.5 tabular-nums">
+                                                            KES {m.totalOwedArrears.toLocaleString()} Owed
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase tracking-wider">
+                                                            <Check className="w-3 h-3 text-emerald-400 stroke-[3]" />
+                                                            Fully Funded
+                                                        </span>
+                                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                                            {m.gwsFundedCount} GW{m.gwsFundedCount !== 1 ? 's' : ''} covered
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Tagged Gameweek Badges */}
+                                            {m.recentGwsFunded && m.recentGwsFunded.length > 0 && (
+                                                <div className="hidden md:flex items-center gap-1 flex-wrap max-w-[150px] justify-end">
+                                                    {m.recentGwsFunded.slice(0, 4).map((gw: any, idx: number) => (
+                                                        <span key={idx} className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                            GW{gw}
+                                                        </span>
+                                                    ))}
+                                                    {m.recentGwsFunded.length > 4 && (
+                                                        <span className="text-[9px] text-gray-500 font-bold">
+                                                            +{m.recentGwsFunded.length - 4}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Action Button */}
+                                            {isAdmin && m.gwsSkippedCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleNudgeArrears(m)}
+                                                    className="px-3 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                                                >
+                                                    <MessageCircle className="w-3 h-3" />
+                                                    <span>Nudge WhatsApp</span>
+                                                </button>
+                                            )}
+                                            {isCurrentUser && m.gwsSkippedCount > 0 && !isAdmin && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate('/deposit')}
+                                                    className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+                                                >
+                                                    Pay Dues
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </section>
+
                 <div className="fc-card bg-[#151c18] border border-white/5 rounded-2xl overflow-hidden">
                     <div className="p-5 md:p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
@@ -1458,13 +1852,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     : ledgerDirection === '+'
                                         ? 'Inflow'
                                         : 'Outflow';
+                            const targetTxGw = Number(tx.gameweek || tx.gw || 0);
+                            const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
                             const activityLabel = isReversal
                                 ? (tx.note || `Reversal • ${memberName}`)
                                 : tx.type === 'payout'
-                                    ? `GW${tx.gw || ''} Payout → ${tx.winnerName || memberName}`
+                                    ? `GW${tx.gw || tx.gameweek || ''} Payout → ${tx.winnerName || memberName}`
                                     : isWalletFunding
-                                        ? `Wallet Top-Up • ${memberName}`
-                                        : `Deposit • ${memberName}`;
+                                        ? `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`
+                                        : `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`;
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -1474,16 +1870,23 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         )}>
                                             {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
                                         </span>
-                                        <span className={clsx(
-                                            'text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border',
-                                            isReversal
-                                                ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
-                                                : isWalletFunding || ledgerDirection === '+'
-                                                ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
-                                                : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
-                                        )}>
-                                            {statusLabel}
-                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            {gwTag && (
+                                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                    {gwTag}
+                                                </span>
+                                            )}
+                                            <span className={clsx(
+                                                'text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border',
+                                                isReversal
+                                                    ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
+                                                    : isWalletFunding || ledgerDirection === '+'
+                                                    ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
+                                                    : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
+                                            )}>
+                                                {statusLabel}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="font-bold text-white text-sm">
                                         {activityLabel}
@@ -1557,6 +1960,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const isPayout = tx.type === 'payout';
                                         const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
+                                        const targetTxGw = Number(tx.gameweek || tx.gw || 0);
+                                        const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
                                         const statusLabel = isReversal
                                             ? 'Reversal'
                                             : isWalletFunding
@@ -1567,10 +1972,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const activityLabel = isReversal
                                             ? (tx.note || `Reversal • ${memberName}`)
                                             : tx.type === 'payout'
-                                                ? `GW${tx.gw || ''} Payout → ${tx.winnerName || memberName}`
+                                                ? `GW${tx.gw || tx.gameweek || ''} Payout → ${tx.winnerName || memberName}`
                                                 : isWalletFunding
-                                                    ? `Wallet Top-Up • ${memberName}`
-                                                    : `Deposit • ${memberName}`;
+                                                    ? `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`
+                                                    : `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`;
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
@@ -1585,15 +1990,20 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="text-sm font-bold text-white">
-                                                        {activityLabel}
+                                                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                                                        <span>{activityLabel}</span>
+                                                        {gwTag && (
+                                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                                {gwTag}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-xs text-gray-600 dark:text-gray-400">
                                                         {isReversal
                                                             ? `Manual Reversal • ${tx.receiptId || 'Adjustment'}`
                                                             : tx.type === 'payout'
                                                             ? `GW ${tx.gameweek || tx.gw || 'N/A'} • ${tx.winnerPhone || tx.phoneNumber || 'phone not set'}`
-                                                            : `Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
+                                                            : `${gwTag ? `Funded for Gameweek ${targetTxGw} • ` : ''}Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">

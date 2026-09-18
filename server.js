@@ -342,12 +342,26 @@ app.post('/api/mpesa/callback', async (req, res) => {
                         walletBalance: admin.firestore.FieldValue.increment(confirmedAmount)
                     });
 
+                    // Fetch league current gameweek if available
+                    let currentLeagueGw = 1;
+                    try {
+                        const leagueSnap = await db.doc(`leagues/${leagueId}`).get();
+                        if (leagueSnap.exists) {
+                            currentLeagueGw = Number(leagueSnap.data()?.currentGameweek || leagueSnap.data()?.startGw || 1);
+                        }
+                    } catch (e) {}
+                    const targetGw = Number(data.gameweek || data.gw || currentLeagueGw || 1);
+
                     // 3. Write permanent receipt to Ledger transactions
                     await db.collection(`leagues/${leagueId}/transactions`).add({
                         type: 'deposit',
                         amount: confirmedAmount,
                         receiptId: mpesaReceipt,
                         phoneNumber: data.phoneNumber,
+                        userId: userId,
+                        memberId: userId,
+                        gameweek: targetGw,
+                        gw: targetGw,
                         timestamp: admin.firestore.FieldValue.serverTimestamp()
                     });
 
@@ -540,6 +554,7 @@ app.post('/api/mpesa/b2c/result', async (req, res) => {
                         winnerName,
                         winnerId: userId,
                         gw: Number.isFinite(Number(data.gw)) ? Number(data.gw) : null,
+                        gameweek: Number.isFinite(Number(data.gw)) ? Number(data.gw) : null,
                         points: Number.isFinite(Number(data.points)) ? Number(data.points) : null,
                         phoneNumber: data.phone,
                         timestamp: admin.firestore.FieldValue.serverTimestamp()

@@ -21,6 +21,7 @@ export function PotVaultSwapper({
     const hasBothPots = !isWeeklyOnly && !isVaultOnly;
 
     const [showWeeklyPot, setShowWeeklyPot] = useState(!isVaultOnly);
+    const [isManualSelection, setIsManualSelection] = useState(false);
     const animatedWeeklyPot = useCountUp(weeklyPot);
     const animatedSeasonVault = useCountUp(seasonVault);
 
@@ -29,11 +30,12 @@ export function PotVaultSwapper({
             setShowWeeklyPot(!isVaultOnly);
             return;
         }
+        if (isManualSelection) return;
         const interval = setInterval(() => {
             setShowWeeklyPot(prev => !prev);
         }, 6000);
         return () => clearInterval(interval);
-    }, [hasBothPots, isVaultOnly]);
+    }, [hasBothPots, isVaultOnly, isManualSelection]);
 
     const vaultPercent = 100 - weeklyRulesPercent;
     const progressPercent = (projectedSeasonVault && projectedSeasonVault > 0)
@@ -52,7 +54,10 @@ export function PotVaultSwapper({
                     <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/10 rounded-full backdrop-blur-md">
                         <button
                             type="button"
-                            onClick={() => setShowWeeklyPot(true)}
+                            onClick={() => {
+                                setIsManualSelection(true);
+                                setShowWeeklyPot(true);
+                            }}
                             className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                 showWeeklyPot
                                     ? 'bg-amber-500/25 border border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]'
@@ -63,7 +68,10 @@ export function PotVaultSwapper({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setShowWeeklyPot(false)}
+                            onClick={() => {
+                                setIsManualSelection(true);
+                                setShowWeeklyPot(false);
+                            }}
                             className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                 !showWeeklyPot
                                     ? 'bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.2)]'
