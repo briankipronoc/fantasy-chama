@@ -607,9 +607,20 @@ export default function AdminCommandCenter() {
         }
       }
 
-      // Fetch Live FPL Standings
+      // Fetch Live FPL Standings with caching fallback
       if (data.fplLeagueId) {
         setIsFplStandingsLoading(true);
+        const cacheKey = `fpl_standings_${data.fplLeagueId}`;
+        const cachedRaw = localStorage.getItem(cacheKey);
+        if (cachedRaw) {
+          try {
+            const parsed = JSON.parse(cachedRaw);
+            if (parsed?.data && parsed.data.length > 0) {
+              setRawFplStandings(parsed.data);
+            }
+          } catch {}
+        }
+
         fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
           .then(async (res) => {
             if (!res.ok) throw new Error(`FPL Standings failed with status: ${res.status}`);
@@ -619,9 +630,12 @@ export default function AdminCommandCenter() {
             const results = fplData?.standings?.results;
             if (results && results.length > 0) {
               setRawFplStandings(results);
+              try {
+                localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
+              } catch {}
             }
           })
-          .catch((err) => console.warn("Could not fetch FPL standings:", err?.message || err))
+          .catch((err) => console.warn("Could not fetch FPL standings, cached fallback preserved:", err?.message || err))
           .finally(() => setIsFplStandingsLoading(false));
       } else {
         setIsFplStandingsLoading(false);

@@ -595,18 +595,41 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
     const memberTotalLoadedAllTime = useMemo(() => {
         if (!currentUser) return 0;
-        const txTotal = transactions
-            .filter((tx: any) => {
-                const isDeposit = tx.type === 'deposit' || tx.type === 'wallet_funding' || tx.type === 'manual_deposit' || tx.category === 'deposit';
-                if (!isDeposit) return false;
-                return (
-                    (currentUser.id && tx.memberId === currentUser.id) ||
-                    (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
-                    (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
-                );
-            })
-            .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
-        return Math.max(txTotal, Number((currentUser as any)?.totalDeposited || 0));
+        const validDepositTxs = transactions.filter((tx: any) => {
+            const isMatch = (
+                (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+                (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
+                (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
+            );
+            if (!isMatch) return false;
+
+            const isDeposit = tx.type === 'deposit' || tx.type === 'wallet_funding' || tx.type === 'manual_deposit' || tx.category === 'deposit';
+            if (!isDeposit) return false;
+
+            const status = String(tx.status || '').toLowerCase();
+            if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || tx.isReversed === true || tx.reversed === true) {
+                return false;
+            }
+            return true;
+        });
+
+        // Deduct any debit reversals / refunds
+        const reversalTotal = transactions.filter((tx: any) => {
+            const isMatch = (
+                (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+                (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
+                (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
+            );
+            if (!isMatch) return false;
+            return tx.type === 'reversal' || tx.type === 'refund' || tx.category === 'refund' || String(tx.status || '').toLowerCase() === 'refund';
+        }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+
+        const txDepositSum = validDepositTxs.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0) - reversalTotal;
+
+        if (validDepositTxs.length > 0) {
+            return Math.max(0, txDepositSum);
+        }
+        return Math.max(0, Number((currentUser as any)?.totalDeposited || 0) - reversalTotal);
     }, [transactions, currentUser]);
 
 
@@ -950,10 +973,9 @@ const handleRejectPendingPayout = async (payout: any) => {
     }
 
     return (
-        <div className="fc-finances-page p-3 sm:p-5 md:p-6 lg:p-8 w-full animate-in fade-in duration-500 pb-8 font-sans text-white h-full overflow-y-auto relative">
-            <div className="absolute inset-0 pointer-events-none opacity-70">
+        <div className="fc-finances-page p-3 sm:p-5 md:p-6 lg:p-8 w-full animate-in fade-in duration-500 pb-36 sm:pb-32 lg:pb-16 font-sans text-white relative">
+            <div className="absolute inset-0 pointer-events-none opacity-50">
                 <div className="absolute -top-20 right-[8%] h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-                <div className="absolute bottom-10 left-[6%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
             </div>
             <div className="w-full max-w-6xl mx-auto space-y-4">
                 <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
@@ -1031,10 +1053,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </div>
                         </article>
 
-                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-6 border border-amber-500/25 bg-gradient-to-br from-amber-500/12 via-white dark:via-[#161d24] to-white dark:to-[#161d24] shadow-md sm:col-span-2 lg:col-span-1">
+                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-[#161d24] shadow-md sm:col-span-2 lg:col-span-1">
                             <div className="flex items-center justify-between mb-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">Wallet Top-Up</p>
-                                <Wallet className="w-4 h-4 text-amber-600 dark:text-amber-300" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Wallet Top-Up</p>
+                                <Wallet className="w-4 h-4 text-emerald-400" />
                             </div>
 
                             <div className="space-y-2.5">
@@ -1048,31 +1070,31 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         setCashTopUpAmount(cleaned);
                                     }}
                                     placeholder="Amount (KES)"
-                                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
+                                    className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
                                 />
                                 <input
                                     type="text"
                                     value={cashTopUpNote}
                                     onChange={(e) => setCashTopUpNote(e.target.value)}
                                     placeholder="Optional note"
-                                    className="w-full rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 px-3 py-2.5 text-xs text-gray-900 dark:text-white placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60"
+                                    className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
                                 />
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 gap-2 pt-1">
                                     <button
                                         onClick={() => navigate('/deposit')}
-                                        className="px-3 py-2.5 rounded-lg border border-emerald-500/35 bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                                        className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-all active:scale-95 cursor-pointer"
                                     >
                                         M-Pesa
                                     </button>
                                     <button
                                         onClick={handleSubmitCashTopUpRequest}
                                         disabled={isSubmittingCashTopUpRequest}
-                                        className="px-3 py-2.5 rounded-lg border border-amber-500/35 bg-amber-500/15 text-amber-600 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer"
+                                        className="px-3 py-2.5 rounded-xl border border-white/15 bg-white/5 text-gray-300 hover:text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                                     >
                                         {isSubmittingCashTopUpRequest ? '...' : 'Cash'}
                                     </button>
                                 </div>
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
+                                <p className="text-[10px] text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
                             </div>
                         </article>
                     </section>
