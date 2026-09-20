@@ -593,9 +593,9 @@ export default function AdminCommandCenter() {
             }
             setIsCurrentEventFinished(isEventFinished);
             setCurrentGwNumber(fetchedGwId);
-            const targetStartGw = isEventFinished ? (nextEvent?.id || (fetchedGwId ? fetchedGwId + 1 : 1)) : fetchedGwId;
+            const targetStartGw = fetchedGwId || 1;
             if (activeLeagueId) {
-              const needsStartGwUpdate = !data.startGw || (isEventFinished && fetchedGwId && Number(data.startGw) <= Number(fetchedGwId));
+              const needsStartGwUpdate = !data.startGw;
               if (needsStartGwUpdate) {
                 updateDoc(leagueRef, { startGw: targetStartGw }).catch(() => {});
                 setStartGw(targetStartGw);
@@ -1295,16 +1295,9 @@ export default function AdminCommandCenter() {
   // If the current event already concluded without any approved payouts in this chama,
   // the league officially begins at the next upcoming gameweek (e.g. GW5).
   // All prior gameweeks (GW1..4) are strictly voided (pre-league).
-  const hasCurrentGwApprovedPayout = pendingPayouts.some(
-    (p: any) => Number(p.gw) === (currentGwNumber || 0) && p.status === 'approved'
-  );
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
-  const effectiveStartGw = Number(
-    (rawStartGw && rawStartGw <= (currentGwNumber || 0) && isCurrentEventFinished && !hasCurrentGwApprovedPayout)
-      ? Math.max(rawStartGw, nextPlayableGw)
-      : (rawStartGw || nextPlayableGw || 1)
-  );
+  const effectiveStartGw = Number(rawStartGw || 1);
   const isPreLeagueRound = (currentGwNumber || firestoreGw || 1) < effectiveStartGw;
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);

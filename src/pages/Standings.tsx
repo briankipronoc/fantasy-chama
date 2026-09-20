@@ -240,14 +240,23 @@ export default function Standings() {
                 };
             }
 
-            // 6. Past gameweeks that already finished without payout (pre-league or unplayed) -> Strictly Voided
+            // 6. Current or past in-season gameweek finished without explicit recorded payout yet -> Awaiting payout or show winner
             if (currentEvent && (isCurrentEventFinished ? gw <= currentEvent : gw < currentEvent)) {
+                if (gw >= leagueStartGw && topGwMember && Number(topGwMember.event_total) > 0) {
+                    return {
+                        gw,
+                        winnerName: `${topGwMember.player_name}`,
+                        winnerTeam: `${topGwMember.entry_name || 'Team'} · Pending Payout`,
+                        amount: estimatedPot,
+                        isAwaitingPayment: true,
+                    };
+                }
                 return {
                     gw,
-                    winnerName: 'Voided',
-                    winnerTeam: 'Unresolved / Pre-League',
-                    isVoided: true,
-                    isPreLeague: true,
+                    winnerName: gw < leagueStartGw ? 'Voided' : 'Unresolved',
+                    winnerTeam: gw < leagueStartGw ? 'Pre-League · No fees' : 'Awaiting Resolution',
+                    isVoided: gw < leagueStartGw,
+                    isPreLeague: gw < leagueStartGw,
                 };
             }
 
@@ -700,12 +709,12 @@ export default function Standings() {
 
 
     const isPendingMember = (m: any) =>
-        Boolean(m && (m.isPending === true || (!m.phone && !m.phoneNumber) || !m.authUid));
+        Boolean(m && m.isPending === true && !m.hasPaid && Number(m.walletBalance || 0) <= 0);
 
     const hasEverFunded = (m: any) =>
-        Boolean(m && (m.hasPaid === true || Number(m.walletBalance || 0) > 0 || Number((m as any).totalContributed || 0) > 0));
+        Boolean(m && (m.hasPaid === true || Number(m.walletBalance || 0) > 0 || Number((m as any).totalContributed || 0) > 0 || Number((m as any).totalDeposited || 0) > 0));
 
-    // End-season snapshot: Omit spectators, eliminated members, pending-onboarding, and un-funded members; rank contenders by total score
+    // End-season snapshot: Omit spectators, eliminated members, and un-funded members; rank contenders by total score
     const seasonPool = standingsData.filter((r: any) => {
         const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
         if (!m) return false;
@@ -1224,6 +1233,24 @@ export default function Standings() {
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Funded
                                                     </span>
                                                 )}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        haptics.selection();
+                                                        setTeamPicksModal({
+                                                            isOpen: true,
+                                                            teamId: row.entry,
+                                                            teamName: row.entry_name,
+                                                            managerName: row.player_name
+                                                        });
+                                                    }}
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[9px] md:text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer ml-1.5 shadow-xs"
+                                                    title={`View ${row.player_name}'s gameweek lineup`}
+                                                >
+                                                    <Shirt className="w-3 h-3 text-emerald-400" />
+                                                    <span>Lineup</span>
+                                                </button>
                                                 {isGwWinnerRow && isCurrentEventFinished && (role === 'admin' || isMe) && (!leagueStartGw || Number(currentEvent) >= leagueStartGw) && (
                                                     <button
                                                         onClick={(e) => {

@@ -603,7 +603,7 @@ export default function Profile() {
         const directoryMembers = members.filter((m: any) => !isMemberPending(m));
         return (
         <div className={clsx(
-            "fc-active-members-card fc-card bg-[#161d24] border border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden",
+            "fc-active-members-card fc-card bg-[#161d24] border border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden h-fit",
             extraClassName
         )}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -799,12 +799,7 @@ export default function Profile() {
                 document.body
             )}
 
-            <div className={clsx(
-                "gap-3 pb-2 custom-scrollbar",
-                directoryMembers.length <= 6
-                    ? "flex flex-wrap items-center"
-                    : "grid grid-rows-2 sm:grid-rows-3 grid-flow-col overflow-x-auto auto-cols-max"
-            )}>
+            <div className="grid grid-rows-2 grid-flow-col auto-cols-max gap-3 pb-2 overflow-x-auto custom-scrollbar">
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;

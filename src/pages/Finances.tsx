@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, AlertTriangle, Check, MessageCircle } from 'lucide-react';
+import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
@@ -101,6 +101,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [lastResetAtMs, setLastResetAtMs] = useState<number | null>(null);
     const [chartHostWidth, setChartHostWidth] = useState(0);
     const chartHostRef = useRef<HTMLDivElement | null>(null);
+    const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+    const [ledgerModalSearch, setLedgerModalSearch] = useState('');
+    const [ledgerModalFilter, setLedgerModalFilter] = useState<'all' | 'deposits' | 'payouts' | 'reversals'>('all');
 
     useEffect(() => {
         setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
@@ -601,17 +604,44 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return true;
     });
 
-    const memberTotalLoadedAllTime = useMemo(() => {
-        if (!currentUser) return 0;
-        const validDepositTxs = transactions.filter((tx: any) => {
-            const isMatch = (
-                (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
-                (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
-                (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
-            );
-            if (!isMatch) return false;
+    const filteredModalTransactions = useMemo(() => {
+        return displayedTransactions.filter((tx: any) => {
+            const isReversal = Number(tx.amount || 0) < 0
+                || tx.type === 'ledger_adjustment'
+                || tx.source === 'manual_reversal'
+                || String(tx.receiptId || '').startsWith('REV');
+            const isPayout = tx.type === 'payout';
 
-            const isDeposit = tx.type === 'deposit' || tx.type === 'wallet_funding' || tx.type === 'manual_deposit' || tx.category === 'deposit';
+            if (ledgerModalFilter === 'deposits' && (isReversal || isPayout)) return false;
+            if (ledgerModalFilter === 'payouts' && !isPayout) return false;
+            if (ledgerModalFilter === 'reversals' && !isReversal) return false;
+
+            if (!ledgerModalSearch.trim()) return true;
+            const q = ledgerModalSearch.toLowerCase().trim();
+            const memberName = String(tx.memberName || tx.winnerName || '').toLowerCase();
+            const receipt = String(tx.receiptId || tx.mpesaCode || tx.id || '').toLowerCase();
+            const note = String(tx.note || '').toLowerCase();
+            return memberName.includes(q) || receipt.includes(q) || note.includes(q);
+        });
+    }, [displayedTransactions, ledgerModalFilter, ledgerModalSearch]);
+
+    const memberTotalLoadedCurrentSeason = useMemo(() => {
+        if (!currentUser) return 0;
+        const isCurrentSeason = (tx: any) => {
+            const ts = toMillis(tx.timestamp);
+            if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
+            if (ts && ts < currentSeasonStartMs) return false;
+            return true;
+        };
+        const isMatch = (tx: any) => (
+            (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+            (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
+            (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
+        );
+
+        const validDepositTxs = transactions.filter((tx: any) => {
+            if (!isMatch(tx) || !isCurrentSeason(tx)) return false;
+            const isDeposit = tx.type === 'deposit' || tx.type === 'wallet_funding' || tx.type === 'manual_deposit' || tx.category === 'deposit' || (tx.type === 'ledger_adjustment' && Number(tx.amount || 0) > 0 && tx.source !== 'manual_reversal');
             if (!isDeposit) return false;
 
             const status = String(tx.status || '').toLowerCase();
@@ -621,24 +651,27 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             return true;
         });
 
-        // Deduct any debit reversals / refunds
+        // Deduct any debit reversals / refunds / manual debit adjustments
         const reversalTotal = transactions.filter((tx: any) => {
-            const isMatch = (
-                (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
-                (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone)) ||
-                (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.playerName === currentUser.displayName))
+            if (!isMatch(tx) || !isCurrentSeason(tx)) return false;
+            return (
+                tx.source === 'manual_reversal' ||
+                tx.type === 'reversal' ||
+                tx.type === 'refund' ||
+                tx.category === 'refund' ||
+                String(tx.status || '').toLowerCase() === 'refund' ||
+                (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+                Number(tx.amount || 0) < 0
             );
-            if (!isMatch) return false;
-            return tx.type === 'reversal' || tx.type === 'refund' || tx.category === 'refund' || String(tx.status || '').toLowerCase() === 'refund';
-        }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+        }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
         const txDepositSum = validDepositTxs.reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0) - reversalTotal;
 
-        if (validDepositTxs.length > 0) {
+        if (validDepositTxs.length > 0 || reversalTotal > 0) {
             return Math.max(0, txDepositSum);
         }
         return Math.max(0, Number((currentUser as any)?.totalDeposited || 0) - reversalTotal);
-    }, [transactions, currentUser]);
+    }, [transactions, currentUser, lastResetAtMs, currentSeasonStartMs]);
 
 
     const totalCompletedOrCurrentGws = useMemo(() => {
@@ -724,6 +757,20 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const regularMembersCount = useMemo(() => {
         return memberFundingSummary.filter(m => !m.isSpectator).length;
     }, [memberFundingSummary]);
+
+    const seasonDepositedTotal = useMemo(() => {
+        return memberFundingSummary.reduce((acc, m) => acc + (m.totalDeposited || 0), 0);
+    }, [memberFundingSummary]);
+
+    const activeChamaMembers = useMemo(() => {
+        return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding);
+    }, [memberFundingSummary]);
+
+    const currentGwExpectedWeekly = activeChamaMembers.length * (gameweekStake || 0);
+    const currentGwFundedMembers = activeChamaMembers.filter(m => m.hasPaidCurrent || m.walletBalance >= (gameweekStake || 0));
+    const currentGwUnfundedMembers = activeChamaMembers.filter(m => !m.hasPaidCurrent && m.walletBalance < (gameweekStake || 0));
+    const currentGwCollectedWeekly = currentGwFundedMembers.length * (gameweekStake || 0);
+    const isWeeklyPotBalanced = currentGwUnfundedMembers.length === 0 && currentGwExpectedWeekly > 0;
 
     const filteredAuditMembers = useMemo(() => {
         if (fundingAuditFilter === 'skipped') {
@@ -1165,15 +1212,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <div>
                                 <div className="flex items-center justify-between mb-4">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-300">
-                                        Total Loaded (All-Time)
+                                        Total Loaded (2026/27 Season)
                                     </p>
                                     <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
-                                    KES {memberTotalLoadedAllTime.toLocaleString()}
+                                    KES {memberTotalLoadedCurrentSeason.toLocaleString()}
                                 </p>
                                 <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
-                                    All deposits and top-ups loaded for the 2026/27 season.
+                                    Net deposits and top-ups loaded for the 2026/27 season.
                                 </p>
                             </div>
                             <div className="mt-4 flex items-center justify-between gap-2">
@@ -1250,87 +1297,89 @@ const handleRejectPendingPayout = async (payout: any) => {
                             return (
                                 <>
                                     <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 shrink-0">
-                                                    <TrendingUp className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
-                                                        {effectivePayoutMode === 'weekly_only'
-                                                            ? "Projected Weekly Payout"
-                                                            : effectivePayoutMode === 'season_only'
-                                                            ? (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")
-                                                            : projectedCardIndex === 0
-                                                            ? "Projected Weekly Payout"
-                                                            : (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")}
-                                                    </h3>
-                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                                        {effectivePayoutMode === 'weekly_only'
-                                                            ? `Weekly Cash Pot (${weeklyPercent}%)`
-                                                            : effectivePayoutMode === 'season_only'
-                                                            ? (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Season Podium Vault (${vaultPercent}%)`)
-                                                            : projectedCardIndex === 0
-                                                            ? `Current Gameweek Pot (${weeklyPercent}%)`
-                                                            : (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Join-aware remaining estimate (${vaultPercent}%)`)}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0">
-                                                {effectivePayoutMode === 'both' && (
-                                                    <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setProjectedCardIndex(0)}
-                                                            className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
-                                                        >
-                                                            GW
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setProjectedCardIndex(1)}
-                                                            className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
-                                                        >
-                                                            Season
-                                                        </button>
+                                        <div className="space-y-2.5 mb-3">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 shrink-0">
+                                                        <TrendingUp className="w-4 h-4" />
                                                     </div>
-                                                )}
-                                                {(effectivePayoutMode === 'season_only' || projectedCardIndex === 1) && (
-                                                    <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shadow-xs">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSeasonCardTab('collected')}
-                                                            className={clsx(
-                                                                "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
-                                                                seasonCardTab === 'collected' ? "bg-amber-400 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                            )}
-                                                            title="Actual funds secured in the vault right now"
-                                                        >
-                                                            Now
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setSeasonCardTab('projected')}
-                                                            className={clsx(
-                                                                "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
-                                                                seasonCardTab === 'projected' ? "bg-emerald-500 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                            )}
-                                                            title="Projected season collection across remaining rounds"
-                                                        >
-                                                            Projected
-                                                        </button>
+                                                    <div>
+                                                        <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
+                                                            {effectivePayoutMode === 'weekly_only'
+                                                                ? "Projected Weekly Payout"
+                                                                : effectivePayoutMode === 'season_only'
+                                                                ? (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")
+                                                                : projectedCardIndex === 0
+                                                                ? "Projected Weekly Payout"
+                                                                : (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")}
+                                                        </h3>
+                                                        <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                                            {effectivePayoutMode === 'weekly_only'
+                                                                ? `Weekly Cash Pot (${weeklyPercent}%)`
+                                                                : effectivePayoutMode === 'season_only'
+                                                                ? (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Season Podium Vault (${vaultPercent}%)`)
+                                                                : projectedCardIndex === 0
+                                                                ? `Current Gameweek Pot (${weeklyPercent}%)`
+                                                                : (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Join-aware remaining estimate (${vaultPercent}%)`)}
+                                                        </p>
                                                     </div>
-                                                )}
-                                                {effectivePayoutMode === 'season_only' && (
-                                                    <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400">
-                                                        Season Only
-                                                    </span>
-                                                )}
-                                                {effectivePayoutMode === 'weekly_only' && (
-                                                    <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                                                        Weekly Only
-                                                    </span>
-                                                )}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0">
+                                                    {effectivePayoutMode === 'both' && (
+                                                        <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setProjectedCardIndex(0)}
+                                                                className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                            >
+                                                                GW
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setProjectedCardIndex(1)}
+                                                                className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                            >
+                                                                Season
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {(effectivePayoutMode === 'season_only' || projectedCardIndex === 1) && (
+                                                        <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shadow-xs">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSeasonCardTab('collected')}
+                                                                className={clsx(
+                                                                    "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                                                                    seasonCardTab === 'collected' ? "bg-amber-400 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                )}
+                                                                title="Actual funds secured in the vault right now"
+                                                            >
+                                                                Now
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSeasonCardTab('projected')}
+                                                                className={clsx(
+                                                                    "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                                                                    seasonCardTab === 'projected' ? "bg-emerald-500 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                )}
+                                                                title="Projected season collection across remaining rounds"
+                                                            >
+                                                                Projected
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {effectivePayoutMode === 'season_only' && (
+                                                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+                                                            Season Only
+                                                        </span>
+                                                    )}
+                                                    {effectivePayoutMode === 'weekly_only' && (
+                                                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                                                            Weekly Only
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -1340,7 +1389,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-gray-900 dark:text-white">
                                                         KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}
                                                     </p>
-                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
                                                         {projectedWeeklyPayoutFormula}
                                                     </p>
                                                 </>
@@ -1349,7 +1398,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-amber-400">
                                                         KES {isStealthMode ? '****' : seasonVaultCollectedSoFar.toLocaleString()}
                                                     </p>
-                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
                                                         Actual verified vault funds secured to date: KES {Number(seasonCollectedSoFarGross || 0).toLocaleString()} gross × {vaultPercent}% = KES {Number(seasonVaultCollectedSoFar || 0).toLocaleString()}
                                                     </p>
                                                 </>
@@ -1358,7 +1407,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
                                                         KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}
                                                     </p>
-                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2 leading-relaxed font-medium">
+                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
                                                         {projectedSeasonCollectionsFormula}
                                                     </p>
                                                 </>
@@ -1403,14 +1452,16 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                         {/* Card 3: League Treasury Split */}
                         {(() => {
+                            const isPilot = (leagueSettings as any)?.pilotMode !== false;
+                            if (isPilot) return null;
+
                             const totalCollectedGross = totalSecured;
                             const hasCoAdmin = members.filter(m => m.role === 'admin' || m.role === 'co-chair').length > 1;
                             const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
                             const coAdminRate = hasCoAdmin ? 0.01 : 0;
                             const chairmanShare = totalCollectedGross * chairmanRate;
                             const coChairShare = totalCollectedGross * coAdminRate;
-                            const isPilot = (leagueSettings as any)?.pilotMode !== false;
-                            const hqRate = isPilot ? 0 : 0.035;
+                            const hqRate = 0.035;
                             const hqShare = totalCollectedGross * hqRate;
                             const networkShare = totalCollectedGross * 0.015;
 
@@ -1595,13 +1646,20 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     {/* Metric Bar */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 md:p-6 bg-black/20 border-b border-white/5">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 md:p-6 bg-black/20 border-b border-white/5">
+                        <div className="p-3 rounded-2xl bg-emerald-500/[0.07] border border-emerald-500/20 col-span-2 sm:col-span-1">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Total Raised / Deposited</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-400 mt-0.5">
+                                KES {isStealthMode ? '****' : seasonDepositedTotal.toLocaleString()}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">Total member pot contributions</p>
+                        </div>
                         <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Arrears Owed</p>
                             <p className={clsx("text-lg sm:text-xl font-black tabular-nums mt-0.5", totalChamaArrears > 0 ? "text-rose-400" : "text-emerald-400")}>
                                 KES {isStealthMode ? '****' : totalChamaArrears.toLocaleString()}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">{totalChamaArrears > 0 ? `${skippedMembersCount} members have skipped rounds` : "All accounts square"}</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{totalChamaArrears > 0 ? `${skippedMembersCount} members behind` : "All accounts square"}</p>
                         </div>
                         <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Rounds Tracked</p>
@@ -1623,6 +1681,39 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 {spectatorsCount}
                             </p>
                             <p className="text-[10px] text-gray-500 mt-0.5">1v1 bets only (exempt)</p>
+                        </div>
+                    </div>
+
+                    {/* Weekly Pot Balancing Indicator */}
+                    <div className="px-4 py-3 md:px-6 bg-emerald-500/[0.04] border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-gray-300">GW{currentGwNumber || startGw || 1} Weekly Pot:</span>
+                            <span className="font-black text-white tabular-nums">KES {currentGwCollectedWeekly.toLocaleString()}</span>
+                            <span className="text-gray-400">collected of</span>
+                            <span className="font-black text-emerald-400 tabular-nums">KES {currentGwExpectedWeekly.toLocaleString()}</span>
+                            <span className="text-gray-400">expected ({currentGwFundedMembers.length}/{activeChamaMembers.length} active players)</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {isWeeklyPotBalanced ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[11px]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Pot Balanced for GW{currentGwNumber || startGw || 1}
+                                </span>
+                            ) : (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[11px]">
+                                        <AlertCircle className="w-3.5 h-3.5" />
+                                        Unbalanced: {currentGwUnfundedMembers.length} Pending
+                                    </span>
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        {currentGwUnfundedMembers.map((m: any) => (
+                                            <span key={m.id} className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">
+                                                {m.displayName} (KES {gameweekStake || 0} due)
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1852,7 +1943,7 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                     {/* Mobile Card View */}
                     <div className="md:hidden divide-y divide-white/5">
-                        {displayedTransactions.length > 0 ? displayedTransactions.map((tx: any) => {
+                        {displayedTransactions.length > 0 ? displayedTransactions.slice(0, 7).map((tx: any) => {
                             const isWalletFunding = tx.type === 'wallet_funding'
                                 || String(tx.receiptId || '').startsWith('SEED_')
                                 || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')
@@ -1967,7 +2058,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </thead>
                             <tbody className="divide-y divide-white/5">
                                 {displayedTransactions.length > 0 ? (
-                                    displayedTransactions.map((tx: any) => {
+                                    displayedTransactions.slice(0, 7).map((tx: any) => {
                                         const isWalletFunding = tx.type === 'wallet_funding'
                                             || String(tx.receiptId || '').startsWith('SEED_')
                                             || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')
@@ -2091,7 +2182,353 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Collapsed Ledger Footer / Expand Button */}
+                    {displayedTransactions.length > 0 && (
+                        <div className="p-4 border-t border-white/5 bg-black/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <span className="text-xs text-gray-400">
+                                Showing {Math.min(7, displayedTransactions.length)} of {displayedTransactions.length} transactions
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setIsLedgerModalOpen(true)}
+                                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
+                            >
+                                <ReceiptText className="w-4 h-4 text-emerald-400" />
+                                <span>Expand Activity / Full Ledger ({displayedTransactions.length})</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
+
+                {/* ── Full Ledger Modal ──────────────────────────────────────── */}
+                {isLedgerModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in">
+                        <div className="fc-card w-full max-w-5xl max-h-[90vh] flex flex-col bg-[#0d1410] border border-emerald-500/30 rounded-3xl overflow-hidden shadow-2xl">
+                            {/* Modal Header */}
+                            <div className="p-5 md:p-6 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/30">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                        <History className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="font-bold text-lg text-white">Full Activity Ledger</h3>
+                                            <span className="text-[10px] uppercase tracking-widest font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                {filteredModalTransactions.length} Transactions
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {seasonFilter === 'current' ? '2026/27 Season complete ledger & audit log' : 'All-time transaction history'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={exportLedgerCSV}
+                                        className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-300 flex items-center gap-1.5 transition-all cursor-pointer"
+                                    >
+                                        <Download className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>Export CSV</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsLedgerModalOpen(false)}
+                                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all cursor-pointer"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Search and Filters Bar */}
+                            <div className="p-4 border-b border-white/5 bg-black/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <div className="relative w-full sm:w-72">
+                                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <input
+                                        type="text"
+                                        value={ledgerModalSearch}
+                                        onChange={(e) => setLedgerModalSearch(e.target.value)}
+                                        placeholder="Search member, receipt, or note..."
+                                        className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                                    />
+                                    {ledgerModalSearch && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setLedgerModalSearch('')}
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs cursor-pointer"
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 overflow-x-auto w-full sm:w-auto">
+                                    {(['all', 'deposits', 'payouts', 'reversals'] as const).map((filterKey) => (
+                                        <button
+                                            key={filterKey}
+                                            type="button"
+                                            onClick={() => setLedgerModalFilter(filterKey)}
+                                            className={clsx(
+                                                'px-3 py-1 rounded-lg text-xs font-bold transition-all capitalize whitespace-nowrap cursor-pointer',
+                                                ledgerModalFilter === filterKey
+                                                    ? 'bg-emerald-500 text-black shadow-sm'
+                                                    : 'text-gray-400 hover:text-white'
+                                            )}
+                                        >
+                                            {filterKey === 'all' ? 'All' : filterKey === 'deposits' ? 'Inflows / Deposits' : filterKey === 'payouts' ? 'Payouts' : 'Reversals'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Scrollable Modal Content */}
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                {/* Desktop Table View in Modal */}
+                                <div className="hidden md:block w-full overflow-x-auto">
+                                    <table className="fc-muted-table w-full min-w-[700px] text-left">
+                                        <thead className="sticky top-0 bg-[#0a100a] z-10">
+                                            <tr className="border-b border-white/10 bg-[#0a100a]">
+                                                <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase">RECEIPT NO.</th>
+                                                <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase">DATE / TIME</th>
+                                                <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase">DESCRIPTION</th>
+                                                <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase text-right">AMOUNT</th>
+                                                <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase text-center">STATUS</th>
+                                                <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase text-right">ACTIONS</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {filteredModalTransactions.length > 0 ? (
+                                                filteredModalTransactions.map((tx: any) => {
+                                                    const isWalletFunding = tx.type === 'wallet_funding'
+                                                        || String(tx.receiptId || '').startsWith('SEED_')
+                                                        || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')
+                                                        || String(tx.note || '').toLowerCase().includes('wallet top-up')
+                                                        || tx.paymentMethod === 'cash_handoff';
+                                                    const resolvedMember = members.find(
+                                                        (m: any) => m.id === (tx.memberId || tx.userId || tx.winnerId)
+                                                            || m.authUid === (tx.memberId || tx.userId)
+                                                    );
+                                                    const memberName = tx.memberName || tx.winnerName || resolvedMember?.displayName || 'Member';
+                                                    const isReversal = Number(tx.amount || 0) < 0
+                                                        || tx.type === 'ledger_adjustment'
+                                                        || tx.source === 'manual_reversal'
+                                                        || String(tx.receiptId || '').startsWith('REV');
+                                                    const isPayout = tx.type === 'payout';
+                                                    const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
+                                                    const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
+                                                    const targetTxGw = Number(tx.gameweek || tx.gw || 0);
+                                                    const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
+                                                    const statusLabel = isReversal ? 'Reversal' : isWalletFunding ? 'Wallet Credit' : ledgerDirection === '+' ? 'Inflow' : 'Outflow';
+                                                    const activityLabel = isReversal
+                                                        ? (tx.note || `Reversal • ${memberName}`)
+                                                        : tx.type === 'payout'
+                                                            ? `GW${tx.gw || tx.gameweek || ''} Payout → ${tx.winnerName || memberName}`
+                                                            : isWalletFunding
+                                                                ? `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`
+                                                                : `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`;
+
+                                                    return (
+                                                        <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
+                                                            <td className="px-6 py-3.5 text-xs font-mono text-gray-500">
+                                                                {tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}
+                                                            </td>
+                                                            <td className="px-6 py-3.5">
+                                                                <div className="text-sm font-bold text-white">
+                                                                    {txDate(tx) ? txDate(tx)?.toLocaleDateString() : 'Just now'}
+                                                                </div>
+                                                                <div className="text-[11px] text-gray-500">
+                                                                    {txDate(tx) ? txDate(tx)?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-3.5">
+                                                                <div className="text-sm font-bold text-white flex items-center gap-2">
+                                                                    <span>{activityLabel}</span>
+                                                                    {gwTag && (
+                                                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                                            {gwTag}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-xs text-gray-400">
+                                                                    {isReversal
+                                                                        ? `Manual Reversal • ${tx.receiptId || 'Adjustment'}`
+                                                                        : tx.type === 'payout'
+                                                                        ? `GW ${tx.gameweek || tx.gw || 'N/A'} • ${tx.winnerPhone || tx.phoneNumber || 'phone not set'}`
+                                                                        : `${gwTag ? `Funded for Gameweek ${targetTxGw} • ` : ''}Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-right">
+                                                                <span className={clsx(
+                                                                    'font-bold text-sm',
+                                                                    isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                                                )}>
+                                                                    {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-center">
+                                                                <span className={clsx(
+                                                                    'inline-block px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded-md border',
+                                                                    isReversal
+                                                                        ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
+                                                                        : isWalletFunding || ledgerDirection === '+'
+                                                                        ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                                                                        : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
+                                                                )}>
+                                                                    {statusLabel}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-3.5 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    {tx.type === 'payout' && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setIsLedgerModalOpen(false);
+                                                                                setSelectedPayoutForFlex(tx);
+                                                                            }}
+                                                                            className="px-2 py-1 rounded-lg border border-amber-400/30 bg-amber-400/10 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-400/20 transition-colors flex items-center gap-1 cursor-pointer"
+                                                                        >
+                                                                            <Trophy className="w-3 h-3 text-amber-400" />
+                                                                            Flex
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => shareTransactionReceipt(tx)}
+                                                                        className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                                                    >
+                                                                        Share
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                                        <ReceiptText className="w-10 h-10 mx-auto text-gray-600 mb-2 opacity-50" />
+                                                        <p className="font-medium text-white/70">No matching transactions found.</p>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Card View in Modal */}
+                                <div className="md:hidden divide-y divide-white/5">
+                                    {filteredModalTransactions.length > 0 ? (
+                                        filteredModalTransactions.map((tx: any) => {
+                                            const isWalletFunding = tx.type === 'wallet_funding'
+                                                || String(tx.receiptId || '').startsWith('SEED_')
+                                                || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')
+                                                || String(tx.note || '').toLowerCase().includes('wallet top-up')
+                                                || tx.paymentMethod === 'cash_handoff';
+                                            const resolvedMember = members.find(
+                                                (m: any) => m.id === (tx.memberId || tx.userId || tx.winnerId)
+                                                    || m.authUid === (tx.memberId || tx.userId)
+                                            );
+                                            const memberName = tx.memberName || tx.winnerName || resolvedMember?.displayName || 'Member';
+                                            const isReversal = Number(tx.amount || 0) < 0
+                                                || tx.type === 'ledger_adjustment'
+                                                || tx.source === 'manual_reversal'
+                                                || String(tx.receiptId || '').startsWith('REV');
+                                            const isPayout = tx.type === 'payout';
+                                            const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
+                                            const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
+                                            const statusLabel = isReversal ? 'Reversal' : isWalletFunding ? 'Wallet Credit' : ledgerDirection === '+' ? 'Inflow' : 'Outflow';
+                                            const targetTxGw = Number(tx.gameweek || tx.gw || 0);
+                                            const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
+                                            const activityLabel = isReversal
+                                                ? (tx.note || `Reversal • ${memberName}`)
+                                                : tx.type === 'payout'
+                                                    ? `GW${tx.gw || tx.gameweek || ''} Payout → ${tx.winnerName || memberName}`
+                                                    : isWalletFunding
+                                                        ? `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`
+                                                        : `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`;
+
+                                            return (
+                                                <div key={tx.id} className="p-4 flex flex-col gap-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className={clsx(
+                                                            'text-sm font-extrabold',
+                                                            isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                                        )}>
+                                                            {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
+                                                        </span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            {gwTag && (
+                                                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                                    {gwTag}
+                                                                </span>
+                                                            )}
+                                                            <span className={clsx(
+                                                                'text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border',
+                                                                isReversal
+                                                                    ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
+                                                                    : isWalletFunding || ledgerDirection === '+'
+                                                                    ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
+                                                                    : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
+                                                            )}>
+                                                                {statusLabel}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="font-bold text-white text-sm">
+                                                        {activityLabel}
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-white/5">
+                                                        <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            {tx.type === 'payout' && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setIsLedgerModalOpen(false);
+                                                                        setSelectedPayoutForFlex(tx);
+                                                                    }}
+                                                                    className="px-2 py-1 rounded-md border border-amber-400/30 bg-amber-400/10 text-[9px] font-black uppercase tracking-wider text-amber-300 hover:bg-amber-400/20 transition-colors flex items-center gap-1 cursor-pointer"
+                                                                >
+                                                                    <Trophy className="w-2.5 h-2.5 text-amber-400" />
+                                                                    Flex
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => shareTransactionReceipt(tx)}
+                                                                className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-wider text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                                            >
+                                                                Share
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="p-8 text-center text-gray-500">
+                                            <ReceiptText className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                            <p className="text-sm">No transactions match your search</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-4 border-t border-white/10 bg-black/40 flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                    Total Records: <strong className="text-white">{filteredModalTransactions.length}</strong>
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsLedgerModalOpen(false)}
+                                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-all cursor-pointer"
+                                >
+                                    Close Ledger
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Season Vault Trajectory Graph ──────────────────────────── */}
                 {(() => {
@@ -2114,7 +2551,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             active: (i + 1) <= completedSeasonGws
                         };
                     });
-                    const currentVault = completedSeasonGws * vaultRatePerGW;
+                    const currentVault = seasonVaultCollectedSoFar > 0 ? seasonVaultCollectedSoFar : completedSeasonGws * vaultRatePerGW;
                     const projectedFinal = vaultRatePerGW * totalSeasonGWs;
                     const remainingLeagueGws = Math.max(0, totalSeasonGWs - completedSeasonGws);
 
