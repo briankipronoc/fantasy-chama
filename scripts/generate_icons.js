@@ -1,0 +1,107 @@
+// scripts/generate_icons.js
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export const svgContent = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="emeraldBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#064e3b" />
+    </linearGradient>
+
+    <!-- Subtle Radial Glow -->
+    <radialGradient id="topGlow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Trophy Gold / Platinum Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A" />
+      <stop offset="35%" stop-color="#FACC15" />
+      <stop offset="70%" stop-color="#EAB308" />
+      <stop offset="100%" stop-color="#CA8A04" />
+    </linearGradient>
+
+    <!-- Trophy Highlight -->
+    <linearGradient id="goldHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#FEF08A" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#CA8A04" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Base / Tier Dark Gold -->
+    <linearGradient id="darkGold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#B45309" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+
+    <!-- Drop Shadow -->
+    <filter id="trophyShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#022c22" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Full Bleed App Background for iOS / Android -->
+  <rect width="512" height="512" fill="url(#emeraldBg)" />
+  <rect width="512" height="512" fill="url(#topGlow)" />
+
+  <!-- Subtle Inner Border Frame -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#6EE7B7" stroke-width="2" stroke-opacity="0.15" />
+
+  <!-- Trophy Graphic Group -->
+  <g filter="url(#trophyShadow)">
+    <!-- Left Handle -->
+    <path d="M 175 160 C 120 160 110 230 145 270 C 165 292 195 295 205 295" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="24" stroke-linecap="round" />
+    <!-- Right Handle -->
+    <path d="M 337 160 C 392 160 402 230 367 270 C 347 292 317 295 307 295" 
+          fill="none" stroke="url(#goldGrad)" stroke-width="24" stroke-linecap="round" />
+
+    <!-- Trophy Main Cup Body -->
+    <path d="M 180 135 L 332 135 C 335 200 315 285 256 300 C 197 285 177 200 180 135 Z" 
+          fill="url(#goldGrad)" />
+    
+    <!-- Cup Rim Top Lip -->
+    <ellipse cx="256" cy="135" rx="76" ry="18" fill="#FEF08A" />
+    <ellipse cx="256" cy="135" rx="66" ry="13" fill="#CA8A04" />
+    <ellipse cx="256" cy="136" rx="62" ry="10" fill="#EAB308" />
+
+    <!-- Cup Highlight Left Glare -->
+    <path d="M 195 145 C 190 190 205 250 235 275 C 220 250 210 190 215 145 Z" 
+          fill="url(#goldHighlight)" opacity="0.6" />
+
+    <!-- Center Star / Chama Emblem -->
+    <path d="M 256 185 L 262 202 L 280 202 L 265 213 L 271 230 L 256 220 L 241 230 L 247 213 L 232 202 L 250 202 Z" 
+          fill="#FFFFFF" opacity="0.95" />
+
+    <!-- Stem Connector -->
+    <path d="M 244 298 L 268 298 L 264 345 L 248 345 Z" fill="url(#darkGold)" />
+    
+    <!-- Stem Riser -->
+    <ellipse cx="256" cy="345" rx="28" ry="8" fill="#FEF08A" />
+
+    <!-- Base Pedestal (Layer 1) -->
+    <path d="M 224 350 L 288 350 L 298 385 L 214 385 Z" fill="url(#darkGold)" />
+    
+    <!-- Base Plinth (Layer 2 Bottom) -->
+    <rect x="196" y="385" width="120" height="24" rx="6" fill="url(#goldGrad)" />
+    <rect x="202" y="388" width="108" height="4" rx="2" fill="#FEF08A" opacity="0.8" />
+  </g>
+</svg>
+`;
+
+const publicDir = path.resolve(__dirname, '../public');
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
+fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svgContent.trim());
+console.log('Successfully wrote public/favicon.svg');

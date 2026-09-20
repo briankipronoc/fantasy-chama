@@ -2033,7 +2033,7 @@ export default function AdminCommandCenter() {
         paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
       });
 
-      const targetGw = Number(currentGwNumber || firestoreGw || 1);
+      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(currentGwNumber || firestoreGw || 1));
       await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
         type: "wallet_funding",
         source: fundMethod,
@@ -3589,7 +3589,7 @@ burstFrame();
                                       : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:border-red-500/30 dark:text-red-300 animate-pulse"
                                   )}
                                 >
-                                  {leadMargin >= 15 ? "Dominant Lead 🛡️" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
+                                  {leadMargin >= 15 ? "Dominant Lead" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
                                 </span>
                               </div>
                             )}

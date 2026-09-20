@@ -75,6 +75,7 @@ export default function MemberDashboard() {
 
     // Phase 31: Real FPL Performance Trajectory
     const [performanceData, setPerformanceData] = useState<any[]>([]);
+    const [leagueStartGw, setLeagueStartGw] = useState<number>(() => Number((useStore.getState().league as any)?.startGw || 1));
 
     // Co-Admin State
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
@@ -164,6 +165,9 @@ export default function MemberDashboard() {
                 if (data.rules) setRules(data.rules);
                 setCoAdminId(data.coAdminId || null);
                 setChairmanPhone(data.chairmanPhone || null);
+                if (data.startGw || data.startGameweek || data.rules?.startGw) {
+                    setLeagueStartGw(Number(data.startGw || data.startGameweek || data.rules?.startGw || 1));
+                }
 
                 // Phase 29: Fetch FPL GW Winner continuously with caching and 503 resilience
                 if (data.fplLeagueId) {
@@ -191,13 +195,19 @@ export default function MemberDashboard() {
                                     localStorage.setItem(standingsCacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
                                 } catch {}
 
-                                // Build league-wide GW average from entries' history
+                                // Build league-wide GW average from entries' history for Top 5 + You
                                 const fetchPerformances = async () => {
                                     let aggData: any[] = [];
-                                    
-                                    const teamIds = [];
-                                    if (currentUser?.fplTeamId) teamIds.push(currentUser.fplTeamId);
-                                    if (currentUser?.secondFplTeamId) teamIds.push(currentUser.secondFplTeamId);
+                                    const top5 = results.slice(0, 5);
+                                    const myFplId = Number(currentUser?.fplTeamId || 0);
+                                    const secondFplId = Number(currentUser?.secondFplTeamId || 0);
+                                    const teamIds = [
+                                        ...new Set([
+                                            ...top5.map((r: any) => Number(r.entry)),
+                                            ...(myFplId ? [myFplId] : []),
+                                            ...(secondFplId ? [secondFplId] : []),
+                                        ])
+                                    ];
 
                                     if (teamIds.length === 0) return;
 
@@ -225,12 +235,14 @@ export default function MemberDashboard() {
                                             const current = histData?.current;
                                             if (current && current.length > 0) {
                                                 const recent = current.slice(-5);
-                                                
+                                                const playerEntry = results.find((r:any) => Number(r.entry) === tId);
+                                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+
                                                 aggData = recent.map((gw: any, index: number) => {
                                                     const existing = aggData[index] || { name: `GW${gw.event}` };
                                                     return {
                                                         ...existing,
-                                                        [`Team ${tId}`]: gw.points
+                                                        [playerName]: gw.points
                                                     };
                                                 });
                                             }
@@ -238,6 +250,40 @@ export default function MemberDashboard() {
                                             console.error('Error fetching performance:', e);
                                         }
                                     }
+
+                                    // Append current live event points if not already in completed history
+                                    const liveGwId = currentFplEvent?.id;
+                                    if (liveGwId && !aggData.some(row => row.name === `GW${liveGwId}`)) {
+                                        const liveRow: any = { name: `GW${liveGwId}` };
+                                        for (const tId of teamIds) {
+                                            const playerEntry = results.find((r: any) => Number(r.entry) === tId);
+                                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                                            liveRow[playerName] = Number(playerEntry?.event_total || 0);
+                                        }
+                                        aggData.push(liveRow);
+                                    }
+
+                                    // Ensure GW${leagueStartGw} is present if league commenced at a later round
+                                    const sGw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
+                                    if (sGw && sGw > 1 && !aggData.some(row => row.name === `GW${sGw}`)) {
+                                        const kickoffRow: any = { name: `GW${sGw}` };
+                                        for (const tId of teamIds) {
+                                            const playerEntry = results.find((r: any) => Number(r.entry) === tId);
+                                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                                            kickoffRow[playerName] = Number(playerEntry?.event_total || 0);
+                                        }
+                                        aggData.push(kickoffRow);
+                                    }
+
+                                    // Sort aggData chronologically by GW number
+                                    if (aggData.length > 0) {
+                                        aggData.sort((a, b) => {
+                                            const numA = parseInt(String(a.name || '').replace(/\D/g, ''), 10) || 0;
+                                            const numB = parseInt(String(b.name || '').replace(/\D/g, ''), 10) || 0;
+                                            return numA - numB;
+                                        });
+                                    }
+
                                     if (aggData.length > 0) {
                                         const finalData = aggData.map(row => {
                                             const scores = Object.keys(row)
@@ -988,7 +1034,6 @@ export default function MemberDashboard() {
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     // Season vault: use actual GWs remaining since league start
-    const leagueStartGw = Number((leagueSettings as any)?.startGw || (leagueSettings as any)?.startGameweek || (leagueSettings as any)?.rules?.startGw || 1);
     const totalLeagueGws = Math.max(1, 38 - leagueStartGw + 1);
     const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * (rules.vault / 100);
 
@@ -1268,7 +1313,7 @@ export default function MemberDashboard() {
             </div>
 
             {/* Top Navigation Frame */}
-            <div className="fc-member-top-rail sticky top-0 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+1.25rem))] px-4 md:pt-6 md:px-8 w-full max-w-6xl mx-auto z-50 space-y-3">
+            <div className="fc-member-top-rail pt-2 md:pt-4 px-4 md:px-8 w-full max-w-6xl mx-auto space-y-3">
                 <Header
                     role="member"
                     title={leagueName || 'The Big League'}
@@ -1289,7 +1334,7 @@ export default function MemberDashboard() {
                 )}>
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400 mb-2">
-                            {isSpectator ? '🛡️ Spectator Mode · Side-Bets Active' : (hasPaid ? '✓ Contribution Secured' : 'Action Required')}
+                            {isSpectator ? 'Spectator Mode · Side-Bets Active' : (hasPaid ? '✓ Contribution Secured' : 'Action Required')}
                         </p>
                         <div className="flex items-center gap-2.5">
                             <span className="text-2xl md:text-3xl">
@@ -1511,7 +1556,7 @@ export default function MemberDashboard() {
                                         ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
                                         : "bg-red-500/10 border-red-500/30 text-red-300 animate-pulse"
                                 )}>
-                                    {gwWinner.leadMargin >= 15 ? "Dominant 🛡️" : gwWinner.leadMargin >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
+                                    {gwWinner.leadMargin >= 15 ? "Dominant" : gwWinner.leadMargin >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
                                 </span>
                             </div>
                             <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">Champion banner is locked until FPL finishes this GW.</h3>
@@ -1644,7 +1689,7 @@ export default function MemberDashboard() {
                         {currentUser && isSpectator && (
                             <div className="w-full rounded-2xl border border-indigo-500/30 bg-indigo-950/20 px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-[0_0_20px_rgba(99,102,241,0.08)] animate-in slide-in-from-top-2 duration-300">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-xl flex-shrink-0">🛡️</span>
+                                    <span className="text-xl flex-shrink-0">👁️</span>
                                     <div>
                                         <p className="font-extrabold text-sm text-indigo-400 dark:text-indigo-300 leading-tight">
                                             Spectator & Side-Bets Mode Active
@@ -1952,7 +1997,7 @@ export default function MemberDashboard() {
                                         : (isCurrentGwVoided
                                             ? "Gameweek Voided ⚠️"
                                             : (isSpectator
-                                                ? "Spectator & Side-Bets Only 🛡️"
+                                                ? "Spectator & Side-Bets Only"
                                                 : (hasPaid ? "Verified & Active" : "Action Required")))}
                                 </h3>
                                 <p className="text-xs text-gray-400 leading-relaxed mb-3">
@@ -2080,53 +2125,69 @@ export default function MemberDashboard() {
                     {/* Performance Chart */}
                     <div className="fc-member-chart lg:col-span-7 bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 shadow-xl rounded-[1.5rem] p-5 flex flex-col justify-between h-full text-slate-900 dark:text-white">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                            <h4 className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-gray-300 uppercase tracking-wider">
-                                <BarChart3 className="w-3.5 h-3.5 text-emerald-500" /> Performance Trajectory
-                                {leagueStartGw > 1 && (
-                                    <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 normal-case tracking-normal">
-                                        Chama Commenced: GW{leagueStartGw}
-                                    </span>
-                                )}
-                            </h4>
+                            <div>
+                                <h4 className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-gray-300 uppercase tracking-wider">
+                                    <BarChart3 className="w-3.5 h-3.5 text-emerald-500" /> Performance Trajectory (Top 5 + You)
+                                    {leagueStartGw > 1 && (
+                                        <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 normal-case tracking-normal">
+                                            Chama Commenced: GW{leagueStartGw}
+                                        </span>
+                                    )}
+                                </h4>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                                    Recent Gameweek points progression comparing leaders against your score and the league average.
+                                </p>
+                            </div>
                             <span className="text-slate-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
                                 {leagueStartGw > 1 ? `Commenced GW${leagueStartGw}` : 'Recent Gameweeks'}
                             </span>
                         </div>
 
                         {/* Trajectory Legend Badges */}
-                        {performanceData.length > 0 && (
-                            <div className="flex items-center gap-2 flex-wrap mb-3">
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-300 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-300 shadow-xs">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                                    <span>{currentUser?.teamName || (currentUser as any)?.fplTeamName || 'Your Team'} <strong className="text-emerald-600 dark:text-emerald-400">(You)</strong></span>
-                                    {currentUser?.fplTeamId && performanceData[performanceData.length - 1]?.[`Team ${currentUser.fplTeamId}`] !== undefined && (
-                                        <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 tabular-nums ml-0.5">
-                                            {performanceData[performanceData.length - 1]?.[`Team ${currentUser.fplTeamId}`]} pts
-                                        </span>
+                        {performanceData.length > 0 && (() => {
+                            const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
+                            const allKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
+                            const myFirstName = (currentUser?.displayName || '').split(' ')[0];
+
+                            return (
+                                <div className="flex items-center gap-2 flex-wrap mb-3">
+                                    {allKeys.map((playerKey, idx) => {
+                                        const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
+                                        const lastScore = performanceData[performanceData.length - 1]?.[playerKey];
+                                        const color = isYou ? '#10B981' : colors[(idx + 1) % colors.length];
+
+                                        return (
+                                            <div
+                                                key={playerKey}
+                                                className={clsx(
+                                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-xs",
+                                                    isYou
+                                                        ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-500/40 text-emerald-900 dark:text-emerald-300"
+                                                        : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
+                                                )}
+                                            >
+                                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                                                <span>{playerKey} {isYou && <strong className="text-emerald-600 dark:text-emerald-400">(You)</strong>}</span>
+                                                {lastScore !== undefined && (
+                                                    <span className="text-[10px] font-black opacity-80 tabular-nums ml-0.5">
+                                                        {lastScore} pts
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 shadow-xs">
+                                        <span className="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" />
+                                        <span>League Avg</span>
+                                    </div>
+                                    {leagueStartGw > 1 && (
+                                        <div className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400 font-medium ml-auto">
+                                            <span>Official Chama Play: GW{leagueStartGw}+</span>
+                                        </div>
                                     )}
                                 </div>
-                                {currentUser?.secondFplTeamId && (
-                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-500/15 border border-blue-300 dark:border-blue-500/30 text-blue-900 dark:text-blue-300 shadow-xs">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
-                                        <span>Team 2</span>
-                                        {performanceData[performanceData.length - 1]?.[`Team ${currentUser.secondFplTeamId}`] !== undefined && (
-                                            <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 tabular-nums ml-0.5">
-                                                {performanceData[performanceData.length - 1]?.[`Team ${currentUser.secondFplTeamId}`]} pts
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 shadow-xs">
-                                    <span className="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" />
-                                    <span>League Avg</span>
-                                </div>
-                                {leagueStartGw > 1 && (
-                                    <div className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400 font-medium ml-auto">
-                                        <span>Official Chama Play: GW{leagueStartGw}+</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         <div className="h-52 w-full">
                             {performanceData.length > 0 ? (
@@ -2155,15 +2216,28 @@ export default function MemberDashboard() {
                                             }}
                                         />
                                     )}
-                                    {currentUser?.fplTeamId && (
-                                        <Line type="monotone" dataKey={`Team ${currentUser.fplTeamId}`} stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Your Team" />
-                                    )}
-                                    {currentUser?.secondFplTeamId && (
-                                        <Line type="monotone" dataKey={`Team ${currentUser.secondFplTeamId}`} stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Team 2" />
-                                    )}
-                                    {!currentUser?.fplTeamId && !currentUser?.secondFplTeamId && (
-                                         <Line type="monotone" dataKey="Points" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Your Points" />
-                                    )}
+                                    {(() => {
+                                        const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
+                                        const allKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
+                                        const myFirstName = (currentUser?.displayName || '').split(' ')[0];
+
+                                        return allKeys.map((playerKey, idx) => {
+                                            const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
+                                            const color = isYou ? '#10B981' : colors[(idx + 1) % colors.length];
+                                            return (
+                                                <Line
+                                                    key={playerKey}
+                                                    type="monotone"
+                                                    dataKey={playerKey}
+                                                    stroke={color}
+                                                    strokeWidth={isYou ? 3.5 : 2}
+                                                    dot={{ r: isYou ? 4.5 : 3, fill: color, strokeWidth: 0 }}
+                                                    activeDot={{ r: 6 }}
+                                                    name={isYou ? `${playerKey} (You)` : playerKey}
+                                                />
+                                            );
+                                        });
+                                    })()}
                                     <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="4 4" dot={false} name="League Avg" />
                                 </LineChart>
                             </ResponsiveContainer>

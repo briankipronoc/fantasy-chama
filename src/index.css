@@ -1100,7 +1100,6 @@
   .fc-shell-warroom {
     background:
       radial-gradient(1100px 520px at 88% -10%, rgba(16, 185, 129, 0.16), transparent 66%),
-      radial-gradient(760px 380px at 10% 100%, rgba(245, 158, 11, 0.1), transparent 68%),
       linear-gradient(180deg, #0b1014 0%, #0e1511 100%);
   }
 
@@ -1114,14 +1113,12 @@
   .fc-shell-finances {
     background:
       radial-gradient(1180px 540px at 88% -10%, rgba(16, 185, 129, 0.14), transparent 65%),
-      radial-gradient(840px 420px at 6% 94%, rgba(245, 158, 11, 0.12), transparent 68%),
       linear-gradient(180deg, #0b1014 0%, #101b16 100%);
   }
 
   .fc-shell-profile {
     background:
       radial-gradient(980px 500px at -10% 8%, rgba(16, 185, 129, 0.12), transparent 62%),
-      radial-gradient(820px 440px at 98% 92%, rgba(245, 158, 11, 0.1), transparent 66%),
       linear-gradient(180deg, #0b1014 0%, #13201a 100%);
   }
 
@@ -1751,7 +1748,6 @@
 [data-theme="light"] .fc-shell-warroom {
   background:
     radial-gradient(1100px 520px at 88% -10%, rgba(16, 185, 129, 0.16), transparent 66%),
-    radial-gradient(760px 380px at 10% 100%, rgba(245, 158, 11, 0.13), transparent 68%),
     linear-gradient(180deg, #f8fafc 0%, #edf8f1 100%) !important;
 }
 [data-theme="light"] .fc-shell-standings {
@@ -1763,13 +1759,11 @@
 [data-theme="light"] .fc-shell-finances {
   background:
     radial-gradient(1180px 540px at 88% -10%, rgba(16, 185, 129, 0.16), transparent 65%),
-    radial-gradient(840px 420px at 6% 94%, rgba(245, 158, 11, 0.13), transparent 68%),
     linear-gradient(180deg, #f8fafc 0%, #eef6f1 100%) !important;
 }
 [data-theme="light"] .fc-shell-profile {
   background:
     radial-gradient(980px 500px at -10% 8%, rgba(16, 185, 129, 0.13), transparent 62%),
-    radial-gradient(820px 440px at 98% 92%, rgba(245, 158, 11, 0.11), transparent 66%),
     linear-gradient(180deg, #f8fafc 0%, #eef8f2 100%) !important;
 }
 [data-theme="light"] .fc-win-payout-card {
@@ -2220,12 +2214,12 @@ html {
 .fc-main-scroll {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
 }
 
 .fc-finances-page {
   background:
     radial-gradient(1200px 520px at 88% -10%, rgba(16, 185, 129, 0.14), transparent 65%),
-    radial-gradient(800px 420px at 6% 94%, rgba(245, 158, 11, 0.1), transparent 68%),
     linear-gradient(180deg, #0b1014 0%, #0e1511 100%);
 }
 
@@ -2254,12 +2248,11 @@ html {
 }
 
 .fc-member-top-rail {
-  background: linear-gradient(to bottom, rgba(11, 16, 20, 0.92), rgba(11, 16, 20, 0.72), rgba(11, 16, 20, 0));
-  backdrop-filter: blur(10px);
+  background: transparent;
 }
 
 [data-theme="light"] .fc-member-top-rail {
-  background: linear-gradient(to bottom, rgba(248, 250, 252, 0.96), rgba(248, 250, 252, 0.82), rgba(248, 250, 252, 0));
+  background: transparent;
 }
 
 [data-theme="light"] .fc-member-priority-strip,

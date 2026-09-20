@@ -1,6 +1,6 @@
 {
-  "name": "FantasyChama — Kenya's FPL Pot Engine",
-  "short_name": "FantasyChama",
+  "name": "Fantasy Chama",
+  "short_name": "Fantasy Chama",
   "description": "Automated FPL mini-league savings circle and pot management.",
   "start_url": "/",
   "display": "standalone",

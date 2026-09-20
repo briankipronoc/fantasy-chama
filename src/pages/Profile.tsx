@@ -876,7 +876,6 @@ export default function Profile() {
         <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white relative overflow-hidden bg-transparent">
             <div className="absolute inset-0 pointer-events-none opacity-75">
                 <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-emerald-500/12 blur-3xl" />
-                <div className="absolute bottom-0 right-[4%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
             </div>
             <div className="max-w-6xl mx-auto space-y-10">
                 <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity, League Controls & Payout Configuration" hideCountdown={true} />
