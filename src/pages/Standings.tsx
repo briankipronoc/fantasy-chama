@@ -102,6 +102,7 @@ export default function Standings() {
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
+    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('gw');
     const [leagueRules, setLeagueRules] = useState<any>({});
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
@@ -209,7 +210,9 @@ export default function Standings() {
             }
 
             // 4. Pre-league gameweeks based on configured start GW (league commenced later)
-            if (leagueStartGw > 1 && gw < leagueStartGw) {
+            // Use effectiveLeagueStartGw (clamped to currentEvent) to avoid marking active GWs as voided
+            const effectiveStart = currentEvent ? Math.min(leagueStartGw, currentEvent) : leagueStartGw;
+            if (effectiveStart > 1 && gw < effectiveStart) {
                 return {
                     gw,
                     winnerName: 'Voided',
@@ -242,7 +245,7 @@ export default function Standings() {
 
             // 6. Current or past in-season gameweek finished without explicit recorded payout yet -> Awaiting payout or show winner
             if (currentEvent && (isCurrentEventFinished ? gw <= currentEvent : gw < currentEvent)) {
-                if (gw >= leagueStartGw && topGwMember && Number(topGwMember.event_total) > 0) {
+                if (gw >= effectiveStart && topGwMember && Number(topGwMember.event_total) > 0) {
                     return {
                         gw,
                         winnerName: `${topGwMember.player_name}`,
@@ -253,10 +256,10 @@ export default function Standings() {
                 }
                 return {
                     gw,
-                    winnerName: gw < leagueStartGw ? 'Voided' : 'Unresolved',
-                    winnerTeam: gw < leagueStartGw ? 'Pre-League · No fees' : 'Awaiting Resolution',
-                    isVoided: gw < leagueStartGw,
-                    isPreLeague: gw < leagueStartGw,
+                    winnerName: gw < effectiveStart ? 'Voided' : 'Unresolved',
+                    winnerTeam: gw < effectiveStart ? 'Pre-League · No fees' : 'Awaiting Resolution',
+                    isVoided: gw < effectiveStart,
+                    isPreLeague: gw < effectiveStart,
                 };
             }
 
@@ -280,6 +283,9 @@ export default function Standings() {
             };
         });
     }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
+
+    // Effective league start = clamped to currentEvent to handle DB drift (e.g., DB=6 but actual current=5)
+    const effectiveLeagueStartGw = currentEvent ? Math.min(leagueStartGw, currentEvent) : leagueStartGw;
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -444,9 +450,9 @@ export default function Standings() {
                         aggData.push(liveRow);
                     }
 
-                    // Ensure GW${leagueStartGw} is present if league commenced at a later round so ReferenceLine can render
-                    if (leagueStartGw && leagueStartGw > 1 && !aggData.some(row => row.name === `GW${leagueStartGw}`)) {
-                        const kickoffRow: any = { name: `GW${leagueStartGw}` };
+                    // Ensure GW${effectiveLeagueStartGw} is present if league commenced at a later round so ReferenceLine can render
+                    if (effectiveLeagueStartGw && effectiveLeagueStartGw > 1 && !aggData.some((row: any) => row.name === `GW${effectiveLeagueStartGw}`)) {
+                        const kickoffRow: any = { name: `GW${effectiveLeagueStartGw}` };
                         for (const tId of teamIds) {
                             const playerEntry = results.find((r: any) => r.entry === tId);
                             const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
@@ -656,6 +662,10 @@ export default function Standings() {
         myFplTeamId && Number(r.entry) === myFplTeamId
     );
     const myStanding = myStandingIdx >= 0 ? standingsData[myStandingIdx] : null;
+
+    // Season rank for the hero card toggle
+    const mySeasonEntry = myStanding ? rankedSeasonPool.find((r: any) => myFplTeamId && Number(r.entry) === myFplTeamId) : null;
+    const mySeasonRank = mySeasonEntry ? (mySeasonEntry as any).calculatedRank : (myStandingIdx >= 0 ? myStandingIdx + 1 : null);
 
     const currentGwAverage = standingsData.length > 0
         ? (standingsData.reduce((sum, row) => sum + row.event_total, 0) / standingsData.length).toFixed(1)
@@ -935,15 +945,54 @@ export default function Standings() {
                         </div>
                     </div>
 
-                    {/* User hero card */}
+                    {/* User hero card with GW / Season rank toggle */}
                     {myStanding && (
-                        <div className="fc-card bg-gradient-to-r from-[#FBBF24]/10 via-[#161d24] to-[#161d24] border border-[#FBBF24]/20 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
-                            <div>
-                                <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your GW Rank</p>
-                                <p className="text-2xl font-black text-white">#{myStandingIdx + 1} <span className="text-sm font-bold text-[#FBBF24]">{myStanding.event_total} pts</span></p>
-                                <p className="text-[10px] text-gray-500 mt-0.5">Season total: {Number(myStanding.total || 0).toLocaleString()} pts{standingsData[0] && myStandingIdx > 0 ? ` · ${(Number(standingsData[0].total || 0) - Number(myStanding.total || 0)).toLocaleString()} behind #1` : ''}</p>
+                        <div className="fc-card bg-gradient-to-r from-[#FBBF24]/10 via-[#161d24] to-[#161d24] border border-[#FBBF24]/20 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+                            <div className="flex-1 min-w-0">
+                                {/* Toggle pill */}
+                                <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/10 w-fit mb-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
+                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'gw' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
+                                    >GW Rank</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setHeroRankView('season'); }}
+                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'season' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
+                                    >Season</button>
+                                </div>
+
+                                {heroRankView === 'gw' ? (
+                                    <>
+                                        <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your GW{currentEvent || ''} Rank</p>
+                                        <p className="text-2xl font-black text-white">
+                                            #{myStandingIdx + 1}
+                                            <span className="text-sm font-bold text-[#FBBF24] ml-2">{myStanding.event_total} pts</span>
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                            League avg: {currentGwAverage} pts
+                                            {Number(myStanding.event_total) > Number(currentGwAverage)
+                                                ? <span className="text-emerald-400 ml-1">· {(Number(myStanding.event_total) - Number(currentGwAverage)).toFixed(0)} above avg</span>
+                                                : myStandingIdx > 0 ? <span className="text-gray-500 ml-1">· {(Number(currentGwAverage) - Number(myStanding.event_total)).toFixed(0)} below avg</span> : null}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your Season Rank</p>
+                                        <p className="text-2xl font-black text-white">
+                                            #{mySeasonRank ?? (myStandingIdx + 1)}
+                                            <span className="text-sm font-bold text-[#FBBF24] ml-2">{Number(myStanding.total || 0).toLocaleString()} pts</span>
+                                        </p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                            {sortedSeasonPool[0] && mySeasonRank && mySeasonRank > 1
+                                                ? `${(Number(sortedSeasonPool[0].total || 0) - Number(myStanding.total || 0)).toLocaleString()} pts behind #1`
+                                                : mySeasonRank === 1 ? '🏆 Leading the season!' : 'Season standings'}
+                                        </p>
+                                    </>
+                                )}
                             </div>
-                            <div className="flex items-center gap-2 self-end sm:self-center">
+                            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1233,6 +1282,8 @@ export default function Standings() {
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Funded
                                                     </span>
                                                 )}
+                                                {/* Hide lineup button on own row — hero card already has it */}
+                                                {!isMe && (
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
@@ -1251,7 +1302,8 @@ export default function Standings() {
                                                     <Shirt className="w-3 h-3 text-emerald-400" />
                                                     <span>Lineup</span>
                                                 </button>
-                                                {isGwWinnerRow && isCurrentEventFinished && (role === 'admin' || isMe) && (!leagueStartGw || Number(currentEvent) >= leagueStartGw) && (
+                                                )}
+                                                {isGwWinnerRow && isCurrentEventFinished && (role === 'admin' || isMe) && (!effectiveLeagueStartGw || Number(currentEvent) >= effectiveLeagueStartGw) && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -1292,9 +1344,9 @@ export default function Standings() {
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-gray-300 uppercase tracking-wider">
                                     <BarChart3 className="w-4 h-4 text-emerald-500" /> Performance Trajectory ({trajectoryView === 'top5' ? 'Top 5 + You' : trajectoryView === 'top10' ? 'Top 10' : 'All Contenders'})
-                                    {leagueStartGw > 1 && (
+                                    {effectiveLeagueStartGw > 1 && (
                                         <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 normal-case tracking-normal">
-                                            Chama Commenced: GW{leagueStartGw}
+                                            Chama Commenced: GW{effectiveLeagueStartGw}
                                         </span>
                                     )}
                                 </h4>
@@ -1412,14 +1464,14 @@ export default function Standings() {
                                                     contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '14px', fontSize: '12px', color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
                                                     itemStyle={{ fontWeight: 'bold' }}
                                                 />
-                                                {leagueStartGw && leagueStartGw > 1 && (
+                                                {effectiveLeagueStartGw && effectiveLeagueStartGw > 1 && (
                                                     <ReferenceLine
-                                                        x={`GW${leagueStartGw}`}
+                                                        x={`GW${effectiveLeagueStartGw}`}
                                                         stroke="#10B981"
                                                         strokeDasharray="4 4"
                                                         strokeWidth={2}
                                                         label={{
-                                                            value: `🏁 Kickoff (GW${leagueStartGw})`,
+                                                            value: `🏁 Kickoff (GW${effectiveLeagueStartGw})`,
                                                             position: 'insideTopLeft',
                                                             fill: '#10B981',
                                                             fontSize: 10,

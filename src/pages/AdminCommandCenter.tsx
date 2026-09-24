@@ -2849,9 +2849,17 @@ burstFrame();
       const currentForfeited = ((leagueSettings as any)?.forfeitedGws || []).filter(
         (g: number) => g !== targetGw
       );
-      await updateDoc(doc(db, "leagues", activeLeagueId), {
+      const updatePayload: any = {
         forfeitedGws: currentForfeited,
-      });
+      };
+
+      const currentStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
+      if (targetGw <= currentStartGw) {
+        updatePayload.startGw = targetGw;
+        setStartGw(targetGw);
+      }
+
+      await updateDoc(doc(db, "leagues", activeLeagueId), updatePayload);
       const existingPayout = pendingPayouts.find(
         (p: any) => Number(p.gw) === targetGw && p.status === "forfeited"
       );

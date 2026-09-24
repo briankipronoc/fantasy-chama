@@ -5,7 +5,7 @@ import {
     updateDoc, doc, arrayUnion, increment, getDoc
 } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
-import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History } from 'lucide-react';
+import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History, AlertTriangle } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import Header from '../components/Header';
@@ -35,6 +35,11 @@ interface SideBet {
     chairmanSeen: boolean;
     chairmanApproved: boolean;
     createdAt: any;
+    cancelRequestedBy?: string | null;
+    cancelRequestedByName?: string | null;
+    cancelRequestedAt?: any;
+    cancelledBy?: string | null;
+    cancellationReason?: string | null;
 }
 
 export default function SideBets() {
@@ -288,11 +293,186 @@ export default function SideBets() {
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
             await updateDoc(betRef, {
                 status: 'cancelled',
+                cancelledBy: 'Chairman',
+                cancellationReason: 'Declined by Chairman',
                 chairmanSeen: true,
+                updatedAt: serverTimestamp(),
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: bet.challenger.id,
+                message: `⚠️ Side Bet Declined: Chairman declined "${bet.title}".`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: bet.opponent.id,
+                message: `⚠️ Side Bet Declined: Chairman declined "${bet.title}".`,
+                timestamp: serverTimestamp(),
+                readBy: [],
             });
             toast.success('Side bet rejected.');
         } catch (_e) {
             toast.error('Failed to reject bet.');
+        }
+    };
+
+    const handleChallengerWithdraw = async (bet: SideBet) => {
+        if (!activeLeagueId) return;
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                status: 'cancelled',
+                cancelledBy: currentUser?.displayName || 'Challenger',
+                cancellationReason: 'Challenge withdrawn by challenger',
+                updatedAt: serverTimestamp(),
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                targetMemberId: bet.opponent.id,
+                message: `Challenge withdrawn: ${bet.challenger.name} withdrew the side bet "${bet.title}".`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            toast.success('Challenge withdrawn.');
+        } catch (_e) {
+            toast.error('Failed to withdraw challenge.');
+        }
+    };
+
+    const handleChairmanCancel = async (bet: SideBet) => {
+        if (!activeLeagueId || !isAdmin) return;
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                status: 'cancelled',
+                cancelledBy: 'Chairman',
+                cancellationReason: 'Cancelled by Chairman override',
+                updatedAt: serverTimestamp(),
+            });
+            // Send personal notifications to both participants
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: bet.challenger.id,
+                message: `⚠️ Side bet "${bet.title}" was cancelled by the Chairman.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: bet.opponent.id,
+                message: `⚠️ Side bet "${bet.title}" was cancelled by the Chairman.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            // League activity notification
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                message: `⚖️ Chairman cancelled the side bet "${bet.title}" (${bet.challenger.name} vs ${bet.opponent.name}).`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            toast.success('Side bet cancelled by Chairman.');
+        } catch (_e) {
+            toast.error('Failed to cancel bet.');
+        }
+    };
+
+    const handleRequestCancel = async (bet: SideBet) => {
+        if (!activeLeagueId || !activeUserId) return;
+        const otherId = bet.challenger.id === activeUserId ? bet.opponent.id : bet.challenger.id;
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                cancelRequestedBy: activeUserId,
+                cancelRequestedByName: currentUser?.displayName || 'Opponent',
+                cancelRequestedAt: serverTimestamp(),
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                targetMemberId: otherId,
+                message: `⚠️ ${currentUser?.displayName || 'Opponent'} requested to cancel side bet "${bet.title}". Both players must agree to cancel.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            toast.success('Cancellation request sent to opponent.');
+        } catch (_e) {
+            toast.error('Failed to request cancellation.');
+        }
+    };
+
+    const handleAgreeCancel = async (bet: SideBet) => {
+        if (!activeLeagueId || !activeUserId) return;
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                status: 'cancelled',
+                cancelledBy: 'mutual_agreement',
+                cancellationReason: 'Mutually cancelled by both players',
+                cancelAgreedAt: serverTimestamp(),
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                targetMemberId: bet.challenger.id,
+                message: `🤝 Side bet "${bet.title}" has been cancelled by mutual agreement.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                targetMemberId: bet.opponent.id,
+                message: `🤝 Side bet "${bet.title}" has been cancelled by mutual agreement.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'info',
+                message: `🤝 Side bet "${bet.title}" (${bet.challenger.name} vs ${bet.opponent.name}) was cancelled by mutual agreement.`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            toast.success('Bet cancelled by mutual agreement.');
+        } catch (_e) {
+            toast.error('Failed to agree to cancellation.');
+        }
+    };
+
+    const handleDeclineCancel = async (bet: SideBet) => {
+        if (!activeLeagueId || !activeUserId) return;
+        const requesterId = bet.cancelRequestedBy;
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                cancelRequestedBy: null,
+                cancelRequestedByName: null,
+            });
+            if (requesterId) {
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                    type: 'info',
+                    targetMemberId: requesterId,
+                    message: `${currentUser?.displayName || 'Opponent'} declined your request to cancel "${bet.title}". The wager remains active.`,
+                    timestamp: serverTimestamp(),
+                    readBy: [],
+                });
+            }
+            toast.info('Cancellation request declined.');
+        } catch (_e) {
+            toast.error('Failed to decline request.');
+        }
+    };
+
+    const handleWithdrawCancelRequest = async (bet: SideBet) => {
+        if (!activeLeagueId) return;
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                cancelRequestedBy: null,
+                cancelRequestedByName: null,
+            });
+            toast.info('Cancellation request withdrawn.');
+        } catch (_e) {
+            toast.error('Failed to withdraw request.');
         }
     };
 
@@ -558,6 +738,12 @@ export default function SideBets() {
                                         onReject={() => handleChairmanReject(bet)}
                                         onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
                                         onShareWin={() => setSharingBet(bet)}
+                                        onWithdraw={() => handleChallengerWithdraw(bet)}
+                                        onChairmanCancel={() => handleChairmanCancel(bet)}
+                                        onRequestCancel={() => handleRequestCancel(bet)}
+                                        onAgreeCancel={() => handleAgreeCancel(bet)}
+                                        onDeclineCancel={() => handleDeclineCancel(bet)}
+                                        onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
                                         getStatusBadge={getStatusBadge}
                                     />
                                 ))}
@@ -596,6 +782,12 @@ export default function SideBets() {
                                         onReject={() => handleChairmanReject(bet)}
                                         onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
                                         onShareWin={() => setSharingBet(bet)}
+                                        onWithdraw={() => handleChallengerWithdraw(bet)}
+                                        onChairmanCancel={() => handleChairmanCancel(bet)}
+                                        onRequestCancel={() => handleRequestCancel(bet)}
+                                        onAgreeCancel={() => handleAgreeCancel(bet)}
+                                        onDeclineCancel={() => handleDeclineCancel(bet)}
+                                        onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
                                         getStatusBadge={getStatusBadge}
                                     />
                                 ))}
@@ -630,6 +822,12 @@ export default function SideBets() {
                                             onReject={() => handleChairmanReject(bet)}
                                             onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
                                             onShareWin={() => setSharingBet(bet)}
+                                            onWithdraw={() => handleChallengerWithdraw(bet)}
+                                            onChairmanCancel={() => handleChairmanCancel(bet)}
+                                            onRequestCancel={() => handleRequestCancel(bet)}
+                                            onAgreeCancel={() => handleAgreeCancel(bet)}
+                                            onDeclineCancel={() => handleDeclineCancel(bet)}
+                                            onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
                                             getStatusBadge={getStatusBadge}
                                         />
                                     ))}
@@ -660,6 +858,12 @@ export default function SideBets() {
                                             onReject={() => handleChairmanReject(bet)}
                                             onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
                                             onShareWin={() => setSharingBet(bet)}
+                                            onWithdraw={() => handleChallengerWithdraw(bet)}
+                                            onChairmanCancel={() => handleChairmanCancel(bet)}
+                                            onRequestCancel={() => handleRequestCancel(bet)}
+                                            onAgreeCancel={() => handleAgreeCancel(bet)}
+                                            onDeclineCancel={() => handleDeclineCancel(bet)}
+                                            onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
                                             getStatusBadge={getStatusBadge}
                                         />
                                     ))}
@@ -939,10 +1143,33 @@ interface BetCardProps {
     onReject: () => void;
     onResolveClick: () => void;
     onShareWin: () => void;
+    onWithdraw?: () => void;
+    onChairmanCancel?: () => void;
+    onRequestCancel?: () => void;
+    onAgreeCancel?: () => void;
+    onDeclineCancel?: () => void;
+    onWithdrawCancelRequest?: () => void;
     getStatusBadge: (bet: SideBet) => JSX.Element | undefined;
 }
 
-function BetCard({ bet, currentUserId, isAdmin, onSign, onEndorse, onApprove, onReject, onResolveClick, onShareWin, getStatusBadge }: BetCardProps) {
+function BetCard({
+    bet,
+    currentUserId,
+    isAdmin,
+    onSign,
+    onEndorse,
+    onApprove,
+    onReject,
+    onResolveClick,
+    onShareWin,
+    onWithdraw,
+    onChairmanCancel,
+    onRequestCancel,
+    onAgreeCancel,
+    onDeclineCancel,
+    onWithdrawCancelRequest,
+    getStatusBadge
+}: BetCardProps) {
     const isChallenger = bet.challenger.id === currentUserId;
     const isOpponent = bet.opponent.id === currentUserId;
     const hasEndorsed = bet.endorsers.includes(currentUserId);
@@ -1019,10 +1246,61 @@ function BetCard({ bet, currentUserId, isAdmin, onSign, onEndorse, onApprove, on
                         )}
                     </div>
                 </div>
+
+                {/* Mutual Cancellation Banner */}
+                {bet.cancelRequestedBy && bet.cancelRequestedBy !== currentUserId && !isCancelled && !isResolved && (
+                    <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 flex flex-col gap-2">
+                        <p className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                            <span>⚠️</span>
+                            <span><strong>{bet.cancelRequestedByName || 'Opponent'}</strong> requested to cancel this wager.</span>
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                            Side bets cannot be edited. Both players must agree to cancel this wager.
+                        </p>
+                        <div className="flex gap-2">
+                            {onAgreeCancel && (
+                                <button
+                                    type="button"
+                                    onClick={onAgreeCancel}
+                                    className="flex-1 py-2 px-3 rounded-lg bg-rose-500 hover:bg-rose-400 text-black text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                    Agree & Cancel Bet
+                                </button>
+                            )}
+                            {onDeclineCancel && (
+                                <button
+                                    type="button"
+                                    onClick={onDeclineCancel}
+                                    className="py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-gray-300 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                    Decline
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {bet.cancelRequestedBy === currentUserId && !isCancelled && !isResolved && (
+                    <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-2 text-xs">
+                        <span className="text-amber-300 font-medium flex items-center gap-1.5 text-[11px]">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                            Waiting for opponent to agree to cancel...
+                        </span>
+                        {onWithdrawCancelRequest && (
+                            <button
+                                type="button"
+                                onClick={onWithdrawCancelRequest}
+                                className="text-[10px] font-bold text-gray-400 hover:text-white underline cursor-pointer"
+                            >
+                                Withdraw
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-white/5">
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
                 {/* Opponent needs to sign */}
                 {isOpponent && bet.status === 'pending_opponent' && !bet.opponent.signed && (
                     <button
@@ -1030,6 +1308,28 @@ function BetCard({ bet, currentUserId, isAdmin, onSign, onEndorse, onApprove, on
                         className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-emerald-500/20"
                     >
                         <Check className="w-3.5 h-3.5" /> Accept & Stake KES {bet.stake.toLocaleString()}
+                    </button>
+                )}
+
+                {/* Challenger can withdraw challenge before opponent signs */}
+                {isChallenger && bet.status === 'pending_opponent' && onWithdraw && (
+                    <button
+                        type="button"
+                        onClick={onWithdraw}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/30 text-gray-400 hover:text-rose-300 text-xs font-bold transition-all active:scale-95"
+                    >
+                        <X className="w-3.5 h-3.5" /> Withdraw Challenge
+                    </button>
+                )}
+
+                {/* Mutual cancellation request for active or pending_chairman bets */}
+                {isParticipant && (bet.status === 'active' || bet.status === 'pending_chairman') && !bet.cancelRequestedBy && onRequestCancel && (
+                    <button
+                        type="button"
+                        onClick={onRequestCancel}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-rose-500/10 border border-white/10 hover:border-rose-500/25 text-gray-400 hover:text-rose-300 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                    >
+                        <X className="w-3.5 h-3.5" /> Cancel Wager
                     </button>
                 )}
 
@@ -1061,6 +1361,18 @@ function BetCard({ bet, currentUserId, isAdmin, onSign, onEndorse, onApprove, on
                     </button>
                 )}
 
+                {/* Chairman direct cancel override for any active/pending bet */}
+                {isAdmin && bet.status !== 'resolved' && bet.status !== 'cancelled' && onChairmanCancel && (
+                    <button
+                        type="button"
+                        onClick={onChairmanCancel}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-400 text-xs font-bold transition-all active:scale-95 ml-auto"
+                        title="Chairman override: cancel and void bet"
+                    >
+                        <AlertTriangle className="w-3.5 h-3.5" /> Cancel (Chairman)
+                    </button>
+                )}
+
                 {/* Others can endorse (watch) */}
                 {!isParticipant && !isResolved && !isCancelled && (
                     <button
@@ -1085,6 +1397,13 @@ function BetCard({ bet, currentUserId, isAdmin, onSign, onEndorse, onApprove, on
                     >
                         <Trophy className="w-3.5 h-3.5" /> Share Duel Win
                     </button>
+                )}
+
+                {/* Cancelled badge details */}
+                {isCancelled && (
+                    <div className="flex items-center gap-1.5 text-xs text-rose-400/90 font-medium py-1">
+                        <span>❌ {bet.cancellationReason || 'Wager Cancelled'}</span>
+                    </div>
                 )}
             </div>
         </div>

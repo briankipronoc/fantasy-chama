@@ -100,6 +100,7 @@ export default function MemberDashboard() {
     const isSuspended = leagueSettings?.isSuspended === true || isGracePeriodOver;
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const listenToLeagueTransactions = useStore(state => state.listenToLeagueTransactions);
+    const transactions = useStore(state => state.transactions);
     const [showPochiInstructions, setShowPochiInstructions] = useState(false);
     const [isNudgingHQ, setIsNudgingHQ] = useState(false);
 
@@ -173,11 +174,140 @@ export default function MemberDashboard() {
                 if (data.fplLeagueId) {
                     const standingsCacheKey = `fpl_standings_${data.fplLeagueId}`;
                     const cachedStandingsRaw = localStorage.getItem(standingsCacheKey);
+
+                    // Build league-wide GW average from entries' history for Top 5 + You
+                    const fetchPerformances = async (resultsList: any[]) => {
+                        if (!resultsList || resultsList.length === 0) return;
+                        const top5 = resultsList.slice(0, 5);
+                        const myFplId = Number(currentUser?.fplTeamId || 0);
+                        const secondFplId = Number(currentUser?.secondFplTeamId || 0);
+                        const teamIds = [
+                            ...new Set([
+                                ...top5.map((r: any) => Number(r.entry)),
+                                ...(myFplId ? [myFplId] : []),
+                                ...(secondFplId ? [secondFplId] : []),
+                            ])
+                        ];
+
+                        if (teamIds.length === 0) return;
+
+                        const gwMap = new Map<number, any>();
+
+                        for (const tId of teamIds) {
+                            try {
+                                const histCacheKey = `fpl_history_${tId}`;
+                                let histData: any = null;
+                                try {
+                                    const r = await fetch(`/fpl-api/entry/${tId}/history/`);
+                                    if (r.ok) {
+                                        histData = await r.json();
+                                        if (histData?.current) {
+                                            localStorage.setItem(histCacheKey, JSON.stringify({ timestamp: Date.now(), data: histData }));
+                                        }
+                                    }
+                                } catch {}
+
+                                if (!histData) {
+                                    const cached = localStorage.getItem(histCacheKey);
+                                    if (cached) {
+                                        try { histData = JSON.parse(cached).data; } catch {}
+                                    }
+                                }
+
+                                const current = histData?.current;
+                                if (current && current.length > 0) {
+                                    const recent = current.slice(-5);
+                                    const playerEntry = resultsList.find((r:any) => Number(r.entry) === tId);
+                                    const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+
+                                    for (const gw of recent) {
+                                        const evNum = Number(gw.event);
+                                        if (!gwMap.has(evNum)) {
+                                            gwMap.set(evNum, { name: `GW${evNum}` });
+                                        }
+                                        gwMap.get(evNum)[playerName] = Number(gw.points);
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error fetching performance:', e);
+                            }
+                        }
+
+                        let aggData: any[] = Array.from(gwMap.values());
+
+                        // Append current live event points if not already in completed history
+                        const liveGwId = currentFplEvent?.id;
+                        const isLiveKickedOff = Boolean(
+                            liveGwId && 
+                            !currentFplEvent.isPreparingForNextGw && 
+                            (currentFplEvent.finished || resultsList.some((r: any) => Number(r.event_total || 0) > 0))
+                        );
+
+                        if (isLiveKickedOff && liveGwId && !aggData.some(row => row.name === `GW${liveGwId}`)) {
+                            const liveRow: any = { name: `GW${liveGwId}` };
+                            for (const tId of teamIds) {
+                                const playerEntry = resultsList.find((r: any) => Number(r.entry) === tId);
+                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                                liveRow[playerName] = Number(playerEntry?.event_total || 0);
+                            }
+                            aggData.push(liveRow);
+                        }
+
+                        // Maximum played or live GW: prevent future unplayed GWs from ever appearing
+                        const maxPlayedGw = currentFplEvent?.id
+                            ? (currentFplEvent.finished || isLiveKickedOff ? currentFplEvent.id : currentFplEvent.id - 1)
+                            : 38;
+
+                        // Ensure GW${sGw} is present if league commenced at a later round (and is already played)
+                        const rawStart = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
+                        const sGw = Math.min(rawStart, maxPlayedGw);
+                        if (sGw && sGw > 1 && sGw <= maxPlayedGw && !aggData.some(row => row.name === `GW${sGw}`)) {
+                            const kickoffRow: any = { name: `GW${sGw}` };
+                            for (const tId of teamIds) {
+                                const playerEntry = resultsList.find((r: any) => Number(r.entry) === tId);
+                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                                kickoffRow[playerName] = Number(playerEntry?.event_total || 0);
+                            }
+                            aggData.push(kickoffRow);
+                        }
+
+                        // Strip any unplayed/future gameweeks beyond maxPlayedGw
+                        aggData = aggData.filter(row => {
+                            const num = parseInt(String(row.name || '').replace(/\D/g, ''), 10) || 0;
+                            return num > 0 && num <= maxPlayedGw;
+                        });
+
+                        // Sort aggData chronologically by GW number
+                        if (aggData.length > 0) {
+                            aggData.sort((a, b) => {
+                                const numA = parseInt(String(a.name || '').replace(/\D/g, ''), 10) || 0;
+                                const numB = parseInt(String(b.name || '').replace(/\D/g, ''), 10) || 0;
+                                return numA - numB;
+                            });
+                        }
+
+                        if (aggData.length > 0) {
+                            const finalData = aggData.map(row => {
+                                const scores = Object.keys(row)
+                                    .filter(k => k !== 'name' && k !== 'Average')
+                                    .map(k => Number(row[k]))
+                                    .filter(n => Number.isFinite(n));
+                                const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 50;
+                                return {
+                                    ...row,
+                                    Average: avg
+                                };
+                            });
+                            setPerformanceData(finalData);
+                        }
+                    };
+
                     if (cachedStandingsRaw) {
                         try {
                             const parsed = JSON.parse(cachedStandingsRaw);
                             if (parsed?.data && parsed.data.length > 0) {
                                 setRawFplStandings(parsed.data);
+                                fetchPerformances(parsed.data);
                             }
                         } catch {}
                     }
@@ -194,112 +324,7 @@ export default function MemberDashboard() {
                                 try {
                                     localStorage.setItem(standingsCacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
                                 } catch {}
-
-                                // Build league-wide GW average from entries' history for Top 5 + You
-                                const fetchPerformances = async () => {
-                                    let aggData: any[] = [];
-                                    const top5 = results.slice(0, 5);
-                                    const myFplId = Number(currentUser?.fplTeamId || 0);
-                                    const secondFplId = Number(currentUser?.secondFplTeamId || 0);
-                                    const teamIds = [
-                                        ...new Set([
-                                            ...top5.map((r: any) => Number(r.entry)),
-                                            ...(myFplId ? [myFplId] : []),
-                                            ...(secondFplId ? [secondFplId] : []),
-                                        ])
-                                    ];
-
-                                    if (teamIds.length === 0) return;
-
-                                    for (const tId of teamIds) {
-                                        try {
-                                            const histCacheKey = `fpl_history_${tId}`;
-                                            let histData: any = null;
-                                            try {
-                                                const r = await fetch(`/fpl-api/entry/${tId}/history/`);
-                                                if (r.ok) {
-                                                    histData = await r.json();
-                                                    if (histData?.current) {
-                                                        localStorage.setItem(histCacheKey, JSON.stringify({ timestamp: Date.now(), data: histData }));
-                                                    }
-                                                }
-                                            } catch {}
-
-                                            if (!histData) {
-                                                const cached = localStorage.getItem(histCacheKey);
-                                                if (cached) {
-                                                    try { histData = JSON.parse(cached).data; } catch {}
-                                                }
-                                            }
-
-                                            const current = histData?.current;
-                                            if (current && current.length > 0) {
-                                                const recent = current.slice(-5);
-                                                const playerEntry = results.find((r:any) => Number(r.entry) === tId);
-                                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-
-                                                aggData = recent.map((gw: any, index: number) => {
-                                                    const existing = aggData[index] || { name: `GW${gw.event}` };
-                                                    return {
-                                                        ...existing,
-                                                        [playerName]: gw.points
-                                                    };
-                                                });
-                                            }
-                                        } catch (e) {
-                                            console.error('Error fetching performance:', e);
-                                        }
-                                    }
-
-                                    // Append current live event points if not already in completed history
-                                    const liveGwId = currentFplEvent?.id;
-                                    if (liveGwId && !aggData.some(row => row.name === `GW${liveGwId}`)) {
-                                        const liveRow: any = { name: `GW${liveGwId}` };
-                                        for (const tId of teamIds) {
-                                            const playerEntry = results.find((r: any) => Number(r.entry) === tId);
-                                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-                                            liveRow[playerName] = Number(playerEntry?.event_total || 0);
-                                        }
-                                        aggData.push(liveRow);
-                                    }
-
-                                    // Ensure GW${leagueStartGw} is present if league commenced at a later round
-                                    const sGw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
-                                    if (sGw && sGw > 1 && !aggData.some(row => row.name === `GW${sGw}`)) {
-                                        const kickoffRow: any = { name: `GW${sGw}` };
-                                        for (const tId of teamIds) {
-                                            const playerEntry = results.find((r: any) => Number(r.entry) === tId);
-                                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-                                            kickoffRow[playerName] = Number(playerEntry?.event_total || 0);
-                                        }
-                                        aggData.push(kickoffRow);
-                                    }
-
-                                    // Sort aggData chronologically by GW number
-                                    if (aggData.length > 0) {
-                                        aggData.sort((a, b) => {
-                                            const numA = parseInt(String(a.name || '').replace(/\D/g, ''), 10) || 0;
-                                            const numB = parseInt(String(b.name || '').replace(/\D/g, ''), 10) || 0;
-                                            return numA - numB;
-                                        });
-                                    }
-
-                                    if (aggData.length > 0) {
-                                        const finalData = aggData.map(row => {
-                                            const scores = Object.keys(row)
-                                                .filter(k => k !== 'name' && k !== 'Average')
-                                                .map(k => Number(row[k]))
-                                                .filter(n => Number.isFinite(n));
-                                            const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 50;
-                                            return {
-                                                ...row,
-                                                Average: avg
-                                            };
-                                        });
-                                        setPerformanceData(finalData);
-                                    }
-                                };
-                                fetchPerformances();
+                                fetchPerformances(results);
                             }
                         })
                         .catch(err => {
@@ -459,12 +484,11 @@ export default function MemberDashboard() {
                 const hoursUntilNextDeadline = nextDeadlineMs ? (nextDeadlineMs - Date.now()) / (1000 * 60 * 60) : Infinity;
 
                 // Reigning Champion Rule:
-                // Active for 48h after end of GW AND up to 36h before the next GW deadline
+                // Active until 36h before the next GW deadline (unless next GW has already kicked off)
                 const isCelebrationWindowActive = Boolean(
                     completedCandidate &&
                     isGwFinished &&
                     !isNextGwKickedOff &&
-                    (gwFinishedTimestamp ? hoursSinceGwFinished <= 48 : true) &&
                     hoursUntilNextDeadline > 36
                 );
 
@@ -1033,9 +1057,61 @@ export default function MemberDashboard() {
     const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
-    // Season vault: use actual GWs remaining since league start
-    const totalLeagueGws = Math.max(1, 38 - leagueStartGw + 1);
-    const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * (rules.vault / 100);
+
+    // Clamp leagueStartGw to currentEvent so DB drift (e.g. DB=6, actual=5) never makes the current GW pre-league
+    const effectiveMdStartGw = currentFplEvent?.id ? Math.min(leagueStartGw, currentFplEvent.id) : leagueStartGw;
+    const isPreLeagueGw = Boolean(currentFplEvent?.id && leagueStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
+
+    // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
+    const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);
+    const vaultPercent = Number(rules.vault ?? (100 - rules.weekly));
+    const vaultMultiplier = (vaultPercent > 0 ? vaultPercent : 30) / 100;
+    const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * vaultMultiplier;
+
+    // Actual accumulated season vault to date (net of any reversals/refunds)
+    const isTxValidInflow = (tx: any) => {
+        return (
+            (tx.type === 'deposit' || tx.type === 'payment' || tx.type === 'contribution') &&
+            tx.status !== 'failed' &&
+            tx.status !== 'reversed' &&
+            tx.status !== 'refunded' &&
+            Number(tx.amount || 0) > 0
+        );
+    };
+    const isTxRefundOrReversal = (tx: any) => {
+        return (
+            tx.type === 'refund' ||
+            tx.type === 'reversal' ||
+            tx.status === 'reversed' ||
+            tx.status === 'refunded' ||
+            (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+            Number(tx.amount || 0) < 0
+        );
+    };
+    const grossInflows = (transactions || [])
+        .filter(isTxValidInflow)
+        .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+    const totalRefunds = (transactions || [])
+        .filter(isTxRefundOrReversal)
+        .reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+    const netCollectedSoFar = Math.max(0, grossInflows - totalRefunds);
+    const seasonVaultFromTxs = Math.round(netCollectedSoFar * vaultMultiplier);
+
+    const completedRounds = currentFplEvent?.id 
+        ? Math.max(0, (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) - effectiveMdStartGw + 1)
+        : 0;
+    const fallbackVaultAccumulated = completedRounds * paidMembersCount * gameweekStake * vaultMultiplier;
+    const seasonVaultAccumulated = seasonVaultFromTxs > 0 ? seasonVaultFromTxs : fallbackVaultAccumulated;
+
+    // Upcoming GW Funding Status (Red Zone)
+    const isTargetGwUpcoming = Boolean(currentFplEvent?.finished || currentFplEvent?.isPreparingForNextGw);
+    const activeFundingGw = isTargetGwUpcoming 
+        ? (currentFplEvent?.nextId || (currentFplEvent?.id ? currentFplEvent.id + 1 : 1))
+        : (currentFplEvent?.id || 1);
+
+    // If target GW is upcoming, funds must cover the upcoming round beyond any already completed rounds
+    const hasPaidUpcoming = (walletBalance >= 2 * gameweekStake) || (!currentUser?.hasPaid && walletBalance >= gameweekStake);
+    const isCurrentFunded = isTargetGwUpcoming ? hasPaidUpcoming : hasPaid;
 
     // Dynamic Winner calculation:
     // A gameweek is only voided if active funded participants < 2 AND voided in governance
@@ -1067,7 +1143,6 @@ export default function MemberDashboard() {
             gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
         )
     );
-    const isPreLeagueGw = Boolean(currentFplEvent?.id && leagueStartGw > 1 && currentFplEvent.id < leagueStartGw);
     const hasFinalGwChampion = Boolean(
         !isPreLeagueGw &&
         !isCurrentGwVoided &&
@@ -1815,9 +1890,11 @@ export default function MemberDashboard() {
                     <div className="lg:col-span-8 flex flex-col h-full">
                         <PotVaultSwapper
                             weeklyPot={weeklyPot}
-                            seasonVault={seasonVaultProjected}
+                            seasonVault={seasonVaultAccumulated}
+                            projectedSeasonVault={seasonVaultProjected}
                             weeklyRulesPercent={rules.weekly}
                             isStealthMode={isStealthMode}
+                            leagueStartGw={effectiveMdStartGw}
                         />
                     </div>
 
@@ -1970,7 +2047,7 @@ export default function MemberDashboard() {
                             isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
                                 (isCurrentGwVoided ? "bg-amber-500/5 border-amber-500/20" :
                                     (isSpectator ? "bg-indigo-500/5 border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.08)]" :
-                                        (hasPaid ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")))
+                                        (isCurrentFunded ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")))
                         )}>
                             {isRecentWinner && (
                                 <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-[#FBBF24] to-transparent" />
@@ -1981,15 +2058,15 @@ export default function MemberDashboard() {
                                     "text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 mb-2",
                                     isRecentWinner ? "text-[#FBBF24]" :
                                         (isCurrentGwVoided ? "text-amber-400" :
-                                            (isSpectator ? "text-indigo-400" : (hasPaid ? "text-[#10B981]" : "text-red-400")))
+                                            (isSpectator ? "text-indigo-400" : (isCurrentFunded ? "text-[#10B981]" : "text-red-400")))
                                 )}>
                                     <span className={clsx(
                                         "w-1.5 h-1.5 rounded-full animate-pulse",
                                         isRecentWinner ? "bg-[#FBBF24]" :
                                             (isCurrentGwVoided ? "bg-amber-400" :
-                                                (isSpectator ? "bg-indigo-400" : (hasPaid ? "bg-[#10B981]" : "bg-red-500")))
+                                                (isSpectator ? "bg-indigo-400" : (isCurrentFunded ? "bg-[#10B981]" : "bg-red-500")))
                                     )} />
-                                    {isSpectator ? "Spectator & Side-Bets Active" : "Your Gameweek Status"}
+                                    {isSpectator ? "Spectator & Side-Bets Active" : (isTargetGwUpcoming ? `Upcoming GW${activeFundingGw} Status` : "Your Gameweek Status")}
                                 </span>
                                 <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : (isSpectator ? "text-indigo-300" : "text-white"))}>
                                     {isRecentWinner
@@ -1998,7 +2075,7 @@ export default function MemberDashboard() {
                                             ? "Gameweek Voided ⚠️"
                                             : (isSpectator
                                                 ? "Spectator & Side-Bets Only"
-                                                : (hasPaid ? "Verified & Active" : "Action Required")))}
+                                                : (isCurrentFunded ? "Verified & Active" : "Action Required")))}
                                 </h3>
                                 <p className="text-xs text-gray-400 leading-relaxed mb-3">
                                     {isRecentWinner
@@ -2007,31 +2084,35 @@ export default function MemberDashboard() {
                                             ? "Contest requires at least 2 funded managers to disburse the weekly pot. All funds and balances are preserved."
                                             : (isSpectator
                                                 ? "You chose not to play the weekly and season cash pot. No weekly dues or arrears apply to you! You can freely track standings, banter, and challenge any rival to 1v1 M-Pesa cash side bets."
-                                                : (hasPaid
-                                                    ? `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`
-                                                    : (currentUser?.missedGameweeks === 1
-                                                        ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
-                                                        : "Your contribution is missing. Pay before the FPL deadline."))))}
+                                                : (isCurrentFunded
+                                                    ? (isTargetGwUpcoming
+                                                        ? `Your contribution for Gameweek ${activeFundingGw} is secured from your balance. Tweak your lineup before deadline.`
+                                                        : `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`)
+                                                    : (isTargetGwUpcoming
+                                                        ? `Gameweek ${currentFplEvent?.id} is completed. Your KES ${gameweekStake.toLocaleString()} stake is now due for Gameweek ${activeFundingGw}. Deposit before kickoff.`
+                                                        : (currentUser?.missedGameweeks === 1
+                                                            ? <span className="text-red-400 font-bold">⚠️ CRITICAL: You have missed 1 Gameweek. Failure to pay for 2 consecutive Gameweeks results in permanent disqualification from the Vault.</span>
+                                                            : "Your contribution is missing. Pay before the FPL deadline.")))))}
                                 </p>
 
                                 {!isSpectator && !isRecentWinner && !isCurrentGwVoided && (
                                     <div className="mb-4 p-3 rounded-2xl bg-white/[0.04] border border-white/10 flex flex-col gap-2">
                                         <div className="flex items-center justify-between gap-2">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                                                Gameweek {currentFplEvent?.id || 1} Stake
+                                                Gameweek {activeFundingGw} Stake {isTargetGwUpcoming && "(Upcoming)"}
                                             </span>
                                             <span className={clsx(
                                                 "text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-wider",
-                                                hasPaid
+                                                isCurrentFunded
                                                     ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
                                                     : "bg-rose-500/20 text-rose-400 border-rose-500/40"
                                             )}>
-                                                {hasPaid ? "Funded ✓" : "Unpaid"}
+                                                {isCurrentFunded ? "Funded ✓" : "Unpaid"}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between text-xs font-semibold">
                                             <span className="text-gray-300">
-                                                {hasPaid ? `Secured: KES ${gameweekStake.toLocaleString()}` : `Due: KES ${gameweekStake.toLocaleString()}`}
+                                                {isCurrentFunded ? `Secured: KES ${gameweekStake.toLocaleString()}` : `Due: KES ${gameweekStake.toLocaleString()}`}
                                             </span>
                                             <span className="text-gray-400 text-[11px]">
                                                 Wallet: <strong className="text-white">KES {walletBalance.toLocaleString()}</strong>
@@ -2039,7 +2120,13 @@ export default function MemberDashboard() {
                                         </div>
                                         {gameweekStake > 0 && walletBalance >= gameweekStake && (
                                             <p className="text-[10px] text-emerald-400/90 font-medium">
-                                                Auto-covers {Math.floor(walletBalance / gameweekStake)} round{Math.floor(walletBalance / gameweekStake) > 1 ? 's' : ''} (GW{currentFplEvent?.id || 1} → GW{(currentFplEvent?.id || 1) + Math.floor(walletBalance / gameweekStake) - 1})
+                                                {isTargetGwUpcoming && walletBalance >= 2 * gameweekStake ? (
+                                                    `Auto-covers ${Math.floor(walletBalance / gameweekStake) - 1} upcoming round${Math.floor(walletBalance / gameweekStake) - 1 > 1 ? 's' : ''} (GW${activeFundingGw} → GW${activeFundingGw + Math.floor(walletBalance / gameweekStake) - 2})`
+                                                ) : !isTargetGwUpcoming ? (
+                                                    `Auto-covers ${Math.floor(walletBalance / gameweekStake)} round${Math.floor(walletBalance / gameweekStake) > 1 ? 's' : ''} (GW${currentFplEvent?.id || 1} → GW${(currentFplEvent?.id || 1) + Math.floor(walletBalance / gameweekStake) - 1})`
+                                                ) : (
+                                                    `Wallet covers completed GW${currentFplEvent?.id}. Deposit KES ${(gameweekStake - (walletBalance % gameweekStake)).toLocaleString()} to activate GW${activeFundingGw}.`
+                                                )}
                                             </p>
                                         )}
                                     </div>
@@ -2068,7 +2155,7 @@ export default function MemberDashboard() {
                                                 : `Fund Wallet to Upgrade (KES ${gameweekStake.toLocaleString()}/GW)`}
                                     </button>
                                 </div>
-                            ) : !hasPaid && !isCurrentGwVoided ? (
+                            ) : !isCurrentFunded && !isCurrentGwVoided ? (
                                 <div className="flex flex-col gap-2 mt-auto">
                                     <div className="flex items-baseline justify-center gap-1.5 mb-2 mt-1">
                                         <span className="text-3xl font-black text-white tracking-tight tabular-nums">
@@ -2109,7 +2196,7 @@ export default function MemberDashboard() {
                                     </div>
                                 </div>
                             ) : null}
-                            {hasPaid && !isCurrentGwVoided && (
+                            {isCurrentFunded && !isCurrentGwVoided && (
                                 <div className="flex items-center gap-2 text-[#10B981]/70 text-xs font-bold mt-auto">
                                     <Check className="w-4 h-4" /> Contribution confirmed
                                 </div>
@@ -2127,62 +2214,54 @@ export default function MemberDashboard() {
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-black text-slate-800 dark:text-gray-300 uppercase tracking-wider">
-                                    <BarChart3 className="w-3.5 h-3.5 text-emerald-500" /> Performance Trajectory (Top 5 + You)
-                                    {leagueStartGw > 1 && (
+                                    <BarChart3 className="w-3.5 h-3.5 text-emerald-500" /> Your Performance Trajectory
+                                    {effectiveMdStartGw > 1 && (
                                         <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 normal-case tracking-normal">
-                                            Chama Commenced: GW{leagueStartGw}
+                                            Chama Commenced: GW{effectiveMdStartGw}
                                         </span>
                                     )}
                                 </h4>
                                 <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
-                                    Recent Gameweek points progression comparing leaders against your score and the league average.
+                                    Recent Gameweek points progression comparing your personal score against the league average.
                                 </p>
                             </div>
                             <span className="text-slate-500 dark:text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-                                {leagueStartGw > 1 ? `Commenced GW${leagueStartGw}` : 'Recent Gameweeks'}
+                                {effectiveMdStartGw > 1 ? `Commenced GW${effectiveMdStartGw}` : 'Recent Gameweeks'}
                             </span>
                         </div>
 
                         {/* Trajectory Legend Badges */}
                         {performanceData.length > 0 && (() => {
-                            const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
                             const allKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
-                            const myFirstName = (currentUser?.displayName || '').split(' ')[0];
+                            const myFplEntry = rawFplStandings?.find((r: any) => 
+                                (currentUser?.fplTeamId && Number(r.entry) === Number(currentUser.fplTeamId)) ||
+                                (currentUser?.secondFplTeamId && Number(r.entry) === Number(currentUser.secondFplTeamId))
+                            );
+                            const myFplFirstName = myFplEntry?.player_name ? myFplEntry.player_name.split(' ')[0] : null;
+                            const myFirstName = (currentUser?.displayName || '').trim().split(' ')[0];
+                            const myKey = (myFplFirstName && allKeys.includes(myFplFirstName))
+                                ? myFplFirstName
+                                : (allKeys.find(k => myFirstName && (k.toLowerCase().includes(myFirstName.toLowerCase()) || myFirstName.toLowerCase().includes(k.toLowerCase()))) || allKeys[0] || 'You');
+                            const lastScore = performanceData[performanceData.length - 1]?.[myKey];
 
                             return (
                                 <div className="flex items-center gap-2 flex-wrap mb-3">
-                                    {allKeys.map((playerKey, idx) => {
-                                        const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
-                                        const lastScore = performanceData[performanceData.length - 1]?.[playerKey];
-                                        const color = isYou ? '#10B981' : colors[(idx + 1) % colors.length];
-
-                                        return (
-                                            <div
-                                                key={playerKey}
-                                                className={clsx(
-                                                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-xs",
-                                                    isYou
-                                                        ? "bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-500/40 text-emerald-900 dark:text-emerald-300"
-                                                        : "bg-slate-100/90 dark:bg-white/[0.05] border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
-                                                )}
-                                            >
-                                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                                                <span>{playerKey} {isYou && <strong className="text-emerald-600 dark:text-emerald-400">(You)</strong>}</span>
-                                                {lastScore !== undefined && (
-                                                    <span className="text-[10px] font-black opacity-80 tabular-nums ml-0.5">
-                                                        {lastScore} pts
-                                                    </span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-xs bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-500/40 text-emerald-900 dark:text-emerald-300">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-emerald-500" />
+                                        <span>{myKey} <strong className="text-emerald-600 dark:text-emerald-400">(You)</strong></span>
+                                        {lastScore !== undefined && (
+                                            <span className="text-[10px] font-black opacity-80 tabular-nums ml-0.5">
+                                                {lastScore} pts
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 shadow-xs">
                                         <span className="w-3 h-0.5 bg-amber-500 inline-block border-t border-dashed" />
                                         <span>League Avg</span>
                                     </div>
-                                    {leagueStartGw > 1 && (
+                                    {effectiveMdStartGw > 1 && (
                                         <div className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400 font-medium ml-auto">
-                                            <span>Official Chama Play: GW{leagueStartGw}+</span>
+                                            <span>Official Chama Play: GW{effectiveMdStartGw}+</span>
                                         </div>
                                     )}
                                 </div>
@@ -2200,14 +2279,14 @@ export default function MemberDashboard() {
                                         contentStyle={{ backgroundColor: '#0f1720', borderColor: 'rgba(255,255,255,0.12)', borderRadius: '12px', fontSize: '12px', color: '#fff', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}
                                         itemStyle={{ fontWeight: 'bold' }}
                                     />
-                                    {leagueStartGw && leagueStartGw > 1 && (
+                                    {effectiveMdStartGw && effectiveMdStartGw > 1 && (
                                         <ReferenceLine
-                                            x={`GW${leagueStartGw}`}
+                                            x={`GW${effectiveMdStartGw}`}
                                             stroke="#10B981"
                                             strokeDasharray="4 4"
                                             strokeWidth={2}
                                             label={{
-                                                value: `🏁 Kickoff (GW${leagueStartGw})`,
+                                                value: `🏁 Kickoff (GW${effectiveMdStartGw})`,
                                                 position: 'insideTopLeft',
                                                 fill: '#10B981',
                                                 fontSize: 10,
@@ -2217,28 +2296,31 @@ export default function MemberDashboard() {
                                         />
                                     )}
                                     {(() => {
-                                        const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4'];
                                         const allKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
-                                        const myFirstName = (currentUser?.displayName || '').split(' ')[0];
+                                        const myFplEntry = rawFplStandings?.find((r: any) => 
+                                            (currentUser?.fplTeamId && Number(r.entry) === Number(currentUser.fplTeamId)) ||
+                                            (currentUser?.secondFplTeamId && Number(r.entry) === Number(currentUser.secondFplTeamId))
+                                        );
+                                        const myFplFirstName = myFplEntry?.player_name ? myFplEntry.player_name.split(' ')[0] : null;
+                                        const myFirstName = (currentUser?.displayName || '').trim().split(' ')[0];
+                                        const myKey = (myFplFirstName && allKeys.includes(myFplFirstName))
+                                            ? myFplFirstName
+                                            : (allKeys.find(k => myFirstName && (k.toLowerCase().includes(myFirstName.toLowerCase()) || myFirstName.toLowerCase().includes(k.toLowerCase()))) || allKeys[0]);
 
-                                        return allKeys.map((playerKey, idx) => {
-                                            const isYou = myFirstName && (playerKey.toLowerCase() === myFirstName.toLowerCase() || playerKey.toLowerCase().includes(myFirstName.toLowerCase()));
-                                            const color = isYou ? '#10B981' : colors[(idx + 1) % colors.length];
-                                            return (
-                                                <Line
-                                                    key={playerKey}
-                                                    type="monotone"
-                                                    dataKey={playerKey}
-                                                    stroke={color}
-                                                    strokeWidth={isYou ? 3.5 : 2}
-                                                    dot={{ r: isYou ? 4.5 : 3, fill: color, strokeWidth: 0 }}
-                                                    activeDot={{ r: 6 }}
-                                                    name={isYou ? `${playerKey} (You)` : playerKey}
-                                                />
-                                            );
-                                        });
+                                        return myKey ? (
+                                            <Line
+                                                key={myKey}
+                                                type="monotone"
+                                                dataKey={myKey}
+                                                stroke="#10B981"
+                                                strokeWidth={3.5}
+                                                dot={{ r: 4.5, fill: '#10B981', strokeWidth: 0 }}
+                                                activeDot={{ r: 6 }}
+                                                name={`${myKey} (You)`}
+                                            />
+                                        ) : null;
                                     })()}
-                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="4 4" dot={false} name="League Avg" />
+                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3, fill: '#FBBF24', strokeWidth: 0 }} name="League Avg" />
                                 </LineChart>
                             </ResponsiveContainer>
                             ) : (

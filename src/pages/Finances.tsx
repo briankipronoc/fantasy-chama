@@ -334,21 +334,45 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const isTxValidInflow = (tx: any) => {
         if (!contributionTypes.has(String(tx.type || ''))) return false;
         const status = String(tx.status || '').toLowerCase();
-        if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || tx.isReversed === true || tx.reversed === true) {
+        if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || status === 'refunded' || tx.isReversed === true || tx.reversed === true) {
             return false;
         }
         return true;
     };
-    const seasonCollectedSoFarGross = transactions
+    const isTxRefundOrReversal = (tx: any) => {
+        return (
+            tx.type === 'refund' ||
+            tx.type === 'reversal' ||
+            tx.source === 'manual_reversal' ||
+            tx.category === 'refund' ||
+            String(tx.status || '').toLowerCase() === 'refund' ||
+            String(tx.status || '').toLowerCase() === 'refunded' ||
+            (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+            Number(tx.amount || 0) < 0
+        );
+    };
+
+    const grossInflows = transactions
         .filter(isTxValidInflow)
         .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+    const totalRefundsAllTime = transactions
+        .filter(isTxRefundOrReversal)
+        .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+
+    const seasonCollectedSoFarGross = Math.max(0, grossInflows - totalRefundsAllTime);
     const seasonVaultCollectedSoFar = Math.round(seasonCollectedSoFarGross * (Number(rules.vault || 30) / 100));
+
     const contributionByMemberId = transactions
-        .filter(isTxValidInflow)
         .reduce((acc: Record<string, number>, tx: any) => {
+            const isCredit = isTxValidInflow(tx);
+            const isDebit = isTxRefundOrReversal(tx);
+            if (!isCredit && !isDebit) return acc;
+
+            const delta = isCredit ? Number(tx.amount || 0) : -Math.abs(Number(tx.amount || 0));
+
             const txMemberId = String(tx.userId || tx.memberId || '');
             if (txMemberId) {
-                acc[txMemberId] = (acc[txMemberId] || 0) + Number(tx.amount || 0);
+                acc[txMemberId] = Math.max(0, (acc[txMemberId] || 0) + delta);
                 return acc;
             }
 
@@ -357,7 +381,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const matched = members.find((member) => String(member.phone || '') === phone);
                 if (matched?.id) {
                     const key = String(matched.id);
-                    acc[key] = (acc[key] || 0) + Number(tx.amount || 0);
+                    acc[key] = Math.max(0, (acc[key] || 0) + delta);
                     return acc;
                 }
             }
@@ -367,7 +391,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const matched = members.find((member) => String(member.displayName || '') === name);
                 if (matched?.id) {
                     const key = String(matched.id);
-                    acc[key] = (acc[key] || 0) + Number(tx.amount || 0);
+                    acc[key] = Math.max(0, (acc[key] || 0) + delta);
                     return acc;
                 }
             }
@@ -675,14 +699,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
 
     const totalCompletedOrCurrentGws = useMemo(() => {
-        const start = Math.max(1, Number(startGw || 1));
-        const currentGw = Number(currentGwNumber || start);
-        return Math.max(0, currentGw - start + 1);
+        const rawStart = Math.max(1, Number(startGw || 1));
+        const currentGw = Number(currentGwNumber || rawStart);
+        // Guard: if startGw was auto-saved in a future GW (e.g., DB=6, current=5), use current GW as effective start
+        const effectiveStart = Math.min(rawStart, currentGw);
+        return Math.max(0, currentGw - effectiveStart + 1);
     }, [startGw, currentGwNumber]);
 
     const memberFundingSummary = useMemo(() => {
-        const start = Math.max(1, Number(startGw || 1));
-        const currentGw = Number(currentGwNumber || start);
+        const rawStart = Math.max(1, Number(startGw || 1));
+        const currentGw = Number(currentGwNumber || rawStart);
+        // Guard: if startGw was auto-saved in a future GW (e.g., DB=6, current=5), clamp to current
+        const start = Math.min(rawStart, currentGw);
         const totalCompleted = Math.max(0, currentGw - start + 1);
         const stake = Number(gameweekStake || 0);
 
@@ -704,7 +732,28 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     );
                 });
 
-                const totalDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+                // Also calculate refunds/reversals to net out from totalDeposited
+                const isMatchedMember = (tx: any) =>
+                    (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+                    (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+                    (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
+
+                const refundTotal = transactions.filter((tx: any) => {
+                    if (!isMatchedMember(tx)) return false;
+                    return (
+                        tx.type === 'refund' ||
+                        tx.type === 'reversal' ||
+                        tx.source === 'manual_reversal' ||
+                        tx.category === 'refund' ||
+                        String(tx.status || '').toLowerCase() === 'refunded' ||
+                        (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+                        Number(tx.amount || 0) < 0
+                    );
+                }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+
+                const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+                const totalDeposited = Math.max(0, grossDeposited - refundTotal);
+
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
                 const rawFundedCount = stake > 0 ? Math.floor(totalDeposited / stake) : totalCompleted;
                 const gwsFundedCount = hasPaidCurrent ? Math.max(1, rawFundedCount) : rawFundedCount;
@@ -1625,7 +1674,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <h3 className="font-bold text-lg text-white">Gameweek Funding & Arrears Audit</h3>
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                        Since GW{startGw || 1}
+                                        Since GW{Math.min(startGw || 1, currentGwNumber || startGw || 1)}
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-0.5">
@@ -1666,7 +1715,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-lg sm:text-xl font-black tabular-nums text-white mt-0.5">
                                 {totalCompletedOrCurrentGws} GW{totalCompletedOrCurrentGws !== 1 ? 's' : ''}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">GW{startGw || 1} → GW{currentGwNumber || startGw || 1}</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">GW{Math.min(startGw || 1, currentGwNumber || startGw || 1)} → GW{currentGwNumber || startGw || 1}</p>
                         </div>
                         <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Fully Funded</p>
@@ -2532,13 +2581,13 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* ── Season Vault Trajectory Graph ──────────────────────────── */}
                 {(() => {
-                    const effectiveLeagueStart = Math.max(1, Number(startGw || (leagueSettings as any)?.startGw || 1));
+                    const rawLeagueStart = Math.max(1, Number(startGw || (leagueSettings as any)?.startGw || 1));
+                    const effectiveGw = Number(currentGwNumber || rawLeagueStart);
+                    const effectiveLeagueStart = Math.min(rawLeagueStart, effectiveGw);
                     const totalSeasonGWs = Math.max(1, 38 - effectiveLeagueStart + 1);
                     const vaultRatePerGW = totalSecured > 0
                         ? totalSecured * (Number(rules.vault || 30) / 100)
                         : (Number(rules.vault || 30) / 100) * (paidMembers.length || 8) * (gameweekStake || 200);
-
-                    const effectiveGw = Number(currentGwNumber || 1);
                     const completedSeasonGws = effectiveGw >= effectiveLeagueStart
                         ? Math.max(0, effectiveGw - effectiveLeagueStart + (isCurrentEventFinished ? 1 : 0))
                         : 0;

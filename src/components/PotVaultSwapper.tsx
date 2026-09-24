@@ -7,6 +7,7 @@ interface SwapperProps {
     weeklyRulesPercent: number;
     isStealthMode: boolean;
     projectedSeasonVault?: number;
+    leagueStartGw?: number;
 }
 
 export function PotVaultSwapper({
@@ -14,7 +15,8 @@ export function PotVaultSwapper({
     seasonVault,
     weeklyRulesPercent,
     isStealthMode,
-    projectedSeasonVault
+    projectedSeasonVault,
+    leagueStartGw = 1
 }: SwapperProps) {
     const isWeeklyOnly = weeklyRulesPercent >= 100;
     const isVaultOnly = weeklyRulesPercent <= 0;
@@ -22,9 +24,14 @@ export function PotVaultSwapper({
 
     const [showWeeklyPot, setShowWeeklyPot] = useState(!isVaultOnly);
     const [isManualSelection, setIsManualSelection] = useState(false);
+    const [vaultView, setVaultView] = useState<'accumulated' | 'projected'>('accumulated');
+    const [isManualVaultSelection, setIsManualVaultSelection] = useState(false);
+
     const animatedWeeklyPot = useCountUp(weeklyPot);
     const animatedSeasonVault = useCountUp(seasonVault);
+    const animatedProjectedVault = useCountUp(projectedSeasonVault || 0);
 
+    // Auto-swap between Weekly Pot and Season Vault if both exist
     useEffect(() => {
         if (!hasBothPots) {
             setShowWeeklyPot(!isVaultOnly);
@@ -36,6 +43,15 @@ export function PotVaultSwapper({
         }, 6000);
         return () => clearInterval(interval);
     }, [hasBothPots, isVaultOnly, isManualSelection]);
+
+    // Auto-swap between Accumulated to date and Expected By GW38
+    useEffect(() => {
+        if (isManualVaultSelection) return;
+        const interval = setInterval(() => {
+            setVaultView(prev => prev === 'accumulated' ? 'projected' : 'accumulated');
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [isManualVaultSelection]);
 
     const vaultPercent = 100 - weeklyRulesPercent;
     const progressPercent = (projectedSeasonVault && projectedSeasonVault > 0)
@@ -111,29 +127,69 @@ export function PotVaultSwapper({
             </div>
 
             <div className="fc-pot-season relative z-10 transition-all duration-500" style={{ opacity: !showWeeklyPot ? 1 : 0, display: !showWeeklyPot ? 'block' : 'none' }}>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                     <p className="text-[#10B981] text-[10px] md:text-xs font-bold tracking-widest uppercase flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,1)] animate-pulse"></span>
                         Season Vault
                     </p>
+
+                    {/* Toggle between Accumulated & Expected Target */}
                     {projectedSeasonVault && projectedSeasonVault > 0 && (
-                        <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                            Target: KES {isStealthMode ? '****' : projectedSeasonVault.toLocaleString()}
-                        </span>
+                        <div className="inline-flex items-center p-0.5 bg-black/40 border border-white/10 rounded-lg backdrop-blur-md">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsManualVaultSelection(true);
+                                    setVaultView('accumulated');
+                                }}
+                                className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                    vaultView === 'accumulated'
+                                        ? 'bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 shadow-xs'
+                                        : 'text-gray-400 hover:text-white'
+                                }`}
+                            >
+                                Accumulated
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsManualVaultSelection(true);
+                                    setVaultView('projected');
+                                }}
+                                className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                    vaultView === 'projected'
+                                        ? 'bg-amber-500/25 border border-amber-500/40 text-amber-300 shadow-xs'
+                                        : 'text-gray-400 hover:text-white'
+                                }`}
+                            >
+                                Expected By GW38
+                            </button>
+                        </div>
                     )}
                 </div>
-                <div className="flex items-baseline gap-2 mb-2">
+
+                <div className="flex items-baseline gap-2 mb-1">
                     <span className="text-4xl md:text-5xl font-black text-white tracking-tight tabular-nums">
-                        {isStealthMode ? '****' : animatedSeasonVault.toLocaleString()}
+                        {isStealthMode
+                            ? '****'
+                            : vaultView === 'accumulated'
+                                ? animatedSeasonVault.toLocaleString()
+                                : animatedProjectedVault.toLocaleString()}
                     </span>
-                    <span className="text-[#10B981] text-sm md:text-base font-bold">KES</span>
+                    <span className={`text-sm md:text-base font-bold ${vaultView === 'accumulated' ? 'text-[#10B981]' : 'text-amber-400'}`}>KES</span>
                 </div>
+
+                <p className="text-[10px] text-gray-400 font-medium mb-2">
+                    {vaultView === 'accumulated'
+                        ? 'Total verified funds accumulated in the vault so far'
+                        : `Projected final season vault prize pool at GW38 (GW${leagueStartGw} → GW38)`}
+                </p>
 
                 {/* Progress bar toward projected vault */}
                 {projectedSeasonVault && projectedSeasonVault > 0 && (
                     <div className="w-full my-2">
                         <div className="flex justify-between items-center text-[9px] font-bold text-gray-400 mb-1">
-                            <span>Vault Progress</span>
+                            <span>Vault Progress (KES {seasonVault.toLocaleString()} of KES {projectedSeasonVault.toLocaleString()})</span>
                             <span className="text-emerald-400 font-mono">{progressPercent}%</span>
                         </div>
                         <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
@@ -147,7 +203,9 @@ export function PotVaultSwapper({
 
                 <div className="flex items-center justify-between text-[10px] uppercase font-bold text-gray-400 tracking-widest mt-2">
                     <span>{vaultPercent}% Distribution · Live Season Pot</span>
-                    <span className="text-emerald-400 font-semibold normal-case">Secured from active funds</span>
+                    <span className="text-emerald-400 font-semibold normal-case">
+                        {vaultView === 'accumulated' ? 'Secured from active rounds' : `Target for ${38 - leagueStartGw + 1} rounds`}
+                    </span>
                 </div>
             </div>
         </div>
