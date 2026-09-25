@@ -1328,8 +1328,8 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {isAdminView && (
-                        <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#121920] dark:to-[#0b1014] border border-slate-200 dark:border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                    {/* ── Account, Security & Session Center ── */}
+                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#121920] dark:to-[#0b1014] border border-slate-200 dark:border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 blur-[90px] pointer-events-none"></div>
                             <div className="absolute bottom-0 left-0 w-48 h-48 bg-slate-500/10 blur-[90px] pointer-events-none"></div>
                             
@@ -1489,7 +1489,6 @@ export default function Profile() {
                                 </div>
                             </div>
                         </div>
-                    )}
                     </div>
 
                     {/* Right Column: League Governance & Chama Guides */}

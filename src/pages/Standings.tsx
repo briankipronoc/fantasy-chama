@@ -560,29 +560,34 @@ export default function Standings() {
     }, []);
 
     useEffect(() => {
-        // Only scroll the horizontal rail — NOT the page/window — to avoid page jumping
-        if (!currentEvent || !ledgerRailRef.current || gwWinnersLedger.length === 0) return;
+        if (isLoading) return;
         const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1);
-        const rail = ledgerRailRef.current;
+        
         const scrollAction = () => {
+            const rail = ledgerRailRef.current;
             if (!rail) return;
             const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
-            if (!gwCard) return;
-            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
-            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+            if (gwCard) {
+                const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
+                rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+            }
         };
 
-        // Scroll immediately, then retry as DOM and fonts render
-        scrollAction();
-        const t1 = setTimeout(scrollAction, 150);
-        const t2 = setTimeout(scrollAction, 450);
-        const t3 = setTimeout(scrollAction, 900);
+        // Scroll across multiple animation frames and timeout ticks as DOM layout completes
+        const rafId = requestAnimationFrame(scrollAction);
+        const t1 = setTimeout(scrollAction, 120);
+        const t2 = setTimeout(scrollAction, 350);
+        const t3 = setTimeout(scrollAction, 750);
+        const t4 = setTimeout(scrollAction, 1500);
+
         return () => {
+            cancelAnimationFrame(rafId);
             clearTimeout(t1);
             clearTimeout(t2);
             clearTimeout(t3);
+            clearTimeout(t4);
         };
-    }, [currentEvent, isCurrentEventFinished, gwWinnersLedger.length]);
+    }, [isLoading, currentEvent, isCurrentEventFinished, performanceData.length, payoutRows.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
         const norm = (s: string) => (s || '').toLowerCase().trim();
@@ -1589,13 +1594,29 @@ export default function Standings() {
                     <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
                         <div className="flex items-center justify-between gap-3 mb-4">
                             <h3 className="text-sm md:text-base font-black text-white tracking-tight">Gameweek Winners Ledger</h3>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 {currentEvent && (
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
                                         {isCurrentEventFinished ? `Next: GW ${(currentEvent || 0) + 1} (Pending)` : `Now: GW ${currentEvent}`}
                                     </span>
                                 )}
-                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 text-emerald-300">Scroll for GW 1-38</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1);
+                                        const rail = ledgerRailRef.current;
+                                        if (!rail) return;
+                                        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
+                                        if (gwCard) {
+                                            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
+                                            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+                                        }
+                                    }}
+                                    className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                                    title="Jump to latest gameweek card"
+                                >
+                                    ⚡ Jump to Latest (GW{(isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1)})
+                                </button>
                             </div>
                         </div>
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">

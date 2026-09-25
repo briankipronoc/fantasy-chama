@@ -552,7 +552,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             : activeContenders.map(m => ({ entry: m.fplTeamId || 0, player_name: m.displayName || 'Manager', entry_name: m.teamName || 'FPL Squad', total: 0 }))
         ).sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
 
-        const totalVault = Math.round(totalPreviewPayout || projectedSeasonVault || 0);
+        const liveVaultTotal = Math.max(0, Number(seasonVaultCollectedSoFar || 0));
+        const totalVault = Math.round(projectedSeasonVault || 0);
         const tiers = seasonVaultPreview || [];
 
         // Group players by score to detect ties
@@ -571,6 +572,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             isTied: boolean;
             percentage: number;
             amount: number;
+            accruedAmount: number;
+            projectedAmount: number;
             player_name: string;
             entry_name: string;
             originalPlace: number;
@@ -588,7 +591,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 pooledPercent += Number(tiers[pos]?.percentage || 0);
             }
             const splitPercent = grp.players.length > 0 ? (pooledPercent / grp.players.length) : 0;
-            const splitAmount = Math.round(totalVault * (splitPercent / 100));
+            const splitAccrued = Math.round(liveVaultTotal * (splitPercent / 100));
+            const splitProjected = Math.round(totalVault * (splitPercent / 100));
             const roundedPercent = Math.round(splitPercent * 10) / 10;
             const tiedRangeText = isTied ? `Split from Tiers ${grp.startIndex + 1}–${endPos}` : undefined;
 
@@ -600,7 +604,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                         rank,
                         isTied,
                         percentage: roundedPercent,
-                        amount: splitAmount,
+                        amount: splitAccrued,
+                        accruedAmount: splitAccrued,
+                        projectedAmount: splitProjected,
                         player_name: p?.player_name || `Manager #${rank}`,
                         entry_name: p?.entry_name || 'FPL Squad',
                         originalPlace: result.length + 1,
@@ -614,12 +620,15 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         if (result.length < tiers.length) {
             for (let pos = result.length; pos < tiers.length; pos++) {
                 const tier = tiers[pos];
+                const slotPercent = Number(tier?.percentage || 0);
                 result.push({
                     tierIndex: pos,
                     rank: tier.place,
                     isTied: false,
-                    percentage: tier.percentage,
-                    amount: tier.amount,
+                    percentage: slotPercent,
+                    amount: Math.round(liveVaultTotal * (slotPercent / 100)),
+                    accruedAmount: Math.round(liveVaultTotal * (slotPercent / 100)),
+                    projectedAmount: Math.round(totalVault * (slotPercent / 100)),
                     player_name: 'Awaiting Contender',
                     entry_name: 'Tier Slot',
                     originalPlace: tier.place,
@@ -1698,11 +1707,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Season winners</p>
                             <p className="text-lg font-black text-white tabular-nums">{modeLabel}</p>
                             <p className="text-[11px] text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
-                            <p className="text-[11px] text-amber-400 font-bold mt-1">Total distributed now: KES {Math.round(totalPreviewPayout).toLocaleString()}</p>
+                            <p className="text-[11px] text-emerald-400 font-bold mt-1">
+                                Vault Bag So Far: <strong className="text-white">KES {Math.round(seasonVaultCollectedSoFar || 0).toLocaleString()}</strong> · Projected Final: <strong className="text-amber-400">KES {Math.round(projectedSeasonVault || 0).toLocaleString()}</strong>
+                            </p>
                             {role === 'admin' && (
                                 <button
                                     onClick={() => setShowSeasonCeremony(true)}
-                                    className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)]"
+                                    className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
                                 >
                                     <Trophy className="w-3.5 h-3.5 text-amber-400" />
                                     Launch Season Ceremony
@@ -1713,27 +1724,38 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                     <div className="flex gap-3 overflow-x-auto pb-3 custom-scrollbar lg:grid lg:grid-cols-3 xl:grid-cols-5 items-stretch">
                         {tiedSeasonVaultPreview.map((tier: any) => (
-                            <div key={`${tier.originalPlace}-${tier.player_name}`} className="min-w-[190px] flex-1 rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-lg">
+                            <div key={`${tier.originalPlace}-${tier.player_name}`} className="min-w-[195px] flex-1 rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-lg">
                                 <div>
                                     <div className="flex items-center justify-between gap-3">
                                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
                                             #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-400 font-bold tracking-normal">(Tied)</span>}
                                         </p>
                                         <span className={clsx(
-                                            'text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border',
+                                            'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border',
                                             tier.rank === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.rank === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
                                         )}>
                                             {tier.percentage}%
                                         </span>
                                     </div>
-                                    <p className="mt-3 text-2xl font-black text-amber-400 tabular-nums">KES {tier.amount.toLocaleString()}</p>
+                                    <div className="mt-3">
+                                        <span className="text-[9px] uppercase font-black tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                                            Accrued So Far
+                                        </span>
+                                        <p className="mt-1.5 text-2xl font-black text-emerald-400 tabular-nums">
+                                            KES {(tier.accruedAmount ?? tier.amount).toLocaleString()}
+                                        </p>
+                                        <p className="mt-1 text-[10px] text-gray-400">
+                                            Est. Final: <strong className="text-amber-400 font-mono">KES {tier.projectedAmount?.toLocaleString() || tier.amount?.toLocaleString()}</strong>
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="mt-2.5 text-[11px] font-bold text-emerald-300 break-words leading-tight">
-                                        Current #{tier.rank}{tier.isTied ? ' (Tied)' : ''}: {tier.player_name} · {tier.entry_name}
+                                <div className="mt-3 pt-2.5 border-t border-white/5">
+                                    <p className="text-[11px] font-bold text-gray-200 break-words leading-tight">
+                                        Current #{tier.rank}{tier.isTied ? ' (Tied)' : ''}: {tier.player_name}
                                     </p>
-                                    <p className="mt-1.5 text-[10px] text-slate-400">
-                                        {tier.percentage}% ratio of current season vault
+                                    <p className="text-[9px] text-gray-500 truncate mt-0.5">{tier.entry_name}</p>
+                                    <p className="mt-1 text-[10px] text-slate-400">
+                                        {tier.percentage}% ratio of vault
                                         {tier.tiedRangeText ? ` (${tier.tiedRangeText})` : ''}
                                     </p>
                                 </div>
