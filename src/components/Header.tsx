@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { auth } from '../firebase';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles } from 'lucide-react';
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
@@ -13,6 +12,7 @@ import LeagueSwitcher from './LeagueSwitcher';
 import { useTheme } from '../hooks/useTheme';
 import UserAvatar from './UserAvatar';
 import { haptics } from '../utils/haptics';
+import { auth } from '../firebase';
 
 export default function Header({ role, title, subtitle, hideCountdown, hideExtraControls }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean, hideExtraControls?: boolean }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
@@ -542,8 +542,12 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     <div className={clsx('fc-dropdown-scroll max-h-[380px] overflow-y-auto p-2 space-y-2 transition-all duration-300 ease-out', notifListMotion)}>
                                         {filteredNotifs.length > 0 ? filteredNotifs.map((notif: any) => {
                                             const isRead = notif.readBy?.includes(realActiveUser);
-                                            const isFinancial = notif.type === 'transactionSuccess' || notif.isWinnerEvent;
-                                            const isWarning = notif.type === 'warning';
+                                            const msgLower = String(notif.message || '').toLowerCase();
+                                            const isWinner = notif.isWinnerEvent || msgLower.includes('🏆') || msgLower.includes('champion') || msgLower.includes('winner') || msgLower.includes('mwizi wa points');
+                                            const isFinancial = !isWinner && (notif.type === 'transactionSuccess' || msgLower.includes('deposit') || msgLower.includes('funded') || msgLower.includes('kes'));
+                                            const isWarning = notif.type === 'warning' || msgLower.includes('deadline') || msgLower.includes('arrears') || msgLower.includes('action required');
+                                            const isProps = notif.isGroup && notif.groupType === 'props';
+
                                             return (
                                                 <div
                                                     key={notif.id}
@@ -560,29 +564,37 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                         "fc-notif-item p-3.5 rounded-2xl border transition-all group flex gap-3 cursor-pointer outline-none relative overflow-hidden",
                                                         isRead
                                                             ? "bg-slate-100/70 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100 hover:bg-slate-200/60 dark:hover:bg-white/[0.04]"
-                                                            : isFinancial
-                                                                ? "bg-amber-50/90 dark:bg-gradient-to-r dark:from-amber-500/10 dark:via-[#161d24] dark:to-[#161d24] border-amber-300 dark:border-amber-500/30 shadow-[0_4px_16px_rgba(245,158,11,0.08)]"
-                                                                : isWarning
-                                                                    ? "bg-red-50/90 dark:bg-gradient-to-r dark:from-red-500/10 dark:via-[#161d24] dark:to-[#161d24] border-red-300 dark:border-red-500/30 shadow-[0_4px_16px_rgba(239,68,68,0.08)]"
-                                                                    : "bg-emerald-50/90 dark:bg-[#161d24] border-emerald-300 dark:border-white/10 hover:border-emerald-500/40"
+                                                            : isWinner
+                                                                ? "bg-amber-50/95 dark:bg-gradient-to-r dark:from-[#FBBF24]/20 dark:via-[#161d24] dark:to-[#161d24] border-[#FBBF24] dark:border-[#FBBF24]/40 shadow-[0_4px_20px_rgba(251,191,36,0.18)]"
+                                                                : isFinancial
+                                                                    ? "bg-emerald-50/90 dark:bg-gradient-to-r dark:from-emerald-500/15 dark:via-[#161d24] dark:to-[#161d24] border-emerald-300 dark:border-emerald-500/30 shadow-[0_4px_16px_rgba(16,185,129,0.08)]"
+                                                                    : isWarning
+                                                                        ? "bg-red-50/90 dark:bg-gradient-to-r dark:from-red-500/15 dark:via-[#161d24] dark:to-[#161d24] border-red-300 dark:border-red-500/30 shadow-[0_4px_16px_rgba(239,68,68,0.08)]"
+                                                                        : isProps
+                                                                            ? "bg-indigo-50/90 dark:bg-gradient-to-r dark:from-indigo-500/15 dark:via-[#161d24] dark:to-[#161d24] border-indigo-300 dark:border-indigo-500/30"
+                                                                            : "bg-emerald-50/90 dark:bg-[#161d24] border-emerald-300 dark:border-white/10 hover:border-emerald-500/40"
                                                     )}
                                                 >
                                                     <div className="fc-notif-icon mt-1 flex-shrink-0">
-                                                        {isFinancial ? (
-                                                            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 dark:text-amber-400">
-                                                                <Trophy className="w-4 h-4" />
+                                                        {isWinner ? (
+                                                            <div className="w-8 h-8 rounded-xl bg-[#FBBF24]/20 border border-[#FBBF24]/40 flex items-center justify-center text-[#FBBF24] shadow-sm">
+                                                                <Trophy className="w-4 h-4 text-[#FBBF24]" />
+                                                            </div>
+                                                        ) : isFinancial ? (
+                                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-500 dark:text-emerald-400">
+                                                                <CheckCircle2 className="w-4 h-4" />
                                                             </div>
                                                         ) : isWarning ? (
                                                             <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-500 dark:text-red-400">
                                                                 <AlertTriangle className="w-4 h-4" />
                                                             </div>
-                                                        ) : notif.type === 'info' ? (
-                                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                                                                <Info className="w-4 h-4" />
+                                                        ) : isProps ? (
+                                                            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                                                                <Sparkles className="w-4 h-4" />
                                                             </div>
                                                         ) : (
                                                             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                                                                <CheckCircle2 className="w-4 h-4" />
+                                                                <Info className="w-4 h-4" />
                                                             </div>
                                                         )}
                                                     </div>
@@ -590,13 +602,17 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                         <div className="flex items-center justify-between gap-2 mb-1">
                                                             <span className={clsx(
                                                                 "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                                                                isFinancial
-                                                                    ? "bg-amber-100 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300"
-                                                                    : isWarning
-                                                                        ? "bg-red-100 dark:bg-red-500/15 border-red-300 dark:border-red-500/30 text-red-800 dark:text-red-300"
-                                                                        : "bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
+                                                                isWinner
+                                                                    ? "bg-amber-100 dark:bg-[#FBBF24]/20 border-amber-300 dark:border-[#FBBF24]/40 text-amber-900 dark:text-[#FBBF24]"
+                                                                    : isFinancial
+                                                                        ? "bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
+                                                                        : isWarning
+                                                                            ? "bg-red-100 dark:bg-red-500/15 border-red-300 dark:border-red-500/30 text-red-800 dark:text-red-300"
+                                                                            : isProps
+                                                                                ? "bg-indigo-100 dark:bg-indigo-500/15 border-indigo-300 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-300"
+                                                                                : "bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
                                                             )}>
-                                                                {isFinancial ? '🏆 Payout / Pot' : isWarning ? '⚠️ Deadline Alert' : 'ℹ️ Chama Sync'}
+                                                                {isWinner ? '👑 GW Champion' : isFinancial ? '💰 Inflow / Deposit' : isWarning ? '⚠️ Deadline Alert' : isProps ? '🎉 Cheers & Props' : 'ℹ️ Chama Sync'}
                                                             </span>
                                                             <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono">
                                                                 {formatMessageTime(notif.timestamp)}
@@ -606,11 +622,13 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                             "text-xs leading-relaxed font-medium break-words overflow-hidden [overflow-wrap:anywhere] [word-break:break-word]",
                                                             isRead
                                                                 ? "text-slate-600 dark:text-gray-300"
-                                                                : isFinancial
-                                                                    ? "text-amber-950 dark:text-amber-100 font-semibold"
-                                                                    : isWarning
-                                                                        ? "text-red-950 dark:text-red-200 font-semibold"
-                                                                        : "text-emerald-950 dark:text-emerald-100 font-semibold"
+                                                                : isWinner
+                                                                    ? "text-amber-950 dark:text-amber-100 font-bold"
+                                                                    : isFinancial
+                                                                        ? "text-emerald-950 dark:text-emerald-100 font-semibold"
+                                                                        : isWarning
+                                                                            ? "text-red-950 dark:text-red-200 font-semibold"
+                                                                            : "text-slate-900 dark:text-white font-medium"
                                                         )} style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                                                             {notif.message}
                                                         </p>

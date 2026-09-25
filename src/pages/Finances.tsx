@@ -105,6 +105,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
     const [ledgerModalSearch, setLedgerModalSearch] = useState('');
     const [ledgerModalFilter, setLedgerModalFilter] = useState<'all' | 'deposits' | 'payouts' | 'reversals'>('all');
+    const [personalCardTab, setPersonalCardTab] = useState<'due' | 'loaded'>('due');
+    const [nextEventDeadline, setNextEventDeadline] = useState<string | null>(null);
 
     useEffect(() => {
         setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
@@ -137,6 +139,10 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                         const events: any[] = bootstrapData?.events || [];
                         const currentEvent = events.find((e: any) => e.is_current);
                         const previousEvent = events.find((e: any) => e.is_previous) || [...events].filter((e: any) => e.finished).pop();
+                        const nextEvent = events.find((e: any) => e.is_next) || (currentEvent && !currentEvent.finished ? currentEvent : events.find((e: any) => !e.finished));
+                        if (!cancelled && nextEvent?.deadline_time) {
+                            setNextEventDeadline(nextEvent.deadline_time);
+                        }
                         // Use current if it has started; fall back to previous finished GW so the
                         // funding audit never counts a gameweek that hasn't kicked off yet.
                         const isCurrentStarted = currentEvent?.deadline_time
@@ -343,27 +349,45 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const contributionTypes = new Set(['deposit', 'payment', 'contribution', 'wallet_funding', 'wallet_prefund', 'manual_deposit', 'ledger_adjustment']);
     const isTxValidInflow = (tx: any) => {
         const type = String(tx.type || '').toLowerCase();
-        const isContributionType = contributionTypes.has(type) || type === 'deposit' || type === 'payment' || type === 'contribution' || type === 'wallet_funding' || type === 'wallet_prefund' || type === 'manual_deposit';
-        if (!isContributionType) return false;
-        if (tx.source === 'manual_reversal') return false;
-        if (Number(tx.amount || 0) <= 0) return false;
         const status = String(tx.status || '').toLowerCase();
-        if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || status === 'refunded' || tx.isReversed === true || tx.reversed === true) {
-            return false;
-        }
-        return true;
+        const source = String(tx.source || '').toLowerCase();
+        const note = String(tx.note || '').toLowerCase();
+        const category = String(tx.category || '').toLowerCase();
+
+        if (tx.isReversed === true || tx.reversed === true) return false;
+        if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || status === 'refunded' || status === 'refund') return false;
+        if (source === 'manual_reversal' || source.includes('revers')) return false;
+        if (type === 'refund' || type === 'reversal' || type.includes('revers')) return false;
+        if (category === 'refund' || category.includes('revers')) return false;
+        if (note.includes('reversal') || note.includes('reversed')) return false;
+        if (Number(tx.amount || 0) <= 0) return false;
+
+        const isContributionType = contributionTypes.has(type) || type === 'deposit' || type === 'payment' || type === 'contribution' || type === 'wallet_funding' || type === 'wallet_prefund' || type === 'manual_deposit' || (type === 'ledger_adjustment' && Number(tx.amount || 0) > 0);
+        return isContributionType;
     };
     const isTxRefundOrReversal = (tx: any) => {
         const type = String(tx.type || '').toLowerCase();
         const status = String(tx.status || '').toLowerCase();
+        const source = String(tx.source || '').toLowerCase();
+        const note = String(tx.note || '').toLowerCase();
+        const category = String(tx.category || '').toLowerCase();
+
         return (
             type === 'refund' ||
             type === 'reversal' ||
-            tx.source === 'manual_reversal' ||
-            tx.category === 'refund' ||
+            type.includes('revers') ||
+            source === 'manual_reversal' ||
+            source.includes('revers') ||
+            category === 'refund' ||
+            category.includes('revers') ||
             status === 'refund' ||
             status === 'refunded' ||
-            (type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+            status === 'reversed' ||
+            tx.isReversed === true ||
+            tx.reversed === true ||
+            note.includes('reversal') ||
+            note.includes('reversed') ||
+            (type === 'ledger_adjustment' && (source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
             Number(tx.amount || 0) < 0
         );
     };
@@ -851,17 +875,22 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, [memberFundingSummary, fundingAuditFilter]);
 
     const isSpectator = (currentUser as any)?.playMode === 'sidebets_only';
-        const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nowMs + 72 * 60 * 60 * 1000);
-        const dueDate = new Date(dueTs);
-        const nextDueStatus = isSpectator ? 'spectator' : (currentUser?.hasPaid ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue'));
-        const nextDueLabel = isSpectator ? 'Spectator Mode' : (nextDueStatus === 'on-time' ? 'On Time' : nextDueStatus === 'grace' ? 'Grace Window' : 'Overdue');
-        const nextDueTone = isSpectator
-            ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300'
-            : (nextDueStatus === 'on-time'
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                : nextDueStatus === 'grace'
-                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                    : 'border-red-500/30 bg-red-500/10 text-red-300');
+    const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nextEventDeadline ? new Date(nextEventDeadline).getTime() : nowMs + 48 * 60 * 60 * 1000);
+    const dueDate = new Date(dueTs);
+    const isFunded = Boolean(currentUser?.hasPaid) || (Number(gameweekStake || 0) > 0 && Number(currentUser?.walletBalance || 0) >= Number(gameweekStake || 0));
+    const hoursRemaining = Math.max(0, Math.round((dueTs - nowMs) / (60 * 60 * 1000)));
+    const isWithin48Hours = dueTs - nowMs <= 48 * 60 * 60 * 1000;
+    const isUrgentUnpaid = !isSpectator && !isFunded && (isWithin48Hours || dueTs < nowMs);
+
+    const nextDueStatus = isSpectator ? 'spectator' : (isFunded ? 'on-time' : (dueTs >= nowMs ? 'grace' : 'overdue'));
+    const nextDueLabel = isSpectator ? 'Spectator Mode' : (isFunded ? 'Funded & On Time ✓' : isUrgentUnpaid ? `Action Required (${hoursRemaining}h)` : nextDueStatus === 'grace' ? 'Grace Window' : 'Overdue');
+    const nextDueTone = isSpectator
+        ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400 dark:text-indigo-300'
+        : (isFunded
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+            : isUrgentUnpaid
+                ? 'border-rose-500/50 bg-rose-500/20 text-rose-400 font-black'
+                : 'border-amber-500/30 bg-amber-500/10 text-amber-300');
 
     const exportLedgerCSV = () => {
         const exportRows = (isAdmin ? transactions : myTransactions).map((tx: any) => {
@@ -1244,99 +1273,163 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
-                    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 mb-8">
-                        <article className={clsx("fc-card rounded-2xl p-6 sm:p-7 border flex flex-col justify-between shadow-md", isSpectator ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]" : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]")}>
+                    <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mb-8 items-stretch">
+                        {/* Merged Card: Next Due & Total Loaded (Toggleable Tab) */}
+                        <article className={clsx(
+                            "fc-card rounded-2xl p-6 sm:p-7 border flex flex-col justify-between shadow-md transition-all",
+                            personalCardTab === 'due'
+                                ? (isUrgentUnpaid
+                                    ? "border-rose-500/50 bg-rose-500/10 text-rose-400 shadow-rose-950/30"
+                                    : (isSpectator
+                                        ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]"
+                                        : "border-emerald-500/25 bg-gradient-to-br from-emerald-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]"))
+                                : "border-blue-500/25 bg-gradient-to-br from-blue-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24]"
+                        )}>
                             <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className={clsx("text-[10px] font-black uppercase tracking-widest", isSpectator ? "text-indigo-600 dark:text-indigo-300" : "text-emerald-600 dark:text-emerald-300")}>
-                                        {isSpectator ? "Pot Eligibility" : "Next Due"}
-                                    </p>
-                                    <Clock3 className={clsx("w-4 h-4", isSpectator ? "text-indigo-600 dark:text-indigo-300" : "text-emerald-600 dark:text-emerald-300")} />
+                                {/* Card Header with Tabs */}
+                                <div className="flex items-center justify-between gap-2 mb-4">
+                                    <div className="flex items-center p-0.5 rounded-xl bg-black/30 border border-white/10">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPersonalCardTab('due')}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                personalCardTab === 'due'
+                                                    ? (isUrgentUnpaid ? "bg-rose-500 text-white shadow-sm" : "bg-emerald-500 text-slate-950 shadow-sm")
+                                                    : "text-gray-400 hover:text-white"
+                                            )}
+                                        >
+                                            {isSpectator ? "Pot Eligibility" : "Next Due"}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPersonalCardTab('loaded')}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                personalCardTab === 'loaded'
+                                                    ? "bg-blue-500 text-white shadow-sm"
+                                                    : "text-gray-400 hover:text-white"
+                                            )}
+                                        >
+                                            Total Loaded
+                                        </button>
+                                    </div>
+                                    {personalCardTab === 'due' ? (
+                                        <Clock3 className={clsx("w-4 h-4", isUrgentUnpaid ? "text-rose-400 animate-pulse" : isSpectator ? "text-indigo-400" : "text-emerald-400")} />
+                                    ) : (
+                                        <TrendingUp className="w-4 h-4 text-blue-400" />
+                                    )}
                                 </div>
-                                <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
-                                    {isSpectator ? "Spectator (0 KES)" : `${Number(gameweekStake || 0).toLocaleString()} KES`}
-                                </p>
-                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
-                                    {isSpectator ? "Playing Side Bets only · Free to view system" : `Deadline: ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
-                                </p>
+
+                                {/* Tab Body */}
+                                {personalCardTab === 'due' ? (
+                                    <div>
+                                        <p className={clsx("text-2xl font-black tabular-nums", isUrgentUnpaid ? "text-rose-400" : "text-gray-900 dark:text-white")}>
+                                            {isSpectator ? "Spectator (0 KES)" : `${Number(gameweekStake || 0).toLocaleString()} KES`}
+                                        </p>
+                                        <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
+                                            {isSpectator
+                                                ? "Playing Side Bets only · Free to view system"
+                                                : isUrgentUnpaid
+                                                    ? `⚠️ Urgent: Deadline ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} (${hoursRemaining}h left)`
+                                                    : `Deadline: ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
+                                            <AnimatedKes amount={memberTotalLoadedCurrentSeason} className="tabular-nums" />
+                                        </p>
+                                        <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
+                                            Net deposits and top-ups loaded for the 2026/27 season.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
-                            <div className="mt-4 flex items-center justify-between gap-2">
-                                <span className={clsx('inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border w-fit', nextDueTone)}>{nextDueLabel}</span>
-                                {isSpectator && (
-                                    <button
-                                        onClick={() => navigate('/deposit', { state: { upgradeMode: true } })}
-                                        className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
-                                    >
-                                        Upgrade to Pot →
-                                    </button>
+
+                            {/* Card Footer Badges */}
+                            <div className="mt-5 flex items-center justify-between gap-2 flex-wrap pt-3 border-t border-white/5">
+                                {personalCardTab === 'due' ? (
+                                    <>
+                                        <span className={clsx('inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border w-fit', nextDueTone)}>
+                                            {nextDueLabel}
+                                        </span>
+                                        {isSpectator ? (
+                                            <button
+                                                onClick={() => navigate('/deposit', { state: { upgradeMode: true } })}
+                                                className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+                                            >
+                                                Upgrade to Pot →
+                                            </button>
+                                        ) : !isFunded ? (
+                                            <button
+                                                onClick={() => navigate('/deposit')}
+                                                className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-[10px] font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1.5"
+                                            >
+                                                <Wallet className="w-3.5 h-3.5" /> Top Up Wallet →
+                                            </button>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300">
+                                            Wallet Balance: <AnimatedKes amount={Number(currentUser.walletBalance || 0)} className="ml-1 tabular-nums" />
+                                        </span>
+                                        {Number(currentUser.walletBalance || 0) < Number(gameweekStake || 0) && !isSpectator && (
+                                            <span className="text-[10px] font-bold text-amber-400">
+                                                Top-up needed for next GW
+                                            </span>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </article>
 
-                        <article className="fc-card rounded-2xl p-6 sm:p-7 border border-blue-500/25 bg-gradient-to-br from-blue-500/14 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex flex-col justify-between shadow-md">
+                        {/* Wallet Top-Up Card */}
+                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-[#161d24] shadow-md flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-300">
-                                        Total Loaded (2026/27 Season)
-                                    </p>
-                                    <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Wallet Top-Up</p>
+                                    <Wallet className="w-4 h-4 text-emerald-400" />
                                 </div>
-                                <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
-                                    <AnimatedKes amount={memberTotalLoadedCurrentSeason} className="tabular-nums" />
-                                </p>
-                                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
-                                    Net deposits and top-ups loaded for the 2026/27 season.
-                                </p>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between gap-2">
-                                <span className="inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300">
-                                    Current Balance: <AnimatedKes amount={Number(currentUser.walletBalance || 0)} className="ml-1 tabular-nums" />
-                                </span>
-                            </div>
-                        </article>
 
-                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-[#161d24] shadow-md sm:col-span-2 lg:col-span-1">
-                            <div className="flex items-center justify-between mb-4">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Wallet Top-Up</p>
-                                <Wallet className="w-4 h-4 text-emerald-400" />
-                            </div>
-
-                            <div className="space-y-2.5">
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={cashTopUpAmount}
-                                    onFocus={(e) => e.target.select()}
-                                    onChange={(e) => {
-                                        const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
-                                        setCashTopUpAmount(cleaned);
-                                    }}
-                                    placeholder="Amount (KES)"
-                                    className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
-                                />
-                                <input
-                                    type="text"
-                                    value={cashTopUpNote}
-                                    onChange={(e) => setCashTopUpNote(e.target.value)}
-                                    placeholder="Optional note"
-                                    className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
-                                />
-                                <div className="grid grid-cols-2 gap-2 pt-1">
-                                    <button
-                                        onClick={() => navigate('/deposit')}
-                                        className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-all active:scale-95 cursor-pointer"
-                                    >
-                                        M-Pesa
-                                    </button>
-                                    <button
-                                        onClick={handleSubmitCashTopUpRequest}
-                                        disabled={isSubmittingCashTopUpRequest}
-                                        className="px-3 py-2.5 rounded-xl border border-white/15 bg-white/5 text-gray-300 hover:text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                    >
-                                        {isSubmittingCashTopUpRequest ? '...' : 'Cash'}
-                                    </button>
+                                <div className="space-y-2.5">
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={cashTopUpAmount}
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                            const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                                            setCashTopUpAmount(cleaned);
+                                        }}
+                                        placeholder="Amount (KES)"
+                                        className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={cashTopUpNote}
+                                        onChange={(e) => setCashTopUpNote(e.target.value)}
+                                        placeholder="Optional note"
+                                        className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                        <button
+                                            onClick={() => navigate('/deposit')}
+                                            className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-all active:scale-95 cursor-pointer"
+                                        >
+                                            M-Pesa
+                                        </button>
+                                        <button
+                                            onClick={handleSubmitCashTopUpRequest}
+                                            disabled={isSubmittingCashTopUpRequest}
+                                            className="px-3 py-2.5 rounded-xl border border-white/15 bg-white/5 text-gray-300 hover:text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                                        >
+                                            {isSubmittingCashTopUpRequest ? '...' : 'Cash'}
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
                                 </div>
-                                <p className="text-[10px] text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
                             </div>
                         </article>
                     </section>

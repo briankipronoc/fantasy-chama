@@ -102,7 +102,7 @@ export default function Standings() {
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
-    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('gw');
+    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('season');
     const [leagueRules, setLeagueRules] = useState<any>({});
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
@@ -562,13 +562,16 @@ export default function Standings() {
     useEffect(() => {
         // Only scroll the horizontal rail — NOT the page/window — to avoid page jumping
         if (!currentEvent || !ledgerRailRef.current) return;
-        const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : currentEvent;
+        const targetGw = currentEvent;
         const rail = ledgerRailRef.current;
-        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
-        if (!gwCard) return;
-        // Container-only horizontal scroll (does NOT touch vertical scroll)
-        const targetLeft = gwCard.offsetLeft - rail.clientWidth / 2 + gwCard.clientWidth / 2;
-        rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+        const scrollAction = () => {
+            const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
+            if (!gwCard) return;
+            const targetLeft = gwCard.offsetLeft - rail.clientWidth / 2 + gwCard.clientWidth / 2;
+            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+        };
+        const timer = setTimeout(scrollAction, 100);
+        return () => clearTimeout(timer);
     }, [currentEvent, isCurrentEventFinished, gwWinnersLedger.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
@@ -956,14 +959,14 @@ export default function Standings() {
                                 <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/10 w-fit mb-3">
                                     <button
                                         type="button"
-                                        onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
-                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'gw' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
-                                    >GW Rank</button>
-                                    <button
-                                        type="button"
                                         onClick={() => { haptics.selection(); setHeroRankView('season'); }}
                                         className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'season' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
                                     >Season</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
+                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'gw' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
+                                    >GW Rank</button>
                                 </div>
 
                                 {heroRankView === 'gw' ? (
