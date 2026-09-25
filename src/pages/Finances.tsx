@@ -343,7 +343,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Number.isFinite(value) && value > 0 ? Math.min(minGw, value) : minGw;
     }, 999);
     
-    const leagueStartGw = Number(startGw || (currentGwNumber && currentGwNumber > 0 ? currentGwNumber : 5));
+    const leagueStartGw = Math.max(5, Number(startGw || (currentGwNumber && currentGwNumber > 0 ? currentGwNumber : 5)));
     
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     
@@ -447,7 +447,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .filter(isTxRefundOrReversal)
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
-    const effectiveLeagueStartGw = Number(startGw || (leagueSettings as any)?.startGw || (firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1)));
+    const effectiveLeagueStartGw = Math.max(5, Number(startGw || (leagueSettings as any)?.startGw || (firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1))));
     const completedGwsCount = currentGwNumber && currentGwNumber >= effectiveLeagueStartGw
         ? Math.max(0, (isCurrentEventFinished ? currentGwNumber : currentGwNumber - 1) - effectiveLeagueStartGw + 1)
         : 0;

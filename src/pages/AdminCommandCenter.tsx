@@ -1952,7 +1952,7 @@ export default function AdminCommandCenter() {
           "Payment server is not configured. Set VITE_API_URL for production.",
         );
 
-      const targetGw = Number(currentGwNumber || firestoreGw || 1);
+      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(currentGwNumber || firestoreGw || 1));
       const data = await secureApiPost(`${payoutApiUrl}/api/mpesa/stkpush`, {
         phoneNumber: member.phone,
         amount,

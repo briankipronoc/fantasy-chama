@@ -322,7 +322,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     ) : (
                                         <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
                                     )}
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-700 dark:text-gray-300">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-900 dark:text-gray-100">
                                         {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
                                     </span>
                                 </span>

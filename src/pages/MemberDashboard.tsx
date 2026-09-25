@@ -2391,26 +2391,7 @@ export default function MemberDashboard() {
                                         </div>
                                     )}
 
-                                    {!showPochiInstructions && (
-                                        <div 
-                                            onClick={handleCopyPochiNumber}
-                                            className={clsx(
-                                                "rounded-xl border px-3 py-2 text-[11px] flex items-center justify-between gap-2 cursor-pointer transition-all duration-200 select-none",
-                                                copiedPochi
-                                                    ? "bg-emerald-500/20 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] scale-[1.01]"
-                                                    : "border-white/10 bg-black/20 text-gray-400 hover:border-emerald-500/30"
-                                            )}
-                                            title="Tap to copy destination number"
-                                        >
-                                            <span>Destination: <strong className="font-mono text-[#10B981]">{payoutDestinationPhone}</strong></span>
-                                            <span className={clsx(
-                                                "text-[9px] font-black flex items-center gap-1 uppercase tracking-wider px-2 py-0.5 rounded-md transition-all",
-                                                copiedPochi ? "bg-emerald-500 text-black shadow-sm font-extrabold" : "text-slate-400 hover:text-emerald-400"
-                                            )}>
-                                                {copiedPochi ? <><Check className="w-2.5 h-2.5" /> Copied!</> : <><Copy className="w-2.5 h-2.5" /> Tap to copy</>}
-                                            </span>
-                                        </div>
-                                    )}
+
 
                                     <div className="flex justify-end mt-1">
                                         <button

@@ -1,5 +1,7 @@
 // src/components/UserAvatar.tsx
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useStore } from '../store/useStore';
+import { auth } from '../firebase';
 
 interface UserAvatarProps {
   name?: string;
@@ -59,7 +61,42 @@ export default function UserAvatar({
   const palette = getPalette(name);
   const sizeClasses = SIZE_MAP[size] || SIZE_MAP.md;
 
-  const showImage = Boolean(photoUrl && !hasImageError);
+  const members = useStore((state) => state.members);
+
+  const resolvedPhoto = useMemo(() => {
+    if (photoUrl) return photoUrl;
+
+    const localSavedAvatar = typeof window !== 'undefined' ? localStorage.getItem('fc_user_avatar') : null;
+    const currentUserName = auth.currentUser?.displayName || (typeof window !== 'undefined' ? localStorage.getItem('activeUserName') : null);
+
+    if (localSavedAvatar && name && currentUserName && name.trim().toLowerCase() === currentUserName.trim().toLowerCase()) {
+      return localSavedAvatar;
+    }
+
+    if (auth.currentUser?.photoURL && name && currentUserName && name.trim().toLowerCase() === currentUserName.trim().toLowerCase()) {
+      return auth.currentUser.photoURL;
+    }
+
+    if (name && members && members.length > 0) {
+      const cleanTarget = name.trim().toLowerCase();
+      const match = members.find((m: any) => {
+        const d = (m.displayName || '').trim().toLowerCase();
+        const f = (m.fplTeamName || m.teamName || '').trim().toLowerCase();
+        return d === cleanTarget || f === cleanTarget || (d && cleanTarget && (d.includes(cleanTarget) || cleanTarget.includes(d)));
+      });
+      if (match && ((match as any).photoUrl || (match as any).avatarUrl)) {
+        return (match as any).photoUrl || (match as any).avatarUrl;
+      }
+    }
+
+    if (localSavedAvatar && (!name || name === 'Manager' || name === 'You')) {
+      return localSavedAvatar;
+    }
+
+    return null;
+  }, [photoUrl, name, members]);
+
+  const showImage = Boolean(resolvedPhoto && !hasImageError);
 
   return (
     <div
@@ -68,7 +105,7 @@ export default function UserAvatar({
     >
       {showImage ? (
         <img
-          src={photoUrl!}
+          src={resolvedPhoto!}
           alt={name || 'Manager Avatar'}
           onError={() => setHasImageError(true)}
           className="w-full h-full object-cover rounded-full"
@@ -80,3 +117,4 @@ export default function UserAvatar({
     </div>
   );
 }
+

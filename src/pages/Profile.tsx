@@ -318,6 +318,9 @@ export default function Profile() {
             const result = await compressProfileImage(file, 256, 0.82);
             setPhotoUrl(result.dataUrl);
             setPhotoCompressStats(`${result.originalSizeKb} KB → ${result.compressedSizeKb} KB`);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('fc_user_avatar', result.dataUrl);
+            }
             haptics.success();
             toast.success(`Photo compressed & updated (${result.compressedSizeKb} KB)!`, { icon: '📸' });
 
@@ -355,6 +358,9 @@ export default function Profile() {
         try {
             setPhotoUrl(null);
             setPhotoCompressStats(null);
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('fc_user_avatar');
+            }
             haptics.selection();
             toast.success('Custom profile photo removed');
 
@@ -958,7 +964,7 @@ export default function Profile() {
                 <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-emerald-500/12 blur-3xl" />
             </div>
             <div className="max-w-6xl mx-auto space-y-10">
-                <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity, League Controls & Payout Configuration" hideCountdown={true} />
+                <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity · League · Controls" hideCountdown={true} />
 
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-6 items-start">
                     <div className={clsx(
@@ -1232,56 +1238,64 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* ── Stealth Mode Easter Egg Section ── */}
-                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0d1217] dark:to-[#06090c] border border-slate-200 dark:border-slate-700/60 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-3.5">
-                                <div className="w-10 h-10 rounded-2xl bg-zinc-800/90 border border-zinc-600/50 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.08)] shrink-0">
-                                    <Shield className="w-5 h-5 text-slate-300" />
+                    {/* ── Theme & Stealth Display ── */}
+                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0d1217] dark:to-[#06090c] border border-slate-200 dark:border-slate-700/60 p-4 sm:p-5 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                        <div className="flex items-center justify-between gap-3 mb-3.5">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-zinc-800/90 border border-zinc-600/50 flex items-center justify-center shadow-sm shrink-0">
+                                    <Shield className="w-4 h-4 text-emerald-400" />
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                            Stealth Mode
-                                        </h2>
-                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                                            Easter Egg
-                                        </span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 max-w-md">
-                                        Matte obsidian surfaces, brushed titanium frames, low glare, and optional sensitive figures masking.
+                                    <h2 className="fc-frosty-title text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        Theme & Display
+                                    </h2>
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium">
+                                        Appearance & privacy options
                                     </p>
                                 </div>
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    haptics.selection();
-                                    const nextTheme = theme === 'stealth' ? 'dark' : 'stealth';
-                                    setTheme(nextTheme);
-                                    if (nextTheme === 'stealth' && !isStealthMode) {
-                                        toggleStealthMode();
-                                    } else if (nextTheme !== 'stealth' && isStealthMode) {
-                                        toggleStealthMode();
-                                    }
-                                    toast.success(nextTheme === 'stealth' ? 'Stealth Mode activated' : 'Standard theme restored');
-                                }}
-                                className={clsx(
-                                    "px-4 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shrink-0 active:scale-95",
-                                    theme === 'stealth'
-                                        ? "bg-emerald-500 text-black border-emerald-400 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                                        : "bg-zinc-800/80 hover:bg-zinc-700 text-white border-zinc-600/50"
-                                )}
-                            >
-                                <Shield className="w-3.5 h-3.5" />
-                                {theme === 'stealth' ? 'Stealth Active ✓' : 'Enable Stealth Mode'}
-                            </button>
                         </div>
 
-                        {/* Sensitive Numbers Stealth Toggle */}
-                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-4 flex-wrap">
-                            <div className="flex items-center gap-3">
+                        {/* Theme Selector Pills */}
+                        <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-slate-200/70 dark:bg-black/40 border border-slate-300/80 dark:border-white/10">
+                            {[
+                                { key: 'dark', label: 'Dark', icon: '🌙' },
+                                { key: 'stealth', label: 'Stealth', icon: '🛡️' },
+                                { key: 'system', label: 'System', icon: '💻' },
+                                { key: 'light', label: 'Light', icon: '☀️' }
+                            ].map((t) => {
+                                const isSelected = theme === t.key;
+                                return (
+                                    <button
+                                        key={t.key}
+                                        type="button"
+                                        onClick={() => {
+                                            haptics.selection();
+                                            setTheme(t.key as any);
+                                            if (t.key === 'stealth' && !isStealthMode) {
+                                                toggleStealthMode();
+                                            } else if (t.key !== 'stealth' && isStealthMode) {
+                                                toggleStealthMode();
+                                            }
+                                            toast.success(`${t.label} theme activated`);
+                                        }}
+                                        className={clsx(
+                                            "py-2 px-1 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none",
+                                            isSelected
+                                                ? "bg-emerald-500 text-black shadow-md font-extrabold"
+                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                        )}
+                                    >
+                                        <span className="text-xs">{t.icon}</span>
+                                        <span className="text-[10px] font-bold">{t.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Mask Balances Row */}
+                        <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-white/5 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1289,29 +1303,33 @@ export default function Profile() {
                                         toggleStealthMode();
                                     }}
                                     className={clsx(
-                                        "w-11 h-6 rounded-full transition-colors relative cursor-pointer flex-shrink-0 p-0.5 border",
+                                        "w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
                                         isStealthMode ? "bg-emerald-500 border-emerald-400" : "bg-zinc-800 border-zinc-700"
                                     )}
                                 >
                                     <div
                                         className={clsx(
-                                            "w-5 h-5 rounded-full bg-white transition-transform shadow-md",
-                                            isStealthMode ? "translate-x-5" : "translate-x-0"
+                                            "w-4.5 h-4.5 rounded-full bg-white transition-transform shadow-sm",
+                                            isStealthMode ? "translate-x-4" : "translate-x-0"
                                         )}
                                     />
                                 </button>
                                 <div>
-                                    <span className="text-xs font-black text-white">Hide Financial Balances (Mask Numbers)</span>
-                                    <p className="text-[10px] text-gray-400">Masks KES figures with **** for public privacy</p>
+                                    <span className="text-xs font-bold text-slate-900 dark:text-gray-200 block">
+                                        Mask Figures
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 block">
+                                        Hides amounts with `KES ****`
+                                    </span>
                                 </div>
                             </div>
                             <span className={clsx(
-                                "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
+                                "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
                                 isStealthMode
                                     ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
                                     : "bg-white/5 border-white/10 text-gray-400"
                             )}>
-                                {isStealthMode ? "Stealth Active (****)" : "Numbers Visible"}
+                                {isStealthMode ? "Masked" : "Visible"}
                             </span>
                         </div>
                     </div>
