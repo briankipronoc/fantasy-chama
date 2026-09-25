@@ -2362,18 +2362,30 @@ export default function MemberDashboard() {
                                             </div>
 
                                             <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2 flex-wrap">
-                                                <a
-                                                    href={`tel:${payoutDestinationPhone}`}
-                                                    className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 transition-colors py-1 cursor-pointer"
-                                                >
-                                                    <PhoneCall className="w-3 h-3 text-emerald-400" /> Dial Number
-                                                </a>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <a
+                                                        href="tel:*334%23"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(payoutDestinationPhone);
+                                                            showToast(`Number copied! Dialing *334#...`, 'success');
+                                                        }}
+                                                        className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-black tracking-wide flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                                                    >
+                                                        <Zap className="w-3.5 h-3.5 text-amber-400" /> Dial *334# (M-Pesa)
+                                                    </a>
+                                                    <a
+                                                        href={`tel:${payoutDestinationPhone}`}
+                                                        className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                                                    >
+                                                        <PhoneCall className="w-3 h-3 text-emerald-400" /> Dial Pochi #
+                                                    </a>
+                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => { setShowClaimModal(true); setClaimSubmitted(false); setClaimReceiptCode(''); }}
-                                                    className="text-[11px] text-[#FBBF24] hover:text-amber-300 underline underline-offset-2 transition-colors flex items-center gap-1 font-black cursor-pointer"
+                                                    className="text-[11px] text-[#FBBF24] hover:text-amber-300 underline underline-offset-2 transition-colors flex items-center gap-1 font-black cursor-pointer py-1"
                                                 >
-                                                    Claim Receipt / Notify Chairman →
+                                                    Claim Receipt →
                                                 </button>
                                             </div>
                                         </div>
