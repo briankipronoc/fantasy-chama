@@ -12,6 +12,7 @@ import Header from '../components/Header';
 import SeasonCeremonyModal from '../components/SeasonCeremonyModal';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import AnimatedKes from '../components/AnimatedKes';
+import toast from 'react-hot-toast';
 
 const fetchFplStandings = async (leagueId: number) => {
     const cacheKey = `fpl_standings_${leagueId}`;
@@ -906,7 +907,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, [memberFundingSummary, fundingAuditFilter]);
 
     const isSpectator = (currentUser as any)?.playMode === 'sidebets_only';
-    const dueTs = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt) || (nextEventDeadline ? new Date(nextEventDeadline).getTime() : nowMs + 48 * 60 * 60 * 1000);
+    const upcomingDeadlineMs = nextEventDeadline ? new Date(nextEventDeadline).getTime() : null;
+    const userExplicitDue = toMillis((currentUser as any)?.nextDueAt) || toMillis((currentUser as any)?.dueAt) || toMillis((currentUser as any)?.deadlineAt);
+    const dueTs = upcomingDeadlineMs || (userExplicitDue && userExplicitDue > nowMs ? userExplicitDue : null) || (nowMs + 48 * 60 * 60 * 1000);
     const dueDate = new Date(dueTs);
     const isFunded = Boolean(currentUser?.hasPaid) || (Number(gameweekStake || 0) > 0 && Number(currentUser?.walletBalance || 0) >= Number(gameweekStake || 0));
     const hoursRemaining = Math.max(0, Math.round((dueTs - nowMs) / (60 * 60 * 1000)));
@@ -1716,9 +1719,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Season winners</p>
                             <p className="text-lg font-black text-white tabular-nums">{modeLabel}</p>
                             <p className="text-[11px] text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
-                            <p className="text-[11px] text-emerald-400 font-bold mt-1">
-                                Vault Bag So Far: <strong className="text-white">KES {Math.round(seasonVaultCollectedSoFar || 0).toLocaleString()}</strong> · Projected Final: <strong className="text-amber-400">KES {Math.round(projectedSeasonVault || 0).toLocaleString()}</strong>
-                            </p>
                             {role === 'admin' && (
                                 <button
                                     onClick={() => setShowSeasonCeremony(true)}
@@ -2878,9 +2878,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const phoneToCopy = String((leagueSettings as any)?.paymentDetails?.accountNumber || (leagueSettings as any)?.payoutPhone || '0728445771');
                                         navigator.clipboard.writeText(phoneToCopy);
                                         setCopiedPochiPhone(true);
+                                        toast.success(`Copied Chairman's Pochi number (${phoneToCopy})!`);
                                         setTimeout(() => setCopiedPochiPhone(false), 2000);
                                     }}
-                                    className="p-3.5 rounded-2xl border border-emerald-500/25 bg-emerald-950/20 hover:bg-emerald-950/30 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                                    className={clsx(
+                                        "p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 group select-none",
+                                        copiedPochiPhone
+                                            ? "border-emerald-400 bg-emerald-950/40 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-[1.01]"
+                                            : "border-emerald-500/25 bg-emerald-950/20 hover:bg-emerald-950/30"
+                                    )}
                                     title="Click to copy phone number"
                                 >
                                     <div>
@@ -2896,7 +2902,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <div className={clsx(
                                         "px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shrink-0",
                                         copiedPochiPhone
-                                            ? "bg-emerald-500 text-black border-emerald-400 shadow-md"
+                                            ? "bg-emerald-500 text-black border-emerald-400 shadow-md font-extrabold"
                                             : "bg-white/10 text-emerald-300 border-emerald-500/30 group-hover:bg-emerald-500/20"
                                     )}>
                                         {copiedPochiPhone ? 'Copied! ✓' : 'Copy'}

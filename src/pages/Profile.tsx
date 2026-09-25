@@ -1265,7 +1265,7 @@ export default function Profile() {
                                     } else if (nextTheme !== 'stealth' && isStealthMode) {
                                         toggleStealthMode();
                                     }
-                                    toast.success(nextTheme === 'stealth' ? '🦇 Stealth Mode activated' : 'Standard theme restored');
+                                    toast.success(nextTheme === 'stealth' ? 'Stealth Mode activated' : 'Standard theme restored');
                                 }}
                                 className={clsx(
                                     "px-4 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shrink-0 active:scale-95",

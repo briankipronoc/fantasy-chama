@@ -1547,33 +1547,33 @@ export default function Standings() {
                                 const isLeaderFunded = isMemberEligibleWinner(leader);
                                 const isLeaderTied = Boolean(leader.isTied);
                                 return (
-                                    <div key={leader.id || idx} className="rounded-2xl border border-white/10 bg-[#0b1014]/90 p-3 sm:p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all min-w-0">
+                                    <div key={leader.id || idx} className="rounded-2xl border border-white/10 bg-[#0b1014]/90 p-2.5 sm:p-3.5 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all min-w-0">
                                         <div>
-                                            <div className="flex items-center justify-between gap-1 mb-2">
-                                                <span className="text-[10px] uppercase tracking-widest font-black text-amber-400 flex items-center gap-1">
+                                            <div className="flex items-center justify-between gap-1 mb-1.5">
+                                                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-amber-400 flex items-center gap-1 truncate">
                                                     {leaderMedal ? `${leaderMedal} #${leaderRank}` : `#${leaderRank}`}
                                                     {isLeaderTied && (
-                                                        <span className="text-[8px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
+                                                        <span className="text-[7px] sm:text-[8px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
                                                             Tied
                                                         </span>
                                                     )}
                                                 </span>
                                                 {isLeaderFunded ? (
-                                                    <span className="text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 truncate">
+                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 truncate">
                                                         ✓ Funded
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
+                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
                                                         ⏳ Pending
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="text-xs sm:text-sm font-black text-white truncate">{leader.player_name}</p>
-                                            <p className="text-[10px] text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
+                                            <p className="text-[9px] sm:text-[10px] text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
                                         </div>
-                                        <div className="mt-2.5 pt-2 border-t border-white/5">
-                                            <p className="text-sm sm:text-base font-black text-emerald-400 tabular-nums">{Number(leader.total || 0).toLocaleString()} pts</p>
-                                            <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold mt-0.5 truncate">
+                                        <div className="mt-2 pt-1.5 border-t border-white/5">
+                                            <p className="text-xs sm:text-base font-black text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
+                                            <p className="text-[8px] sm:text-[10px] text-gray-500 font-bold mt-0.5 truncate">
                                                 {isLeaderFunded ? (
                                                     Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
                                                         ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
@@ -1605,17 +1605,18 @@ export default function Standings() {
                                 const isSkipped = Boolean(item.isSkipped);
                                 const isAwaitingPayment = Boolean(item.isAwaitingPayment);
                                 const isApprovedPaid = Boolean(item.isPaid);
-                                const targetActiveGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1);
-                                const isTargetActiveGw = item.gw === targetActiveGw;
                                 const isCurrentGw = currentEvent === item.gw;
                                 const isCurrentLive = !isCurrentEventFinished && (Boolean(item.isCurrentLive) || isCurrentGw);
+                                const isResolved = isApprovedPaid || (!isCurrentLive && !item.isUpcoming && !isVoided && !isPreLeague && !isSkipped && item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved');
+                                const isNextUpcoming = item.gw === ((isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1) + 1);
+
                                 return (
                                     <div
                                         key={item.gw}
                                         data-gw-card={item.gw}
                                         className={clsx(
                                             'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm',
-                                            isApprovedPaid
+                                            isApprovedPaid || isResolved
                                                 ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
                                                 : isCurrentLive
                                                 ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
@@ -1625,10 +1626,8 @@ export default function Standings() {
                                                 ? 'border-slate-300 dark:border-slate-500/25 bg-slate-100/90 dark:bg-slate-500/8 text-slate-700 dark:text-slate-300'
                                                 : isVoided || isSkipped
                                                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                                                : isTargetActiveGw
-                                                ? 'border-[#FBBF24]/60 bg-[#FBBF24]/10 ring-2 ring-[#FBBF24]/50'
-                                                : isCurrentGw
-                                                ? 'border-[#FBBF24]/50 bg-[#FBBF24]/10'
+                                                : isNextUpcoming
+                                                ? 'border-white/15 bg-white/[0.03]'
                                                 : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
                                         )}
                                     >
@@ -1647,16 +1646,16 @@ export default function Standings() {
                                                     Live · In Play
                                                 </span>
                                             ) : isApprovedPaid ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                                                    Paid ✓
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Paid ✓
+                                                </span>
+                                            ) : isResolved ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Resolved ✓
                                                 </span>
                                             ) : isAwaitingPayment ? (
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40">
                                                     Awaiting Payout
-                                                </span>
-                                            ) : isTargetActiveGw ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40 animate-pulse">
-                                                    Pending
                                                 </span>
                                             ) : (
                                                 <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
@@ -1666,7 +1665,7 @@ export default function Standings() {
                                         </div>
                                         <p className={clsx(
                                             'text-xs font-black truncate',
-                                            isApprovedPaid ? 'text-slate-900 dark:text-white' : isCurrentLive ? 'text-amber-400 dark:text-[#FBBF24]' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided || isSkipped ? 'text-amber-600 dark:text-amber-300' : isTargetActiveGw ? 'text-amber-600 dark:text-[#FBBF24]' : 'text-slate-400 dark:text-gray-500'
+                                            isApprovedPaid || isResolved ? 'text-slate-900 dark:text-white' : isCurrentLive ? 'text-amber-400 dark:text-[#FBBF24]' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided || isSkipped ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-gray-500'
                                         )}>
                                             {isCurrentLive && item.winnerName !== 'In Progress' ? `Live Leader: ${item.winnerName}` : item.winnerName}
                                         </p>
@@ -1679,9 +1678,9 @@ export default function Standings() {
                                                 ? (item.winnerTeam || 'Not resolved / Unplayed')
                                                 : isAwaitingPayment
                                                 ? `${item.winnerTeam || 'Awaiting Payment'}`
-                                                : item.winnerTeam || (isApprovedPaid ? 'Payout recorded' : isTargetActiveGw ? (isCurrentEventFinished ? 'Next Round Kickoff' : 'Active Round') : 'Pending kickoff')}
+                                                : item.winnerTeam || (isApprovedPaid ? 'Payout recorded' : isResolved ? 'Winner crowned' : 'Pending kickoff')}
                                         </p>
-                                        {(isApprovedPaid || isAwaitingPayment) && typeof item.amount === 'number' && item.amount > 0 && (
+                                        {(isApprovedPaid || isAwaitingPayment || isResolved) && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
                                         )}
                                         {isCurrentLive && typeof item.amount === 'number' && item.amount > 0 && (

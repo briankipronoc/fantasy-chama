@@ -1534,14 +1534,14 @@ export default function MemberDashboard() {
                         )}
                         {/* Feature E: Season progress bar */}
                         {completedLeagueGws > 0 && totalLeagueGws > 0 && (
-                            <div className="mt-3 w-full max-w-xs">
+                            <div className="mt-3 w-full">
                                 <div className="flex items-center justify-between mb-1">
                                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">Season Progress</span>
                                     <span className="text-[9px] font-bold text-slate-500 dark:text-slate-500 tabular-nums">
                                         GW{effectiveMdStartGw + completedLeagueGws - 1} of GW38 · {seasonProgressPct}%
                                     </span>
                                 </div>
-                                <div className="h-1 w-full rounded-full bg-slate-800/60 dark:bg-white/8 overflow-hidden">
+                                <div className="h-1.5 w-full rounded-full bg-slate-800/60 dark:bg-white/8 overflow-hidden">
                                     <div
                                         className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
                                         style={{ width: `${seasonProgressPct}%` }}
@@ -2219,7 +2219,7 @@ export default function MemberDashboard() {
                                             ? "Gameweek Voided ⚠️"
                                             : (isSpectator
                                                 ? "Spectator & Side-Bets Only"
-                                                : (isCurrentFunded ? "Verified & Active" : "Action Required")))}
+                                                : (isCurrentFunded ? "Verified & Active" : (isTargetGwUpcoming ? `GW${activeFundingGw} Deposit Due` : "Action Required"))))}
                                 </h3>
                                 <p className="text-xs text-gray-400 leading-relaxed mb-3">
                                     {isRecentWinner
@@ -2233,7 +2233,7 @@ export default function MemberDashboard() {
                                                         ? `Your contribution for Gameweek ${activeFundingGw} is secured from your balance. Tweak your lineup before deadline.`
                                                         : `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`)
                                                     : (isTargetGwUpcoming
-                                                        ? `Gameweek ${currentFplEvent?.id} is completed. Your KES ${gameweekStake.toLocaleString()} stake is now due for Gameweek ${activeFundingGw}. Deposit before kickoff.`
+                                                        ? `Upcoming GW${activeFundingGw} stake is due (KES ${gameweekStake.toLocaleString()}). Fund your wallet before the deadline to compete for the cash pot!`
                                                         : `Contribution for GW${currentFplEvent?.id || 1} pending. Please pay your KES ${gameweekStake.toLocaleString()} contribution to remain active and eligible for the cash pot.`))))}
                                 </p>
 
@@ -2394,12 +2394,20 @@ export default function MemberDashboard() {
                                     {!showPochiInstructions && (
                                         <div 
                                             onClick={handleCopyPochiNumber}
-                                            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-400 flex items-center justify-between gap-2 cursor-pointer hover:border-emerald-500/30 transition-all"
+                                            className={clsx(
+                                                "rounded-xl border px-3 py-2 text-[11px] flex items-center justify-between gap-2 cursor-pointer transition-all duration-200 select-none",
+                                                copiedPochi
+                                                    ? "bg-emerald-500/20 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)] scale-[1.01]"
+                                                    : "border-white/10 bg-black/20 text-gray-400 hover:border-emerald-500/30"
+                                            )}
                                             title="Tap to copy destination number"
                                         >
                                             <span>Destination: <strong className="font-mono text-[#10B981]">{payoutDestinationPhone}</strong></span>
-                                            <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1 hover:text-emerald-400">
-                                                <Copy className="w-2.5 h-2.5" /> Tap to copy
+                                            <span className={clsx(
+                                                "text-[9px] font-black flex items-center gap-1 uppercase tracking-wider px-2 py-0.5 rounded-md transition-all",
+                                                copiedPochi ? "bg-emerald-500 text-black shadow-sm font-extrabold" : "text-slate-400 hover:text-emerald-400"
+                                            )}>
+                                                {copiedPochi ? <><Check className="w-2.5 h-2.5" /> Copied!</> : <><Copy className="w-2.5 h-2.5" /> Tap to copy</>}
                                             </span>
                                         </div>
                                     )}
