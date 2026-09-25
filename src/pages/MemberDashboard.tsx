@@ -1155,8 +1155,11 @@ export default function MemberDashboard() {
     const completedRounds = currentFplEvent?.id 
         ? Math.max(0, (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) - effectiveMdStartGw + 1)
         : 0;
-    const fallbackVaultAccumulated = completedRounds * paidMembersCount * gameweekStake * vaultMultiplier;
-    const seasonVaultAccumulated = seasonVaultFromTxs > 0 ? seasonVaultFromTxs : fallbackVaultAccumulated;
+    const maxVaultForCompleted = completedRounds * paidMembersCount * gameweekStake * vaultMultiplier;
+    const fallbackVaultAccumulated = maxVaultForCompleted;
+    const seasonVaultAccumulated = completedRounds > 0
+        ? (seasonVaultFromTxs > 0 ? Math.min(maxVaultForCompleted, seasonVaultFromTxs) : fallbackVaultAccumulated)
+        : (seasonVaultFromTxs > 0 ? Math.min(paidMembersCount * gameweekStake * vaultMultiplier, seasonVaultFromTxs) : fallbackVaultAccumulated);
 
     // Upcoming GW Funding Status (Red Zone)
     const isTargetGwUpcoming = Boolean(currentFplEvent?.finished || currentFplEvent?.isPreparingForNextGw);
@@ -2036,9 +2039,144 @@ export default function MemberDashboard() {
             {/* Main Content — Dense Grid Layout */}
             <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-6 lg:pb-8 z-10 relative mt-2">
 
-                {/* === ROW 1: Upcoming GW Status / Action Required (6) + GW Standings & Rank (6) === */}
+                {/* === ROW 1: GW Standings & Rank (6) on top, Upcoming GW Status / Action Required (6) === */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4 items-stretch">
-                    {/* Personal Status + Pay Action */}
+                    {/* GW Rank Card — live standings from FPL (Placed on Top) */}
+                    <div className="lg:col-span-6 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col justify-between h-full overflow-hidden">
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+                                    <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Rank
+                                </h4>
+                                {gwWinner && (
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#10B981]/20 bg-[#10B981]/10 text-[#10B981]">
+                                        {currentFplEvent?.finished ? 'Final' : 'Live'}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Your GW Rank — prominent stat chip */}
+                            {(() => {
+                                const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
+                                const tiedTopWinners = fplStandings.filter((e: any) => Number(e.event_total ?? 0) === topScore && topScore > 0);
+                                const isSplitPot = tiedTopWinners.length > 1;
+
+                                const myRankEntry = fplStandings.findIndex((e: any) =>
+                                    (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
+                                    (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
+                                    currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
+                                );
+                                const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
+                                const myPoints = Number(myEntry?.event_total ?? 0);
+                                const isRankOne = (myPoints === topScore && topScore > 0) || myRankEntry === 0 || isRecentWinner || isCurrentUserGwWinner;
+                                const rank = myRankEntry + 1;
+
+                                return myEntry ? (
+                                    <>
+                                        <div className={clsx(
+                                            "rounded-2xl border px-3.5 py-3 mb-3 flex items-center justify-between",
+                                            isRankOne
+                                                ? "border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 to-[#FBBF24]/5 shadow-[0_0_20px_rgba(251,191,36,0.1)]"
+                                                : "border-emerald-500/30 bg-emerald-500/8"
+                                        )}>
+                                            <div className="flex items-center gap-2.5">
+                                                <div className={clsx(
+                                                    "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0",
+                                                    isRankOne ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-emerald-500/20 text-emerald-300"
+                                                )}>
+                                                    {isRankOne ? '🥇' : `#${rank}`}
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                                        {isRankOne ? (isSplitPot ? 'Tied for 1st' : 'GW Leader') : 'Your GW Rank'}
+                                                    </p>
+                                                    <p className="text-sm font-black text-white leading-tight">{firstName}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xl font-black text-[#FBBF24] tabular-nums leading-tight">{myEntry.event_total ?? 0}</p>
+                                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">
+                                                    {isRankOne && isSplitPot ? `Split Pot (1/${tiedTopWinners.length})` : 'GW pts'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {isRankOne && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowFlexModal(true)}
+                                                className="w-full mb-3 py-2 px-3 rounded-xl bg-gradient-to-r from-[#FBBF24] to-amber-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-[#FBBF24]/20 active:scale-[0.98] transition-all cursor-pointer"
+                                            >
+                                                <Trophy className="w-3.5 h-3.5 text-slate-950" />
+                                                Share Victory Card
+                                            </button>
+                                        )}
+                                    </>
+                                ) : fplStandings.length > 0 ? (
+                                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 mb-3 flex items-center gap-2">
+                                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                                            <Star className="w-4 h-4 text-gray-500" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Rank</p>
+                                            <p className="text-xs text-gray-400">Link your FPL ID in Settings</p>
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })()}
+
+                            {/* GW Pot Leader(s) — only #1 wins (supports tie split) */}
+                            {(() => {
+                                const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
+                                const tiedTopWinners = fplStandings.filter((e: any) => Number(e.event_total ?? 0) === topScore && topScore > 0);
+                                const isSplit = tiedTopWinners.length > 1;
+
+                                if (fplStandings.length === 0) {
+                                    return <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 text-center">Waiting for FPL data…</div>;
+                                }
+
+                                return (
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 pb-1">
+                                            <span>GW Pot Winner{isSplit ? 's (Tied — Split Pot)' : ''}</span>
+                                            <span>Score</span>
+                                        </div>
+                                        {tiedTopWinners.map((entry: any) => {
+                                            const isMe = (currentUser?.fplTeamId && Number(entry.entry) === Number(currentUser.fplTeamId)) ||
+                                                (currentUser?.secondFplTeamId && Number(entry.entry) === Number(currentUser.secondFplTeamId));
+                                            return (
+                                                <div key={entry.entry} className={clsx(
+                                                    'flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors border',
+                                                    isMe ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-[#FBBF24]/10 border-[#FBBF24]/30 text-white'
+                                                )}>
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="text-base flex-shrink-0">🥇</span>
+                                                        <span className="text-xs font-bold truncate">{entry.player_name?.split(' ')[0]}</span>
+                                                        {isMe && <span className="text-[9px] text-emerald-400 font-black">(you)</span>}
+                                                        {isSplit && (
+                                                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                                                                Split KES {Math.round((weeklyPot || 0) / tiedTopWinners.length).toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs font-black text-[#FBBF24] tabular-nums flex-shrink-0">{entry.event_total ?? 0} pts</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => navigate('/standings')}
+                            className="w-full mt-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                            View Full Standings →
+                        </button>
+                    </div>
+
+                    {/* Personal Status + Pay Action (Action Required) */}
                     {currentUser && (
                         <div className={clsx(
                             "fc-member-status-card",
@@ -2199,141 +2337,6 @@ export default function MemberDashboard() {
                             </div>
                         </div>
                     )}
-
-                    {/* GW Rank Card — live standings from FPL */}
-                    <div className="lg:col-span-6 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col justify-between h-full overflow-hidden">
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
-                                    <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Rank
-                                </h4>
-                                {gwWinner && (
-                                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#10B981]/20 bg-[#10B981]/10 text-[#10B981]">
-                                        {currentFplEvent?.finished ? 'Final' : 'Live'}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Your GW Rank — prominent stat chip */}
-                            {(() => {
-                                const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
-                                const tiedTopWinners = fplStandings.filter((e: any) => Number(e.event_total ?? 0) === topScore && topScore > 0);
-                                const isSplitPot = tiedTopWinners.length > 1;
-
-                                const myRankEntry = fplStandings.findIndex((e: any) =>
-                                    (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
-                                    (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
-                                    currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
-                                );
-                                const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
-                                const myPoints = Number(myEntry?.event_total ?? 0);
-                                const isRankOne = (myPoints === topScore && topScore > 0) || myRankEntry === 0 || isRecentWinner || isCurrentUserGwWinner;
-                                const rank = myRankEntry + 1;
-
-                                return myEntry ? (
-                                    <>
-                                        <div className={clsx(
-                                            "rounded-2xl border px-3.5 py-3 mb-3 flex items-center justify-between",
-                                            isRankOne
-                                                ? "border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 to-[#FBBF24]/5 shadow-[0_0_20px_rgba(251,191,36,0.1)]"
-                                                : "border-emerald-500/30 bg-emerald-500/8"
-                                        )}>
-                                            <div className="flex items-center gap-2.5">
-                                                <div className={clsx(
-                                                    "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0",
-                                                    isRankOne ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-emerald-500/20 text-emerald-300"
-                                                )}>
-                                                    {isRankOne ? '🥇' : `#${rank}`}
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                                        {isRankOne ? (isSplitPot ? 'Tied for 1st' : 'GW Leader') : 'Your GW Rank'}
-                                                    </p>
-                                                    <p className="text-sm font-black text-white leading-tight">{firstName}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-xl font-black text-[#FBBF24] tabular-nums leading-tight">{myEntry.event_total ?? 0}</p>
-                                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">
-                                                    {isRankOne && isSplitPot ? `Split Pot (1/${tiedTopWinners.length})` : 'GW pts'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {isRankOne && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowFlexModal(true)}
-                                                className="w-full mb-3 py-2 px-3 rounded-xl bg-gradient-to-r from-[#FBBF24] to-amber-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-[#FBBF24]/20 active:scale-[0.98] transition-all cursor-pointer"
-                                            >
-                                                <Trophy className="w-3.5 h-3.5 text-slate-950" />
-                                                Share Victory Card
-                                            </button>
-                                        )}
-                                    </>
-                                ) : fplStandings.length > 0 ? (
-                                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 mb-3 flex items-center gap-2">
-                                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
-                                            <Star className="w-4 h-4 text-gray-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Rank</p>
-                                            <p className="text-xs text-gray-400">Link your FPL ID in Settings</p>
-                                        </div>
-                                    </div>
-                                ) : null;
-                            })()}
-
-                            {/* GW Pot Leader(s) — only #1 wins (supports tie split) */}
-                            {(() => {
-                                const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
-                                const tiedTopWinners = fplStandings.filter((e: any) => Number(e.event_total ?? 0) === topScore && topScore > 0);
-                                const isSplit = tiedTopWinners.length > 1;
-
-                                if (fplStandings.length === 0) {
-                                    return <div className="text-xs text-gray-600 font-bold tracking-widest uppercase py-4 text-center">Waiting for FPL data…</div>;
-                                }
-
-                                return (
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 pb-1">
-                                            <span>GW Pot Winner{isSplit ? 's (Tied — Split Pot)' : ''}</span>
-                                            <span>Score</span>
-                                        </div>
-                                        {tiedTopWinners.map((entry: any) => {
-                                            const isMe = (currentUser?.fplTeamId && Number(entry.entry) === Number(currentUser.fplTeamId)) ||
-                                                (currentUser?.secondFplTeamId && Number(entry.entry) === Number(currentUser.secondFplTeamId));
-                                            return (
-                                                <div key={entry.entry} className={clsx(
-                                                    'flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors border',
-                                                    isMe ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-[#FBBF24]/10 border-[#FBBF24]/30 text-white'
-                                                )}>
-                                                    <div className="flex items-center gap-2 min-w-0">
-                                                        <span className="text-base flex-shrink-0">🥇</span>
-                                                        <span className="text-xs font-bold truncate">{entry.player_name?.split(' ')[0]}</span>
-                                                        {isMe && <span className="text-[9px] text-emerald-400 font-black">(you)</span>}
-                                                        {isSplit && (
-                                                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                                                                Split KES {Math.round((weeklyPot || 0) / tiedTopWinners.length).toLocaleString()}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className="text-xs font-black text-[#FBBF24] tabular-nums flex-shrink-0">{entry.event_total ?? 0} pts</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })()}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => navigate('/standings')}
-                            className="w-full mt-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                            View Full Standings →
-                        </button>
-                    </div>
                 </div>
 
                 {/* === ROW 1.5: Co-Chair Maker/Checker (Conditional) === */}

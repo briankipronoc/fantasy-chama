@@ -392,15 +392,11 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         );
     };
 
-    const grossInflows = transactions
-        .filter(isTxValidInflow)
-        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-    const totalRefundsAllTime = transactions
-        .filter(isTxRefundOrReversal)
-        .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
-
-    const seasonCollectedSoFarGross = Math.max(0, grossInflows - totalRefundsAllTime);
-    const seasonVaultCollectedSoFar = Math.round(seasonCollectedSoFarGross * (Number(rules.vault || 30) / 100));
+    const activeMembers = members.filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending);
+    const activeMembersCount = activeMembers.length;
+    const configuredWinnersCount = Number(rules.seasonWinnersCount || 3);
+    const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
+    const seasonWinnersMode = String(rules.seasonWinnersMode || (configuredWinnersCount === 1 ? 'top1' : configuredWinnersCount === 5 ? 'top5' : 'top3'));
 
     const contributionByMemberId = transactions
         .reduce((acc: Record<string, number>, tx: any) => {
@@ -437,6 +433,32 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             }
             return acc;
         }, {});
+
+    const grossInflows = transactions
+        .filter(isTxValidInflow)
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+    const totalRefundsAllTime = transactions
+        .filter(isTxRefundOrReversal)
+        .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
+
+    const effectiveLeagueStartGw = Number(startGw || (leagueSettings as any)?.startGw || (firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1)));
+    const completedGwsCount = currentGwNumber && currentGwNumber >= effectiveLeagueStartGw
+        ? Math.max(0, (isCurrentEventFinished ? currentGwNumber : currentGwNumber - 1) - effectiveLeagueStartGw + 1)
+        : 0;
+
+    const cappedMemberContributionsSum = activeMembers.reduce((sum, member: any) => {
+        const netContributed = Number(contributionByMemberId[String(member.id)] || 0);
+        const memberMaxForCompleted = completedGwsCount > 0 ? completedGwsCount * (gameweekStake || 0) : (gameweekStake || 0);
+        const memberActualForCompleted = Math.min(memberMaxForCompleted, Math.max(0, netContributed > 0 ? netContributed : (member.hasPaid ? memberMaxForCompleted : 0)));
+        return sum + memberActualForCompleted;
+    }, 0);
+
+    const vaultPercent = Number(rules.vault ?? 30);
+    const seasonCollectedSoFarGross = completedGwsCount > 0
+        ? cappedMemberContributionsSum
+        : Math.min(paidMembers.length * (gameweekStake || 0), Math.max(0, grossInflows - totalRefundsAllTime));
+    const seasonVaultCollectedSoFar = Math.round(seasonCollectedSoFarGross * (vaultPercent / 100));
+
     const projectedRemainingCollectionsGross = members
         .filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending)
         .reduce((sum, member: any) => {
@@ -450,11 +472,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }, 0);
     const projectedSeasonCollectionsGross = Math.max(0, seasonCollectedSoFarGross + projectedRemainingCollectionsGross);
     const projectedSeasonVault = projectedSeasonCollectionsGross * (rules.vault / 100);
-    const activeMembers = members.filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending);
-    const activeMembersCount = activeMembers.length;
-    const configuredWinnersCount = Number(rules.seasonWinnersCount || 3);
-    const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
-    const seasonWinnersMode = String(rules.seasonWinnersMode || (configuredWinnersCount === 1 ? 'top1' : configuredWinnersCount === 5 ? 'top5' : 'top3'));
 
     const getSeasonVaultPercentages = (winnerCount: number) => {
         if (winnerCount === 1) return [100];
@@ -2709,7 +2726,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                             active: (i + 1) <= completedSeasonGws
                         };
                     });
-                    const currentVault = seasonVaultCollectedSoFar > 0 ? seasonVaultCollectedSoFar : completedSeasonGws * vaultRatePerGW;
+                    const currentVault = completedSeasonGws > 0 
+                        ? (seasonVaultCollectedSoFar > 0 ? Math.min(completedSeasonGws * vaultRatePerGW, seasonVaultCollectedSoFar) : completedSeasonGws * vaultRatePerGW)
+                        : (seasonVaultCollectedSoFar > 0 ? seasonVaultCollectedSoFar : 0);
                     const projectedFinal = vaultRatePerGW * totalSeasonGWs;
                     const remainingLeagueGws = Math.max(0, totalSeasonGWs - completedSeasonGws);
 

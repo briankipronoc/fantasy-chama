@@ -561,17 +561,27 @@ export default function Standings() {
 
     useEffect(() => {
         // Only scroll the horizontal rail — NOT the page/window — to avoid page jumping
-        if (!currentEvent || !ledgerRailRef.current) return;
-        const targetGw = currentEvent;
+        if (!currentEvent || !ledgerRailRef.current || gwWinnersLedger.length === 0) return;
+        const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1);
         const rail = ledgerRailRef.current;
         const scrollAction = () => {
+            if (!rail) return;
             const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
             if (!gwCard) return;
-            const targetLeft = gwCard.offsetLeft - rail.clientWidth / 2 + gwCard.clientWidth / 2;
+            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
             rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
         };
-        const timer = setTimeout(scrollAction, 100);
-        return () => clearTimeout(timer);
+
+        // Scroll immediately, then retry as DOM and fonts render
+        scrollAction();
+        const t1 = setTimeout(scrollAction, 150);
+        const t2 = setTimeout(scrollAction, 450);
+        const t3 = setTimeout(scrollAction, 900);
+        return () => {
+            clearTimeout(t1);
+            clearTimeout(t2);
+            clearTimeout(t3);
+        };
     }, [currentEvent, isCurrentEventFinished, gwWinnersLedger.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
@@ -1200,8 +1210,13 @@ export default function Standings() {
                                     Number(row.event_total) === maxEligibleGwScore
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
-                                const medal = rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null;
-                                const podiumBorder = rankNum === 1 ? 'border-l-4 border-l-amber-400' : rankNum === 2 ? 'border-l-4 border-l-slate-300' : rankNum === 3 ? 'border-l-4 border-l-amber-700' : 'border-l-4 border-l-transparent';
+                                const isSeasonView = heroRankView === 'season';
+                                const medal = isSeasonView
+                                    ? (rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null)
+                                    : (rankNum === 1 ? '🥇' : null);
+                                const podiumBorder = isSeasonView
+                                    ? (rankNum === 1 ? 'border-l-4 border-l-amber-400' : rankNum === 2 ? 'border-l-4 border-l-slate-300' : rankNum === 3 ? 'border-l-4 border-l-amber-700' : 'border-l-4 border-l-transparent')
+                                    : (rankNum === 1 ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-transparent');
                                 return (
                                     <div
                                         key={row.id}
@@ -1219,7 +1234,7 @@ export default function Standings() {
                                         className={clsx(
                                             'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards cursor-pointer group',
                                             podiumBorder,
-                                            isTop1Overall ? 'bg-[#10B981]/5 hover:bg-[#10B981]/10' : isInPodium && index > 0 ? 'bg-emerald-500/[0.02] hover:bg-emerald-500/[0.06]' : 'hover:bg-white/[0.04]',
+                                            isTop1Overall ? 'bg-[#10B981]/5 hover:bg-[#10B981]/10' : (isSeasonView && isInPodium && index > 0) ? 'bg-emerald-500/[0.02] hover:bg-emerald-500/[0.06]' : 'hover:bg-white/[0.04]',
                                             isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
                                             isMe ? 'ring-1 ring-[#FBBF24]/40' : ''
                                         )}
