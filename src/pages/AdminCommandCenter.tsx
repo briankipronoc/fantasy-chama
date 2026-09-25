@@ -3526,8 +3526,13 @@ burstFrame();
 
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <p className="text-xs text-slate-600 dark:text-slate-300">
-                                Clinched the pot with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
-                                {leadMargin ? ` (+${leadMargin} pts ahead)` : ''} · Payout Yielded: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span>
+                                Clinched {calculatedPot === 0 ? '1st place' : 'the pot'} with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
+                                {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
+                                {calculatedPot === 0 ? (
+                                  <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-black">100% Season Vault League</span> (Points Secured)</span>
+                                ) : (
+                                  <span> · Payout Yielded: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span></span>
+                                )}
                               </p>
                             </div>
 

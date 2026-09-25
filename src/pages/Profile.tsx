@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
+import { useTheme } from '../hooks/useTheme';
+import { compressProfileImage } from '../utils/imageCompressor';
 import clsx from 'clsx';
 import Header from '../components/Header';
 import ConfirmModal from '../components/ConfirmModal';
@@ -21,9 +23,12 @@ export default function Profile() {
     const role = useStore(state => state.role);
     const setRole = useStore(state => state.setRole);
     const members = useStore(state => state.members);
+    const isStealthMode = useStore(state => state.isStealthMode);
+    const toggleStealthMode = useStore(state => state.toggleStealthMode);
     const currentUser = members.find(m => m.id === activeUserId || (m.authUid && m.authUid === activeUserId));
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
+    const { theme, setTheme } = useTheme();
 
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
@@ -43,6 +48,10 @@ export default function Profile() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [fplTeamName, setFplTeamName] = useState('');
     const [avatarSeed, setAvatarSeed] = useState('chairman');
+    const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+    const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+    const [photoCompressStats, setPhotoCompressStats] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [playMode, setPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
     const [isSavingMember, setIsSavingMember] = useState(false);
     const [fplStandings, setFplStandings] = useState<any[]>([]);
@@ -295,9 +304,84 @@ export default function Profile() {
                 setFplTeamName((currentMember as any).fplTeamId ? String((currentMember as any).fplTeamId) : '');
                 setAvatarSeed((currentMember as any).avatarSeed || ((currentMember.role === 'admin' || role === 'admin') ? 'chairman' : currentMember.displayName));
                 setPlayMode((currentMember as any).playMode || 'pot');
+                setPhotoUrl((currentMember as any).photoUrl || (currentMember as any).avatarUrl || null);
             }
         }
     }, [members, activeUserId, role]);
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsCompressingPhoto(true);
+            const result = await compressProfileImage(file, 256, 0.82);
+            setPhotoUrl(result.dataUrl);
+            setPhotoCompressStats(`${result.originalSizeKb} KB → ${result.compressedSizeKb} KB`);
+            haptics.success();
+            toast.success(`Photo compressed & updated (${result.compressedSizeKb} KB)!`, { icon: '📸' });
+
+            if (activeLeagueId) {
+                const targetMember = members.find(m => m.id === activeUserId)
+                    || members.find(m => (m as any).userId === activeUserId)
+                    || (role === 'admin' ? members.find(m => m.role === 'admin' || (m as any).isAdmin || (m as any).isChairman) : undefined)
+                    || members[0];
+                if (targetMember?.id) {
+                    await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', targetMember.id), {
+                        photoUrl: result.dataUrl,
+                        avatarUrl: result.dataUrl,
+                        updatedAt: serverTimestamp(),
+                    });
+                }
+            }
+            if (auth.currentUser?.uid) {
+                await setDoc(doc(db, 'users', auth.currentUser.uid), {
+                    photoURL: result.dataUrl,
+                    avatarUrl: result.dataUrl,
+                    updatedAt: serverTimestamp(),
+                }, { merge: true });
+            }
+        } catch (err: any) {
+            console.error('Failed to compress/save photo:', err);
+            haptics.warning();
+            toast.error(err?.message || 'Could not process image file.');
+        } finally {
+            setIsCompressingPhoto(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleRemovePhoto = async () => {
+        try {
+            setPhotoUrl(null);
+            setPhotoCompressStats(null);
+            haptics.selection();
+            toast.success('Custom profile photo removed');
+
+            if (activeLeagueId) {
+                const targetMember = members.find(m => m.id === activeUserId)
+                    || members.find(m => (m as any).userId === activeUserId)
+                    || (role === 'admin' ? members.find(m => m.role === 'admin' || (m as any).isAdmin || (m as any).isChairman) : undefined)
+                    || members[0];
+                if (targetMember?.id) {
+                    await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', targetMember.id), {
+                        photoUrl: null,
+                        avatarUrl: null,
+                        updatedAt: serverTimestamp(),
+                    });
+                }
+            }
+            if (auth.currentUser?.uid) {
+                await setDoc(doc(db, 'users', auth.currentUser.uid), {
+                    photoURL: null,
+                    avatarUrl: null,
+                    updatedAt: serverTimestamp(),
+                }, { merge: true });
+            }
+        } catch (err: any) {
+            console.error('Failed to remove photo:', err);
+        }
+    };
 
     useEffect(() => {
         if (customWinnerCount > maxAllowedWinners) {
@@ -327,7 +411,6 @@ export default function Profile() {
         if (!activeLeagueId) return;
 
         setIsSavingMember(true);
-        
 
         try {
             const targetMember = members.find(m => m.id === activeUserId)
@@ -343,6 +426,8 @@ export default function Profile() {
                     phone: phoneNumber,
                     avatarSeed: avatarSeed,
                     playMode: playMode,
+                    photoUrl: photoUrl || null,
+                    avatarUrl: photoUrl || null,
                     updatedAt: serverTimestamp(),
                 };
 
@@ -925,8 +1010,55 @@ export default function Profile() {
                         </div>
 
                         <div className="flex flex-col gap-4 items-stretch">
-                            <div className="flex flex-col items-center justify-start gap-2.5 pt-1">
-                                <UserAvatar name={displayName || 'Manager'} size="xl" />
+                            <div className="flex flex-col sm:flex-row items-center justify-start gap-4 p-4 rounded-2xl bg-black/20 border border-white/5">
+                                <div className="relative group shrink-0">
+                                    <UserAvatar name={displayName || 'Manager'} photoUrl={photoUrl} size="xl" className="ring-2 ring-emerald-500/30 shadow-lg" />
+                                    {isCompressingPhoto && (
+                                        <div className="absolute inset-0 rounded-full bg-black/70 backdrop-blur-xs flex items-center justify-center">
+                                            <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col items-center sm:items-start text-center sm:text-left gap-1.5 flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handlePhotoUpload}
+                                        />
+                                        <button
+                                            type="button"
+                                            disabled={isCompressingPhoto}
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                                        >
+                                            <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span>{photoUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                                        </button>
+                                        {photoUrl && (
+                                            <button
+                                                type="button"
+                                                onClick={handleRemovePhoto}
+                                                className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                                            >
+                                                <Trash2 className="w-3 h-3 text-rose-400" />
+                                                <span>Remove</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 font-medium">
+                                        {photoCompressStats ? (
+                                            <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                                <Sparkles className="w-3 h-3" /> Auto-compressed: {photoCompressStats}
+                                            </span>
+                                        ) : (
+                                            'Any image format auto-compresses for instant, lightweight loading.'
+                                        )}
+                                    </p>
+                                </div>
                             </div>
 
                             <form onSubmit={handleSaveMember} className="grid grid-cols-1 gap-3.5 items-start w-full">
@@ -1097,6 +1229,102 @@ export default function Profile() {
                             >
                                 <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
                             </button>
+                        </div>
+                    </div>
+
+                    {/* ── Theme & Tactical Stealth Mode Section (Batman Obsidian / Silver Frame Aesthetic) ── */}
+                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0d1217] dark:to-[#06090c] border border-slate-200 dark:border-slate-700/60 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-2xl bg-zinc-800/80 border border-zinc-600/50 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.08)] shrink-0">
+                                    <Shield className="w-4 h-4 text-slate-300" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            Stealth Mode & Visual Theme
+                                        </h2>
+                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-600/50">
+                                            Batman Aesthetic
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                                        Matte obsidian surfaces, brushed silver frames, low contrast, and selective neon pops
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Theme Preset Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
+                            {[
+                                { key: 'stealth', label: 'Tactical Stealth', sub: 'Matte Obsidian & Silver', icon: '🦇' },
+                                { key: 'dark', label: 'Midnight Dark', sub: 'Classic Chama Dark', icon: '🌙' },
+                                { key: 'light', label: 'Daylight Light', sub: 'Crisp High-Contrast', icon: '☀️' },
+                                { key: 'system', label: 'System Auto', sub: 'Sync with Device OS', icon: '💻' },
+                            ].map((item) => {
+                                const isSelected = theme === item.key;
+                                return (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => {
+                                            haptics.selection();
+                                            setTheme(item.key as any);
+                                            toast.success(`Switched to ${item.label}`);
+                                        }}
+                                        className={clsx(
+                                            "flex flex-col items-start text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer relative overflow-hidden",
+                                            isSelected
+                                                ? "bg-zinc-900/90 border-slate-400 text-white ring-1 ring-slate-400/50 shadow-lg shadow-black/60"
+                                                : "bg-black/20 dark:bg-white/[0.03] border-white/5 text-gray-400 hover:text-white hover:border-white/15"
+                                        )}
+                                    >
+                                        {isSelected && (
+                                            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]" />
+                                        )}
+                                        <span className="text-lg mb-1">{item.icon}</span>
+                                        <span className="text-xs font-black tracking-tight text-white">{item.label}</span>
+                                        <span className="text-[9px] text-gray-400 font-medium mt-0.5">{item.sub}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Sensitive Numbers Stealth Toggle */}
+                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between gap-4 flex-wrap">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        toggleStealthMode();
+                                    }}
+                                    className={clsx(
+                                        "w-11 h-6 rounded-full transition-colors relative cursor-pointer flex-shrink-0 p-0.5 border",
+                                        isStealthMode ? "bg-emerald-500 border-emerald-400" : "bg-zinc-800 border-zinc-700"
+                                    )}
+                                >
+                                    <div
+                                        className={clsx(
+                                            "w-5 h-5 rounded-full bg-white transition-transform shadow-md",
+                                            isStealthMode ? "translate-x-5" : "translate-x-0"
+                                        )}
+                                    />
+                                </button>
+                                <div>
+                                    <span className="text-xs font-black text-white">Hide Financial Balances (Stealth Numbers)</span>
+                                    <p className="text-[10px] text-gray-400">Masks KES figures with **** for public privacy</p>
+                                </div>
+                            </div>
+                            <span className={clsx(
+                                "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
+                                isStealthMode
+                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                                    : "bg-white/5 border-white/10 text-gray-400"
+                            )}>
+                                {isStealthMode ? "Stealth Active (****)" : "Numbers Visible"}
+                            </span>
                         </div>
                     </div>
 

@@ -1600,8 +1600,12 @@ export default function MemberDashboard() {
                                 )}
                             </div>
                             <div className="fc-win-payout-card relative z-10 p-4 rounded-2xl text-center flex-shrink-0">
-                                <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">Your Payout</p>
-                                <p className="text-2xl font-black text-[#FBBF24] tabular-nums">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</p>
+                                <p className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
+                                    {Number(rules.weekly || 0) === 0 ? 'Vault Round' : 'Your Payout'}
+                                </p>
+                                <p className="text-xl sm:text-2xl font-black text-[#FBBF24] tabular-nums">
+                                    {Number(rules.weekly || 0) === 0 ? '100% Vaulted' : `KES ${((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}`}
+                                </p>
                             </div>
                             {/* Phase 8: Flex on WhatsApp */}
                             <button
@@ -1632,8 +1636,13 @@ export default function MemberDashboard() {
                                             {gwWinner.player_name} <span className="text-sm font-bold text-gray-400">({gwWinner.entry_name || 'Champion'})</span>
                                         </h3>
                                         <p className="text-xs text-slate-300 mt-1">
-                                            Clinched the pot with <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span>
-                                            {gwWinner.leadMargin ? ` (+${gwWinner.leadMargin} pts ahead)` : ''} · Payout Yielded: <span className="text-[#FBBF24] font-black">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</span>
+                                            Clinched {Number(rules.weekly || 0) === 0 ? '1st place' : 'the pot'} with <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span>
+                                            {gwWinner.leadMargin ? ` (+${gwWinner.leadMargin} pts ahead)` : ''}
+                                            {Number(rules.weekly || 0) === 0 ? (
+                                                <span> · <span className="text-[#FBBF24] font-black">100% Season Vault League</span> (Points Secured)</span>
+                                            ) : (
+                                                <span> · Payout Yielded: <span className="text-[#FBBF24] font-black">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</span></span>
+                                            )}
                                         </p>
                                         {/* WhatsApp / iMessage Style Reaction Badges */}
                                         {gwChampionReactions.length > 0 && (
@@ -1918,32 +1927,20 @@ export default function MemberDashboard() {
                                         {(currentUser as any).missedGameweeks >= 2 ? '🚨' : '⚠️'}
                                     </span>
                                     <div>
-                                        <p className={clsx(
-                                            "font-extrabold text-sm leading-tight",
-                                            (currentUser as any).missedGameweeks >= 2 ? "text-red-400" : "text-amber-300"
-                                        )}>
-                                            {(currentUser as any).missedGameweeks >= 2
-                                                ? `CRITICAL: ${(currentUser as any).missedGameweeks} Consecutive Missed Gameweeks`
-                                                : `Payment Arrears — GW${currentFplEvent?.id || ''} Skipped`}
+                                        <p className="font-extrabold text-sm leading-tight text-amber-300">
+                                            Red Zone Active — GW{currentFplEvent?.id || ''} Not Funded
                                         </p>
                                         <p className="text-[11px] text-gray-400 mt-0.5">
-                                            {(currentUser as any).missedGameweeks >= 2
-                                                ? `Missing 2+ consecutive GWs will permanently disqualify you from the Season Vault. Clear KES ${((currentUser as any).missedGameweeks * gameweekStake).toLocaleString()} in arrears immediately.`
-                                                : `Your GW contribution is overdue. Pay before the next deadline to remain vault-eligible and avoid disqualification.`}
+                                            You are currently sitting out this round's weekly pot. Top up KES {gameweekStake.toLocaleString()} to activate pot eligibility and stay on track for the Season Vault.
                                         </p>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => handleMpesaSTKPush((currentUser as any).missedGameweeks * gameweekStake || gameweekStake)}
+                                    onClick={() => handleMpesaSTKPush(gameweekStake)}
                                     disabled={isPushingMpesa}
-                                    className={clsx(
-                                        "flex-shrink-0 px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50",
-                                        (currentUser as any).missedGameweeks >= 2
-                                            ? "bg-red-500 hover:bg-red-400 text-white shadow-md shadow-red-950/40"
-                                            : "bg-amber-500 hover:bg-amber-400 text-black"
-                                    )}
+                                    className="flex-shrink-0 px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50 bg-amber-500 hover:bg-amber-400 text-black shadow-md cursor-pointer"
                                 >
-                                    {isPushingMpesa ? 'Sending...' : `Clear KES ${((currentUser as any).missedGameweeks * gameweekStake || gameweekStake).toLocaleString()}`}
+                                    {isPushingMpesa ? 'Sending...' : `Pay KES ${gameweekStake.toLocaleString()}`}
                                 </button>
                             </div>
                         )}

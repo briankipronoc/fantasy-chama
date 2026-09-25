@@ -2732,3 +2732,91 @@ textarea {
     transform-origin: top center;
 }
 
+/* ══════════════════════════════════════════════
+   STEALTH THEME — Batman / Dark Knight Tactical Aesthetic
+   Deep matte obsidian blacks, brushed silver titanium borders,
+   low-contrast uniform elevation, and selective popping neon accents.
+══════════════════════════════════════════════ */
+[data-theme="stealth"] {
+  --fc-toast-bg: rgba(5, 7, 10, 0.98);
+  --fc-toast-color: #f8fafc;
+  --fc-toast-border: rgba(148, 163, 184, 0.3);
+  --fc-toast-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+}
+
+[data-theme="stealth"] body,
+html.stealth body {
+  background-color: #05070a !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="stealth"] .fc-shell-default,
+[data-theme="stealth"] .fc-shell-warroom,
+[data-theme="stealth"] .fc-shell-standings,
+[data-theme="stealth"] .fc-shell-finances,
+[data-theme="stealth"] .fc-shell-profile,
+html.stealth .fc-shell-default,
+html.stealth .fc-shell-warroom,
+html.stealth .fc-shell-standings,
+html.stealth .fc-shell-finances,
+html.stealth .fc-shell-profile {
+  background: #05070a !important;
+  background-color: #05070a !important;
+}
+
+[data-theme="stealth"] .fc-card,
+[data-theme="stealth"] .fc-highlight-card,
+[data-theme="stealth"] .glass-panel,
+html.stealth .fc-card,
+html.stealth .fc-highlight-card,
+html.stealth .glass-panel {
+  background: linear-gradient(180deg, #0a0e14 0%, #06080c 100%) !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.85) !important;
+}
+
+[data-theme="stealth"] .fc-card:hover,
+html.stealth .fc-card:hover {
+  border-color: rgba(203, 213, 225, 0.3) !important;
+  box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.95) !important;
+}
+
+[data-theme="stealth"] .fc-metallic-badge,
+html.stealth .fc-metallic-badge {
+  background: rgba(30, 41, 59, 0.5) !important;
+  border: 1px solid rgba(203, 213, 225, 0.25) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="stealth"] .fc-frosty-title,
+html.stealth .fc-frosty-title {
+  color: #ffffff !important;
+  letter-spacing: 0.04em;
+}
+
+[data-theme="stealth"] .fc-meta-label,
+html.stealth .fc-meta-label {
+  color: #94a3b8 !important;
+}
+
+[data-theme="stealth"] input,
+[data-theme="stealth"] select,
+[data-theme="stealth"] textarea,
+html.stealth input,
+html.stealth select,
+html.stealth textarea {
+  background-color: #080c10 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="stealth"] input:focus,
+[data-theme="stealth"] select:focus,
+[data-theme="stealth"] textarea:focus,
+html.stealth input:focus,
+html.stealth select:focus,
+html.stealth textarea:focus {
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15) !important;
+}
+

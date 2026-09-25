@@ -1,7 +1,9 @@
 // src/components/UserAvatar.tsx
+import { useState } from 'react';
 
 interface UserAvatarProps {
   name?: string;
+  photoUrl?: string | null;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   showRing?: boolean;
@@ -47,20 +49,34 @@ const SIZE_MAP = {
 
 export default function UserAvatar({
   name,
+  photoUrl,
   size = 'md',
   className = '',
   showRing = true,
 }: UserAvatarProps) {
+  const [hasImageError, setHasImageError] = useState(false);
   const initials = getInitials(name);
   const palette = getPalette(name);
   const sizeClasses = SIZE_MAP[size] || SIZE_MAP.md;
 
+  const showImage = Boolean(photoUrl && !hasImageError);
+
   return (
     <div
-      className={`relative inline-flex items-center justify-center rounded-full select-none shrink-0 font-mono font-bold uppercase tracking-wider ${sizeClasses} ${palette.bg} ${palette.text} ${showRing ? `border ${palette.border}` : ''} ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full select-none shrink-0 font-mono font-bold uppercase tracking-wider overflow-hidden ${sizeClasses} ${palette.bg} ${palette.text} ${showRing ? `border ${palette.border}` : ''} ${className}`}
       title={name || 'Manager'}
     >
-      <span>{initials}</span>
+      {showImage ? (
+        <img
+          src={photoUrl!}
+          alt={name || 'Manager Avatar'}
+          onError={() => setHasImageError(true)}
+          className="w-full h-full object-cover rounded-full"
+          loading="lazy"
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
     </div>
   );
 }

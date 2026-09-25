@@ -4,18 +4,21 @@
 
 import { useState, useEffect } from 'react';
 
-export type Theme = 'dark' | 'system' | 'light';
+export type Theme = 'dark' | 'stealth' | 'system' | 'light';
 
 const THEME_KEY = 'fc-theme';
 const THEME_USER_SET_KEY = 'fc-theme-user-set';
 
-function applyTheme(targetTheme: 'dark' | 'light') {
+function applyTheme(targetTheme: 'dark' | 'stealth' | 'light') {
     const root = document.documentElement;
     root.setAttribute('data-theme', targetTheme);
-    if (targetTheme === 'dark') {
+    if (targetTheme === 'stealth') {
+        root.classList.add('dark', 'stealth');
+    } else if (targetTheme === 'dark') {
         root.classList.add('dark');
+        root.classList.remove('stealth');
     } else {
-        root.classList.remove('dark');
+        root.classList.remove('dark', 'stealth');
     }
 }
 
@@ -76,7 +79,7 @@ export function useTheme() {
 
     const cycle = () => {
         localStorage.setItem(THEME_USER_SET_KEY, '1');
-        setTheme(prev => prev === 'dark' ? 'system' : prev === 'system' ? 'light' : 'dark');
+        setTheme(prev => prev === 'stealth' ? 'dark' : prev === 'dark' ? 'system' : prev === 'system' ? 'light' : 'stealth');
     };
 
     const setThemePreference = (nextTheme: Theme) => {
@@ -84,7 +87,7 @@ export function useTheme() {
         setTheme(nextTheme);
     };
 
-    const isDark = theme === 'system' ? isSystemDark : theme === 'dark';
+    const isDark = theme === 'system' ? isSystemDark : (theme === 'dark' || theme === 'stealth');
 
     return { theme, setTheme: setThemePreference, cycle, isDark };
 }
