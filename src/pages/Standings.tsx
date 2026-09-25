@@ -1540,14 +1540,14 @@ export default function Standings() {
                                 </span>
                             </div>
                         </div>
-                        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar justify-start sm:justify-center">
-                            {topSeasonLeaders.map((leader: any, idx: number) => {
+                        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
+                            {topSeasonLeaders.slice(0, 3).map((leader: any, idx: number) => {
                                 const leaderRank = Number(leader.calculatedRank || idx + 1);
                                 const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
                                 const isLeaderFunded = isMemberEligibleWinner(leader);
                                 const isLeaderTied = Boolean(leader.isTied);
                                 return (
-                                    <div key={leader.id || idx} className="min-w-[170px] flex-1 max-w-[240px] rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all">
+                                    <div key={leader.id || idx} className="rounded-2xl border border-white/10 bg-[#0b1014]/90 p-3 sm:p-4 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all min-w-0">
                                         <div>
                                             <div className="flex items-center justify-between gap-1 mb-2">
                                                 <span className="text-[10px] uppercase tracking-widest font-black text-amber-400 flex items-center gap-1">
@@ -1559,27 +1559,27 @@ export default function Standings() {
                                                     )}
                                                 </span>
                                                 {isLeaderFunded ? (
-                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    <span className="text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 truncate">
                                                         ✓ Funded
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-[#FBBF24] border border-amber-500/30" title="Deposit required to claim vault prize">
-                                                        ⏳ Pending Deposit
+                                                    <span className="text-[8px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
+                                                        ⏳ Pending
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs font-black text-white truncate">{leader.player_name}</p>
+                                            <p className="text-xs sm:text-sm font-black text-white truncate">{leader.player_name}</p>
                                             <p className="text-[10px] text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
                                         </div>
-                                        <div className="mt-3 pt-2.5 border-t border-white/5">
-                                            <p className="text-base font-black text-emerald-400 tabular-nums">{Number(leader.total || 0).toLocaleString()} pts</p>
-                                            <p className="text-[10px] text-gray-500 font-bold mt-0.5">
+                                        <div className="mt-2.5 pt-2 border-t border-white/5">
+                                            <p className="text-sm sm:text-base font-black text-emerald-400 tabular-nums">{Number(leader.total || 0).toLocaleString()} pts</p>
+                                            <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold mt-0.5 truncate">
                                                 {isLeaderFunded ? (
                                                     Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
-                                                        ? (isLeaderTied ? 'Tied for Vault Lead' : 'Vault leader')
-                                                        : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} pts behind`
+                                                        ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
+                                                        : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} behind`
                                                 ) : (
-                                                    <span className="text-amber-400/90 font-medium">Deposit required for vault</span>
+                                                    <span className="text-amber-400/90 font-medium">Pending deposit</span>
                                                 )}
                                             </p>
                                         </div>
@@ -1593,30 +1593,9 @@ export default function Standings() {
                 {!error && gwWinnersLedger.length > 0 && (
                     <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
                         <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="text-sm md:text-base font-black text-white tracking-tight">Gameweek Winners Ledger</h3>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {currentEvent && (
-                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
-                                        {isCurrentEventFinished ? `Next: GW ${(currentEvent || 0) + 1} (Pending)` : `Now: GW ${currentEvent}`}
-                                    </span>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1);
-                                        const rail = ledgerRailRef.current;
-                                        if (!rail) return;
-                                        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
-                                        if (gwCard) {
-                                            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
-                                            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-                                        }
-                                    }}
-                                    className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
-                                    title="Jump to latest gameweek card"
-                                >
-                                    ⚡ Jump to Latest (GW{(isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1)})
-                                </button>
+                            <div>
+                                <h3 className="text-sm md:text-base font-black text-white tracking-tight">Gameweek Winners Ledger</h3>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">Historical and upcoming round payouts</p>
                             </div>
                         </div>
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">

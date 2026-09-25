@@ -107,6 +107,11 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [ledgerModalFilter, setLedgerModalFilter] = useState<'all' | 'deposits' | 'payouts' | 'reversals'>('all');
     const [personalCardTab, setPersonalCardTab] = useState<'due' | 'loaded'>('due');
     const [nextEventDeadline, setNextEventDeadline] = useState<string | null>(null);
+    const [vaultPodiumView, setVaultPodiumView] = useState<'accrued' | 'projected'>('accrued');
+    const [showMpesaTopUpModal, setShowMpesaTopUpModal] = useState(false);
+    const [topUpCustomAmount, setTopUpCustomAmount] = useState('');
+    const [copiedPochiPhone, setCopiedPochiPhone] = useState(false);
+    const [isPushingTopUpMpesa, setIsPushingTopUpMpesa] = useState(false);
 
     useEffect(() => {
         setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
@@ -1439,7 +1444,11 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     />
                                     <div className="grid grid-cols-2 gap-2 pt-1">
                                         <button
-                                            onClick={() => navigate('/deposit')}
+                                            type="button"
+                                            onClick={() => {
+                                                if (cashTopUpAmount) setTopUpCustomAmount(cashTopUpAmount);
+                                                setShowMpesaTopUpModal(true);
+                                            }}
                                             className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-all active:scale-95 cursor-pointer"
                                         >
                                             M-Pesa
@@ -1722,45 +1731,91 @@ const handleRejectPendingPayout = async (payout: any) => {
                         </div>
                     </div>
 
-                    <div className="flex gap-3 overflow-x-auto pb-3 custom-scrollbar lg:grid lg:grid-cols-3 xl:grid-cols-5 items-stretch">
-                        {tiedSeasonVaultPreview.map((tier: any) => (
-                            <div key={`${tier.originalPlace}-${tier.player_name}`} className="min-w-[195px] flex-1 rounded-2xl border border-white/10 bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-lg">
-                                <div>
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                            #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-400 font-bold tracking-normal">(Tied)</span>}
-                                        </p>
-                                        <span className={clsx(
-                                            'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border',
-                                            tier.rank === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.rank === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
-                                        )}>
-                                            {tier.percentage}%
-                                        </span>
+                    {/* Live Accrued vs Projected GW38 Toggle */}
+                    <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl border border-white/10 w-fit mb-4">
+                        <button
+                            type="button"
+                            onClick={() => setVaultPodiumView('accrued')}
+                            className={clsx(
+                                "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                                vaultPodiumView === 'accrued'
+                                    ? "bg-emerald-500 text-black shadow-md font-extrabold"
+                                    : "text-gray-400 hover:text-white"
+                            )}
+                        >
+                            Live Accrued (KES {Math.round(seasonVaultCollectedSoFar || 0).toLocaleString()})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setVaultPodiumView('projected')}
+                            className={clsx(
+                                "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                                vaultPodiumView === 'projected'
+                                    ? "bg-amber-400 text-black shadow-md font-extrabold"
+                                    : "text-gray-400 hover:text-white"
+                            )}
+                        >
+                            Projected Final (KES {Math.round(projectedSeasonVault || 0).toLocaleString()})
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3.5 w-full items-stretch">
+                        {tiedSeasonVaultPreview.slice(0, 3).map((tier: any) => {
+                            const isAccrued = vaultPodiumView === 'accrued';
+                            const primaryAmount = isAccrued ? (tier.accruedAmount ?? tier.amount) : (tier.projectedAmount || tier.amount);
+                            const secondaryAmount = isAccrued ? (tier.projectedAmount || tier.amount) : (tier.accruedAmount ?? tier.amount);
+                            return (
+                                <div
+                                    key={`${tier.originalPlace}-${tier.player_name}`}
+                                    onClick={() => setVaultPodiumView(prev => prev === 'accrued' ? 'projected' : 'accrued')}
+                                    className="rounded-2xl border border-white/10 bg-[#0b1014]/90 p-3 sm:p-4 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-lg min-w-0 cursor-pointer select-none"
+                                    title="Tap to toggle between live accrued and projected payout"
+                                >
+                                    <div>
+                                        <div className="flex items-center justify-between gap-1 mb-2">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 truncate">
+                                                #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-400 font-bold tracking-normal">(Tied)</span>}
+                                            </p>
+                                            <span className={clsx(
+                                                'text-[8px] sm:text-[9px] font-black uppercase tracking-widest px-1.5 sm:px-2 py-0.5 rounded-full border shrink-0',
+                                                tier.rank === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.rank === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
+                                            )}>
+                                                {tier.percentage}%
+                                            </span>
+                                        </div>
+                                        <div className="mt-1">
+                                            <span className={clsx(
+                                                "text-[8px] sm:text-[9px] uppercase font-black tracking-widest px-1.5 sm:px-2 py-0.5 rounded-md border inline-block",
+                                                isAccrued
+                                                    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                                    : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                            )}>
+                                                {isAccrued ? 'Live Accrued' : 'Est. Final'}
+                                            </span>
+                                            <p className={clsx(
+                                                "mt-1.5 text-base sm:text-xl md:text-2xl font-black tabular-nums truncate",
+                                                isAccrued ? "text-emerald-400" : "text-amber-400"
+                                            )}>
+                                                KES {Math.round(primaryAmount || 0).toLocaleString()}
+                                            </p>
+                                            <p className="mt-0.5 text-[8px] sm:text-[10px] text-gray-400 truncate">
+                                                {isAccrued ? (
+                                                    <>Est: <strong className="text-amber-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                ) : (
+                                                    <>Live: <strong className="text-emerald-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                )}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="mt-3">
-                                        <span className="text-[9px] uppercase font-black tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                                            Accrued So Far
-                                        </span>
-                                        <p className="mt-1.5 text-2xl font-black text-emerald-400 tabular-nums">
-                                            KES {(tier.accruedAmount ?? tier.amount).toLocaleString()}
+                                    <div className="mt-2.5 pt-2 border-t border-white/5">
+                                        <p className="text-[10px] sm:text-[11px] font-black text-gray-200 truncate">
+                                            {tier.player_name}
                                         </p>
-                                        <p className="mt-1 text-[10px] text-gray-400">
-                                            Est. Final: <strong className="text-amber-400 font-mono">KES {tier.projectedAmount?.toLocaleString() || tier.amount?.toLocaleString()}</strong>
-                                        </p>
+                                        <p className="text-[8px] sm:text-[9px] text-gray-500 truncate mt-0.5">{tier.entry_name}</p>
                                     </div>
                                 </div>
-                                <div className="mt-3 pt-2.5 border-t border-white/5">
-                                    <p className="text-[11px] font-bold text-gray-200 break-words leading-tight">
-                                        Current #{tier.rank}{tier.isTied ? ' (Tied)' : ''}: {tier.player_name}
-                                    </p>
-                                    <p className="text-[9px] text-gray-500 truncate mt-0.5">{tier.entry_name}</p>
-                                    <p className="mt-1 text-[10px] text-slate-400">
-                                        {tier.percentage}% ratio of vault
-                                        {tier.tiedRangeText ? ` (${tier.tiedRangeText})` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <details className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/20 dark:bg-sky-500/10">
@@ -2740,6 +2795,146 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 >
                                     Close Ledger
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Sleek In-Page M-Pesa Top-Up Modal ──────────────────────────── */}
+                {showMpesaTopUpModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                        <div className="w-full max-w-md bg-[#0b1014] border border-emerald-500/30 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-200">
+                            {/* Modal Header */}
+                            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+                                        <Wallet className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                                            M-Pesa Wallet Top-Up
+                                        </h3>
+                                        <p className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider">Instant Chama Wallet Credit</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMpesaTopUpModal(false)}
+                                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-5 space-y-4">
+                                {/* Quick Amount Selector */}
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">
+                                        Select Amount (KES)
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            gameweekStake || 50,
+                                            (gameweekStake || 50) * 2,
+                                            (gameweekStake || 50) * 4,
+                                        ].map((amt) => {
+                                            const isSelected = Number(topUpCustomAmount || (gameweekStake || 50)) === amt;
+                                            return (
+                                                <button
+                                                    key={amt}
+                                                    type="button"
+                                                    onClick={() => setTopUpCustomAmount(String(amt))}
+                                                    className={clsx(
+                                                        "py-2.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                        isSelected
+                                                            ? "bg-emerald-500 text-black border-emerald-400 font-extrabold shadow-md shadow-emerald-950"
+                                                            : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/10"
+                                                    )}
+                                                >
+                                                    KES {amt.toLocaleString()}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="mt-2.5 relative">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={topUpCustomAmount}
+                                            onChange={(e) => {
+                                                const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                                                setTopUpCustomAmount(cleaned);
+                                            }}
+                                            placeholder={`Custom Amount (e.g. KES ${gameweekStake || 50})`}
+                                            className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400 font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Destination Pochi Number Card */}
+                                <div
+                                    onClick={() => {
+                                        const phoneToCopy = String((leagueSettings as any)?.paymentDetails?.accountNumber || (leagueSettings as any)?.payoutPhone || '0728445771');
+                                        navigator.clipboard.writeText(phoneToCopy);
+                                        setCopiedPochiPhone(true);
+                                        setTimeout(() => setCopiedPochiPhone(false), 2000);
+                                    }}
+                                    className="p-3.5 rounded-2xl border border-emerald-500/25 bg-emerald-950/20 hover:bg-emerald-950/30 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                                    title="Click to copy phone number"
+                                >
+                                    <div>
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Chairman Pochi Destination</span>
+                                            <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-black">Tap to copy</span>
+                                        </div>
+                                        <p className="text-sm font-black text-white font-mono mt-0.5 tracking-wider">
+                                            {(leagueSettings as any)?.paymentDetails?.accountNumber || (leagueSettings as any)?.payoutPhone || '0728445771'}
+                                        </p>
+                                        <p className="text-[10px] text-gray-400">Recipient: Brian Kiprono (Chairman)</p>
+                                    </div>
+                                    <div className={clsx(
+                                        "px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shrink-0",
+                                        copiedPochiPhone
+                                            ? "bg-emerald-500 text-black border-emerald-400 shadow-md"
+                                            : "bg-white/10 text-emerald-300 border-emerald-500/30 group-hover:bg-emerald-500/20"
+                                    )}>
+                                        {copiedPochiPhone ? 'Copied! ✓' : 'Copy'}
+                                    </div>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="space-y-2 pt-1">
+                                    <button
+                                        type="button"
+                                        disabled={isPushingTopUpMpesa}
+                                        onClick={async () => {
+                                            const amt = Number(topUpCustomAmount || gameweekStake || 50);
+                                            if (!amt || amt <= 0) {
+                                                alert('Please enter a valid deposit amount');
+                                                return;
+                                            }
+                                            setIsPushingTopUpMpesa(true);
+                                            try {
+                                                navigate(`/deposit?amount=${amt}`);
+                                                setShowMpesaTopUpModal(false);
+                                            } finally {
+                                                setIsPushingTopUpMpesa(false);
+                                            }
+                                        }}
+                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                                    >
+                                        <Wallet className="w-4 h-4" />
+                                        Launch Instant M-Pesa Checkout (KES {Number(topUpCustomAmount || gameweekStake || 50).toLocaleString()})
+                                    </button>
+
+                                    <a
+                                        href="tel:*334#"
+                                        className="w-full py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+                                    >
+                                        Dial *334# (Pochi la Biashara)
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>

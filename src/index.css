@@ -2733,10 +2733,10 @@ textarea {
 }
 
 /* ══════════════════════════════════════════════
-   STEALTH THEME — Batman / Wayne-Tech Tactical Aesthetic
+   STEALTH THEME — Tactical Obsidian & Brushed Titanium Aesthetic
    Deep matte obsidian blacks (#06080c, #090d13), charcoal greys,
    brushed silver titanium borders, anti-glare matte cards,
-   crisp silver-white typography, and sharp tactical Batman accents.
+   crisp silver-white typography, and sharp tactical accents.
 ══════════════════════════════════════════════ */
 [data-theme="stealth"] {
   --fc-toast-bg: rgba(6, 8, 12, 0.98);
@@ -2767,7 +2767,7 @@ html.stealth .fc-shell-profile {
   background-color: #06080c !important;
 }
 
-/* Batman-esque Matte Charcoal & Silver Cards */
+/* Tactical Matte Charcoal & Silver Cards */
 [data-theme="stealth"] .fc-card,
 [data-theme="stealth"] .fc-highlight-card,
 [data-theme="stealth"] .glass-panel,

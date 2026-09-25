@@ -1232,63 +1232,51 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* ── Theme & Tactical Stealth Mode Section (Batman Obsidian / Silver Frame Aesthetic) ── */}
+                    {/* ── Stealth Mode Easter Egg Section ── */}
                     <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0d1217] dark:to-[#06090c] border border-slate-200 dark:border-slate-700/60 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-2xl bg-zinc-800/80 border border-zinc-600/50 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.08)] shrink-0">
-                                    <Shield className="w-4 h-4 text-slate-300" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <div className="w-10 h-10 rounded-2xl bg-zinc-800/90 border border-zinc-600/50 flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.08)] shrink-0">
+                                    <Shield className="w-5 h-5 text-slate-300" />
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                            Stealth Mode & Visual Theme
+                                            Stealth Mode
                                         </h2>
-                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-600/50">
-                                            Batman Aesthetic
+                                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                            Easter Egg
                                         </span>
                                     </div>
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">
-                                        Matte obsidian surfaces, brushed silver frames, low contrast, and selective neon pops
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 max-w-md">
+                                        Matte obsidian surfaces, brushed titanium frames, low glare, and optional sensitive figures masking.
                                     </p>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Theme Preset Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
-                            {[
-                                { key: 'stealth', label: 'Tactical Stealth', sub: 'Matte Obsidian & Silver', icon: '🦇' },
-                                { key: 'dark', label: 'Midnight Dark', sub: 'Classic Chama Dark', icon: '🌙' },
-                                { key: 'light', label: 'Daylight Light', sub: 'Crisp High-Contrast', icon: '☀️' },
-                                { key: 'system', label: 'System Auto', sub: 'Sync with Device OS', icon: '💻' },
-                            ].map((item) => {
-                                const isSelected = theme === item.key;
-                                return (
-                                    <button
-                                        key={item.key}
-                                        type="button"
-                                        onClick={() => {
-                                            haptics.selection();
-                                            setTheme(item.key as any);
-                                            toast.success(`Switched to ${item.label}`);
-                                        }}
-                                        className={clsx(
-                                            "flex flex-col items-start text-left p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer relative overflow-hidden",
-                                            isSelected
-                                                ? "bg-zinc-900/90 border-slate-400 text-white ring-1 ring-slate-400/50 shadow-lg shadow-black/60"
-                                                : "bg-black/20 dark:bg-white/[0.03] border-white/5 text-gray-400 hover:text-white hover:border-white/15"
-                                        )}
-                                    >
-                                        {isSelected && (
-                                            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]" />
-                                        )}
-                                        <span className="text-lg mb-1">{item.icon}</span>
-                                        <span className="text-xs font-black tracking-tight text-white">{item.label}</span>
-                                        <span className="text-[9px] text-gray-400 font-medium mt-0.5">{item.sub}</span>
-                                    </button>
-                                );
-                            })}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    haptics.selection();
+                                    const nextTheme = theme === 'stealth' ? 'dark' : 'stealth';
+                                    setTheme(nextTheme);
+                                    if (nextTheme === 'stealth' && !isStealthMode) {
+                                        toggleStealthMode();
+                                    } else if (nextTheme !== 'stealth' && isStealthMode) {
+                                        toggleStealthMode();
+                                    }
+                                    toast.success(nextTheme === 'stealth' ? '🦇 Stealth Mode activated' : 'Standard theme restored');
+                                }}
+                                className={clsx(
+                                    "px-4 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shrink-0 active:scale-95",
+                                    theme === 'stealth'
+                                        ? "bg-emerald-500 text-black border-emerald-400 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                                        : "bg-zinc-800/80 hover:bg-zinc-700 text-white border-zinc-600/50"
+                                )}
+                            >
+                                <Shield className="w-3.5 h-3.5" />
+                                {theme === 'stealth' ? 'Stealth Active ✓' : 'Enable Stealth Mode'}
+                            </button>
                         </div>
 
                         {/* Sensitive Numbers Stealth Toggle */}
@@ -1313,7 +1301,7 @@ export default function Profile() {
                                     />
                                 </button>
                                 <div>
-                                    <span className="text-xs font-black text-white">Hide Financial Balances (Stealth Numbers)</span>
+                                    <span className="text-xs font-black text-white">Hide Financial Balances (Mask Numbers)</span>
                                     <p className="text-[10px] text-gray-400">Masks KES figures with **** for public privacy</p>
                                 </div>
                             </div>
