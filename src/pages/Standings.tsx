@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Star, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt } from 'lucide-react';
+import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -147,8 +147,15 @@ export default function Standings() {
             }
         });
 
-        const weeklyPercent = Number((leagueRules as any)?.weekly || 70) / 100;
-        const stakeVal = Number((leagueRules as any)?.gameweekStake || 250);
+        const mergedRules = { ...((league as any)?.rules || {}), ...(leagueRules || {}) };
+        const isSeasonOnlyLeague = Number(mergedRules.vault ?? 0) === 100 || Number(mergedRules.weekly ?? 0) === 0 || mergedRules.payoutMode === 'season_only';
+        const weeklyPercent = isSeasonOnlyLeague ? 0 : (Number(mergedRules.weekly || 70) / 100);
+        const stakeVal = Number(
+            mergedRules.gameweekStake ||
+            (league as any)?.gameweekStake ||
+            (league as any)?.monthlyFee ||
+            50
+        );
 
         // Active non-eliminated funded Chama members from results
         const norm = (s: string) => String(s || '').toLowerCase().trim();
@@ -170,7 +177,7 @@ export default function Standings() {
         const topGwMember = sortedActiveResults[0];
 
         const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated && (m as any)?.playMode !== 'sidebets_only' && (m.hasPaid || (stakeVal > 0 && (Number(m.walletBalance || 0)) >= stakeVal))).length || 1;
-        const estimatedPot = Math.round(activeCount * stakeVal * weeklyPercent);
+        const estimatedPot = isSeasonOnlyLeague ? 0 : Math.round(activeCount * stakeVal * weeklyPercent);
 
         const effectiveForfeited = new Set<number>([
             ...(forfeitedGws || []),
@@ -197,8 +204,8 @@ export default function Standings() {
                 };
             }
 
-            // 3. Pending payouts awaiting co-chair or chairman approval (only for ended rounds)
-            if (pendingPayoutsMap.has(gw)) {
+            // 3. Pending payouts awaiting co-chair or chairman approval (only for ended rounds with weekly pots)
+            if (pendingPayoutsMap.has(gw) && !isSeasonOnlyLeague) {
                 const p = pendingPayoutsMap.get(gw);
                 return {
                     gw,
@@ -228,10 +235,13 @@ export default function Standings() {
                     return {
                         gw,
                         winnerName: `${topGwMember.player_name}`,
-                        winnerTeam: `${topGwMember.entry_name || 'Team'} · Live Leader`,
-                        amount: estimatedPot,
+                        winnerTeam: isSeasonOnlyLeague
+                            ? `${topGwMember.entry_name || 'Team'} · Live Leader`
+                            : `${topGwMember.entry_name || 'Team'} · Live Leader`,
+                        amount: isSeasonOnlyLeague ? null : estimatedPot,
                         isCurrentLive: true,
                         isPaid: false,
+                        isSeasonOnly: isSeasonOnlyLeague,
                     };
                 }
                 return {
@@ -240,6 +250,7 @@ export default function Standings() {
                     winnerTeam: 'Live Gameweek · Pending Whistle',
                     isCurrentLive: true,
                     isPaid: false,
+                    isSeasonOnly: isSeasonOnlyLeague,
                 };
             }
 
@@ -249,17 +260,21 @@ export default function Standings() {
                     return {
                         gw,
                         winnerName: `${topGwMember.player_name}`,
-                        winnerTeam: `${topGwMember.entry_name || 'Team'} · Pending Payout`,
-                        amount: estimatedPot,
-                        isAwaitingPayment: true,
+                        winnerTeam: isSeasonOnlyLeague
+                            ? `${topGwMember.entry_name || 'Team'} · GW Top Scorer (Vault)`
+                            : `${topGwMember.entry_name || 'Team'} · Pending Payout`,
+                        amount: isSeasonOnlyLeague ? null : estimatedPot,
+                        isAwaitingPayment: !isSeasonOnlyLeague,
+                        isSeasonOnly: isSeasonOnlyLeague,
                     };
                 }
                 return {
                     gw,
                     winnerName: gw < effectiveStart ? 'Voided' : 'Unresolved',
-                    winnerTeam: gw < effectiveStart ? 'Pre-League · No fees' : 'Awaiting Resolution',
+                    winnerTeam: gw < effectiveStart ? 'Pre-League · No fees' : (isSeasonOnlyLeague ? 'Vault Round Completed' : 'Awaiting Resolution'),
                     isVoided: gw < effectiveStart,
                     isPreLeague: gw < effectiveStart,
+                    isSeasonOnly: isSeasonOnlyLeague,
                 };
             }
 
@@ -379,7 +394,6 @@ export default function Standings() {
                 setIsFplMaintenance(Boolean(fetchRes?.isMaintenance));
 
                 const fetchPerformances = async () => {
-                    let aggData: any[] = [];
                     const candidateManagers = results.slice(0, 10);
                     const teamIds = candidateManagers.map((r: any) => r.entry);
                     
@@ -393,11 +407,13 @@ export default function Standings() {
                     if (teamIds.length === 0) return;
 
                     const leagueAvg = results.length > 0
-                        ? Math.round(results.reduce((s: number, curRes: any) => s + curRes.event_total, 0) / results.length)
+                        ? Math.round(results.reduce((s: number, curRes: any) => s + (Number(curRes.event_total) || 0), 0) / results.length)
                         : 50;
 
-                    for (const tId of teamIds) {
-                        try {
+                    const gwMap = new Map<number, any>();
+
+                    const historyResults = await Promise.allSettled(
+                        teamIds.map(async (tId: any) => {
                             const cacheKey = `fpl_history_${tId}`;
                             let histData: any = null;
                             try {
@@ -408,9 +424,7 @@ export default function Standings() {
                                         localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: histData }));
                                     }
                                 }
-                            } catch {
-                                // network failed, will attempt cache below
-                            }
+                            } catch {}
 
                             if (!histData) {
                                 const cached = localStorage.getItem(cacheKey);
@@ -418,50 +432,37 @@ export default function Standings() {
                                     try { histData = JSON.parse(cached).data; } catch {}
                                 }
                             }
+                            return { tId, histData };
+                        })
+                    );
 
-                            const current = histData?.current;
-                            if (current && current.length > 0) {
-                                const recent = current.slice(-5);
-                                const playerEntry = results.find((r:any) => r.entry === tId);
-                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                    // Clamp to max completed or live gameweek
+                    const maxPlayedGw = currentEvent
+                        ? (isCurrentEventFinished ? currentEvent : Math.max(1, currentEvent - 1))
+                        : 38;
 
-                                aggData = recent.map((gw: any, index: number) => {
-                                    const existing = aggData[index] || { name: `GW${gw.event}` };
-                                    return {
-                                        ...existing,
-                                        [playerName]: gw.points
-                                    };
-                                });
+                    for (const result of historyResults) {
+                        if (result.status !== 'fulfilled') continue;
+                        const { tId, histData } = result.value;
+                        const current = histData?.current;
+                        if (current && current.length > 0) {
+                            const relevant = current.filter((gw: any) => Number(gw.event) <= maxPlayedGw);
+                            const playerEntry = results.find((r: any) => r.entry === tId);
+                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+
+                            for (const gw of relevant) {
+                                const evNum = Number(gw.event);
+                                if (!gwMap.has(evNum)) {
+                                    gwMap.set(evNum, { name: `GW${evNum}` });
+                                }
+                                gwMap.get(evNum)[playerName] = Number(gw.points);
                             }
-                        } catch (e) {
-                            console.warn('Error fetching performance:', e);
                         }
                     }
 
-                    // Append current live event points if not already in completed history
-                    const liveGwId = currentEvent;
-                    if (liveGwId && !aggData.some(row => row.name === `GW${liveGwId}`)) {
-                        const liveRow: any = { name: `GW${liveGwId}` };
-                        for (const tId of teamIds) {
-                            const playerEntry = results.find((r: any) => r.entry === tId);
-                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-                            liveRow[playerName] = Number(playerEntry?.event_total || 0);
-                        }
-                        aggData.push(liveRow);
-                    }
+                    let aggData: any[] = Array.from(gwMap.values());
 
-                    // Ensure GW${effectiveLeagueStartGw} is present if league commenced at a later round so ReferenceLine can render
-                    if (effectiveLeagueStartGw && effectiveLeagueStartGw > 1 && !aggData.some((row: any) => row.name === `GW${effectiveLeagueStartGw}`)) {
-                        const kickoffRow: any = { name: `GW${effectiveLeagueStartGw}` };
-                        for (const tId of teamIds) {
-                            const playerEntry = results.find((r: any) => r.entry === tId);
-                            const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-                            kickoffRow[playerName] = Number(playerEntry?.event_total || 0);
-                        }
-                        aggData.push(kickoffRow);
-                    }
-
-                    // Sort aggData chronologically by GW number
+                    // Sort chronologically
                     if (aggData.length > 0) {
                         aggData.sort((a, b) => {
                             const numA = parseInt(String(a.name || '').replace(/\D/g, ''), 10) || 0;
@@ -684,11 +685,8 @@ export default function Standings() {
         return matched.hasPaid === true || bal > 0 || (stake > 0 && bal >= stake);
     };
 
-    // Filter strictly to funded active members who paid for this round (resolves 54 vs 60 issue)
     const eligibleGwStandings = standingsData.filter(isMemberEligibleWinner);
     const maxEligibleGwScore = eligibleGwStandings.reduce((max, r) => Math.max(max, Number(r.event_total || 0)), 0);
-    const tiedGwWinners = eligibleGwStandings.filter(r => Number(r.event_total || 0) === maxEligibleGwScore && maxEligibleGwScore > 0);
-    const isGwTied = tiedGwWinners.length > 1;
 
     const mergedRules = { ...((league as any)?.rules || {}), ...(leagueRules || {}) };
     const configuredSeasonWinnersCount = Math.max(1, Number(mergedRules.seasonWinnersCount || 3));
@@ -755,6 +753,11 @@ export default function Standings() {
     // Season rank for the hero card toggle
     const mySeasonEntry = myStanding ? rankedSeasonPool.find((r: any) => myFplTeamId && Number(r.entry) === myFplTeamId) : null;
     const mySeasonRank = mySeasonEntry ? (mySeasonEntry as any).calculatedRank : (myStandingIdx >= 0 ? myStandingIdx + 1 : null);
+
+    // Gameweek rank for the hero card toggle
+    const sortedGwPool = [...standingsData].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+    const myGwIdx = myStanding ? sortedGwPool.findIndex((r: any) => myFplTeamId && Number(r.entry) === myFplTeamId) : -1;
+    const myGwRank = myGwIdx >= 0 ? myGwIdx + 1 : null;
 
     const topSeasonLeaders = rankedSeasonPool.slice(0, Math.min(visibleSeasonWinnerCount, rankedSeasonPool.length));
     const seasonPhase = currentEvent
@@ -967,7 +970,7 @@ export default function Standings() {
                                     <>
                                         <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your GW{currentEvent || ''} Rank</p>
                                         <p className="text-2xl font-black text-white">
-                                            #{myStandingIdx + 1}
+                                            #{myGwRank || (myStandingIdx + 1)}
                                             <span className="text-sm font-bold text-[#FBBF24] ml-2">{myStanding.event_total} pts</span>
                                         </p>
                                         <p className="text-[10px] text-gray-500 mt-0.5">
@@ -1137,14 +1140,21 @@ export default function Standings() {
                                             );
                                         }
                                         return true;
+                                    })
+                                    .sort((a: any, b: any) => {
+                                        if (heroRankView === 'gw') {
+                                            return Number(b.event_total || 0) - Number(a.event_total || 0);
+                                        }
+                                        return Number(b.total || 0) - Number(a.total || 0);
                                     });
 
                                 // Competition tie-ranking (e.g. 1, 1, 3, 4...)
                                 let currentCompetitionRank = 1;
                                 const rankedRows = filteredRows.map((row: any, idx: number, arr: any[]) => {
+                                    const compareKey = heroRankView === 'gw' ? 'event_total' : 'total';
                                     if (idx > 0) {
                                         const prev = arr[idx - 1];
-                                        if (Number(row.total) === Number(prev.total)) {
+                                        if (Number(row[compareKey]) === Number(prev[compareKey])) {
                                             // Tied with previous row!
                                         } else {
                                             currentCompetitionRank = idx + 1;
@@ -1152,8 +1162,8 @@ export default function Standings() {
                                     } else {
                                         currentCompetitionRank = 1;
                                     }
-                                    const isTied = (idx > 0 && Number(row.total) === Number(arr[idx - 1].total)) ||
-                                                   (idx < arr.length - 1 && Number(row.total) === Number(arr[idx + 1].total));
+                                    const isTied = (idx > 0 && Number(row[compareKey]) === Number(arr[idx - 1][compareKey])) ||
+                                                   (idx < arr.length - 1 && Number(row[compareKey]) === Number(arr[idx + 1][compareKey]));
                                     return {
                                         ...row,
                                         displayRank: currentCompetitionRank,
@@ -1302,26 +1312,6 @@ export default function Standings() {
                                                     <Shirt className="w-3 h-3 text-emerald-400" />
                                                     <span>Lineup</span>
                                                 </button>
-                                                )}
-                                                {isGwWinnerRow && isCurrentEventFinished && (role === 'admin' || isMe) && (!effectiveLeagueStartGw || Number(currentEvent) >= effectiveLeagueStartGw) && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFlexCardData({
-                                                                winnerName: row.player_name,
-                                                                teamName: row.entry_name,
-                                                                points: Number(row.event_total || 0),
-                                                                amountWon: Math.round((eligibleGwStandings.length * (stake || 100)) * (Number((league as any)?.rules?.weekly || 70) / 100)),
-                                                                gameweek: currentEvent || '',
-                                                                isJointWinner: isGwTied,
-                                                                tiedCount: tiedGwWinners.length
-                                                            });
-                                                        }}
-                                                        className="font-black text-[10px] md:text-xs tracking-tight border px-2.5 py-1 rounded-lg text-[#10B981] border-[#10B981]/40 bg-[#10B981]/15 hover:bg-[#10B981]/25 flex items-center gap-1 shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all active:scale-95 cursor-pointer ml-2"
-                                                        title="Share GW Champion Victory Card on WhatsApp"
-                                                    >
-                                                        <Star className="w-3 h-3 fill-[#10B981] text-[#10B981]" /> Victory Card
-                                                    </button>
                                                 )}
                                             </div>
                                         </div>

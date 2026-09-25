@@ -219,16 +219,22 @@ export default function MemberDashboard() {
                             })
                         );
 
-                        // Determine effective start GW so we never show pre-league history
-                        const rawStartGw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
+                        // Clamp to max completed or live gameweek
+                        const isUpcomingUnplayed = currentFplEvent?.deadlineTime
+                            ? Date.now() < new Date(currentFplEvent.deadlineTime).getTime()
+                            : Boolean(currentFplEvent?.isPreparingForNextGw);
+
+                        const maxPlayedGw = isUpcomingUnplayed
+                            ? Math.max(1, (currentFplEvent?.id || 2) - 1)
+                            : (currentFplEvent?.id || 1);
 
                         for (const result of historyResults) {
                             if (result.status !== 'fulfilled') continue;
                             const { tId, histData } = result.value;
                             const current = histData?.current;
                             if (current && current.length > 0) {
-                                // Show all GWs from the league's effective start GW, not just last 5
-                                const relevant = current.filter((gw: any) => Number(gw.event) >= rawStartGw);
+                                // Show all completed GWs from GW1 up to maxPlayedGw
+                                const relevant = current.filter((gw: any) => Number(gw.event) <= maxPlayedGw);
                                 const playerEntry = resultsList.find((r: any) => Number(r.entry) === tId);
                                 const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
 
@@ -243,48 +249,6 @@ export default function MemberDashboard() {
                         }
 
                         let aggData: any[] = Array.from(gwMap.values());
-
-                        // Append current live event points if not already in completed history
-                        const liveGwId = currentFplEvent?.id;
-                        const isLiveKickedOff = Boolean(
-                            liveGwId && 
-                            !currentFplEvent.isPreparingForNextGw && 
-                            (currentFplEvent.finished || resultsList.some((r: any) => Number(r.event_total || 0) > 0))
-                        );
-
-                        if (isLiveKickedOff && liveGwId && !aggData.some(row => row.name === `GW${liveGwId}`)) {
-                            const liveRow: any = { name: `GW${liveGwId}` };
-                            for (const tId of teamIds) {
-                                const playerEntry = resultsList.find((r: any) => Number(r.entry) === tId);
-                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-                                liveRow[playerName] = Number(playerEntry?.event_total || 0);
-                            }
-                            aggData.push(liveRow);
-                        }
-
-                        // Maximum played or live GW: prevent future unplayed GWs from ever appearing
-                        const maxPlayedGw = currentFplEvent?.id
-                            ? (currentFplEvent.finished || isLiveKickedOff ? currentFplEvent.id : currentFplEvent.id - 1)
-                            : 38;
-
-                        // Ensure GW${sGw} is present if league commenced at a later round (and is already played)
-                        const rawStart = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
-                        const sGw = Math.min(rawStart, maxPlayedGw);
-                        if (sGw && sGw > 1 && sGw <= maxPlayedGw && !aggData.some(row => row.name === `GW${sGw}`)) {
-                            const kickoffRow: any = { name: `GW${sGw}` };
-                            for (const tId of teamIds) {
-                                const playerEntry = resultsList.find((r: any) => Number(r.entry) === tId);
-                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
-                                kickoffRow[playerName] = Number(playerEntry?.event_total || 0);
-                            }
-                            aggData.push(kickoffRow);
-                        }
-
-                        // Strip any unplayed/future gameweeks beyond maxPlayedGw
-                        aggData = aggData.filter(row => {
-                            const num = parseInt(String(row.name || '').replace(/\D/g, ''), 10) || 0;
-                            return num > 0 && num <= maxPlayedGw;
-                        });
 
                         // Sort aggData chronologically by GW number
                         if (aggData.length > 0) {
@@ -2079,31 +2043,44 @@ export default function MemberDashboard() {
                                 const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
                                 const rank = myRankEntry + 1;
                                 const isTopThree = rank >= 1 && rank <= 3;
+                                const isRankOne = rank === 1 || isRecentWinner || isCurrentUserGwWinner;
                                 const medals = ['🥇', '🥈', '🥉'];
                                 return myEntry ? (
-                                    <div className={clsx(
-                                        "rounded-2xl border px-3 py-3 mb-3 flex items-center justify-between",
-                                        isTopThree
-                                            ? "border-[#FBBF24]/40 bg-gradient-to-r from-[#FBBF24]/12 to-[#FBBF24]/5"
-                                            : "border-emerald-500/30 bg-emerald-500/8"
-                                    )}>
-                                        <div className="flex items-center gap-2.5">
-                                            <div className={clsx(
-                                                "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0",
-                                                isTopThree ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-emerald-500/20 text-emerald-300"
-                                            )}>
-                                                {isTopThree ? medals[rank - 1] : `#${rank}`}
+                                    <>
+                                        <div className={clsx(
+                                            "rounded-2xl border px-3 py-3 mb-2 flex items-center justify-between",
+                                            isTopThree
+                                                ? "border-[#FBBF24]/40 bg-gradient-to-r from-[#FBBF24]/12 to-[#FBBF24]/5"
+                                                : "border-emerald-500/30 bg-emerald-500/8"
+                                        )}>
+                                            <div className="flex items-center gap-2.5">
+                                                <div className={clsx(
+                                                    "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0",
+                                                    isTopThree ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-emerald-500/20 text-emerald-300"
+                                                )}>
+                                                    {isTopThree ? medals[rank - 1] : `#${rank}`}
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Rank</p>
+                                                    <p className="text-sm font-black text-white leading-tight">{firstName}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Rank</p>
-                                                <p className="text-sm font-black text-white leading-tight">{firstName}</p>
+                                            <div className="text-right">
+                                                <p className="text-xl font-black text-[#FBBF24] tabular-nums leading-tight">{myEntry.event_total ?? 0}</p>
+                                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">GW pts</p>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-xl font-black text-[#FBBF24] tabular-nums leading-tight">{myEntry.event_total ?? 0}</p>
-                                            <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">GW pts</p>
-                                        </div>
-                                    </div>
+                                        {isRankOne && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowFlexModal(true)}
+                                                className="w-full mb-3 py-2 px-3 rounded-xl bg-gradient-to-r from-[#FBBF24] to-amber-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-[#FBBF24]/20 active:scale-[0.98] transition-all cursor-pointer"
+                                            >
+                                                <Trophy className="w-3.5 h-3.5 text-slate-950" />
+                                                Share Victory Card
+                                            </button>
+                                        )}
+                                    </>
                                 ) : fplStandings.length > 0 ? (
                                     <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 mb-3 flex items-center gap-2">
                                         <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
