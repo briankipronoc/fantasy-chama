@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
@@ -193,8 +194,9 @@ export default function MemberDashboard() {
 
                         const gwMap = new Map<number, any>();
 
-                        for (const tId of teamIds) {
-                            try {
+                        // Parallel fetch: all team histories at once instead of serial waterfall
+                        const historyResults = await Promise.allSettled(
+                            teamIds.map(async (tId) => {
                                 const histCacheKey = `fpl_history_${tId}`;
                                 let histData: any = null;
                                 try {
@@ -213,23 +215,30 @@ export default function MemberDashboard() {
                                         try { histData = JSON.parse(cached).data; } catch {}
                                     }
                                 }
+                                return { tId, histData };
+                            })
+                        );
 
-                                const current = histData?.current;
-                                if (current && current.length > 0) {
-                                    const recent = current.slice(-5);
-                                    const playerEntry = resultsList.find((r:any) => Number(r.entry) === tId);
-                                    const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                        // Determine effective start GW so we never show pre-league history
+                        const rawStartGw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
 
-                                    for (const gw of recent) {
-                                        const evNum = Number(gw.event);
-                                        if (!gwMap.has(evNum)) {
-                                            gwMap.set(evNum, { name: `GW${evNum}` });
-                                        }
-                                        gwMap.get(evNum)[playerName] = Number(gw.points);
+                        for (const result of historyResults) {
+                            if (result.status !== 'fulfilled') continue;
+                            const { tId, histData } = result.value;
+                            const current = histData?.current;
+                            if (current && current.length > 0) {
+                                // Show all GWs from the league's effective start GW, not just last 5
+                                const relevant = current.filter((gw: any) => Number(gw.event) >= rawStartGw);
+                                const playerEntry = resultsList.find((r: any) => Number(r.entry) === tId);
+                                const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+
+                                for (const gw of relevant) {
+                                    const evNum = Number(gw.event);
+                                    if (!gwMap.has(evNum)) {
+                                        gwMap.set(evNum, { name: `GW${evNum}` });
                                     }
+                                    gwMap.get(evNum)[playerName] = Number(gw.points);
                                 }
-                            } catch (e) {
-                                console.error('Error fetching performance:', e);
                             }
                         }
 
@@ -478,8 +487,6 @@ export default function MemberDashboard() {
                     ? Date.now() >= new Date(rawNext.deadline_time).getTime() 
                     : (rawCurrent?.deadline_time ? Date.now() >= new Date(rawCurrent.deadline_time).getTime() : false);
 
-                const finishedAtMs = gwFinishedTimestamp || Date.now();
-                const hoursSinceGwFinished = (Date.now() - finishedAtMs) / (1000 * 60 * 60);
                 const nextDeadlineMs = upcomingDeadlineTime ? new Date(upcomingDeadlineTime).getTime() : null;
                 const hoursUntilNextDeadline = nextDeadlineMs ? (nextDeadlineMs - Date.now()) / (1000 * 60 * 60) : Infinity;
 
@@ -534,7 +541,7 @@ export default function MemberDashboard() {
         fetchCurrentEvent();
     }, []);
 
-    // Dynamically calculate active funded standings and GW winner from raw FPL results + Chama memberships
+    // Dynamically calculate active Chama standings and GW winner from raw FPL results + Chama memberships
     useEffect(() => {
         if (!rawFplStandings || rawFplStandings.length === 0) {
             setFplStandings([]);
@@ -545,28 +552,35 @@ export default function MemberDashboard() {
         const norm = (s: string) => String(s || '').toLowerCase().trim();
         const effectiveStake = Number(gameweekStake || 0);
 
-        // Chama Rule: Strictly active, funded, non-eliminated, non-spectator members
-        const eligibleResults = rawFplStandings.filter((r: any) => {
-            const dbMember = members.find((m: any) => {
-                if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
-                if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
-                const db = norm(m.displayName);
-                return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
-            });
-            if (!dbMember) return false;
-            if (dbMember.isActive === false) return false;
-            if ((dbMember as any).isEliminated === true) return false;
-            if ((dbMember as any).playMode === 'sidebets_only') return false;
+        // Match each FPL entry to a Chama member — covers fplTeamId, secondFplTeamId, and fuzzy name
+        const matchMember = (r: any) => members.find((m: any) => {
+            if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+            if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+            const db = norm(m.displayName);
+            return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || '').includes(db);
+        });
 
-            const isFunded = dbMember.hasPaid === true || (effectiveStake > 0 && (Number(dbMember.walletBalance || 0)) >= effectiveStake);
+        // GW Standings card — show ALL active, non-spectator Chama members regardless of payment
+        const chamaResults = rawFplStandings
+            .map((r: any) => ({ entry: r, member: matchMember(r) }))
+            .filter(({ member }) => member && member.isActive !== false && (member as any).playMode !== 'sidebets_only')
+            .sort((a: any, b: any) => Number(b.entry.event_total || 0) - Number(a.entry.event_total || 0))
+            .map(({ entry }) => entry);
+
+        setFplStandings(chamaResults);
+
+        // GW Winner — only from funded/eligible members (Chama Rule)
+        const eligibleResults = chamaResults.filter((r: any) => {
+            const dbMember = matchMember(r);
+            if (!dbMember) return false;
+            if ((dbMember as any).isEliminated === true) return false;
+            const isFunded = dbMember.hasPaid === true || (effectiveStake > 0 && Number(dbMember.walletBalance || 0) >= effectiveStake);
             return isFunded;
         });
 
-        const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
-
-        if (sorted.length >= 1 && Number(sorted[0]?.event_total || 0) > 0) {
-            const winner = sorted[0];
-            const runnerUp = sorted[1] || null;
+        if (eligibleResults.length >= 1 && Number(eligibleResults[0]?.event_total || 0) > 0) {
+            const winner = eligibleResults[0];
+            const runnerUp = eligibleResults[1] || null;
             const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
             setGwWinner({
                 ...winner,
@@ -576,11 +590,45 @@ export default function MemberDashboard() {
         } else {
             setGwWinner(null);
         }
-
-        setFplStandings(sorted);
     }, [rawFplStandings, members, gameweekStake]);
 
-    // Phase 10.5: Real-time Live Escrow Feed from league_events
+    // ── missedGameweeks client-side computation ──────────────────────────────
+    // Runs whenever transactions or currentFplEvent changes. Computes the number
+    // of consecutive gameweeks the current user has missed, then writes it back
+    // to Firestore so the Arrears Warning Banner has authoritative data.
+    useEffect(() => {
+        if (!activeLeagueId || !currentUser?.id || !currentFplEvent?.id || gameweekStake <= 0) return;
+        if (isSpectator) return; // spectators are never in arrears
+
+        const currentGw = currentFplEvent.finished ? currentFplEvent.id : (currentFplEvent.id - 1);
+        if (currentGw <= 0) return;
+
+        const leagueStart = Number(leagueStartGw || 1);
+        const memberJoinedGw = Number((currentUser as any).joinedGw || leagueStart);
+
+        // Walk backwards from the most recently finished GW
+        let consecutiveMissed = 0;
+        for (let gw = currentGw; gw >= Math.max(leagueStart, memberJoinedGw); gw--) {
+            // Check if there's any valid inflow transaction tagged to this GW for this member
+            const paid = transactions.some((tx: any) => {
+                if (String(tx.userId || tx.memberId || '') !== String(currentUser.id)) return false;
+                if (tx.status === 'failed' || tx.status === 'reversed' || tx.status === 'refunded') return false;
+                if (Number(tx.amount || 0) < gameweekStake) return false;
+                const txGw = Number(tx.gameweek || tx.gw || 0);
+                return txGw === gw;
+            });
+            if (paid) break; // chain broken — stop counting
+            consecutiveMissed++;
+            if (consecutiveMissed >= 3) break; // cap at 3 for UI clarity
+        }
+
+        const storedMissed = Number((currentUser as any).missedGameweeks || 0);
+        if (consecutiveMissed !== storedMissed) {
+            const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', currentUser.id);
+            updateDoc(memberRef, { missedGameweeks: consecutiveMissed }).catch(() => {});
+        }
+    }, [transactions, currentFplEvent?.id, currentFplEvent?.finished, currentUser?.id, activeLeagueId, gameweekStake, leagueStartGw, isSpectator]);
+
     useEffect(() => {
         if (!activeLeagueId) return;
         const eventsRef = collection(db, 'leagues', activeLeagueId, 'league_events');
@@ -1054,9 +1102,13 @@ export default function MemberDashboard() {
     }, [activeLeagueId, currentUser?.id]);
 
     // Dynamic Calculations
-    const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
+    const isMemberFunded = (m: any) => Boolean((m.hasPaid || (gameweekStake > 0 && Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending);
+    const paidMembersCount = members.filter(isMemberFunded).length;
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
+
+    // Count-up animated values for wallet
+    const animatedWalletBalance = useCountUp(walletBalance, 700);
 
     // Clamp leagueStartGw to currentEvent so DB drift (e.g. DB=6, actual=5) never makes the current GW pre-league
     const effectiveMdStartGw = currentFplEvent?.id ? Math.min(leagueStartGw, currentFplEvent.id) : leagueStartGw;
@@ -1066,25 +1118,33 @@ export default function MemberDashboard() {
     const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);
     const vaultPercent = Number(rules.vault ?? (100 - rules.weekly));
     const vaultMultiplier = (vaultPercent > 0 ? vaultPercent : 30) / 100;
-    const seasonVaultProjected = members.length * gameweekStake * totalLeagueGws * vaultMultiplier;
+    const activeContendersCount = members.filter(m => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending).length;
+    const seasonVaultProjected = activeContendersCount * gameweekStake * totalLeagueGws * vaultMultiplier;
 
     // Actual accumulated season vault to date (net of any reversals/refunds)
     const isTxValidInflow = (tx: any) => {
-        return (
-            (tx.type === 'deposit' || tx.type === 'payment' || tx.type === 'contribution') &&
-            tx.status !== 'failed' &&
-            tx.status !== 'reversed' &&
-            tx.status !== 'refunded' &&
-            Number(tx.amount || 0) > 0
-        );
+        const type = String(tx.type || '').toLowerCase();
+        const isContributionType = type === 'deposit' || type === 'payment' || type === 'contribution' || type === 'wallet_funding' || type === 'wallet_prefund' || type === 'manual_deposit' || (type === 'ledger_adjustment' && Number(tx.amount || 0) > 0 && tx.source !== 'manual_reversal');
+        if (!isContributionType) return false;
+        if (tx.source === 'manual_reversal') return false;
+        if (Number(tx.amount || 0) <= 0) return false;
+        const status = String(tx.status || '').toLowerCase();
+        if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || status === 'refunded' || tx.isReversed === true || tx.reversed === true) {
+            return false;
+        }
+        return true;
     };
     const isTxRefundOrReversal = (tx: any) => {
+        const type = String(tx.type || '').toLowerCase();
+        const status = String(tx.status || '').toLowerCase();
         return (
-            tx.type === 'refund' ||
-            tx.type === 'reversal' ||
-            tx.status === 'reversed' ||
-            tx.status === 'refunded' ||
-            (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+            type === 'refund' ||
+            type === 'reversal' ||
+            tx.source === 'manual_reversal' ||
+            tx.category === 'refund' ||
+            status === 'refund' ||
+            status === 'refunded' ||
+            (type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
             Number(tx.amount || 0) < 0
         );
     };
@@ -1152,6 +1212,21 @@ export default function MemberDashboard() {
         Number(gwWinner.event_total) > 0
     );
     const isRecentWinner = isCurrentUserGwWinner && hasFinalGwChampion;
+
+    // GW score / rank for the greeting card chip (derived from fplStandings so no extra fetch)
+    const myFplStandingsEntry = fplStandings.length > 0
+        ? fplStandings.find((e: any) =>
+            (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
+            (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
+            currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
+          )
+        : null;
+    const myGwScore = myFplStandingsEntry ? Number(myFplStandingsEntry.event_total ?? 0) : null;
+    const myGwRank = myFplStandingsEntry
+        ? fplStandings.findIndex((e: any) => e.entry === myFplStandingsEntry.entry) + 1
+        : null;
+    const completedLeagueGws = Math.max(0, completedRounds);
+    const seasonProgressPct = totalLeagueGws > 0 ? Math.round((completedLeagueGws / totalLeagueGws) * 100) : 0;
 
     // Set of distinct emojis already sent by the current user for this gameweek (max 2 distinct allowed)
     const mySentEmojis = useMemo<string[]>(() => {
@@ -1403,13 +1478,13 @@ export default function MemberDashboard() {
                         ? "border-amber-400/30 bg-gradient-to-br from-amber-400/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24]"
                         : isSpectator
                             ? "border-indigo-500/25 bg-gradient-to-br from-indigo-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
-                            : hasPaid
+                            : isCurrentFunded
                                 ? "border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
                                 : "border-red-400/20 bg-gradient-to-br from-red-400/6 via-white dark:via-[#0f1823] to-white dark:to-[#0f1823]"
                 )}>
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400 mb-2">
-                            {isSpectator ? 'Spectator Mode · Side-Bets Active' : (hasPaid ? '✓ Contribution Secured' : 'Action Required')}
+                            {isSpectator ? 'Spectator Mode · Side-Bets Active' : (isCurrentFunded ? '✓ Contribution Secured' : 'Action Required')}
                         </p>
                         <div className="flex items-center gap-2.5">
                             <span className="text-2xl md:text-3xl">
@@ -1419,28 +1494,64 @@ export default function MemberDashboard() {
                                 {greetingText},{' '}
                                 <span className={clsx(
                                     "bg-clip-text text-transparent bg-gradient-to-r",
-                                    isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : isSpectator ? "from-indigo-400 to-purple-400" : hasPaid ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
+                                    isCurrentUserGwWinner ? "from-amber-500 to-yellow-400" : isSpectator ? "from-indigo-400 to-purple-400" : isCurrentFunded ? "from-emerald-500 to-emerald-400" : "from-rose-500 to-red-400"
                                 )}>
                                     {firstName}!
                                 </span>
                             </p>
                         </div>
-                        {!hasPaid && (
+                        {!isCurrentFunded && !isSpectator && (
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                 Pay KES {gameweekStake.toLocaleString()} via M-Pesa to stay eligible.
                             </p>
+                        )}
+                        {/* 2A: GW Score chip — shown once the GW is confirmed finished */}
+                        {myGwScore !== null && myGwScore > 0 && currentFplEvent?.finished && !isCurrentUserGwWinner && (
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black border bg-slate-800/60 border-white/10 text-slate-200 shadow-sm">
+                                    <span className="text-slate-400">GW{currentFplEvent.id}</span>
+                                    <span className="text-white">{myGwScore} pts</span>
+                                    {myGwRank !== null && (
+                                        <span className={clsx(
+                                            "px-1.5 py-0.5 rounded-md text-[9px] font-black",
+                                            myGwRank === 1 ? "bg-amber-400/20 text-amber-400" :
+                                            myGwRank <= 3 ? "bg-emerald-500/20 text-emerald-400" :
+                                            "bg-slate-700/50 text-slate-400"
+                                        )}>
+                                            {myGwRank === 1 ? '🥇 1st' : myGwRank === 2 ? '🥈 2nd' : myGwRank === 3 ? '🥉 3rd' : `#${myGwRank}`}
+                                        </span>
+                                    )}
+                                </span>
+                            </div>
+                        )}
+                        {/* Feature E: Season progress bar */}
+                        {completedLeagueGws > 0 && totalLeagueGws > 0 && (
+                            <div className="mt-3 w-full max-w-xs">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">Season Progress</span>
+                                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-500 tabular-nums">
+                                        GW{effectiveMdStartGw + completedLeagueGws - 1} of GW38 · {seasonProgressPct}%
+                                    </span>
+                                </div>
+                                <div className="h-1 w-full rounded-full bg-slate-800/60 dark:bg-white/8 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out"
+                                        style={{ width: `${seasonProgressPct}%` }}
+                                    />
+                                </div>
+                            </div>
                         )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className={clsx(
                             "text-[11px] font-bold uppercase tracking-widest border px-3 py-1 rounded-full w-fit",
-                            hasPaid
+                            isCurrentFunded
                                 ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-300 bg-emerald-500/10"
                                 : "border-red-500/30 text-red-500 dark:text-red-300 bg-red-500/10"
                         )}>
                             {currentGwBadge}
                         </span>
-                        {!hasPaid && (
+                        {!isCurrentFunded && !isSpectator && (
                             <button
                                 onClick={() => handleMpesaSTKPush(gameweekStake)}
                                 disabled={isPushingMpesa}
@@ -1793,6 +1904,52 @@ export default function MemberDashboard() {
                             </div>
                         )}
 
+                        {/* ── ARREARS WARNING BANNER — shows when member has missed GW payments ── */}
+                        {currentUser && !isSpectator && (currentUser as any).missedGameweeks > 0 && (
+                            <div className={clsx(
+                                "w-full rounded-2xl border px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-300",
+                                (currentUser as any).missedGameweeks >= 2
+                                    ? "border-red-500/40 bg-red-950/25 shadow-[0_0_20px_rgba(239,68,68,0.08)]"
+                                    : "border-amber-500/35 bg-amber-950/20"
+                            )}>
+                                <div className="flex items-center gap-3">
+                                    <span className={clsx(
+                                        "text-xl flex-shrink-0",
+                                        (currentUser as any).missedGameweeks >= 2 ? "animate-pulse" : ""
+                                    )}>
+                                        {(currentUser as any).missedGameweeks >= 2 ? '🚨' : '⚠️'}
+                                    </span>
+                                    <div>
+                                        <p className={clsx(
+                                            "font-extrabold text-sm leading-tight",
+                                            (currentUser as any).missedGameweeks >= 2 ? "text-red-400" : "text-amber-300"
+                                        )}>
+                                            {(currentUser as any).missedGameweeks >= 2
+                                                ? `CRITICAL: ${(currentUser as any).missedGameweeks} Consecutive Missed Gameweeks`
+                                                : `Payment Arrears — GW${currentFplEvent?.id || ''} Skipped`}
+                                        </p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                            {(currentUser as any).missedGameweeks >= 2
+                                                ? `Missing 2+ consecutive GWs will permanently disqualify you from the Season Vault. Clear KES ${((currentUser as any).missedGameweeks * gameweekStake).toLocaleString()} in arrears immediately.`
+                                                : `Your GW contribution is overdue. Pay before the next deadline to remain vault-eligible and avoid disqualification.`}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleMpesaSTKPush((currentUser as any).missedGameweeks * gameweekStake || gameweekStake)}
+                                    disabled={isPushingMpesa}
+                                    className={clsx(
+                                        "flex-shrink-0 px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50",
+                                        (currentUser as any).missedGameweeks >= 2
+                                            ? "bg-red-500 hover:bg-red-400 text-white shadow-md shadow-red-950/40"
+                                            : "bg-amber-500 hover:bg-amber-400 text-black"
+                                    )}
+                                >
+                                    {isPushingMpesa ? 'Sending...' : `Clear KES ${((currentUser as any).missedGameweeks * gameweekStake || gameweekStake).toLocaleString()}`}
+                                </button>
+                            </div>
+                        )}
+
                         {/* Gameweek Preparation Stage — Displayed once the finished GW concludes */}
                         {currentFplEvent?.isPreparingForNextGw && (
                             <div className="w-full rounded-[2rem] border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0e171b] to-emerald-950/30 p-6 shadow-2xl relative overflow-hidden mt-4 mb-2 animate-in fade-in duration-500">
@@ -1912,7 +2069,7 @@ export default function MemberDashboard() {
                                 )}
                             </div>
 
-                            {/* User's own rank highlight */}
+                            {/* Your GW Rank — prominent stat chip */}
                             {(() => {
                                 const myRankEntry = fplStandings.findIndex((e: any) =>
                                     (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
@@ -1920,18 +2077,42 @@ export default function MemberDashboard() {
                                     currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
                                 );
                                 const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
+                                const rank = myRankEntry + 1;
+                                const isTopThree = rank >= 1 && rank <= 3;
+                                const medals = ['🥇', '🥈', '🥉'];
                                 return myEntry ? (
-                                    <div className="rounded-xl border border-[#FBBF24]/30 bg-[#FBBF24]/8 px-3 py-2 flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-6 h-6 rounded-full bg-[#FBBF24]/20 border border-[#FBBF24]/40 text-[#FBBF24] text-[10px] font-black flex items-center justify-center flex-shrink-0">
-                                                {myRankEntry + 1}
-                                            </span>
+                                    <div className={clsx(
+                                        "rounded-2xl border px-3 py-3 mb-3 flex items-center justify-between",
+                                        isTopThree
+                                            ? "border-[#FBBF24]/40 bg-gradient-to-r from-[#FBBF24]/12 to-[#FBBF24]/5"
+                                            : "border-emerald-500/30 bg-emerald-500/8"
+                                    )}>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className={clsx(
+                                                "w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0",
+                                                isTopThree ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-emerald-500/20 text-emerald-300"
+                                            )}>
+                                                {isTopThree ? medals[rank - 1] : `#${rank}`}
+                                            </div>
                                             <div>
-                                                <p className="text-xs font-black text-white leading-tight truncate max-w-[100px]">{firstName}</p>
-                                                <p className="text-[10px] text-gray-500">You</p>
+                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Rank</p>
+                                                <p className="text-sm font-black text-white leading-tight">{firstName}</p>
                                             </div>
                                         </div>
-                                        <span className="text-sm font-black text-[#FBBF24] tabular-nums">{myEntry.event_total ?? 0} pts</span>
+                                        <div className="text-right">
+                                            <p className="text-xl font-black text-[#FBBF24] tabular-nums leading-tight">{myEntry.event_total ?? 0}</p>
+                                            <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">GW pts</p>
+                                        </div>
+                                    </div>
+                                ) : fplStandings.length > 0 ? (
+                                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 mb-3 flex items-center gap-2">
+                                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                                            <Star className="w-4 h-4 text-gray-500" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Your Rank</p>
+                                            <p className="text-xs text-gray-400">Link your FPL ID in Settings</p>
+                                        </div>
                                     </div>
                                 ) : null;
                             })()}
@@ -2115,7 +2296,7 @@ export default function MemberDashboard() {
                                                 {isCurrentFunded ? `Secured: KES ${gameweekStake.toLocaleString()}` : `Due: KES ${gameweekStake.toLocaleString()}`}
                                             </span>
                                             <span className="text-gray-400 text-[11px]">
-                                                Wallet: <strong className="text-white">KES {walletBalance.toLocaleString()}</strong>
+                                                Wallet: <strong className="text-white">KES {animatedWalletBalance.toLocaleString()}</strong>
                                             </span>
                                         </div>
                                         {gameweekStake > 0 && walletBalance >= gameweekStake && (
@@ -2317,10 +2498,12 @@ export default function MemberDashboard() {
                                                 dot={{ r: 4.5, fill: '#10B981', strokeWidth: 0 }}
                                                 activeDot={{ r: 6 }}
                                                 name={`${myKey} (You)`}
+                                                animationDuration={800}
+                                                animationEasing="ease-out"
                                             />
                                         ) : null;
                                     })()}
-                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3, fill: '#FBBF24', strokeWidth: 0 }} name="League Avg" />
+                                    <Line type="monotone" dataKey="Average" stroke="#FBBF24" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3, fill: '#FBBF24', strokeWidth: 0 }} name="League Avg" animationDuration={800} animationEasing="ease-out" />
                                 </LineChart>
                             </ResponsiveContainer>
                             ) : (
@@ -2422,7 +2605,7 @@ export default function MemberDashboard() {
                                 />
                             </div>
                             <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                <p>Wallet balance: <span className="font-black text-white">KES {walletBalance.toLocaleString()}</span></p>
+                                <p>Wallet balance: <span className="font-black text-white">KES {animatedWalletBalance.toLocaleString()}</span></p>
                                 <p>Current GW stake: <span className="font-black text-white">KES {gameweekStake.toLocaleString()}</span></p>
                                 <p>Top-up amount: <span className="font-black text-[#10B981]">KES {Math.max(1, Number(topUpAmount || 0)).toLocaleString()}</span></p>
                             </div>

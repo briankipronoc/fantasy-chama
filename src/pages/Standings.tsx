@@ -663,10 +663,6 @@ export default function Standings() {
     );
     const myStanding = myStandingIdx >= 0 ? standingsData[myStandingIdx] : null;
 
-    // Season rank for the hero card toggle
-    const mySeasonEntry = myStanding ? rankedSeasonPool.find((r: any) => myFplTeamId && Number(r.entry) === myFplTeamId) : null;
-    const mySeasonRank = mySeasonEntry ? (mySeasonEntry as any).calculatedRank : (myStandingIdx >= 0 ? myStandingIdx + 1 : null);
-
     const currentGwAverage = standingsData.length > 0
         ? (standingsData.reduce((sum, row) => sum + row.event_total, 0) / standingsData.length).toFixed(1)
         : '0.0';
@@ -756,6 +752,10 @@ export default function Standings() {
             isTied
         });
     }
+    // Season rank for the hero card toggle
+    const mySeasonEntry = myStanding ? rankedSeasonPool.find((r: any) => myFplTeamId && Number(r.entry) === myFplTeamId) : null;
+    const mySeasonRank = mySeasonEntry ? (mySeasonEntry as any).calculatedRank : (myStandingIdx >= 0 ? myStandingIdx + 1 : null);
+
     const topSeasonLeaders = rankedSeasonPool.slice(0, Math.min(visibleSeasonWinnerCount, rankedSeasonPool.length));
     const seasonPhase = currentEvent
         ? currentEvent >= 33

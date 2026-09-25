@@ -11,6 +11,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Header from '../components/Header';
 import SeasonCeremonyModal from '../components/SeasonCeremonyModal';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import AnimatedKes from '../components/AnimatedKes';
 
 const fetchFplStandings = async (leagueId: number) => {
     const cacheKey = `fpl_standings_${leagueId}`;
@@ -133,10 +134,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     const bootstrapRes = await fetch(`/fpl-api/bootstrap-static/`);
                     if (bootstrapRes.ok) {
                         const bootstrapData = await bootstrapRes.json();
-                        const currentEvent = (bootstrapData?.events || []).find((event: any) => event.is_current);
-                        if (!cancelled) {
-                            setCurrentGwNumber(Number(currentEvent?.id || 0) || null);
-                            setIsCurrentEventFinished(Boolean(currentEvent?.finished));
+                        const events: any[] = bootstrapData?.events || [];
+                        const currentEvent = events.find((e: any) => e.is_current);
+                        const previousEvent = events.find((e: any) => e.is_previous) || [...events].filter((e: any) => e.finished).pop();
+                        // Use current if it has started; fall back to previous finished GW so the
+                        // funding audit never counts a gameweek that hasn't kicked off yet.
+                        const isCurrentStarted = currentEvent?.deadline_time
+                            ? Date.now() >= new Date(currentEvent.deadline_time).getTime()
+                            : false;
+                        const effectiveEvent = (isCurrentStarted && currentEvent) ? currentEvent : (previousEvent || currentEvent);
+                        if (!cancelled && effectiveEvent) {
+                            setCurrentGwNumber(Number(effectiveEvent.id || 0) || null);
+                            setIsCurrentEventFinished(Boolean(effectiveEvent.finished));
                         }
                     }
                 } catch (bootstrapErr: any) {
@@ -314,8 +323,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         };
     }, [activeLeagueId, role, activeUserId, memberPhone]);
 
-    const paidMembers = members.filter(m => m.hasPaid && m.isActive !== false);
-    const totalSecured = paidMembers.length * (gameweekStake || 1400);
+    const isMemberFunded = (m: any) => Boolean((m.hasPaid || (gameweekStake > 0 && Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending);
+    const paidMembers = members.filter(isMemberFunded);
+    const totalSecured = paidMembers.length * (gameweekStake || 0);
     const firstTransactionGw = transactions.reduce((minGw, tx) => {
         const value = Number(tx.gameweek || tx.gw || 999);
         return Number.isFinite(value) && value > 0 ? Math.min(minGw, value) : minGw;
@@ -330,9 +340,13 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         const weeksSinceStart = Math.max(0, Math.floor((joinedMs - leagueCreatedAtMs) / WEEK_MS));
         return Math.min(38, leagueStartGw + weeksSinceStart);
     };
-    const contributionTypes = new Set(['deposit', 'wallet_funding', 'wallet_prefund', 'ledger_adjustment']);
+    const contributionTypes = new Set(['deposit', 'payment', 'contribution', 'wallet_funding', 'wallet_prefund', 'manual_deposit', 'ledger_adjustment']);
     const isTxValidInflow = (tx: any) => {
-        if (!contributionTypes.has(String(tx.type || ''))) return false;
+        const type = String(tx.type || '').toLowerCase();
+        const isContributionType = contributionTypes.has(type) || type === 'deposit' || type === 'payment' || type === 'contribution' || type === 'wallet_funding' || type === 'wallet_prefund' || type === 'manual_deposit';
+        if (!isContributionType) return false;
+        if (tx.source === 'manual_reversal') return false;
+        if (Number(tx.amount || 0) <= 0) return false;
         const status = String(tx.status || '').toLowerCase();
         if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || status === 'refunded' || tx.isReversed === true || tx.reversed === true) {
             return false;
@@ -340,14 +354,16 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return true;
     };
     const isTxRefundOrReversal = (tx: any) => {
+        const type = String(tx.type || '').toLowerCase();
+        const status = String(tx.status || '').toLowerCase();
         return (
-            tx.type === 'refund' ||
-            tx.type === 'reversal' ||
+            type === 'refund' ||
+            type === 'reversal' ||
             tx.source === 'manual_reversal' ||
             tx.category === 'refund' ||
-            String(tx.status || '').toLowerCase() === 'refund' ||
-            String(tx.status || '').toLowerCase() === 'refunded' ||
-            (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+            status === 'refund' ||
+            status === 'refunded' ||
+            (type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
             Number(tx.amount || 0) < 0
         );
     };
@@ -398,12 +414,12 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             return acc;
         }, {});
     const projectedRemainingCollectionsGross = members
-        .filter((member) => member.isActive !== false)
+        .filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending)
         .reduce((sum, member: any) => {
             const joinedMs = member?.joinedAt?.toDate ? member.joinedAt.toDate().getTime() : leagueCreatedAtMs;
             const joinedGw = toJoinedGw(joinedMs);
             const effectiveMemberGw = Math.max(leagueStartGw, joinedGw);
-            const memberSeasonCap = Math.max(0, (39 - effectiveMemberGw) * (gameweekStake || 1400));
+            const memberSeasonCap = Math.max(0, (38 - effectiveMemberGw + 1) * (gameweekStake || 0));
             const collectedForMember = Number(contributionByMemberId[String(member.id)] || 0);
             const remainingForMember = Math.max(0, memberSeasonCap - collectedForMember);
             return sum + remainingForMember;
@@ -807,9 +823,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return memberFundingSummary.filter(m => !m.isSpectator).length;
     }, [memberFundingSummary]);
 
-    const seasonDepositedTotal = useMemo(() => {
-        return memberFundingSummary.reduce((acc, m) => acc + (m.totalDeposited || 0), 0);
-    }, [memberFundingSummary]);
+    // Use the authoritative transaction-based gross (same source as seasonCollectedSoFarGross)
+    // to avoid inflating or understating from stale per-member Firestore fields.
+    const seasonDepositedTotal = Math.max(0, seasonCollectedSoFarGross);
 
     const activeChamaMembers = useMemo(() => {
         return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding);
@@ -1266,7 +1282,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-300" />
                                 </div>
                                 <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white">
-                                    KES {memberTotalLoadedCurrentSeason.toLocaleString()}
+                                    <AnimatedKes amount={memberTotalLoadedCurrentSeason} className="tabular-nums" />
                                 </p>
                                 <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
                                     Net deposits and top-ups loaded for the 2026/27 season.
@@ -1274,7 +1290,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </div>
                             <div className="mt-4 flex items-center justify-between gap-2">
                                 <span className="inline-flex px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300">
-                                    Current Balance: KES {Number(currentUser.walletBalance || 0).toLocaleString()}
+                                    Current Balance: <AnimatedKes amount={Number(currentUser.walletBalance || 0)} className="ml-1 tabular-nums" />
                                 </span>
                             </div>
                         </article>
@@ -1436,7 +1452,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             {(effectivePayoutMode === 'weekly_only' || (effectivePayoutMode === 'both' && projectedCardIndex === 0)) ? (
                                                 <>
                                                     <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-gray-900 dark:text-white">
-                                                        KES {isStealthMode ? '****' : projectedWeeklyPayout.toLocaleString()}
+                                                        {isStealthMode ? 'KES ****' : <AnimatedKes amount={projectedWeeklyPayout} className="tabular-nums" />}
                                                     </p>
                                                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
                                                         {projectedWeeklyPayoutFormula}
@@ -1445,7 +1461,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             ) : seasonCardTab === 'collected' ? (
                                                 <>
                                                     <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-amber-400">
-                                                        KES {isStealthMode ? '****' : seasonVaultCollectedSoFar.toLocaleString()}
+                                                        {isStealthMode ? 'KES ****' : <AnimatedKes amount={seasonVaultCollectedSoFar} className="tabular-nums" />}
                                                     </p>
                                                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
                                                         Actual verified vault funds secured to date: KES {Number(seasonCollectedSoFarGross || 0).toLocaleString()} gross × {vaultPercent}% = KES {Number(seasonVaultCollectedSoFar || 0).toLocaleString()}
@@ -1454,7 +1470,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             ) : (
                                                 <>
                                                     <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-emerald-600 dark:text-emerald-400">
-                                                        KES {isStealthMode ? '****' : projectedSeasonCollections.toLocaleString()}
+                                                        {isStealthMode ? 'KES ****' : <AnimatedKes amount={projectedSeasonCollections} className="tabular-nums" />}
                                                     </p>
                                                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed font-medium">
                                                         {projectedSeasonCollectionsFormula}
@@ -1698,15 +1714,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 md:p-6 bg-black/20 border-b border-white/5">
                         <div className="p-3 rounded-2xl bg-emerald-500/[0.07] border border-emerald-500/20 col-span-2 sm:col-span-1">
                             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Total Raised / Deposited</p>
-                            <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-400 mt-0.5">
-                                KES {isStealthMode ? '****' : seasonDepositedTotal.toLocaleString()}
-                            </p>
+                                <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-400 mt-0.5">
+                                    {isStealthMode ? 'KES ****' : <AnimatedKes amount={seasonDepositedTotal} className="tabular-nums" />}
+                                </p>
                             <p className="text-[10px] text-gray-400 mt-0.5">Total member pot contributions</p>
                         </div>
                         <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Arrears Owed</p>
                             <p className={clsx("text-lg sm:text-xl font-black tabular-nums mt-0.5", totalChamaArrears > 0 ? "text-rose-400" : "text-emerald-400")}>
-                                KES {isStealthMode ? '****' : totalChamaArrears.toLocaleString()}
+                                {isStealthMode ? 'KES ****' : <AnimatedKes amount={totalChamaArrears} className="tabular-nums" />}
                             </p>
                             <p className="text-[10px] text-gray-500 mt-0.5">{totalChamaArrears > 0 ? `${skippedMembersCount} members behind` : "All accounts square"}</p>
                         </div>
@@ -2587,7 +2603,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     const totalSeasonGWs = Math.max(1, 38 - effectiveLeagueStart + 1);
                     const vaultRatePerGW = totalSecured > 0
                         ? totalSecured * (Number(rules.vault || 30) / 100)
-                        : (Number(rules.vault || 30) / 100) * (paidMembers.length || 8) * (gameweekStake || 200);
+                        : (Number(rules.vault || 30) / 100) * paidMembers.length * (gameweekStake || 0);
                     const completedSeasonGws = effectiveGw >= effectiveLeagueStart
                         ? Math.max(0, effectiveGw - effectiveLeagueStart + (isCurrentEventFinished ? 1 : 0))
                         : 0;
@@ -2618,12 +2634,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <div className="flex gap-4">
                                     <div className="text-right">
                                         <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Current</p>
-                                        <p className="text-xl font-black text-emerald-400 tabular-nums">KES {isStealthMode ? '****' : currentVault.toLocaleString()}</p>
+                                        <p className="text-xl font-black text-emerald-400 tabular-nums">{isStealthMode ? 'KES ****' : <AnimatedKes amount={currentVault} className="tabular-nums" />}</p>
                                     </div>
                                     <div className="w-px bg-white/5" />
                                     <div className="text-right">
                                         <p className="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">By GW38</p>
-                                        <p className="text-xl font-black text-amber-400 tabular-nums">KES {isStealthMode ? '****' : projectedFinal.toLocaleString()}</p>
+                                        <p className="text-xl font-black text-amber-400 tabular-nums">{isStealthMode ? 'KES ****' : <AnimatedKes amount={projectedFinal} className="tabular-nums" />}</p>
                                     </div>
                                 </div>
                             </div>

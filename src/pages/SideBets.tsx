@@ -456,7 +456,7 @@ export default function SideBets() {
                     readBy: [],
                 });
             }
-            toast.info('Cancellation request declined.');
+            toast('Cancellation request declined.', { icon: 'ℹ️' });
         } catch (_e) {
             toast.error('Failed to decline request.');
         }
@@ -470,7 +470,7 @@ export default function SideBets() {
                 cancelRequestedBy: null,
                 cancelRequestedByName: null,
             });
-            toast.info('Cancellation request withdrawn.');
+            toast('Cancellation request withdrawn.', { icon: 'ℹ️' });
         } catch (_e) {
             toast.error('Failed to withdraw request.');
         }
