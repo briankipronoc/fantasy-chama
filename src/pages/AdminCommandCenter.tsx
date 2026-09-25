@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 
 import { useNavigate, Link } from "react-router-dom";
@@ -138,18 +138,27 @@ export default function AdminCommandCenter() {
   const gwLedgerScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!gwLedgerScrollRef.current || !(currentGwNumber || firestoreGw)) return;
-    const gwNum = currentGwNumber || firestoreGw || 1;
-    const target = gwLedgerScrollRef.current.querySelector(`[data-gw="${gwNum}"]`) as HTMLElement | null;
-    if (target) {
-      // Center the current GW chip in the scroll container
-      const container = gwLedgerScrollRef.current;
-      const targetLeft = target.offsetLeft;
-      const containerWidth = container.clientWidth;
-      const scrollTo = targetLeft - containerWidth / 2 + target.clientWidth / 2;
-      container.scrollTo({ left: Math.max(0, scrollTo), behavior: 'smooth' });
-    }
-  }, [currentGwNumber, firestoreGw]);
+    const scrollLedger = () => {
+      if (!gwLedgerScrollRef.current) return;
+      const targetGw = (isCurrentEventFinished && currentGwNumber) ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
+      const target = gwLedgerScrollRef.current.querySelector(`[data-gw="${targetGw}"]`) as HTMLElement | null;
+      if (target) {
+        const container = gwLedgerScrollRef.current;
+        const targetLeft = target.offsetLeft;
+        const containerWidth = container.clientWidth;
+        const scrollTo = targetLeft - containerWidth / 2 + target.clientWidth / 2;
+        container.scrollTo({ left: Math.max(0, scrollTo), behavior: 'smooth' });
+      }
+    };
+    const t1 = setTimeout(scrollLedger, 100);
+    const t2 = setTimeout(scrollLedger, 400);
+    const t3 = setTimeout(scrollLedger, 900);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [currentGwNumber, firestoreGw, isCurrentEventFinished]);
 
   const handleNudge = async () => {
     if (!activeLeagueId) return;
@@ -3697,10 +3706,10 @@ burstFrame();
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-600 dark:text-[#FBBF24] mb-2">
                       Chairman priorities
                     </p>
-                    <h3 className="fc-command-board-title fc-command-board-title-heading text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm" style={{ color: '#1f2937' }}>
+                    <h3 className="fc-command-board-title fc-command-board-title-heading text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm text-slate-900 dark:text-white">
                       Priority Actions
                     </h3>
-                    <p className="fc-command-board-copy text-sm md:text-base mt-2 max-w-xl mx-auto leading-relaxed" style={{ color: '#334155' }}>
+                    <p className="fc-command-board-copy text-sm md:text-base mt-2 max-w-xl mx-auto leading-relaxed text-slate-600 dark:text-slate-300">
                       Resolve the highest-risk items first, then move into the ledger and finance queues.
                     </p>
                   </div>
@@ -4012,116 +4021,132 @@ burstFrame();
                   </span>
                 </div>
               </div>
-              <div ref={gwLedgerScrollRef} className="flex md:justify-center gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-                {Array.from({ length: 38 - effectiveStartGw + 1 }, (_, i) => effectiveStartGw + i)
-                  .filter(gw => gw <= Math.max(effectiveStartGw, nextPlayableGw))
-                  .map((gw) => {
+              <div ref={gwLedgerScrollRef} className="flex gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => {
+                  const isKickoffStart = gw === effectiveStartGw && effectiveStartGw > 1;
+                  const isPreLeague = effectiveStartGw > 1 && gw < effectiveStartGw;
                   const approvedPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'approved'
                   );
                   const pendingPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'awaiting_approval'
                   );
-                  const isPreLeague = effectiveStartGw > 1 && gw < effectiveStartGw;
-                  const isForfeited = !isPreLeague && (
+                  const isForfeited = isPreLeague || (
                     pendingPayouts.some((p) => Number(p.gw) === gw && p.status === 'forfeited') ||
                     (leagueSettings?.forfeitedGws || []).includes(gw)
                   );
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
                   const isNextPending = isCurrentEventFinished && gw === nextPlayableGw;
-                  const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isCurrent && !isNextPending && gw < (currentGwNumber || firestoreGw || 99);
+                  const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isPreLeague && !isCurrent && !isNextPending && gw < (currentGwNumber || firestoreGw || 99);
+                  const isUpcomingFuture = gw > nextPlayableGw;
+
                   return (
-                    <button
-                      key={gw}
-                      type="button"
-                      data-gw={gw}
-                      title={
-                        isPreLeague
-                          ? `GW${gw} occurred before league start (GW${effectiveStartGw})`
-                          : isForfeited
-                          ? `GW${gw} is forfeited (no play) — click to manage`
-                          : approvedPayout
-                          ? `GW${gw} won by ${approvedPayout.winnerName} — click to view`
-                          : pendingPayout
-                          ? `GW${gw} payout pending approval — click to view`
-                          : isNextPending
-                          ? `GW${gw} is the upcoming round (pending kickoff)`
-                          : isSkipped
-                          ? `GW${gw} is unsettled — click to forfeit or resolve`
-                          : isCurrent
-                          ? `GW${gw} is currently live`
-                          : undefined
-                      }
-                      onClick={() => {
-                        setSelectedGwForAction(gw);
-                        setShowGwActionModal(true);
-                      }}
-                      className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all min-w-[64px] text-left cursor-pointer ${
-                        approvedPayout
-                          ? 'border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/70 hover:bg-emerald-500/20'
-                          : pendingPayout
-                          ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
-                          : isForfeited
-                          ? 'border-slate-300 dark:border-white/10 bg-white dark:bg-black/40 hover:border-slate-400 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/5 opacity-90 text-slate-800 dark:text-gray-200 shadow-sm'
-                          : isNextPending
-                          ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
-                          : isCurrent
-                          ? 'border-[#10B981]/50 bg-[#10B981]/10 ring-1 ring-[#10B981]/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                          : isSkipped
-                          ? 'border-amber-500/35 bg-amber-500/10 hover:border-amber-500/65 hover:bg-amber-500/20 animate-pulse'
-                          : 'border-slate-200 dark:border-white/5 bg-transparent hover:border-slate-300 dark:hover:border-white/15'
-                      }`}
-                    >
-                      <span className={`text-[9px] font-black uppercase tracking-widest ${
-                        isNextPending ? 'text-[#FBBF24] font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isForfeited ? 'text-slate-700 dark:text-gray-300 font-bold' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
-                      }`}>GW{gw}</span>
-                      <span className={`text-[8px] font-bold ${
-                        approvedPayout
-                          ? (Number(approvedPayout.amount || 0) === 0 ? 'text-amber-500 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-400')
-                          : pendingPayout
-                          ? 'text-amber-500 dark:text-[#FBBF24]'
-                          : isForfeited
-                          ? 'text-rose-600 dark:text-rose-400 font-black'
-                          : isNextPending
-                          ? 'text-[#FBBF24] font-black'
-                          : isCurrent
-                          ? 'text-[#10B981] font-black'
-                          : isSkipped
-                          ? 'text-amber-500 dark:text-amber-400'
-                          : 'text-slate-400 dark:text-gray-600'
-                      }`}>
-                        {approvedPayout
-                          ? (Number(approvedPayout.amount || 0) === 0 ? '🏆 Crown' : '✓ Paid')
-                          : pendingPayout
-                          ? '⏳ Pending'
-                          : isForfeited
-                          ? '🚫 Void'
-                          : isNextPending
-                          ? '⏳ Pending'
-                          : isCurrent
-                          ? (isCurrentEventFinished ? 'Final' : 'Live')
-                          : isSkipped
-                          ? '⚠ Skip'
-                          : '—'}
-                      </span>
-                      {approvedPayout && (
-                        <span className="text-[8px] text-emerald-600 dark:text-emerald-300 font-bold truncate max-w-[56px] text-center">
-                          {approvedPayout.winnerName?.split(' ')[0]}
+                    <Fragment key={gw}>
+                      {isKickoffStart && (
+                        <div className="flex items-center gap-1.5 px-3 py-2 my-auto shrink-0 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider select-none shadow-xs">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Chama Kickoff 🚀 (GW{effectiveStartGw})</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        data-gw={gw}
+                        title={
+                          isPreLeague
+                            ? `GW${gw} occurred before league start (GW${effectiveStartGw}) — Voided`
+                            : isForfeited
+                            ? `GW${gw} is forfeited (no play) — click to manage`
+                            : approvedPayout
+                            ? `GW${gw} won by ${approvedPayout.winnerName} — click to view`
+                            : pendingPayout
+                            ? `GW${gw} payout pending approval — click to view`
+                            : isNextPending
+                            ? `GW${gw} is the upcoming round (pending kickoff)`
+                            : isSkipped
+                            ? `GW${gw} is unsettled — click to forfeit or resolve`
+                            : isCurrent
+                            ? `GW${gw} is currently live`
+                            : `GW${gw} upcoming round`
+                        }
+                        onClick={() => {
+                          setSelectedGwForAction(gw);
+                          setShowGwActionModal(true);
+                        }}
+                        className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all min-w-[64px] text-left cursor-pointer ${
+                          approvedPayout
+                            ? 'border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/70 hover:bg-emerald-500/20'
+                            : pendingPayout
+                            ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
+                            : isPreLeague || isForfeited
+                            ? 'border-slate-300 dark:border-white/10 bg-slate-100/70 dark:bg-black/40 opacity-75 hover:opacity-100 text-slate-600 dark:text-gray-400'
+                            : isNextPending
+                            ? 'border-[#FBBF24]/50 bg-[#FBBF24]/15 ring-1 ring-[#FBBF24]/30 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
+                            : isCurrent
+                            ? 'border-[#10B981]/50 bg-[#10B981]/10 ring-1 ring-[#10B981]/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                            : isSkipped
+                            ? 'border-amber-500/35 bg-amber-500/10 hover:border-amber-500/65 hover:bg-amber-500/20 animate-pulse'
+                            : 'border-slate-200 dark:border-white/5 bg-transparent hover:border-slate-300 dark:hover:border-white/15 opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${
+                          isNextPending ? 'text-[#FBBF24] font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isPreLeague || isForfeited ? 'text-slate-500 dark:text-gray-400' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
+                        }`}>GW{gw}</span>
+                        <span className={`text-[8px] font-bold ${
+                          approvedPayout
+                            ? (Number(approvedPayout.amount || 0) === 0 ? 'text-amber-500 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-400')
+                            : pendingPayout
+                            ? 'text-amber-500 dark:text-[#FBBF24]'
+                            : isPreLeague || isForfeited
+                            ? 'text-rose-600 dark:text-rose-400 font-bold'
+                            : isNextPending
+                            ? 'text-[#FBBF24] font-black'
+                            : isCurrent
+                            ? 'text-[#10B981] font-black'
+                            : isSkipped
+                            ? 'text-amber-500 dark:text-amber-400'
+                            : 'text-slate-400 dark:text-gray-600'
+                        }`}>
+                          {approvedPayout
+                            ? (Number(approvedPayout.amount || 0) === 0 ? '🏆 Crown' : '✓ Paid')
+                            : pendingPayout
+                            ? '⏳ Pending'
+                            : isPreLeague
+                            ? '🚫 Void'
+                            : isForfeited
+                            ? '🚫 Void'
+                            : isNextPending
+                            ? '⏳ Pending'
+                            : isCurrent
+                            ? (isCurrentEventFinished ? 'Final' : 'Live')
+                            : isSkipped
+                            ? '⚠ Skip'
+                            : 'Upcoming'}
                         </span>
-                      )}
-                      {isForfeited && (
-                        <span className="text-[7px] text-slate-600 dark:text-gray-400 font-extrabold uppercase tracking-widest">Forfeited</span>
-                      )}
-                      {isNextPending && (
-                        <span className="text-[7px] text-[#FBBF24] font-bold uppercase tracking-widest">Upcoming</span>
-                      )}
-                      {isSkipped && (
-                        <span className="text-[7px] text-amber-500 dark:text-amber-300 font-black uppercase tracking-widest">Tap</span>
-                      )}
-                      {isCurrent && !isCurrentEventFinished && (
-                        <span className="text-[7px] text-[#10B981] font-bold uppercase tracking-widest">Active</span>
-                      )}
-                    </button>
+                        {approvedPayout && (
+                          <span className="text-[8px] text-emerald-600 dark:text-emerald-300 font-bold truncate max-w-[56px] text-center">
+                            {approvedPayout.winnerName?.split(' ')[0]}
+                          </span>
+                        )}
+                        {isPreLeague && (
+                          <span className="text-[7px] text-slate-500 dark:text-gray-500 font-bold uppercase tracking-widest">Pre-Chama</span>
+                        )}
+                        {isForfeited && !isPreLeague && (
+                          <span className="text-[7px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-widest">Forfeited</span>
+                        )}
+                        {isNextPending && (
+                          <span className="text-[7px] text-[#FBBF24] font-bold uppercase tracking-widest">Next GW</span>
+                        )}
+                        {isSkipped && (
+                          <span className="text-[7px] text-amber-500 dark:text-amber-300 font-black uppercase tracking-widest">Tap</span>
+                        )}
+                        {isCurrent && !isCurrentEventFinished && (
+                          <span className="text-[7px] text-[#10B981] font-bold uppercase tracking-widest">Active</span>
+                        )}
+                        {isUpcomingFuture && (
+                          <span className="text-[7px] text-slate-400 dark:text-gray-600 font-medium">--</span>
+                        )}
+                      </button>
+                    </Fragment>
                   );
                 })}
               </div>

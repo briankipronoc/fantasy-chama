@@ -2787,16 +2787,35 @@ html.stealth .fc-card:hover {
 
 /* Brushed Titanium / Silver Badges & Chips */
 [data-theme="stealth"] .fc-metallic-badge,
-html.stealth .fc-metallic-badge {
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%) !important;
-  border: 1px solid rgba(203, 213, 225, 0.35) !important;
+[data-theme="stealth"] .fc-metallic-badge *,
+html.stealth .fc-metallic-badge,
+html.stealth .fc-metallic-badge * {
   color: #f8fafc !important;
 }
 
+[data-theme="stealth"] .fc-metallic-badge,
+html.stealth .fc-metallic-badge {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%) !important;
+  border: 1px solid rgba(203, 213, 225, 0.35) !important;
+}
+
 [data-theme="stealth"] .fc-frosty-title,
-html.stealth .fc-frosty-title {
+[data-theme="stealth"] .fc-command-board-title,
+[data-theme="stealth"] .fc-command-board-title-heading,
+[data-theme="stealth"] .fc-vault-explainer-title,
+html.stealth .fc-frosty-title,
+html.stealth .fc-command-board-title,
+html.stealth .fc-command-board-title-heading,
+html.stealth .fc-vault-explainer-title {
   color: #f8fafc !important;
   letter-spacing: 0.04em;
+}
+
+[data-theme="stealth"] .fc-command-board-copy,
+[data-theme="stealth"] .fc-vault-explainer-copy,
+html.stealth .fc-command-board-copy,
+html.stealth .fc-vault-explainer-copy {
+  color: #cbd5e1 !important;
 }
 
 [data-theme="stealth"] .fc-meta-label,
@@ -2838,4 +2857,5 @@ html.stealth nav {
   background: rgba(8, 11, 16, 0.95) !important;
   border-top: 1px solid rgba(148, 163, 184, 0.2) !important;
 }
+
 
