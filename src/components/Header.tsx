@@ -361,9 +361,9 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
             {!shouldHideExtraControls && (
                 <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
 
-                    {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
+                    {/* Theme Toggle — 4-way pill: Dark | Stealth | OS / System | Light */}
                     <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
-                        {(['dark', 'system', 'light'] as const).map((mode) => (
+                        {(['dark', 'stealth', 'system', 'light'] as const).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setTheme(mode)}
@@ -371,22 +371,26 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     currentTheme === mode
                                         ? mode === 'dark' 
                                             ? 'bg-slate-800 text-white shadow-sm'
-                                            : mode === 'light' 
-                                                ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
-                                                : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                                            : mode === 'stealth'
+                                                ? 'bg-zinc-800 text-slate-100 border border-slate-400/40 shadow-sm'
+                                                : mode === 'light' 
+                                                    ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
+                                                    : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
                                 }`}
-                                title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
+                                title={mode === 'dark' ? 'Dark theme' : mode === 'stealth' ? 'Stealth Tactical theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
                                 aria-label={`Set theme to ${mode}`}
                             >
                                 {mode === 'dark' ? (
                                     <Moon className="w-3 h-3 text-indigo-400" />
+                                ) : mode === 'stealth' ? (
+                                    <Shield className="w-3 h-3 text-emerald-400" />
                                 ) : mode === 'light' ? (
                                     <Sun className="w-3 h-3 text-amber-500" />
                                 ) : (
                                     <Laptop className="w-3 h-3 text-emerald-500" />
                                 )}
-                                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode === 'stealth' ? 'Stealth' : mode}</span>
                             </button>
                         ))}
                     </div>

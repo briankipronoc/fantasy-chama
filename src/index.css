@@ -2799,16 +2799,62 @@ html.stealth .fc-metallic-badge {
   border: 1px solid rgba(203, 213, 225, 0.35) !important;
 }
 
+[data-theme="stealth"] h1,
+[data-theme="stealth"] h2,
+[data-theme="stealth"] h3,
+[data-theme="stealth"] h4,
+[data-theme="stealth"] h5,
+[data-theme="stealth"] h6,
 [data-theme="stealth"] .fc-frosty-title,
+[data-theme="stealth"] .fc-dashboard-header-title,
 [data-theme="stealth"] .fc-command-board-title,
 [data-theme="stealth"] .fc-command-board-title-heading,
 [data-theme="stealth"] .fc-vault-explainer-title,
+[data-theme="stealth"] .fc-header-stage h1,
+[data-theme="stealth"] .fc-header-stage h2,
+[data-theme="stealth"] header h1,
+[data-theme="stealth"] header h2,
+[data-theme="stealth"] header h3,
+[data-theme="stealth"] .fc-metallic-badge,
+[data-theme="stealth"] .fc-metallic-badge *,
+html.stealth h1,
+html.stealth h2,
+html.stealth h3,
+html.stealth h4,
+html.stealth h5,
+html.stealth h6,
 html.stealth .fc-frosty-title,
+html.stealth .fc-dashboard-header-title,
 html.stealth .fc-command-board-title,
 html.stealth .fc-command-board-title-heading,
-html.stealth .fc-vault-explainer-title {
+html.stealth .fc-vault-explainer-title,
+html.stealth .fc-header-stage h1,
+html.stealth .fc-header-stage h2,
+html.stealth header h1,
+html.stealth header h2,
+html.stealth header h3,
+html.stealth .fc-metallic-badge,
+html.stealth .fc-metallic-badge * {
   color: #f8fafc !important;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+}
+
+/* Ensure dark-text utility classes inside stealth theme render as crisp white/silver */
+[data-theme="stealth"] .text-slate-900,
+[data-theme="stealth"] .text-slate-800,
+[data-theme="stealth"] .text-slate-700,
+[data-theme="stealth"] .text-gray-900,
+[data-theme="stealth"] .text-gray-800,
+[data-theme="stealth"] .text-zinc-900,
+[data-theme="stealth"] .text-zinc-800,
+html.stealth .text-slate-900,
+html.stealth .text-slate-800,
+html.stealth .text-slate-700,
+html.stealth .text-gray-900,
+html.stealth .text-gray-800,
+html.stealth .text-zinc-900,
+html.stealth .text-zinc-800 {
+  color: #f8fafc !important;
 }
 
 [data-theme="stealth"] .fc-command-board-copy,
