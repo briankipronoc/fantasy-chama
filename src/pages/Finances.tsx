@@ -337,7 +337,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Number.isFinite(value) && value > 0 ? Math.min(minGw, value) : minGw;
     }, 999);
     
-    const leagueStartGw = Number(startGw || (firstTransactionGw !== 999 ? firstTransactionGw : (currentGwNumber || 1)));
+    const leagueStartGw = Number(startGw || (currentGwNumber && currentGwNumber > 0 ? currentGwNumber : 5));
     
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     

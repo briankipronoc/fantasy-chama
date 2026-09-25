@@ -3,7 +3,7 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight, Copy, PhoneCall } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -103,7 +103,17 @@ export default function MemberDashboard() {
     const listenToLeagueTransactions = useStore(state => state.listenToLeagueTransactions);
     const transactions = useStore(state => state.transactions);
     const [showPochiInstructions, setShowPochiInstructions] = useState(false);
+    const [copiedPochi, setCopiedPochi] = useState(false);
     const [isNudgingHQ, setIsNudgingHQ] = useState(false);
+
+    const handleCopyPochiNumber = () => {
+        if (!payoutDestinationPhone) return;
+        navigator.clipboard.writeText(payoutDestinationPhone);
+        setCopiedPochi(true);
+        haptics.success();
+        showToast(`Copied Chairman's Pochi number (${payoutDestinationPhone})!`, 'success');
+        setTimeout(() => setCopiedPochi(false), 2500);
+    };
 
 
     const handleNudgeHQ = async () => {
@@ -2290,32 +2300,102 @@ export default function MemberDashboard() {
                                         <span className="text-white text-xs font-bold tracking-widest uppercase">KES</span>
                                     </div>
                                     <button
-                                        onClick={() => setShowPochiInstructions(!showPochiInstructions)}
-                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2"
+                                        onClick={() => {
+                                            setShowPochiInstructions(!showPochiInstructions);
+                                            haptics.selection();
+                                        }}
+                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
                                     >
                                         <Banknote className="w-5 h-5 group-hover:-rotate-6 transition-transform" />
                                         Pay via Pochi La Biashara
                                     </button>
 
                                     {showPochiInstructions && (
-                                        <div className="bg-[#1c1a09] border border-[#FBBF24]/30 rounded-xl p-3 text-left animate-in fade-in zoom-in-95 duration-200 mt-1">
-                                            <p className="text-[11px] font-bold text-[#FBBF24] uppercase tracking-widest mb-1.5 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Pochi Instructions</p>
-                                            <ol className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-gray-500">
-                                                <li>Go to M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
-                                                <li>Send to Mobile No. <strong>{payoutDestinationPhone}</strong></li>
-                                                <li>Amount: <strong>KES {gameweekStake}</strong></li>
-                                            </ol>
+                                        <div className="bg-[#141a21] border border-[#FBBF24]/30 rounded-2xl p-4 text-left animate-in fade-in zoom-in-95 duration-200 mt-2 shadow-2xl space-y-3.5">
+                                            <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
+                                                <p className="text-[11px] font-black text-[#FBBF24] uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Smartphone className="w-3.5 h-3.5 text-[#FBBF24]" /> Pochi La Biashara
+                                                </p>
+                                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    Direct Transfer
+                                                </span>
+                                            </div>
+
+                                            {/* Highlighted Pastable / Hold to copy number box */}
+                                            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 flex items-center justify-between gap-3 shadow-inner">
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mb-0.5">
+                                                        Chairman Pochi # (Tap / Hold to copy)
+                                                    </p>
+                                                    <input
+                                                        type="text"
+                                                        readOnly
+                                                        value={payoutDestinationPhone}
+                                                        onClick={handleCopyPochiNumber}
+                                                        title="Tap to copy or long press to select"
+                                                        className="w-full bg-transparent text-lg sm:text-xl font-black text-white font-mono tracking-wider select-all cursor-pointer focus:outline-hidden p-0 border-none m-0"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCopyPochiNumber}
+                                                    className={clsx(
+                                                        "px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95 shadow-md",
+                                                        copiedPochi
+                                                            ? "bg-emerald-400 text-black border border-emerald-300 font-extrabold"
+                                                            : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
+                                                    )}
+                                                >
+                                                    {copiedPochi ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                                                </button>
+                                            </div>
+
+                                            {/* Simple Step Directions */}
+                                            <div className="rounded-xl bg-black/30 border border-white/5 p-3">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Instructions</p>
+                                                <ol className="text-xs text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-amber-400/80 marker:font-bold">
+                                                    <li>Go to M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
+                                                    <li>Paste/Enter Number: <strong className="text-white font-mono select-all">{payoutDestinationPhone}</strong></li>
+                                                    <li>Amount: <strong className="text-emerald-400">KES {gameweekStake.toLocaleString()}</strong></li>
+                                                    <li>Enter M-Pesa PIN &amp; confirm</li>
+                                                </ol>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2 flex-wrap">
+                                                <a
+                                                    href={`tel:${payoutDestinationPhone}`}
+                                                    className="text-[11px] font-bold text-slate-300 hover:text-white flex items-center gap-1 transition-colors py-1 cursor-pointer"
+                                                >
+                                                    <PhoneCall className="w-3 h-3 text-emerald-400" /> Dial Number
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowClaimModal(true); setClaimSubmitted(false); setClaimReceiptCode(''); }}
+                                                    className="text-[11px] text-[#FBBF24] hover:text-amber-300 underline underline-offset-2 transition-colors flex items-center gap-1 font-black cursor-pointer"
+                                                >
+                                                    Claim Receipt / Notify Chairman →
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
 
-                                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-600 dark:text-gray-400">
-                                        Destination: <span className="font-black text-[#10B981]">{payoutDestinationPhone}</span>
-                                    </div>
+                                    {!showPochiInstructions && (
+                                        <div 
+                                            onClick={handleCopyPochiNumber}
+                                            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-400 flex items-center justify-between gap-2 cursor-pointer hover:border-emerald-500/30 transition-all"
+                                            title="Tap to copy destination number"
+                                        >
+                                            <span>Destination: <strong className="font-mono text-[#10B981]">{payoutDestinationPhone}</strong></span>
+                                            <span className="text-[9px] font-bold text-slate-500 flex items-center gap-1 hover:text-emerald-400">
+                                                <Copy className="w-2.5 h-2.5" /> Tap to copy
+                                            </span>
+                                        </div>
+                                    )}
 
                                     <div className="flex justify-end mt-1">
                                         <button
                                             onClick={() => { setShowClaimModal(true); setClaimSubmitted(false); setClaimReceiptCode(''); }}
-                                            className="text-[11px] text-[#FBBF24]/80 hover:text-[#FBBF24] underline underline-offset-2 transition-colors flex items-center gap-1 font-bold"
+                                            className="text-[11px] text-[#FBBF24]/80 hover:text-[#FBBF24] underline underline-offset-2 transition-colors flex items-center gap-1 font-bold cursor-pointer"
                                         >
                                             Claim M-Pesa Receipt via WhatsApp →
                                         </button>
