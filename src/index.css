@@ -2787,10 +2787,12 @@ html.stealth .fc-card:hover {
 
 /* Brushed Titanium / Silver Badges & Chips */
 [data-theme="stealth"] .fc-metallic-badge,
+[data-theme="stealth"] .fc-metallic-badge,
 [data-theme="stealth"] .fc-metallic-badge *,
 html.stealth .fc-metallic-badge,
 html.stealth .fc-metallic-badge * {
   color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
 }
 
 [data-theme="stealth"] .fc-metallic-badge,
@@ -2815,8 +2817,7 @@ html.stealth .fc-metallic-badge {
 [data-theme="stealth"] header h1,
 [data-theme="stealth"] header h2,
 [data-theme="stealth"] header h3,
-[data-theme="stealth"] .fc-metallic-badge,
-[data-theme="stealth"] .fc-metallic-badge *,
+[data-theme="stealth"] header span,
 html.stealth h1,
 html.stealth h2,
 html.stealth h3,
@@ -2833,10 +2834,15 @@ html.stealth .fc-header-stage h2,
 html.stealth header h1,
 html.stealth header h2,
 html.stealth header h3,
-html.stealth .fc-metallic-badge,
-html.stealth .fc-metallic-badge * {
-  color: #f8fafc !important;
-  letter-spacing: 0.03em;
+html.stealth header span {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  text-shadow: none !important;
+  filter: none !important;
+  letter-spacing: 0.02em;
 }
 
 /* Ensure dark-text utility classes inside stealth theme render as crisp white/silver */
@@ -2855,6 +2861,7 @@ html.stealth .text-gray-800,
 html.stealth .text-zinc-900,
 html.stealth .text-zinc-800 {
   color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
 }
 
 [data-theme="stealth"] .fc-command-board-copy,

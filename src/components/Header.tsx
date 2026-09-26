@@ -290,7 +290,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     title="Switch to your Member Hub view"
                                 >
                                     <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-700 dark:text-gray-300 group-hover:text-emerald-400 transition-colors">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-800 dark:text-gray-200 group-hover:text-emerald-400 transition-colors">
                                         Chairman Hub
                                     </span>
                                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
@@ -308,7 +308,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     title="Return to Chairman Command Center"
                                 >
                                     <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-700 dark:text-gray-300 group-hover:text-amber-400 transition-colors">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-400 transition-colors">
                                         Member Hub
                                     </span>
                                     <span className="text-[9px] font-bold text-amber-400 bg-amber-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
@@ -322,7 +322,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     ) : (
                                         <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
                                     )}
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-900 dark:text-gray-100">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-800 dark:text-gray-100">
                                         {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
                                     </span>
                                 </span>
