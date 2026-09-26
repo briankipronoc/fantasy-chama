@@ -275,10 +275,10 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                 <div className={clsx('fc-header-stage flex items-center gap-3 md:gap-4 min-w-0 flex-1', headerMotion)}>
                     <UserAvatar name={fullDisplayName} size="lg" />
                     <div className="min-w-0 flex-1">
-                        <h1 className="fc-frosty-title text-lg sm:text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2 truncate text-slate-900 dark:text-white">
+                        <h1 className="fc-frosty-title text-base sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tight flex items-center gap-2 leading-snug break-words text-slate-900 dark:text-white">
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
-                        <div className="flex items-center gap-2 mt-1 truncate">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {isEmailAuthenticatedChairman && role === 'admin' ? (
                                 <button
                                     type="button"
@@ -290,7 +290,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     title="Switch to your Member Hub view"
                                 >
                                     <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-800 dark:text-gray-200 group-hover:text-emerald-400 transition-colors">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-emerald-400 transition-colors">
                                         Chairman Hub
                                     </span>
                                     <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
@@ -308,7 +308,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     title="Return to Chairman Command Center"
                                 >
                                     <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-400 transition-colors">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-400 transition-colors">
                                         Member Hub
                                     </span>
                                     <span className="text-[9px] font-bold text-amber-400 bg-amber-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
@@ -322,7 +322,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     ) : (
                                         <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
                                     )}
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase truncate font-bold text-slate-800 dark:text-gray-100">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-bold text-slate-800 dark:text-gray-100">
                                         {subtitle || (role === 'admin' ? 'Chairman Hub' : 'Member Hub')}
                                     </span>
                                 </span>
@@ -361,9 +361,9 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
             {!shouldHideExtraControls && (
                 <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
 
-                    {/* Theme Toggle — 4-way pill: Dark | Stealth | OS / System | Light */}
+                    {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
                     <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
-                        {(['dark', 'stealth', 'system', 'light'] as const).map((mode) => (
+                        {(['dark', 'system', 'light'] as const).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setTheme(mode)}
@@ -371,26 +371,22 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     currentTheme === mode
                                         ? mode === 'dark' 
                                             ? 'bg-slate-800 text-white shadow-sm'
-                                            : mode === 'stealth'
-                                                ? 'bg-zinc-800 text-slate-100 border border-slate-400/40 shadow-sm'
-                                                : mode === 'light' 
-                                                    ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
-                                                    : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                                            : mode === 'light' 
+                                                ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
+                                                : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
                                 }`}
-                                title={mode === 'dark' ? 'Dark theme' : mode === 'stealth' ? 'Stealth Tactical theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
+                                title={mode === 'dark' ? 'Dark theme' : mode === 'light' ? 'Light theme' : 'Default system settings'}
                                 aria-label={`Set theme to ${mode}`}
                             >
                                 {mode === 'dark' ? (
                                     <Moon className="w-3 h-3 text-indigo-400" />
-                                ) : mode === 'stealth' ? (
-                                    <Shield className="w-3 h-3 text-emerald-400" />
                                 ) : mode === 'light' ? (
                                     <Sun className="w-3 h-3 text-amber-500" />
                                 ) : (
                                     <Laptop className="w-3 h-3 text-emerald-500" />
                                 )}
-                                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode === 'stealth' ? 'Stealth' : mode}</span>
+                                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
                             </button>
                         ))}
                     </div>

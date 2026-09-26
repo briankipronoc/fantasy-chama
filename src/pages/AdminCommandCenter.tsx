@@ -4043,9 +4043,11 @@ burstFrame();
                   return (
                     <Fragment key={gw}>
                       {isKickoffStart && (
-                        <div className="flex items-center gap-1.5 px-3 py-2 my-auto shrink-0 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider select-none shadow-xs">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>Chama Kickoff 🚀 (GW{effectiveStartGw})</span>
+                        <div className="flex items-center justify-center shrink-0 px-2 my-auto select-none">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Kickoff · GW{effectiveStartGw}</span>
+                          </div>
                         </div>
                       )}
                       <button

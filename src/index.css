@@ -682,37 +682,49 @@
   [data-theme="light"] .fc-ledger-switch-track {
     color: #0f172a !important;
   }
-  /* Command board text - light and dark mode independent */
-  h3.fc-command-board-title,
-  h3.fc-command-board-title-heading,
-  .fc-command-board-title {
-    color: #1f2937 !important;
+  /* Command board text - light theme */
+  [data-theme="light"] h3.fc-command-board-title,
+  [data-theme="light"] h3.fc-command-board-title-heading,
+  [data-theme="light"] .fc-command-board-title,
+  [data-theme="light"] .fc-command-board-title-heading,
+  [data-theme="light"] .fc-vault-explainer-title {
+    color: #0f172a !important;
   }
-  .fc-command-board-title-heading {
-    color: #1f2937 !important;
+  [data-theme="light"] p.fc-command-board-copy,
+  [data-theme="light"] .fc-command-board-copy,
+  [data-theme="light"] .fc-vault-explainer-copy {
+    color: #475569 !important;
   }
-  p.fc-command-board-copy,
-  .fc-command-board-copy {
-    color: #334155 !important;
-  }
-  .fc-vault-explainer-title {
-    color: #1f2937 !important;
-  }
-  .fc-vault-explainer-copy {
-    color: #334155 !important;
-  }
-  /* Dark mode overrides */
+  /* Dark and Stealth mode overrides */
   [data-theme="dark"] h3.fc-command-board-title,
   [data-theme="dark"] h3.fc-command-board-title-heading,
   [data-theme="dark"] .fc-command-board-title,
   [data-theme="dark"] .fc-command-board-title-heading,
-  [data-theme="dark"] .fc-vault-explainer-title {
+  [data-theme="dark"] .fc-vault-explainer-title,
+  [data-theme="stealth"] h3.fc-command-board-title,
+  [data-theme="stealth"] h3.fc-command-board-title-heading,
+  [data-theme="stealth"] .fc-command-board-title,
+  [data-theme="stealth"] .fc-command-board-title-heading,
+  [data-theme="stealth"] .fc-vault-explainer-title,
+  html.stealth h3.fc-command-board-title,
+  html.stealth h3.fc-command-board-title-heading,
+  html.stealth .fc-command-board-title,
+  html.stealth .fc-command-board-title-heading,
+  html.stealth .fc-vault-explainer-title {
     color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
   }
   [data-theme="dark"] p.fc-command-board-copy,
   [data-theme="dark"] .fc-command-board-copy,
-  [data-theme="dark"] .fc-vault-explainer-copy {
-    color: #d1d5db !important;
+  [data-theme="dark"] .fc-vault-explainer-copy,
+  [data-theme="stealth"] p.fc-command-board-copy,
+  [data-theme="stealth"] .fc-command-board-copy,
+  [data-theme="stealth"] .fc-vault-explainer-copy,
+  html.stealth p.fc-command-board-copy,
+  html.stealth .fc-command-board-copy,
+  html.stealth .fc-vault-explainer-copy {
+    color: #e2e8f0 !important;
+    -webkit-text-fill-color: #e2e8f0 !important;
   }
   [data-theme="light"] .fc-command-board .text-gray-400,
   [data-theme="light"] .fc-command-board .text-gray-500,
@@ -2787,18 +2799,14 @@ html.stealth .fc-card:hover {
 
 /* Brushed Titanium / Silver Badges & Chips */
 [data-theme="stealth"] .fc-metallic-badge,
-[data-theme="stealth"] .fc-metallic-badge,
 [data-theme="stealth"] .fc-metallic-badge *,
 html.stealth .fc-metallic-badge,
 html.stealth .fc-metallic-badge * {
   color: #f8fafc !important;
   -webkit-text-fill-color: #f8fafc !important;
-}
-
-[data-theme="stealth"] .fc-metallic-badge,
-html.stealth .fc-metallic-badge {
-  background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%) !important;
-  border: 1px solid rgba(203, 213, 225, 0.35) !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
 }
 
 [data-theme="stealth"] h1,
