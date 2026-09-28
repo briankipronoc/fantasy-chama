@@ -28,6 +28,7 @@ interface SideBet {
     challenger: Participant;
     opponent: Participant;
     stake: number;
+    fundingMode?: 'post_match' | 'instant_escrow';
     status: 'pending_opponent' | 'pending_chairman' | 'active' | 'resolved' | 'cancelled';
     winnerId: string | null;
     winnerName: string | null;
@@ -92,6 +93,7 @@ export default function SideBets() {
     const [betTitle, setBetTitle] = useState('');
     const [betDescription, setBetDescription] = useState('');
     const [betStake, setBetStake] = useState('');
+    const [fundingMode, setFundingMode] = useState<'post_match' | 'instant_escrow'>('post_match');
     const [opponentId, setOpponentId] = useState('');
     const [selectedTeam, setSelectedTeam] = useState<'primary' | 'secondary'>('primary');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -187,6 +189,7 @@ export default function SideBets() {
                 opponentId: opponentIdClean,
                 stake: Number(stake) || 0,
                 amount: Number(stake) || 0,
+                fundingMode,
                 status: 'pending_opponent',
                 winnerId: null,
                 winnerName: null,
@@ -994,6 +997,46 @@ export default function SideBets() {
                                     className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"
                                 />
                             </div>
+
+                            {/* Settlement & Funding Method */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                    Settlement & Funding Method
+                                </label>
+                                <div className="grid grid-cols-2 gap-2 bg-[#161d24] p-1.5 rounded-xl border border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFundingMode('post_match')}
+                                        className={clsx(
+                                            "py-2.5 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
+                                            fundingMode === 'post_match'
+                                                ? "bg-amber-500 text-black font-black shadow-sm"
+                                                : "text-gray-400 hover:text-white"
+                                        )}
+                                    >
+                                        <span className="block font-bold">⏳ Post-Match</span>
+                                        <span className="block text-[9px] font-normal opacity-80 mt-0.5">Settle on GW end</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFundingMode('instant_escrow')}
+                                        className={clsx(
+                                            "py-2.5 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
+                                            fundingMode === 'instant_escrow'
+                                                ? "bg-amber-500 text-black font-black shadow-sm"
+                                                : "text-gray-400 hover:text-white"
+                                        )}
+                                    >
+                                        <span className="block font-bold">🔒 Wallet Escrow</span>
+                                        <span className="block text-[9px] font-normal opacity-80 mt-0.5">Deduct from wallet</span>
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1 font-medium">
+                                    {fundingMode === 'post_match'
+                                        ? 'Wager is active immediately without upfront deduction. Both managers settle from wallets upon gameweek resolution.'
+                                        : 'Stakes are held in escrow immediately from manager wallets upon duel confirmation.'}
+                                </p>
+                            </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">Pick Rival Manager</label>
                                 <button
@@ -1249,13 +1292,21 @@ function BetCard({
                 </div>
 
                 {/* Stake + Endorsers + Winner */}
-                <div className="flex items-center justify-between mb-4 pt-3 border-t border-white/5">
-                    <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-between mb-4 pt-3 border-t border-white/5 flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-bold text-gray-400">Pot:</span>
                         <span className="text-base font-black text-amber-400 tabular-nums">
                             KES {(bet.stake * 2).toLocaleString()}
                         </span>
                         <span className="text-[10px] text-gray-500">({bet.stake.toLocaleString()} each)</span>
+                        <span className={clsx(
+                            "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ml-1",
+                            bet.fundingMode === 'instant_escrow'
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-white/5 text-gray-400 border-white/10"
+                        )}>
+                            {bet.fundingMode === 'instant_escrow' ? '🔒 Escrow' : '⏳ Post-Match'}
+                        </span>
                     </div>
                     <div className="flex items-center gap-2">
                         {bet.endorsers.length > 0 && (
