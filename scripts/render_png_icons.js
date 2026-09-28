@@ -10,20 +10,25 @@ const publicDir = path.resolve(__dirname, '../public');
 
 async function render() {
   const browser = await chromium.launch();
-  
-  // 512x512
-  const page512 = await browser.newPage({ viewport: { width: 512, height: 512, deviceScaleFactor: 1 } });
   const svgPath = path.join(publicDir, 'favicon.svg');
-  await page512.goto(`file://${svgPath}`);
-  await page512.screenshot({ path: path.join(publicDir, 'pwa-512x512.png'), type: 'png' });
-  await page512.screenshot({ path: path.join(publicDir, 'apple-touch-icon.png'), type: 'png' });
-  console.log('Saved pwa-512x512.png and apple-touch-icon.png');
+  
+  const sizes = [
+    { name: 'pwa-512x512.png', size: 512 },
+    { name: 'pwa-192x192.png', size: 192 },
+    { name: 'apple-touch-icon.png', size: 180 },
+    { name: 'apple-touch-icon-180x180.png', size: 180 },
+    { name: 'apple-touch-icon-167x167.png', size: 167 },
+    { name: 'apple-touch-icon-152x152.png', size: 152 },
+    { name: 'apple-touch-icon-120x120.png', size: 120 },
+  ];
 
-  // 192x192
-  const page192 = await browser.newPage({ viewport: { width: 192, height: 192, deviceScaleFactor: 1 } });
-  await page192.goto(`file://${svgPath}`);
-  await page192.screenshot({ path: path.join(publicDir, 'pwa-192x192.png'), type: 'png' });
-  console.log('Saved pwa-192x192.png');
+  for (const { name, size } of sizes) {
+    const page = await browser.newPage({ viewport: { width: size, height: size, deviceScaleFactor: 1 } });
+    await page.goto(`file://${svgPath}`);
+    await page.screenshot({ path: path.join(publicDir, name), type: 'png' });
+    await page.close();
+    console.log(`Saved ${name} (${size}x${size})`);
+  }
 
   await browser.close();
   console.log('All icons generated successfully!');
@@ -33,3 +38,4 @@ render().catch(err => {
   console.error('Error rendering icons:', err);
   process.exit(1);
 });
+

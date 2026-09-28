@@ -1784,25 +1784,17 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             </span>
                                         </div>
                                         <div className="mt-1">
-                                            <span className={clsx(
-                                                "text-[8px] sm:text-[9px] uppercase font-black tracking-widest px-1.5 sm:px-2 py-0.5 rounded-md border inline-block",
-                                                isAccrued
-                                                    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                                                    : "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                                            )}>
-                                                {isAccrued ? 'Live Accrued' : 'Est. Final'}
-                                            </span>
                                             <p className={clsx(
-                                                "mt-1.5 text-base sm:text-xl md:text-2xl font-black tabular-nums truncate",
+                                                "text-base sm:text-xl md:text-2xl font-black tabular-nums truncate",
                                                 isAccrued ? "text-emerald-400" : "text-amber-400"
                                             )}>
                                                 KES {Math.round(primaryAmount || 0).toLocaleString()}
                                             </p>
                                             <p className="mt-0.5 text-[8px] sm:text-[10px] text-gray-400 truncate">
                                                 {isAccrued ? (
-                                                    <>Est: <strong className="text-amber-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                    <>Est. Final: <strong className="text-amber-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
                                                 ) : (
-                                                    <>Live: <strong className="text-emerald-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                    <>Live Accrued: <strong className="text-emerald-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
                                                 )}
                                             </p>
                                         </div>

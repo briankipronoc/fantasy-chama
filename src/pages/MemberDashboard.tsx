@@ -1316,7 +1316,9 @@ export default function MemberDashboard() {
     const greetingText = getGreeting();
     const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
     const currentGwBadge = currentFplEvent
-        ? `GW ${currentFplEvent.id} ${currentFplEvent.finished ? 'Complete' : 'Live'}`
+        ? (isTargetGwUpcoming
+            ? (isCurrentFunded ? `GW ${activeFundingGw} Secured` : `GW ${activeFundingGw} Due`)
+            : `GW ${currentFplEvent.id} ${currentFplEvent.finished ? 'Complete' : 'Live'}`)
         : gwWinner?.event
             ? `GW ${gwWinner.event} Active`
             : 'GW Active';
@@ -1552,22 +1554,13 @@ export default function MemberDashboard() {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className={clsx(
-                            "text-[11px] font-bold uppercase tracking-widest border px-3 py-1 rounded-full w-fit",
+                            "text-[11px] font-black uppercase tracking-widest border px-3 py-1 rounded-full w-fit",
                             isCurrentFunded
                                 ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-300 bg-emerald-500/10"
                                 : "border-red-500/30 text-red-500 dark:text-red-300 bg-red-500/10"
                         )}>
                             {currentGwBadge}
                         </span>
-                        {!isCurrentFunded && !isSpectator && (
-                            <button
-                                onClick={() => handleMpesaSTKPush(gameweekStake)}
-                                disabled={isPushingMpesa}
-                                className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-black uppercase tracking-widest disabled:opacity-50 transition-all active:scale-95 shadow-md"
-                            >
-                                {isPushingMpesa ? 'Sending...' : 'Pay Now'}
-                            </button>
-                        )}
                     </div>
                 </section>
 
