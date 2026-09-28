@@ -220,6 +220,11 @@ export default function Profile() {
     }, [activeLeagueId, listenToLeagueMembers, role]);
 
     // Listen to fplLeagueId changes to auto-sync FPL members
+    const membersRef = useRef(members);
+    useEffect(() => {
+        membersRef.current = members;
+    }, [members]);
+
     useEffect(() => {
         if (!fplLeagueId || !activeLeagueId || role !== 'admin') return;
         const delayDebounceFn = setTimeout(async () => {
@@ -233,10 +238,11 @@ export default function Profile() {
                         setFplStandings(results);
 
                         let mergedCount = 0;
+                        const currentMembers = membersRef.current;
                         const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                         for (const result of results) {
                             const fplTeamId = String(result.entry);
-                            const existingMember = members.find((m: any) => {
+                            const existingMember = currentMembers.find((m: any) => {
                                 if (m.fplTeamId && String(m.fplTeamId) === fplTeamId) return true;
                                 if (m.secondFplTeamId && String(m.secondFplTeamId) === fplTeamId) return true;
                                 const nameMatch = norm(m.displayName) && (norm(m.displayName) === norm(result.player_name) || norm(m.displayName).includes(norm(result.player_name)) || norm(result.player_name).includes(norm(m.displayName)));
@@ -281,7 +287,7 @@ export default function Profile() {
         }, 1500);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [fplLeagueId, activeLeagueId, role, members]);
+    }, [fplLeagueId, activeLeagueId, role]);
 
     // Grab email from Firebase Auth
     useEffect(() => {

@@ -34,11 +34,9 @@ const Docs = lazy(() => import('./pages/Docs'));
 const SideBets = lazy(() => import('./pages/SideBets'));
 
 
-import { DashboardSkeleton } from './components/Skeleton';
-
 const RouteLoader = () => (
-  <div className="min-h-screen w-full bg-transparent text-slate-900 dark:text-white">
-    <DashboardSkeleton />
+  <div className="min-h-[50vh] w-full flex items-center justify-center bg-transparent py-12">
+    <div className="w-8 h-8 rounded-full border-2 border-emerald-500/20 border-t-emerald-400 animate-spin" />
   </div>
 );
 
