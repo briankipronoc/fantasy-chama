@@ -1306,7 +1306,8 @@ export default function AdminCommandCenter() {
   // All prior gameweeks (GW1..4) are strictly voided (pre-league).
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
-  const effectiveStartGw = Number(rawStartGw || 1);
+  // Prevent DB drift from marking the active/finished round (e.g. GW5) as pre-league:
+  const effectiveStartGw = Math.max(1, currentGwNumber ? Math.min(rawStartGw || currentGwNumber, currentGwNumber) : (rawStartGw || 1));
   const isPreLeagueRound = (currentGwNumber || firestoreGw || 1) < effectiveStartGw;
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
@@ -3401,9 +3402,11 @@ burstFrame();
               const leaderPoints = gwWinner?.event_total !== undefined ? gwWinner.event_total : null;
               const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : null;
               const runnerUp = gwWinner?.runnerUpName || null;
+              
+              const fundedActiveMembers = members.filter((m) => memberHasFunding(m) && m.isActive !== false && (m as any).playMode !== 'sidebets_only');
               const calculatedPot = Math.round(
-                members.filter((m) => m.hasPaid && m.isActive !== false && (m as any).playMode !== 'sidebets_only').length * gameweekStake * (rules.weekly / 100)
-              ) || weeklyPot || 0;
+                fundedActiveMembers.length * (gameweekStake || 0) * ((rules.weekly ?? 70) / 100)
+              ) || (fundedActiveMembers.length > 0 ? Math.round(fundedActiveMembers.length * (gameweekStake || 0)) : (weeklyPot || 0));
 
               const finishedAtStored = Number(localStorage.getItem(`fc_gw_${currentGwNumber}_finished_at`) || 0);
               const hoursSinceFinished = finishedAtStored ? (Date.now() - finishedAtStored) / (1000 * 60 * 60) : 0;
@@ -3416,6 +3419,15 @@ burstFrame();
                 hoursUntilNextDeadline > 36
               );
               const isPreLeagueRound = Boolean((currentGwNumber || 0) < effectiveStartGw);
+
+              const formattedDeadline = nextDeadlineTime ? new Date(nextDeadlineTime).toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : null;
+              const daysUntilDeadline = nextDeadlineTime ? Math.max(0, Math.floor((new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
 
               return (
                 <div
@@ -3441,17 +3453,19 @@ burstFrame();
                         <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                         {isPreLeagueRound 
                           ? `Matchday Pulse • Pre-Season (GW${currentGwNumber || 4}) · Kickoff at GW${effectiveStartGw}`
-                          : `Matchday Pulse • GW${currentGwNumber || 4} ${isCurrentEventFinished ? (isCelebrationWindowActive ? "Finished" : "Finalized") : "Live"}`}
+                          : `Matchday Pulse • GW${currentGwNumber || 5} ${isCurrentEventFinished ? "Finalized" : "Live"}`}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
                         <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                        {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : "High Score Active"}
+                        {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : isCurrentEventFinished ? `Next: GW${nextPlayableGw}` : "High Score Active"}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
                         {isPreLeagueRound
                           ? `League officially begins with Gameweek ${effectiveStartGw}. Previous gameweek concluded prior to league activation.`
                           : isCurrentEventFinished 
-                            ? (isCelebrationWindowActive ? "Official final standings locked in." : "GW finalized · Upcoming Gameweek deadline approaching.") 
+                            ? (formattedDeadline 
+                                ? `GW${currentGwNumber || 5} finalized. Next GW${nextPlayableGw} payment deadline: ${formattedDeadline} (${daysUntilDeadline !== null ? `${daysUntilDeadline}d left` : 'upcoming'}).`
+                                : `GW${currentGwNumber || 5} finalized. Next Gameweek ${nextPlayableGw} approaching.`) 
                             : "Scores updating in real-time as fixtures progress."}
                       </span>
                     </div>
@@ -3646,15 +3660,22 @@ burstFrame();
                     <div className="flex flex-col gap-2.5 w-full lg:w-64 xl:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
                       <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
-                          Projected Cash Pot
+                          {isCurrentEventFinished ? `GW${currentGwNumber || 5} Cash Pot` : `Projected Cash Pot`}
                         </p>
                         <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
                           KES {isStealthMode ? "****" : calculatedPot.toLocaleString()}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
-                          {members.filter((m) => m.hasPaid && m.isActive !== false && (m as any).playMode !== 'sidebets_only').length} active contributions
+                          {fundedActiveMembers.length} active contribution{fundedActiveMembers.length === 1 ? '' : 's'}
                         </p>
                       </div>
+
+                      {formattedDeadline && (
+                        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold text-center">
+                          <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>GW{nextPlayableGw} Deadline: {formattedDeadline}</span>
+                        </div>
+                      )}
 
                       {isPreLeagueRound ? (
                         <div className="w-full text-center px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shadow-xs">
@@ -3675,7 +3696,7 @@ burstFrame();
                             )}
                           >
                             <Trophy className="w-3.5 h-3.5" />
-                            <span>{isResolved ? "Resolved ✓" : "Resolve"}</span>
+                            <span>{isResolved ? "Resolved ✓" : `Resolve GW${currentGwNumber || 5}`}</span>
                           </button>
 
                           {leaderName && (
@@ -4037,16 +4058,20 @@ burstFrame();
                   );
                   const isCurrent = gw === (currentGwNumber || firestoreGw);
                   const isNextPending = isCurrentEventFinished && gw === nextPlayableGw;
+                  const hasLiveWinner = isCurrent && isCurrentEventFinished && !!gwWinner && !approvedPayout && !pendingPayout && !isForfeited;
                   const isSkipped = !approvedPayout && !pendingPayout && !isForfeited && !isPreLeague && !isCurrent && !isNextPending && gw < (currentGwNumber || firestoreGw || 99);
                   const isUpcomingFuture = gw > nextPlayableGw;
 
                   return (
                     <Fragment key={gw}>
                       {isKickoffStart && (
-                        <div className="flex items-center justify-center shrink-0 px-2 my-auto select-none">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest shadow-xs">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>Kickoff · GW{effectiveStartGw}</span>
+                        <div className="flex items-center shrink-0 px-1.5 my-auto select-none" title={`Official Chama Kickoff: GW${effectiveStartGw}`}>
+                          <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
+                            <div className="w-0.5 h-3.5 bg-gradient-to-b from-transparent via-emerald-500/60 to-transparent rounded-full" />
+                            <span className="text-[7px] font-black uppercase tracking-wider text-emerald-500/90 px-1 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 whitespace-nowrap shadow-xs">
+                              GW{effectiveStartGw}
+                            </span>
+                            <div className="w-0.5 h-3.5 bg-gradient-to-b from-transparent via-emerald-500/60 to-transparent rounded-full" />
                           </div>
                         </div>
                       )}
@@ -4060,6 +4085,8 @@ burstFrame();
                             ? `GW${gw} is forfeited (no play) — click to manage`
                             : approvedPayout
                             ? `GW${gw} won by ${approvedPayout.winnerName} — click to view`
+                            : hasLiveWinner
+                            ? `GW${gw} finished · Won by ${gwWinner.player_name} (${gwWinner.event_total} pts) — click to resolve`
                             : pendingPayout
                             ? `GW${gw} payout pending approval — click to view`
                             : isNextPending
@@ -4077,6 +4104,8 @@ burstFrame();
                         className={`snap-center flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all min-w-[64px] text-left cursor-pointer ${
                           approvedPayout
                             ? 'border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/70 hover:bg-emerald-500/20'
+                            : hasLiveWinner
+                            ? 'border-amber-400/50 bg-amber-400/10 ring-1 ring-amber-400/20 hover:border-amber-400/80 hover:bg-amber-400/20 shadow-[0_0_15px_rgba(251,191,36,0.15)]'
                             : pendingPayout
                             ? 'border-[#FBBF24]/40 bg-[#FBBF24]/10 hover:border-[#FBBF24]/70 hover:bg-[#FBBF24]/20'
                             : isPreLeague || isForfeited
@@ -4091,11 +4120,13 @@ burstFrame();
                         }`}
                       >
                         <span className={`text-[9px] font-black uppercase tracking-widest ${
-                          isNextPending ? 'text-[#FBBF24] font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isPreLeague || isForfeited ? 'text-slate-500 dark:text-gray-400' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500 dark:text-gray-400'
+                          isNextPending ? 'text-[#FBBF24] font-black' : isCurrent ? 'text-slate-900 dark:text-white font-black' : isPreLeague || isForfeited ? 'text-slate-500 dark:text-gray-400' : isSkipped ? 'text-amber-500 dark:text-amber-400' : approvedPayout ? 'text-emerald-600 dark:text-emerald-300' : hasLiveWinner ? 'text-amber-500 dark:text-amber-300' : 'text-slate-500 dark:text-gray-400'
                         }`}>GW{gw}</span>
                         <span className={`text-[8px] font-bold ${
                           approvedPayout
                             ? (Number(approvedPayout.amount || 0) === 0 ? 'text-amber-500 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-400')
+                            : hasLiveWinner
+                            ? 'text-amber-500 dark:text-amber-400 font-black'
                             : pendingPayout
                             ? 'text-amber-500 dark:text-[#FBBF24]'
                             : isPreLeague || isForfeited
@@ -4110,6 +4141,8 @@ burstFrame();
                         }`}>
                           {approvedPayout
                             ? (Number(approvedPayout.amount || 0) === 0 ? '🏆 Crown' : '✓ Paid')
+                            : hasLiveWinner
+                            ? '🏆 Final'
                             : pendingPayout
                             ? '⏳ Pending'
                             : isPreLeague
@@ -4127,6 +4160,11 @@ burstFrame();
                         {approvedPayout && (
                           <span className="text-[8px] text-emerald-600 dark:text-emerald-300 font-bold truncate max-w-[56px] text-center">
                             {approvedPayout.winnerName?.split(' ')[0]}
+                          </span>
+                        )}
+                        {hasLiveWinner && !approvedPayout && (
+                          <span className="text-[8px] text-amber-500 dark:text-amber-300 font-bold truncate max-w-[56px] text-center">
+                            {gwWinner.player_name?.split(' ')[0]}
                           </span>
                         )}
                         {isPreLeague && (

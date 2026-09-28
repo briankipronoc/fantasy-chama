@@ -141,7 +141,8 @@ export default function LiveMatchdayPulse({
     // Resolved values prioritizing props
     const gw = propGw ?? fetchedData?.gw ?? 4;
     const leagueStartGw = Number((league as any)?.startGw || (league as any)?.effectiveStartGw || 1);
-    const isPreLeague = Number(gw) < leagueStartGw;
+    const effectiveStartGw = Number(gw) ? Math.min(leagueStartGw, Number(gw)) : leagueStartGw;
+    const isPreLeague = Number(gw) < effectiveStartGw;
     const leaderName = propLeaderName ?? fetchedData?.leaderName ?? 'Leading Manager';
     const leaderTeam = propLeaderTeam ?? fetchedData?.leaderTeam ?? 'Chama XI';
     const leaderPoints = propLeaderPoints ?? fetchedData?.leaderPoints ?? 0;

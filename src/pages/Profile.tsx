@@ -890,7 +890,7 @@ export default function Profile() {
                 document.body
             )}
 
-            <div className="grid grid-rows-2 grid-flow-col auto-cols-max gap-3 pb-2 overflow-x-auto custom-scrollbar">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
@@ -908,7 +908,7 @@ export default function Profile() {
                         && isActive
                         && (member.role === 'co-chair' || member.role === 'admin');
                     return (
-                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative flex-shrink-0 w-24 h-24 rounded-2xl border border-white/10 bg-[#0f151a] px-2 py-2.5 flex flex-col items-center justify-center gap-1.5">
+                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[96px] h-auto rounded-2xl border border-white/10 bg-[#0f151a] px-2 py-2.5 flex flex-col items-center justify-center gap-1.5 shadow-xs hover:border-white/20 transition-all">
                             <UserAvatar name={member.displayName} size="md" />
                             <div className="text-center flex flex-col items-center gap-1 w-full">
                                 <span className={clsx("text-[10px] font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
