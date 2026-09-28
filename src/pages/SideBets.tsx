@@ -48,6 +48,7 @@ export default function SideBets() {
 
     const members = useStore(state => state.members);
     const role = useStore(state => state.role);
+    const league = useStore(state => state.league);
 
     const currentUser = members.find(m => m.id === activeUserId);
     const isAdmin = role === 'admin';
@@ -56,6 +57,36 @@ export default function SideBets() {
     const [bets, setBets] = useState<SideBet[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
+
+    const getMemberTeamName = (m: any) => {
+        if (!m) return '';
+        if (m.teamName) return m.teamName;
+        if (m.fplTeamName) return m.fplTeamName;
+        if (m.entryName) return m.entryName;
+        if (m.entry_name) return m.entry_name;
+        
+        const fplLeagueId = (league as any)?.fplLeagueId;
+        if (fplLeagueId) {
+            try {
+                const cached = localStorage.getItem(`fpl_standings_${fplLeagueId}`);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    const results = parsed?.data || parsed;
+                    if (Array.isArray(results)) {
+                        const norm = (s: string) => String(s || '').toLowerCase().trim();
+                        const match = results.find((r: any) => {
+                            if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+                            if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+                            const db = norm(m.displayName);
+                            return norm(r.player_name).includes(db) || db.includes(norm(r.player_name));
+                        });
+                        if (match?.entry_name) return match.entry_name;
+                    }
+                }
+            } catch {}
+        }
+        return '';
+    };
 
     // Create form state
     const [betTitle, setBetTitle] = useState('');
@@ -113,12 +144,6 @@ export default function SideBets() {
         const stake = Number(betStake);
         if (isNaN(stake) || stake < 10) {
             toast.error('Stake must be at least KES 10.');
-            return;
-        }
-
-        const myBalance = currentUser.walletBalance || 0;
-        if (myBalance < stake) {
-            toast.error(`Insufficient wallet balance (KES ${myBalance.toLocaleString()}). Fund your wallet first.`);
             return;
         }
 
@@ -204,12 +229,6 @@ export default function SideBets() {
 
     const handleSign = async (bet: SideBet) => {
         if (!activeLeagueId || !currentUser) return;
-
-        const myBalance = currentUser.walletBalance || 0;
-        if (myBalance < bet.stake) {
-            toast.error(`Insufficient wallet balance (KES ${myBalance.toLocaleString()}). Top up before accepting.`);
-            return;
-        }
 
         try {
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
@@ -599,7 +618,7 @@ export default function SideBets() {
         if (!opponentSearch.trim()) return true;
         const q = opponentSearch.toLowerCase();
         const nameMatch = (m.displayName || '').toLowerCase().includes(q);
-        const teamMatch = (m.teamName || '').toLowerCase().includes(q);
+        const teamMatch = getMemberTeamName(m).toLowerCase().includes(q);
         return nameMatch || teamMatch;
     });
 
@@ -983,7 +1002,9 @@ export default function SideBets() {
                                     className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-left flex items-center justify-between"
                                 >
                                     <span className={selectedOpponent ? 'text-white font-bold' : 'text-gray-500'}>
-                                        {selectedOpponent ? selectedOpponent.displayName : 'Select opponent from league...'}
+                                        {selectedOpponent 
+                                            ? `${selectedOpponent.displayName}${getMemberTeamName(selectedOpponent) ? ` (${getMemberTeamName(selectedOpponent)})` : ''}` 
+                                            : 'Select opponent from league...'}
                                     </span>
                                     <ChevronDown className="w-4 h-4 text-gray-500" />
                                 </button>
@@ -1005,25 +1026,28 @@ export default function SideBets() {
                                         {filteredOpponentMembers.length === 0 ? (
                                             <div className="p-4 text-center text-xs text-gray-500">No managers found</div>
                                         ) : (
-                                            filteredOpponentMembers.map(m => (
-                                                <button
-                                                    key={m.id}
-                                                    type="button"
-                                                    onClick={() => { setOpponentId(m.id); setShowOpponentPicker(false); setOpponentSearch(''); }}
-                                                    className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 flex items-center justify-between transition-colors border-b border-white/5 last:border-0"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <UserAvatar name={m.displayName} size="xs" />
-                                                        <div>
-                                                            <div className="font-bold text-xs">{m.displayName}</div>
-                                                            {m.teamName && <div className="text-[10px] text-gray-400">{m.teamName}</div>}
+                                            filteredOpponentMembers.map(m => {
+                                                const mTeam = getMemberTeamName(m);
+                                                return (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        onClick={() => { setOpponentId(m.id); setShowOpponentPicker(false); setOpponentSearch(''); }}
+                                                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 flex items-center justify-between transition-colors border-b border-white/5 last:border-0"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <UserAvatar name={m.displayName} size="xs" />
+                                                            <div>
+                                                                <div className="font-bold text-xs">{m.displayName}</div>
+                                                                {mTeam && <div className="text-[10px] text-gray-400 font-medium">{mTeam}</div>}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-gray-500">
-                                                        KES {(m.walletBalance || 0).toLocaleString()}
-                                                    </span>
-                                                </button>
-                                            ))
+                                                        <span className="text-[10px] font-bold text-gray-500">
+                                                            KES {(m.walletBalance || 0).toLocaleString()}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })
                                         )}
                                     </div>
                                 )}
