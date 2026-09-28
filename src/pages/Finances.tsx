@@ -2216,13 +2216,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     : ledgerDirection === '+'
                                         ? 'Inflow'
                                         : 'Outflow';
-                            const rawTargetGw = Number(tx.gameweek || tx.gw || 0);
-                            const targetTxGw = rawTargetGw > 0 ? Math.max(rawTargetGw, leagueStartGw) : 0;
+                            const targetTxGw = Number(tx.gameweek || tx.gw || 0);
                             const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
-                            const sanitizedNote = String(tx.note || '').replace(/Funded for GW\s*([0-9]+)/gi, (_m, p1) => {
-                                const parsed = Number(p1);
-                                return `Funded for GW${parsed < leagueStartGw ? leagueStartGw : parsed}`;
-                            });
+                            const sanitizedNote = String(tx.note || '');
                             const activityLabel = isReversal
                                 ? (sanitizedNote || `Reversal • ${memberName}`)
                                 : tx.type === 'payout'
@@ -2329,13 +2325,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const isPayout = tx.type === 'payout';
                                         const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
-                                        const rawTargetGw = Number(tx.gameweek || tx.gw || 0);
-                                        const targetTxGw = rawTargetGw > 0 ? Math.max(rawTargetGw, leagueStartGw) : 0;
+                                        const targetTxGw = Number(tx.gameweek || tx.gw || 0);
                                         const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
-                                        const sanitizedNote = String(tx.note || '').replace(/Funded for GW\s*([0-9]+)/gi, (_m, p1) => {
-                                            const parsed = Number(p1);
-                                            return `Funded for GW${parsed < leagueStartGw ? leagueStartGw : parsed}`;
-                                        });
+                                        const sanitizedNote = String(tx.note || '');
                                         const statusLabel = isReversal
                                             ? 'Reversal'
                                             : isWalletFunding
@@ -2570,13 +2562,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     const isPayout = tx.type === 'payout';
                                                     const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                                     const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
-                                                    const rawTargetGw = Number(tx.gameweek || tx.gw || 0);
-                                                    const targetTxGw = rawTargetGw > 0 ? Math.max(rawTargetGw, leagueStartGw) : 0;
+                                                    const targetTxGw = Number(tx.gameweek || tx.gw || 0);
                                                     const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
-                                                    const sanitizedNote = String(tx.note || '').replace(/Funded for GW\s*([0-9]+)/gi, (_m, p1) => {
-                                                        const parsed = Number(p1);
-                                                        return `Funded for GW${parsed < leagueStartGw ? leagueStartGw : parsed}`;
-                                                    });
+                                                    const sanitizedNote = String(tx.note || '');
                                                     const statusLabel = isReversal ? 'Reversal' : isWalletFunding ? 'Wallet Credit' : ledgerDirection === '+' ? 'Inflow' : 'Outflow';
                                                     const activityLabel = isReversal
                                                         ? (sanitizedNote || `Reversal • ${memberName}`)
@@ -2695,13 +2683,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                             const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                             const statusLabel = isReversal ? 'Reversal' : isWalletFunding ? 'Wallet Credit' : ledgerDirection === '+' ? 'Inflow' : 'Outflow';
-                                            const rawTargetGw = Number(tx.gameweek || tx.gw || 0);
-                                            const targetTxGw = rawTargetGw > 0 ? Math.max(rawTargetGw, leagueStartGw) : 0;
+                                            const targetTxGw = Number(tx.gameweek || tx.gw || 0);
                                             const gwTag = targetTxGw > 0 ? `GW${targetTxGw}` : '';
-                                            const sanitizedNote = String(tx.note || '').replace(/Funded for GW\s*([0-9]+)/gi, (_m, p1) => {
-                                                const parsed = Number(p1);
-                                                return `Funded for GW${parsed < leagueStartGw ? leagueStartGw : parsed}`;
-                                            });
+                                            const sanitizedNote = String(tx.note || '');
                                             const activityLabel = isReversal
                                                 ? (sanitizedNote || `Reversal • ${memberName}`)
                                                 : tx.type === 'payout'
