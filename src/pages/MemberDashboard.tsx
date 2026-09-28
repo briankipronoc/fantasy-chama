@@ -3,7 +3,7 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight, ChevronRight, Copy, PhoneCall } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight, Copy, PhoneCall } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -1761,6 +1761,68 @@ export default function MemberDashboard() {
                     </div>
                 ) : null}
 
+                {/* ── Gameweek Rank Snapshot (Above 1v1 Side Bets) ── */}
+                {(() => {
+                    const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
+                    const myRankEntry = fplStandings.findIndex((e: any) =>
+                        (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
+                        (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
+                        currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
+                    );
+                    const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
+                    const myPoints = Number(myEntry?.event_total ?? (currentUser as any)?.gwPoints ?? 0);
+                    const isRankOne = (myPoints === topScore && topScore > 0) || myRankEntry === 0 || isRecentWinner || isCurrentUserGwWinner;
+                    const rank = myRankEntry >= 0 ? myRankEntry + 1 : (isRankOne ? 1 : null);
+
+                    return (
+                        <div className="fc-member-gw-rank-card rounded-3xl bg-[#161d24] border border-white/5 p-4 md:p-5 flex flex-col justify-between mb-3 shadow-xl">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Rank
+                                </h4>
+                                {gwWinner && (
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                                        {currentFplEvent?.finished ? 'Final' : 'Live'}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="rounded-2xl p-3.5 border border-emerald-500/20 bg-emerald-500/10 flex items-center justify-between">
+                                <div>
+                                    <span className="text-[9px] font-bold text-emerald-400/80 uppercase tracking-wider block mb-1">Your GW Rank</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-black text-xs border border-emerald-500/30">
+                                            {rank ? `#${rank}` : '--'}
+                                        </span>
+                                        <span className="font-bold text-sm text-white">{currentUser?.displayName?.split(' ')[0] || 'You'}</span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-2xl font-black text-white tabular-nums">{myPoints}</span>
+                                    <span className="text-[9px] text-gray-400 uppercase block font-bold">GW Pts</span>
+                                </div>
+                            </div>
+                            {gwWinner && (
+                                <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs mt-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">GW Pot Winner</span>
+                                        <span className="text-amber-300 font-bold flex items-center gap-1 text-xs">
+                                            🥇 {gwWinner.player_name?.split(' ')[0] || 'Winner'}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs font-black text-white">{gwWinner.event_total} pts</span>
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => navigate('/standings')}
+                                className="w-full mt-2.5 pt-2.5 border-t border-white/5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                            >
+                                <span>View Full Standings →</span>
+                            </button>
+                        </div>
+                    );
+                })()}
+
                 {/* ── Active / Upcoming 1v1 Side Bet Banner (Below GW Champion) ── */}
                 {activeUserSideBets && activeUserSideBets.length > 0 && (() => {
                     const bet = activeUserSideBets[0];
@@ -2039,117 +2101,12 @@ export default function MemberDashboard() {
             {/* Main Content — Dense Grid Layout */}
             <main className="flex-1 w-full max-w-6xl mx-auto px-4 md:px-8 pb-6 lg:pb-8 z-10 relative mt-2">
 
-                {/* === ROW 1: GW Standings & Rank (6) on top, Upcoming GW Status / Action Required (6) === */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4 items-stretch">
-                    {/* GW Rank Card — live standings from FPL (Placed on Top) */}
-                    {/* GW Standings & Performance Card — clean, modern metrics overview */}
-                    <div className="lg:col-span-6 bg-[#161d24] border border-white/5 shadow-2xl shadow-black/50 rounded-[1.5rem] p-5 flex flex-col justify-between h-full overflow-hidden">
-                        <div>
-                            <div className="flex items-center justify-between mb-3.5">
-                                <h4 className="flex items-center gap-2 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                                    <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Standings
-                                </h4>
-                                {gwWinner && (
-                                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                                        {currentFplEvent?.finished ? 'Final' : 'Live'}
-                                    </span>
-                                )}
-                            </div>
-
-                            {(() => {
-                                const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
-
-                                const myRankEntry = fplStandings.findIndex((e: any) =>
-                                    (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
-                                    (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
-                                    currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
-                                );
-                                const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
-                                const myPoints = Number(myEntry?.event_total ?? 0);
-                                const isRankOne = (myPoints === topScore && topScore > 0) || myRankEntry === 0 || isRecentWinner || isCurrentUserGwWinner;
-                                const rank = myRankEntry + 1;
-                                const leaderName = fplStandings[0]?.player_name?.split(' ')[0] || 'Leader';
-                                const scorePct = topScore > 0 ? Math.min(100, Math.round((myPoints / topScore) * 100)) : 0;
-
-                                return (
-                                    <div className="space-y-3">
-                                        {/* 3-Stat Compact Metrics Grid */}
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
-                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Your Rank</p>
-                                                <p className={clsx("text-lg font-black tracking-tight", isRankOne ? "text-[#FBBF24]" : "text-white")}>
-                                                    {myEntry ? (isRankOne ? '🥇 1st' : `#${rank}`) : '--'}
-                                                </p>
-                                                <p className="text-[9px] text-gray-500 font-medium mt-0.5">of {fplStandings.length || members.length}</p>
-                                            </div>
-
-                                            <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
-                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Your Score</p>
-                                                <p className="text-lg font-black text-[#10B981] tracking-tight tabular-nums">
-                                                    {myEntry ? `${myPoints} pts` : '--'}
-                                                </p>
-                                                <p className="text-[9px] text-gray-500 font-medium mt-0.5">Gameweek</p>
-                                            </div>
-
-                                            <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-center">
-                                                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-1">Pot Leader</p>
-                                                <p className="text-lg font-black text-[#FBBF24] tracking-tight tabular-nums">
-                                                    {topScore > 0 ? `${topScore} pts` : '--'}
-                                                </p>
-                                                <p className="text-[9px] text-gray-500 font-medium truncate mt-0.5">
-                                                    {isRankOne ? '(You lead)' : leaderName}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Visual Performance Meter */}
-                                        {myEntry && topScore > 0 && (
-                                            <div className="bg-black/20 border border-white/5 rounded-xl p-3">
-                                                <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 mb-1.5">
-                                                    <span>Leaderboard Pace</span>
-                                                    <span className={clsx(isRankOne ? "text-[#FBBF24]" : "text-emerald-400")}>
-                                                        {isRankOne ? '🏆 Pacesetter' : `${topScore - myPoints} pts behind leader`}
-                                                    </span>
-                                                </div>
-                                                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
-                                                    <div
-                                                        className={clsx("h-full rounded-full transition-all duration-700", isRankOne ? "bg-gradient-to-r from-amber-400 to-[#FBBF24]" : "bg-gradient-to-r from-emerald-500 to-[#10B981]")}
-                                                        style={{ width: `${scorePct}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {isRankOne && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowFlexModal(true)}
-                                                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#FBBF24] to-amber-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-[#FBBF24]/20 active:scale-[0.98] transition-all cursor-pointer"
-                                            >
-                                                <Trophy className="w-3.5 h-3.5 text-slate-950" />
-                                                Share Victory Card
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => navigate('/standings')}
-                            className="w-full mt-3 pt-2 border-t border-white/5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                            <span>View Full Mini-League Table</span>
-                            <ChevronRight className="w-3 h-3 text-gray-500" />
-                        </button>
-                    </div>
-
-                    {/* Personal Status + Pay Action (Action Required) */}
+                {/* === ROW 1: Personal Status + Pay Action (Action Required) === */}
+                <div className="mb-4">
                     {currentUser && (
                         <div className={clsx(
                             "fc-member-status-card",
-                            "lg:col-span-6 rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50 flex flex-col justify-between h-full",
+                            "w-full rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50 flex flex-col justify-between",
                             isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
                                 (isCurrentGwVoided ? "bg-amber-500/5 border-amber-500/20" :
                                     (isSpectator ? "bg-indigo-500/5 border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.08)]" :

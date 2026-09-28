@@ -29,7 +29,10 @@ export default class ErrorBoundary extends Component<Props, State> {
             const isChunkError =
                 error.message.includes('dynamically imported module') ||
                 error.message.includes('Loading chunk') ||
-                error.message.includes('Importing a module script failed');
+                error.message.includes('Importing a module script failed') ||
+                error.message.includes('not a valid JavaScript MIME type') ||
+                error.message.includes('MIME type') ||
+                error.message.includes('Failed to fetch');
 
             if (isChunkError) {
                 const hasReloaded = sessionStorage.getItem('fc_chunk_retry');
@@ -54,7 +57,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             }
 
             return (
-                <div className="fc-error-boundary min-h-[300px] flex flex-col items-center justify-center gap-4 p-8 rounded-2xl text-center">
+                <div className="fc-error-boundary min-h-[100dvh] w-full flex flex-col items-center justify-center gap-4 px-6 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+2rem))] pb-12 text-center bg-[#0a0e17]">
                     <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
                         <AlertTriangle className="w-6 h-6 text-red-400" />
                     </div>

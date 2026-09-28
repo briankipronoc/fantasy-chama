@@ -896,7 +896,7 @@ export default function Profile() {
                 document.body
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2.5">
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
@@ -914,23 +914,23 @@ export default function Profile() {
                         && isActive
                         && (member.role === 'co-chair' || member.role === 'admin');
                     return (
-                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[96px] h-auto rounded-2xl border border-white/10 bg-[#0f151a] px-2 py-2.5 flex flex-col items-center justify-center gap-1.5 shadow-xs hover:border-white/20 transition-all">
-                            <UserAvatar name={member.displayName} size="md" />
-                            <div className="text-center flex flex-col items-center gap-1 w-full">
-                                <span className={clsx("text-[10px] font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
-                                <div className="flex flex-col items-center gap-1 min-h-5 justify-start">
+                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[82px] h-auto rounded-xl border border-white/10 bg-[#0f151a] p-2 flex flex-col items-center justify-center gap-1 shadow-xs hover:border-white/20 transition-all">
+                            <UserAvatar name={member.displayName} size="sm" />
+                            <div className="text-center flex flex-col items-center gap-0.5 w-full">
+                                <span className={clsx("text-[10px] font-bold block w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
+                                <div className="flex flex-col items-center justify-center">
                                     {isChairman && (
-                                        <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30 flex items-center gap-1">
-                                            <ShieldAlert className="w-2.5 h-2.5" /> Chairman
+                                        <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[7.5px] px-1 py-0.5 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
+                                            <ShieldAlert className="w-2 h-2" /> Chairman
                                         </span>
                                     )}
                                     {isValidCoChair && (
-                                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-widest font-black border border-[#3B82F6]/30 flex items-center gap-1">
-                                            <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
+                                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[7.5px] px-1 py-0.5 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
+                                            <ShieldCheck className="w-2 h-2" /> Co-Chair
                                         </span>
                                     )}
                                     {!isChairman && !isValidCoChair && (
-                                        <span className={clsx("text-[9px] font-black uppercase tracking-widest block",
+                                        <span className={clsx("text-[8px] font-black uppercase tracking-wider block",
                                             !isActive ? "text-gray-600" : (member.hasPaid ? "text-[#10B981]" : "text-red-500")
                                         )}>
                                             {!isActive ? "Inactive" : (member.hasPaid ? "Funded" : "Red Zone")}
