@@ -5046,7 +5046,11 @@ burstFrame();
               />
 
               {/* Modal Dialog Squircle Card */}
-              <div className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
+              <div
+                className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col"
+                role="dialog"
+                aria-modal="true"
+              >
                 {/* Glow ambient accent */}
                 <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35 bg-amber-500" />
 
@@ -5307,7 +5311,11 @@ burstFrame();
               />
 
               {/* Modal Dialog Squircle Card */}
-              <div className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
+              <div
+                className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col"
+                role="dialog"
+                aria-modal="true"
+              >
                 {/* Glow ambient accent */}
                 <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35 bg-amber-500" />
 

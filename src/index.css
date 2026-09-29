@@ -489,11 +489,22 @@
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.025em;
   }
+  /* Ensure modal dialog titles & copy remain crisp high-contrast white on dark modal glass cards in ALL themes */
+  [data-theme="light"] [role="dialog"] .fc-frosty-title,
+  [data-theme="light"] .fc-resolve-modal-overlay .fc-frosty-title {
+    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #cbd5e1 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+  }
   .fc-frosty-sub {
     color: #94a3b8;
   }
   [data-theme="light"] .fc-frosty-sub {
     color: #475569 !important;
+  }
+  [data-theme="light"] [role="dialog"] .fc-frosty-sub,
+  [data-theme="light"] .fc-resolve-modal-overlay .fc-frosty-sub {
+    color: #94a3b8 !important;
   }
   .fc-metallic-sub {
     background: linear-gradient(120deg, #e2e8f0 0%, #c8d3e0 25%, #94a3b8 50%, #b8c7d4 75%, #dde4ed 100%);
