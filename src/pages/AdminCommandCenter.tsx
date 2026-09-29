@@ -5045,15 +5045,15 @@ burstFrame();
                 onClick={() => setShowGwActionModal(false)}
               />
 
-              {/* Modal Dialog */}
-              <div className="relative w-full max-w-md bg-[#0c1218]/95 border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
+              {/* Modal Dialog Squircle Card */}
+              <div className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
                 {/* Glow ambient accent */}
-                <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-[70px] pointer-events-none opacity-40 bg-amber-500" />
+                <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35 bg-amber-500" />
 
                 {/* Close Button */}
                 <button
                   onClick={() => setShowGwActionModal(false)}
-                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer z-10"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
@@ -5117,7 +5117,7 @@ burstFrame();
                           type="button"
                           onClick={() => handleUnforfeitGw(selectedGwForAction)}
                           disabled={isForfeiting}
-                          className="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                          className="w-full h-12 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                         >
                           {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Reopen / Restore GW ${selectedGwForAction}`}
                         </button>
@@ -5155,7 +5155,7 @@ burstFrame();
                             type="button"
                             onClick={() => handleForfeitGw(selectedGwForAction)}
                             disabled={isForfeiting}
-                            className="w-full py-2.5 px-4 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full h-11 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                           >
                             {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Forfeit & Refund Member Stakes'}
                           </button>
@@ -5181,7 +5181,7 @@ burstFrame();
                               setShowGwActionModal(false);
                               handleApprovePayout(targetPending);
                             }}
-                            className="w-full py-3 px-4 rounded-xl bg-[#10B981] hover:bg-[#059669] text-black text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                            className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-95"
                           >
                             <CheckCircle2 className="w-4 h-4" /> Approve Payout
                           </button>
@@ -5189,7 +5189,7 @@ burstFrame();
                             type="button"
                             onClick={() => handleForfeitGw(selectedGwForAction)}
                             disabled={isForfeiting}
-                            className="w-full py-2.5 px-4 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full h-11 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                           >
                             {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Did Not Play — Forfeit GW ${selectedGwForAction}`}
                           </button>
@@ -5223,7 +5223,7 @@ burstFrame();
                             type="button"
                             onClick={() => handleForfeitGw(selectedGwForAction, false)}
                             disabled={isForfeiting}
-                            className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full h-11 px-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                           >
                             {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Forfeit GW ${selectedGwForAction}`}
                           </button>
@@ -5233,7 +5233,7 @@ burstFrame();
                               type="button"
                               onClick={() => handleForfeitGw(selectedGwForAction, true)}
                               disabled={isForfeiting}
-                              className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              className="w-full h-10 px-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                             >
                               {isForfeiting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : `⚡ Forfeit All GW 1 through ${selectedGwForAction}`}
                             </button>
@@ -5261,7 +5261,7 @@ burstFrame();
                             setResolveTargetGw(selectedGwForAction);
                             setTimeout(() => setShowResolveModal(true), 0);
                           }}
-                          className="w-full py-2.5 px-4 rounded-xl bg-[#FBBF24] hover:bg-[#F59E0B] text-black text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(251,191,36,0.2)]"
+                          className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95"
                         >
                           <Trophy className="w-3.5 h-3.5" /> Resolve GW {selectedGwForAction} Winner
                         </button>
@@ -5269,16 +5269,6 @@ burstFrame();
                     </div>
                   );
                 })()}
-
-                <div className="mt-5 pt-3 border-t border-white/10 text-right">
-                  <button
-                    type="button"
-                    onClick={() => setShowGwActionModal(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer"
-                  >
-                    Close
-                  </button>
-                </div>
               </div>
             </div>,
             document.body
@@ -5316,16 +5306,16 @@ burstFrame();
                 }}
               />
 
-              {/* Modal Dialog */}
-              <div className="relative w-full max-w-md bg-[#0c1218]/95 border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
+              {/* Modal Dialog Squircle Card */}
+              <div className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
                 {/* Glow ambient accent */}
-                <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-[70px] pointer-events-none opacity-40 bg-amber-500" />
+                <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35 bg-amber-500" />
 
                 {/* Close Button */}
                 <button
                   onClick={() => setShowResolveModal(false)}
                   disabled={isResolving}
-                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-50 cursor-pointer"
+                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50 cursor-pointer z-10"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
@@ -5345,7 +5335,7 @@ burstFrame();
                 {/* Body */}
                 <div className="py-3 space-y-4 overflow-y-auto">
                   {!isCurrentEventFinished && (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-300">
+                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-amber-300">
                       <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
                       <div className="space-y-1">
                         <p className="font-bold text-white">Gameweek {currentGwNumber || ''} Fixtures Still in Play</p>
@@ -5357,7 +5347,7 @@ burstFrame();
                   )}
 
                   {weeklyPot === 0 || Number(rules.weekly || 0) === 0 ? (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
                       <div className="flex items-center gap-2 text-amber-400">
                         <Trophy className="w-5 h-5 shrink-0" />
                         <p className="text-xs font-black uppercase tracking-wider">Honorary Gameweek Crown (KES 0 Cash Pot)</p>
@@ -5369,7 +5359,7 @@ burstFrame();
                   ) : (
                     <>
                       {/* Payout summary */}
-                      <div className="rounded-xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
+                      <div className="rounded-2xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Winner Payout</p>
                           <p className="text-2xl font-black text-[#FBBF24] tabular-nums mt-0.5">
@@ -5382,11 +5372,11 @@ burstFrame();
                       {/* Method toggle */}
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Disbursement Method</p>
-                        <div className="flex bg-black/30 rounded-xl p-1 border border-white/5">
+                        <div className="flex bg-black/30 rounded-2xl p-1 border border-white/5">
                           <button
                             onClick={() => setPayoutMethod("mpesa")}
                             className={clsx(
-                              "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
+                              "flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all",
                               payoutMethod === "mpesa"
                                 ? "bg-[#10B981]/15 text-[#10B981] shadow-sm border border-[#10B981]/25"
                                 : "text-gray-500 hover:text-gray-300 border border-transparent"
@@ -5397,7 +5387,7 @@ burstFrame();
                           <button
                             onClick={() => setPayoutMethod("cash")}
                             className={clsx(
-                              "flex-1 py-2.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all",
+                              "flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all",
                               payoutMethod === "cash"
                                 ? "bg-[#FBBF24]/15 text-[#FBBF24] shadow-sm border border-[#FBBF24]/25"
                                 : "text-gray-500 hover:text-gray-300 border border-transparent"
@@ -5411,21 +5401,13 @@ burstFrame();
                   )}
                 </div>
 
-                {/* Footer */}
-                <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setShowResolveModal(false)}
-                    disabled={isResolving}
-                    className="h-12 w-full px-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 active:scale-95 cursor-pointer flex items-center justify-center text-center select-none"
-                  >
-                    Cancel
-                  </button>
+                {/* Footer with single full-width Squircle CTA */}
+                <div className="mt-4 pt-4 border-t border-white/5">
                   <button
                     type="button"
                     onClick={handleResolveGameweek}
                     disabled={isResolving}
-                    className="h-12 w-full px-4 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(251,191,36,0.25)] active:scale-95 cursor-pointer text-center select-none"
+                    className="w-full h-12 px-4 rounded-2xl font-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-amber-500/25 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 text-center select-none"
                   >
                     {isResolving ? (
                       <>
