@@ -174,12 +174,12 @@ export default function LiveMatchdayPulse({
                         <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">
                             <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                             {isPreLeague 
-                                ? `Matchday Pulse • Pre-Season (GW${gw}) · Kickoff at GW${leagueStartGw}`
+                                ? `Matchday Pulse • Pre-Season (GW${gw}) · Kickoff at GW${effectiveStartGw}`
                                 : `Matchday Pulse • GW${gw} ${isFinished ? 'Finished' : isLive ? 'Live' : 'Upcoming'}`}
                         </span>
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
                             <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                            {isPreLeague ? `Kickoff GW${leagueStartGw}` : "High Score Active"}
+                            {isPreLeague ? `Kickoff GW${effectiveStartGw}` : "High Score Active"}
                         </span>
                     </div>
 
@@ -219,13 +219,13 @@ export default function LiveMatchdayPulse({
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                                            League Starts at GW{leagueStartGw}
+                                            League Starts at GW{effectiveStartGw}
                                         </p>
                                         <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                                            First Official Matchday: GW{leagueStartGw}
+                                            First Official Matchday: GW{effectiveStartGw}
                                         </h4>
                                         <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                                            Fund account ahead of the GW{leagueStartGw} deadline to qualify for the weekly cash pot.
+                                            Fund account ahead of the GW{effectiveStartGw} deadline to qualify for the weekly cash pot.
                                         </p>
                                     </div>
                                 </div>

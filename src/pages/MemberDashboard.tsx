@@ -1115,8 +1115,14 @@ export default function MemberDashboard() {
     // Count-up animated values for wallet
     const animatedWalletBalance = useCountUp(walletBalance, 700);
 
-    // Clamp leagueStartGw to currentEvent so DB drift (e.g. DB=6, actual=5) never makes the current GW pre-league
-    const effectiveMdStartGw = currentFplEvent?.id ? Math.min(leagueStartGw, currentFplEvent.id) : leagueStartGw;
+    // Clamp leagueStartGw to first transaction or currentEvent so DB drift (e.g. DB=6, actual=5) never makes the current GW pre-league
+    const firstTxGw = (transactions || []).reduce((minGw: number, tx: any) => {
+        const gw = Number(tx.gameweek || tx.gw || 0);
+        return gw > 0 ? Math.min(minGw, gw) : minGw;
+    }, 999);
+    const effectiveMdStartGw = firstTxGw !== 999 
+        ? Math.min(leagueStartGw, firstTxGw)
+        : (currentFplEvent?.id ? Math.min(leagueStartGw, currentFplEvent.id) : leagueStartGw);
     const isPreLeagueGw = Boolean(currentFplEvent?.id && leagueStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
 
     // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
@@ -1177,9 +1183,8 @@ export default function MemberDashboard() {
         ? (currentFplEvent?.nextId || (currentFplEvent?.id ? currentFplEvent.id + 1 : 1))
         : (currentFplEvent?.id || 1);
 
-    // If target GW is upcoming, funds must cover the upcoming round beyond any already completed rounds
-    const hasPaidUpcoming = (walletBalance >= 2 * gameweekStake) || (!currentUser?.hasPaid && walletBalance >= gameweekStake);
-    const isCurrentFunded = isTargetGwUpcoming ? hasPaidUpcoming : hasPaid;
+    // If member has funds (walletBalance >= gameweekStake) or currentUser.hasPaid is true, they are funded and on time!
+    const isCurrentFunded = isSpectator ? false : Boolean(currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake));
 
     // Dynamic Winner calculation:
     // A gameweek is only voided if active funded participants < 2 AND voided in governance
@@ -1909,7 +1914,7 @@ export default function MemberDashboard() {
                 )}
 
                         {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
-                        {(currentUser && (winnerConfirmation || (!hasPaid && !isSpectator))) && (
+                        {(currentUser && (winnerConfirmation || (!isCurrentFunded && !isSpectator))) && (
                             <div className={clsx(
                                 "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
                                 winnerConfirmation

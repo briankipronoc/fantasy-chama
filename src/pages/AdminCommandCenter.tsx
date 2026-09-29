@@ -1308,8 +1308,14 @@ export default function AdminCommandCenter() {
   // All prior gameweeks (GW1..4) are strictly voided (pre-league).
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
+  const firstPayoutGw = pendingPayouts.reduce((minGw: number, p: any) => {
+    const gw = Number(p.gw || 0);
+    return gw > 0 ? Math.min(minGw, gw) : minGw;
+  }, 999);
   // Prevent DB drift from marking the active/finished round (e.g. GW5) as pre-league:
-  const effectiveStartGw = Math.max(1, currentGwNumber ? Math.min(rawStartGw || currentGwNumber, currentGwNumber) : (rawStartGw || 1));
+  const effectiveStartGw = firstPayoutGw !== 999 
+    ? Math.min(rawStartGw > 0 ? rawStartGw : firstPayoutGw, firstPayoutGw)
+    : Math.max(1, currentGwNumber ? Math.min(rawStartGw || currentGwNumber, currentGwNumber) : (rawStartGw || 1));
   const isPreLeagueRound = (currentGwNumber || firestoreGw || 1) < effectiveStartGw;
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
