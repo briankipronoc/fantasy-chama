@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, getDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import { useTheme } from '../hooks/useTheme';
@@ -694,15 +694,73 @@ export default function Profile() {
         setIsDeletingLeague(true);
         try {
             haptics.warning();
-            await deleteDoc(doc(db, 'leagues', activeLeagueId));
+
+            // 1. Soft-delete and attempt hard-delete with timeout race
+            const deleteWork = (async () => {
+                try {
+                    await updateDoc(doc(db, 'leagues', activeLeagueId), {
+                        isDeleted: true,
+                        status: 'deleted',
+                        deletedAt: serverTimestamp(),
+                    });
+                } catch (e) {
+                    console.warn('Soft delete leagueDoc error (non-fatal):', e);
+                }
+                try {
+                    await deleteDoc(doc(db, 'leagues', activeLeagueId));
+                } catch (e) {
+                    console.warn('Delete leagueDoc error (non-fatal):', e);
+                }
+            })();
+
+            await Promise.race([
+                deleteWork,
+                new Promise(resolve => setTimeout(resolve, 2000))
+            ]);
+
+            // 2. Remove this league from the chairman's userLeagues document
+            const rawPhone = phoneNumber || currentUser?.phone || currentUser?.phoneNumber || localStorage.getItem('userPhone') || '';
+            const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+            let nextLeagueId: string | null = null;
+
+            if (cleanPhone) {
+                try {
+                    const ulRef = doc(db, 'userLeagues', cleanPhone);
+                    const ulSnap = await getDoc(ulRef);
+                    if (ulSnap.exists()) {
+                        const existingLeagues = ulSnap.data().leagues || [];
+                        const remaining = existingLeagues.filter((l: any) => 
+                            l.leagueId !== activeLeagueId && l.id !== activeLeagueId
+                        );
+                        await setDoc(ulRef, { leagues: remaining }, { merge: true });
+                        if (remaining.length > 0) {
+                            nextLeagueId = remaining[0].leagueId || remaining[0].id || null;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('userLeagues cleanup error (non-fatal):', e);
+                }
+            }
+
+            // 3. Clear current league session
             localStorage.removeItem('activeLeagueId');
             localStorage.removeItem('activeRole');
-            useStore.getState().setActiveLeagueId(null);
-            toast.success(`League "${leagueName || 'League'}" has been permanently deleted.`);
+            toast.success(`League "${leagueName || 'League'}" deleted.`);
             setShowDeleteLeagueModal(false);
-            setTimeout(() => {
-                navigate('/setup', { replace: true });
-            }, 600);
+
+            // 4. If user has another league, switch to it; otherwise go to setup
+            if (nextLeagueId) {
+                localStorage.setItem('activeLeagueId', nextLeagueId);
+                useStore.getState().setActiveLeagueId(nextLeagueId);
+                setTimeout(() => {
+                    navigate('/admin', { replace: true });
+                }, 400);
+            } else {
+                useStore.getState().setActiveLeagueId(null);
+                setTimeout(() => {
+                    navigate('/setup', { replace: true });
+                }, 400);
+            }
         } catch (err: any) {
             console.error('Failed to delete league:', err);
             toast.error('Failed to delete league: ' + (err?.message || 'Error'));
@@ -1991,39 +2049,19 @@ export default function Profile() {
             </div>
 
             {/* Warning Modal */}
-            {
-                showWarningModal && typeof document !== 'undefined' && createPortal(
-                    <div className="fc-warning-backdrop fixed inset-0 bg-[#0b1014]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-                        <div className="fc-warning-modal fc-card bg-[#161d24] border border-red-500/20 max-w-md w-full rounded-2xl p-6">
-                            <div className="flex items-center gap-3 mb-4 text-red-500">
-                                <AlertTriangle className="w-8 h-8" />
-                                <h3 className="text-xl font-black tracking-tight">Modify Core Logistics?</h3>
-                            </div>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-6 leading-relaxed">
-                                Altering the financial rules mid-season recalculates all projected vaults and weekly payouts. Are you sure you wish to unlock these controls?
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowWarningModal(false)}
-                                    className="fc-warning-cancel flex-1 px-4 py-3 bg-[#0b1014] text-white hover:bg-white/5 rounded-xl font-bold transition-colors text-sm border border-white/5"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowWarningModal(false);
-                                        setIsFinancialsLocked(false);
-                                    }}
-                                    className="fc-warning-confirm flex-1 px-4 py-3 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl font-bold transition-all text-sm border border-red-500/20"
-                                >
-                                    Yes, Unlock
-                                </button>
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
-                )
-            }
+            <ConfirmModal
+                isOpen={showWarningModal}
+                onClose={() => setShowWarningModal(false)}
+                onConfirm={() => {
+                    setShowWarningModal(false);
+                    setIsFinancialsLocked(false);
+                }}
+                title="Modify Core Logistics?"
+                message="Altering the financial rules mid-season recalculates all projected vaults and weekly payouts. Are you sure you wish to unlock these controls?"
+                confirmText="Yes, Unlock"
+                cancelText="Cancel"
+                variant="warning"
+            />
 
             {/* Custom Confirm Modal for Destructive Actions (No browser localhost alert) */}
             <ConfirmModal

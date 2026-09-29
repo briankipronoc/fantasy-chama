@@ -5082,29 +5082,40 @@ burstFrame();
 
           {/* Gameweek Action / Forfeit Modal */}
           {showGwActionModal && selectedGwForAction && createPortal(
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-              <div className="bg-[#161d24] border border-white/15 w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#FBBF24]/10 border border-[#FBBF24]/25 flex items-center justify-center">
-                      <Trophy className="w-5 h-5 text-[#FBBF24]" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black text-white tracking-tight">
-                        Gameweek {selectedGwForAction} Action
-                      </h3>
-                      <p className="text-[11px] text-gray-400">
-                        Manage settlement, payouts or forfeit unplayed rounds
-                      </p>
-                    </div>
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+              {/* Dark glass backdrop */}
+              <div
+                className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+                onClick={() => setShowGwActionModal(false)}
+              />
+
+              {/* Modal Dialog */}
+              <div className="relative w-full max-w-md bg-[#0c1218]/95 border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
+                {/* Glow ambient accent */}
+                <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-[70px] pointer-events-none opacity-40 bg-amber-500" />
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowGwActionModal(false)}
+                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  aria-label="Close dialog"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                {/* Header Icon + Title */}
+                <div className="flex items-start gap-4 pb-4 border-b border-white/5 mb-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                    <Trophy className="w-6 h-6" />
                   </div>
-                  <button
-                    onClick={() => setShowGwActionModal(false)}
-                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
-                  >
-                    ✕
-                  </button>
+                  <div className="min-w-0 flex-1 pr-6">
+                    <h3 className="fc-frosty-title text-xl font-black tracking-tight">
+                      Gameweek {selectedGwForAction} Action
+                    </h3>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mt-0.5">
+                      Manage settlement, payouts or forfeit unplayed rounds
+                    </p>
+                  </div>
                 </div>
 
                 {/* Content */}
@@ -5340,23 +5351,43 @@ burstFrame();
 
         {/* Global Modals (accessible from all tabs) */}
         {showResolveModal && createPortal(
-            <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-              <div className="fc-resolve-modal bg-[#161d24] border border-[#FBBF24]/25 w-full max-w-md rounded-2xl shadow-[0_0_60px_rgba(251,191,36,0.1)] overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4">
+              {/* Dark glass backdrop */}
+              <div
+                className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+                onClick={() => {
+                  if (!isResolving) setShowResolveModal(false);
+                }}
+              />
+
+              {/* Modal Dialog */}
+              <div className="relative w-full max-w-md bg-[#0c1218]/95 border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.85)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col">
+                {/* Glow ambient accent */}
+                <div className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-[70px] pointer-events-none opacity-40 bg-amber-500" />
+
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowResolveModal(false)}
+                  disabled={isResolving}
+                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-50 cursor-pointer"
+                  aria-label="Close dialog"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
                 {/* Header */}
-                <div className="p-5 pb-4 border-b border-white/5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#FBBF24]/10 flex items-center justify-center border border-[#FBBF24]/20">
-                      <Trophy className="w-5 h-5 text-[#FBBF24]" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black text-white tracking-tight">Resolve Gameweek</h3>
-                      <p className="text-[11px] text-gray-500 font-medium">Finalize winner & queue payout</p>
-                    </div>
+                <div className="flex items-start gap-4 pb-4 border-b border-white/5 mb-2">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                    <Trophy className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0 flex-1 pr-6">
+                    <h3 className="fc-frosty-title text-xl font-black tracking-tight">Resolve Gameweek</h3>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mt-0.5">Finalize winner & queue payout</p>
                   </div>
                 </div>
 
                 {/* Body */}
-                <div className="p-5 space-y-4 overflow-y-auto">
+                <div className="py-3 space-y-4 overflow-y-auto">
                   {!isCurrentEventFinished && (
                     <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-300">
                       <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
@@ -5425,12 +5456,12 @@ burstFrame();
                 </div>
 
                 {/* Footer */}
-                <div className="p-5 pt-3 border-t border-white/5 grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-white/5">
                   <button
                     type="button"
                     onClick={() => setShowResolveModal(false)}
                     disabled={isResolving}
-                    className="h-12 w-full px-4 rounded-xl font-bold text-gray-300 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm cursor-pointer flex items-center justify-center text-center select-none"
+                    className="h-12 w-full px-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 active:scale-95 cursor-pointer flex items-center justify-center text-center select-none"
                   >
                     Cancel
                   </button>
@@ -5438,7 +5469,7 @@ burstFrame();
                     type="button"
                     onClick={handleResolveGameweek}
                     disabled={isResolving}
-                    className="h-12 w-full px-4 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm shadow-[0_0_20px_rgba(251,191,36,0.25)] cursor-pointer text-center select-none"
+                    className="h-12 w-full px-4 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(251,191,36,0.25)] active:scale-95 cursor-pointer text-center select-none"
                   >
                     {isResolving ? (
                       <>
