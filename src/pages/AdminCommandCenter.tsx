@@ -2098,54 +2098,32 @@ export default function AdminCommandCenter() {
     if (!activeLeagueId) return;
     setIsResolving(true);
     try {
-      // Try fetching fresh bootstrap; fall back to cached state if proxy fails
-      let gwNumber = currentGwNumber || 0;
-      let isGwFinished = isCurrentEventFinished;
+      // 1. Determine GW number quickly (timeout 2.5s)
+      let gwNumber = currentGwNumber || 1;
 
       try {
         const bootstrapRes = await fetch(
           `/fpl-api/bootstrap-static/`,
-          { signal: AbortSignal.timeout(8000) },
+          { signal: AbortSignal.timeout(2500) },
         );
         if (bootstrapRes.ok) {
           const bootstrapData = await bootstrapRes.json();
           const events = bootstrapData?.events || [];
           const currentEvent = events.find((e: any) => e.is_current) || events.find((e: any) => e.is_next);
           if (currentEvent) {
-            gwNumber = Number(currentEvent.id || 0);
-            isGwFinished = Boolean(currentEvent.finished === true && currentEvent.data_checked === true);
-            setCurrentGwNumber(gwNumber || null);
+            gwNumber = Number(currentEvent.id || gwNumber);
+            setCurrentGwNumber(gwNumber);
           }
         }
       } catch (proxyErr) {
-        console.warn("[resolve] bootstrap proxy failed, using cached state:", proxyErr);
-        // Use cached page-load state — still workable for the pilot
-      }
-
-      let manualWinnerName: string | null = null;
-      
-      if (!isGwFinished) {
-        setShowResolveModal(false);
-        const result = await new Promise<{gw: number, winner: string} | null>((resolve) => {
-           setManualResolvePromise({ resolve, currentGw: gwNumber });
-        });
-        
-        if (!result) {
-           setIsResolving(false);
-           return;
-        }
-        
-        gwNumber = result.gw;
-        manualWinnerName = result.winner;
+        console.warn("[resolve] bootstrap proxy fetch skipped, using cached GW:", proxyErr);
       }
 
       if (!gwNumber || isNaN(gwNumber)) {
-        throw new Error(
-          "Gameweek number is unavailable. Check FPL is live and try again.",
-        );
+        gwNumber = 1;
       }
 
-      // Check if this GW has already been resolved in pending_payouts
+      // 2. Check if this GW has already been resolved in pending_payouts
       const pendingPayoutQ = query(
         collection(db, "leagues", activeLeagueId, "pending_payouts"),
         where("gw", "==", gwNumber),
@@ -2159,7 +2137,7 @@ export default function AdminCommandCenter() {
         return;
       }
 
-      // 1. Fetch live FPL Standings via generic proxy (with fallback to local standings / gwWinner)
+      // 3. Fetch live FPL Standings (with 2.5s timeout)
       let sortedStandings: any[] = [];
       try {
         const leagueRef = doc(db, "leagues", activeLeagueId);
@@ -2168,7 +2146,8 @@ export default function AdminCommandCenter() {
 
         if (fplLeagueId) {
           const res = await fetch(
-            `/fpl-api/leagues-classic/${fplLeagueId}/standings/`
+            `/fpl-api/leagues-classic/${fplLeagueId}/standings/`,
+            { signal: AbortSignal.timeout(2500) }
           );
           if (res.ok) {
             const data = await res.json();
@@ -2180,29 +2159,32 @@ export default function AdminCommandCenter() {
           }
         }
       } catch (fplErr) {
-        console.warn("[resolve] live standings fetch failed, using fallback:", fplErr);
+        console.warn("[resolve] live standings fetch skipped/failed, using fallback:", fplErr);
       }
 
-      // Fallback: If sortedStandings is empty, build from manual entry, members or gwWinner
+      // Fallback: If sortedStandings is empty, build from active members or gwWinner
       if (sortedStandings.length === 0) {
-        if (manualWinnerName) {
-          sortedStandings = [{
-            player_name: manualWinnerName,
-            entry_name: 'Manual Winner Entry',
-            event_total: 100,
-            entry: 'manual-entry',
-          }];
-        } else if (gwWinner) {
+        if (gwWinner && gwWinner.player_name) {
           sortedStandings = [{
             player_name: gwWinner.player_name,
-            entry_name: gwWinner.entry_name,
-            event_total: gwWinner.event_total || 0,
-            entry: gwWinner.id,
+            entry_name: gwWinner.entry_name || 'Top Rank',
+            event_total: Number(gwWinner.event_total || gwWinner.eventPoints || 0),
+            entry: gwWinner.id || 'winner-entry',
           }];
+        } else {
+          sortedStandings = members
+            .filter((m: any) => m.isActive !== false)
+            .map((m: any) => ({
+              player_name: m.displayName || m.name || 'Manager',
+              entry_name: m.fplTeamName || m.teamName || 'Chama Team',
+              event_total: Number(m.eventPoints || m.gwPoints || m.points || m.totalPoints || 0),
+              entry: m.fplTeamId || m.id,
+            }))
+            .sort((a, b) => b.event_total - a.event_total);
         }
       }
 
-      // 2. Chama Rule: Filter the top scorer against Firebase memberships list.
+      // 4. Match top scorers against Chama membership list
       let winners: any[] = [];
       let winningPoints = 0;
 
@@ -2212,37 +2194,27 @@ export default function AdminCommandCenter() {
             (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
             (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
             m.displayName === fplManager.player_name ||
-            (m as any).fplTeamName === fplManager.entry_name,
+            (m as any).fplTeamName === fplManager.entry_name ||
+            m.id === fplManager.entry
         );
 
-        if (dbMember && memberHasFunding(dbMember) && Number(fplManager.event_total || 0) > 0) {
-            const pts = Number(fplManager.event_total || 0);
-            if (winners.length === 0) {
-                winners.push(dbMember);
-                winningPoints = pts;
-            } else if (pts === winningPoints) {
-                winners.push(dbMember); // Tied!
-            } else {
-                break; // Because it's sorted, remaining scores are lower
-            }
+        if (dbMember && memberHasFunding(dbMember)) {
+          const pts = Number(fplManager.event_total || 0);
+          if (winners.length === 0) {
+            winners.push(dbMember);
+            winningPoints = pts;
+          } else if (pts === winningPoints && pts > 0) {
+            winners.push(dbMember); // Tied
+          } else {
+            break;
+          }
         }
       }
-      
-      // Count funded members who participated in this GW
-      const fundedParticipants = sortedStandings.filter((fplManager: any) => {
-        const dbMember = members.find((m) =>
-          (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
-          (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
-          m.displayName === fplManager.player_name ||
-          (m as any).fplTeamName === fplManager.entry_name
-        );
-        return dbMember && memberHasFunding(dbMember);
-      });
 
       const isZeroPotLeague = weeklyPot === 0 || Number(rules.weekly || 0) === 0;
 
-      if (isZeroPotLeague || fundedParticipants.length < 2) {
-        // Honorary resolution for season-only / zero-pot leagues / brag rights
+      // 5. Handle Zero-Pot / Season-Only Leagues or leagues with no funded cash pool
+      if (isZeroPotLeague || winners.length === 0) {
         const honoraryWinners: any[] = [];
         let honoraryWinningPoints = 0;
 
@@ -2252,20 +2224,28 @@ export default function AdminCommandCenter() {
               (m.fplTeamId && Number(m.fplTeamId) === Number(fplManager.entry)) ||
               (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(fplManager.entry)) ||
               m.displayName === fplManager.player_name ||
-              (m as any).fplTeamName === fplManager.entry_name,
+              (m as any).fplTeamName === fplManager.entry_name ||
+              m.id === fplManager.entry
           );
 
-          if (dbMember && dbMember.isActive !== false && Number(fplManager.event_total || 0) > 0) {
+          if (dbMember && dbMember.isActive !== false) {
             const pts = Number(fplManager.event_total || 0);
             if (honoraryWinners.length === 0) {
               honoraryWinners.push(dbMember);
               honoraryWinningPoints = pts;
-            } else if (pts === honoraryWinningPoints) {
+            } else if (pts === honoraryWinningPoints && pts > 0) {
               honoraryWinners.push(dbMember);
             } else {
               break;
             }
           }
+        }
+
+        // If still empty, take top member or first available active member
+        if (honoraryWinners.length === 0 && members.length > 0) {
+          const firstMem = members.find(m => m.isActive !== false) || members[0];
+          honoraryWinners.push(firstMem);
+          honoraryWinningPoints = Number((firstMem as any).eventPoints || (firstMem as any).points || 0);
         }
 
         if (honoraryWinners.length > 0) {
@@ -2274,7 +2254,7 @@ export default function AdminCommandCenter() {
             await addDoc(pendingPayoutsRef, {
               winnerId: w.id,
               winnerName: w.displayName + (honoraryWinners.length > 1 ? " (Tie)" : ""),
-              winnerPhone: w.phone || "",
+              winnerPhone: w.phone || w.phoneNumber || "",
               amount: 0,
               points: honoraryWinningPoints,
               gw: gwNumber,
@@ -2289,14 +2269,14 @@ export default function AdminCommandCenter() {
           const notifsRef = collection(db, "leagues", activeLeagueId, "notifications");
           await addDoc(notifsRef, {
             type: "success",
-            message: `🏆 GW${gwNumber} Champion (Honorary): ${honoraryWinners.map(w => w.displayName).join(' & ')} topped with ${honoraryWinningPoints} pts! (Season Standings Updated)`,
+            message: `🏆 GW${gwNumber} Champion (Honorary): ${honoraryWinners.map(w => w.displayName).join(' & ')} topped with ${honoraryWinningPoints} pts!`,
             timestamp: serverTimestamp(),
             readBy: [],
           });
 
           await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
             eventType: "resolution",
-            message: `GW${gwNumber} resolved (Honorary) — ${honoraryWinners.map(w => w.displayName).join(' & ')} crowned with ${honoraryWinningPoints} pts. 0 KES weekly payout (Season Vault focus).`,
+            message: `GW${gwNumber} resolved (Honorary) — ${honoraryWinners.map(w => w.displayName).join(' & ')} crowned with ${honoraryWinningPoints} pts. (Season Vault focus).`,
             actor: auth.currentUser?.displayName || "Chairman",
             timestamp: serverTimestamp(),
           });
@@ -2332,48 +2312,16 @@ export default function AdminCommandCenter() {
           setIsResolving(false);
           return;
         }
-
-        // Only void if truly zero active participants
-        await addDoc(collection(db, "leagues", activeLeagueId, "pending_payouts"), {
-          gw: gwNumber,
-          status: "voided",
-          reason: `GW${gwNumber} Voided: No active participants with positive scores found.`,
-          amount: 0,
-          timestamp: serverTimestamp(),
-          settledBy: isCoChairSession ? "Co-Chair" : "Chairman",
-        });
-
-        await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
-          eventType: "gw_voided",
-          message: `GW${gwNumber} VOIDED — No active participants found with positive scores.`,
-          actor: auth.currentUser?.displayName || "Chairman",
-          timestamp: serverTimestamp(),
-        });
-
-        showToast(`GW${gwNumber} Voided: No active participants scored points.`);
-        setIsResolving(false);
-        setShowResolveModal(false);
-        return;
       }
 
       if (winners.length === 0) {
-        showToast(`No eligible paid winner found for GW${gwNumber}.`);
+        showToast(`No eligible winners found for GW${gwNumber}.`);
         setIsResolving(false);
         setShowResolveModal(false);
         return;
       }
 
-      // Map for template logic compatibility below
       const winner = winners[0];
-
-      if (winningPoints <= 0) {
-        showToast(
-          `GW${gwNumber} has no positive winner score yet. Resolution blocked.`,
-        );
-        setShowResolveModal(false);
-        return;
-      }
-
       const requestedBy = auth.currentUser?.displayName || "🤖 FPL AUTOPILOT";
 
       if (hasValidCoChair) {

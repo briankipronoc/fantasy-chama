@@ -25,7 +25,6 @@ function LedgerDemo() {
     const [members, setMembers] = useState(initialDemoMembers);
     const [highlightId, setHighlightId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'ledger' | 'victory' | 'mockup'>('ledger');
-    const { isDark } = useTheme();
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -223,19 +222,47 @@ function LedgerDemo() {
                     </div>
 
                     <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center text-center">
-                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-400/40 shadow-lg w-full max-w-sm group bg-white dark:bg-black/40">
-                            <img 
-                                src={isDark ? "/victory-card-preview.jpg" : "/victory-card-preview-light.jpg"} 
-                                alt="Official WhatsApp Victory Card" 
-                                className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-3">
-                                <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-amber-500/20 border border-slate-200 dark:border-amber-500/40 backdrop-blur-md text-slate-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
-                                    WhatsApp Status Ready
+                        {/* Branded Vector Victory Card */}
+                        <div className="w-full max-w-sm rounded-2xl bg-gradient-to-b from-[#18231c] via-[#0d141b] to-[#080d12] border-2 border-amber-500/40 p-5 shadow-[0_16px_40px_rgba(245,158,11,0.15)] relative overflow-hidden text-left font-sans">
+                            <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-[40px] pointer-events-none" />
+                            
+                            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                                        <Trophy className="w-4 h-4 text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Gameweek 4 Champion</p>
+                                        <p className="text-xs font-bold text-gray-300">Official Chama Crown</p>
+                                    </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                                    VERIFIED
+                                </span>
+                            </div>
+
+                            <div className="space-y-1 mb-4">
+                                <p className="text-xl font-black text-white tracking-tight">Joel Sifuna</p>
+                                <p className="text-xs text-amber-300/80 font-semibold">Sifuna Stars · 78 pts</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 bg-black/40 border border-white/10 rounded-xl p-3 mb-3">
+                                <div>
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Cash Pot Won</p>
+                                    <p className="text-base font-black text-emerald-400 tabular-nums">KES 1,960</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Season Rank</p>
+                                    <p className="text-base font-black text-amber-400">#1 (Podium)</p>
                                 </div>
                             </div>
+
+                            <div className="w-full py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-widest text-center">
+                                📱 Ready to flex on WhatsApp Status
+                            </div>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-2.5 font-medium max-w-sm">
+
+                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-sm">
                             Every gameweek winner gets a custom, verified Victory Card to flex in WhatsApp groups and challenge rivals.
                         </p>
                     </div>
@@ -266,20 +293,44 @@ function LedgerDemo() {
                     </div>
 
                     <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center text-center">
-                        <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-lg w-full max-w-sm group bg-white dark:bg-black/40">
-                            <img 
-                                src={isDark ? "/system-card-preview-dark.jpg" : "/system-card-preview-light.jpg"} 
-                                alt="FantasyChama System Cards Showcase" 
-                                className="w-full h-auto object-cover transform group-hover:scale-102 transition-transform duration-500"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent flex flex-col justify-end p-3">
-                                <div className="inline-flex items-center gap-1.5 self-center px-3 py-1 rounded-full bg-white/95 dark:bg-emerald-500/20 border border-slate-200 dark:border-emerald-500/40 backdrop-blur-md text-slate-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
-                                    Automated 91/9 Settlement Engine
+                        {/* Interactive Vector Escrow Engine Architecture */}
+                        <div className="w-full max-w-sm space-y-2.5 text-left font-sans">
+                            {/* Card 1: Matchday Pot */}
+                            <div className="rounded-xl bg-slate-900/90 dark:bg-[#111822] border border-emerald-500/30 p-3 shadow-sm">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                                        <Banknote className="w-3.5 h-3.5" /> Weekly Matchday Pot (70%)
+                                    </span>
+                                    <span className="text-xs font-black text-white tabular-nums">KES 1,960</span>
                                 </div>
+                                <p className="text-[10px] text-gray-400">Auto-disbursed to top scorer at final match whistle.</p>
+                            </div>
+
+                            {/* Card 2: Season Vault */}
+                            <div className="rounded-xl bg-slate-900/90 dark:bg-[#111822] border border-amber-500/30 p-3 shadow-sm">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                                        <Lock className="w-3.5 h-3.5" /> 38-GW Season Vault (30%)
+                                    </span>
+                                    <span className="text-xs font-black text-white tabular-nums">KES 840 / GW</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400">Accumulates locked in escrow until GW38 season finale.</p>
+                            </div>
+
+                            {/* Card 3: Chairman Operations */}
+                            <div className="rounded-xl bg-slate-900/90 dark:bg-[#111822] border border-indigo-500/30 p-3 shadow-sm">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 flex items-center gap-1">
+                                        <Shield className="w-3.5 h-3.5" /> Chairman Kickback (4%)
+                                    </span>
+                                    <span className="text-xs font-black text-white tabular-nums">KES 112</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400">Automated stipend directly credited to Chairman wallet.</p>
                             </div>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-2.5 font-medium max-w-sm">
-                            Three dedicated system cards: Live Matchday Pot, Automated M-Pesa Disbursal, and 38 Gameweeks Season Vault.
+
+                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-sm">
+                            Three dedicated system modules: Live Matchday Pot, Automated M-Pesa Disbursal, and 38 Gameweeks Season Vault.
                         </p>
                     </div>
 
@@ -479,7 +530,6 @@ function ExpandingThemeSwitcher() {
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
-    const { isDark } = useTheme();
 
     useEffect(() => {
         const leagueId = localStorage.getItem('activeLeagueId');
@@ -494,12 +544,12 @@ export default function LandingPage() {
             {/* TopNavBar */}
             <nav className="fc-landing-nav fixed top-0 w-full z-50 bg-white/85 dark:bg-[#0f131c]/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/[0.05]">
                 <div className="flex justify-between items-center px-4 sm:px-6 md:px-8 py-3.5 max-w-7xl mx-auto">
-                    <div className="fc-landing-brand flex items-center gap-2 text-lg sm:text-xl md:text-2xl font-extrabold tracking-tighter text-slate-900 dark:text-[#DFE2EF]">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 p-[1px] flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                            <div className="w-full h-full bg-slate-900 rounded-[11px] flex items-center justify-center">
-                                <Trophy className="w-4 h-4 text-emerald-400" />
-                            </div>
-                        </div>
+                    <div className="fc-landing-brand flex items-center gap-2.5 text-lg sm:text-xl md:text-2xl font-extrabold tracking-tighter text-slate-900 dark:text-[#DFE2EF]">
+                        <img 
+                            src="/favicon.svg" 
+                            alt="Fantasy Chama Logo" 
+                            className="w-8 h-8 rounded-xl shadow-md shadow-emerald-500/20 object-contain" 
+                        />
                         Fantasy <span className="text-emerald-600 dark:text-emerald-400">Chama</span>
                     </div>
                     <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 space-x-10 items-center">
@@ -664,12 +714,28 @@ export default function LandingPage() {
                                     </p>
                                 </div>
                                 <div className="sm:col-span-5">
-                                    <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-emerald-500/30 shadow-md group-hover:scale-105 transition-transform duration-500 bg-white dark:bg-black/20">
-                                        <img 
-                                            src={isDark ? "/system-card-preview-dark.jpg" : "/system-card-preview-light.jpg"} 
-                                            alt="System Escrow Card" 
-                                            className="w-full h-auto object-cover" 
-                                        />
+                                    {/* Vector Escrow Engine Card */}
+                                    <div className="rounded-2xl p-4 bg-slate-900/90 dark:bg-[#0c1218] border border-emerald-500/30 shadow-lg space-y-3 text-left font-sans">
+                                        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1">
+                                                <Shield className="w-3 h-3" /> M-Pesa Escrow Lock
+                                            </span>
+                                            <span className="text-[9px] font-bold text-gray-400">GW4 Active</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="bg-black/40 border border-white/5 rounded-xl p-2.5">
+                                                <p className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Weekly Pot</p>
+                                                <p className="text-sm font-black text-emerald-400 tabular-nums">KES 1,960</p>
+                                            </div>
+                                            <div className="bg-black/40 border border-white/5 rounded-xl p-2.5">
+                                                <p className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Season Vault</p>
+                                                <p className="text-sm font-black text-amber-400 tabular-nums">KES 31,920</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between pt-1 text-[10px] text-gray-300 font-medium">
+                                            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> Auto Disbursal</span>
+                                            <span className="text-emerald-400 font-bold">100% Precision</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -737,12 +803,35 @@ export default function LandingPage() {
                                     </div>
                                 </div>
                                 <div className="sm:col-span-5">
-                                    <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-amber-500/30 shadow-md group-hover:scale-105 transition-transform duration-500 bg-white dark:bg-black/20">
-                                        <img 
-                                            src={isDark ? "/sidebets-card-preview-dark.jpg" : "/sidebets-card-preview-light.jpg"} 
-                                            alt="1v1 Side Bets Showcase" 
-                                            className="w-full h-auto object-cover" 
-                                        />
+                                    {/* 1v1 Head-to-Head Vector Arena Duel Card */}
+                                    <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-b from-[#1c221a] to-[#0c1214] border-2 border-amber-500/40 shadow-xl space-y-3.5 text-left font-sans">
+                                        <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">1v1 Matchday Duel</span>
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-black uppercase">
+                                                KES 1,000 POT
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 items-center py-1">
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-bold text-white truncate">Brian Mwangi</p>
+                                                <p className="text-lg font-black text-emerald-400 tabular-nums">74 pts</p>
+                                                <span className="text-[9px] font-bold text-emerald-300/80 uppercase">Leading 🔥</span>
+                                            </div>
+                                            <div className="space-y-1 text-right border-l border-white/10 pl-3">
+                                                <p className="text-xs font-bold text-white truncate">Kevin Otieno</p>
+                                                <p className="text-lg font-black text-gray-300 tabular-nums">68 pts</p>
+                                                <span className="text-[9px] font-bold text-gray-500 uppercase">-6 pts</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="w-full py-2 rounded-xl bg-black/40 border border-white/10 text-gray-300 text-[10px] font-bold text-center flex items-center justify-center gap-1.5">
+                                            <Lock className="w-3 h-3 text-amber-400" />
+                                            <span>M-Pesa Escrow Locked · Disburses at 90'</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
