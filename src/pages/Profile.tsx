@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
-import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import { useTheme } from '../hooks/useTheme';
@@ -82,6 +82,8 @@ export default function Profile() {
     const [showRetireModal, setShowRetireModal] = useState(false);
     const [selectedSuccessorId, setSelectedSuccessorId] = useState('');
     const [isRetiring, setIsRetiring] = useState(false);
+    const [showDeleteLeagueModal, setShowDeleteLeagueModal] = useState(false);
+    const [isDeletingLeague, setIsDeletingLeague] = useState(false);
 
     const isMemberFunded = (m: any) =>
         m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
@@ -687,6 +689,28 @@ export default function Profile() {
         }
     };
 
+    const handleDeleteLeague = async () => {
+        if (!activeLeagueId) return;
+        setIsDeletingLeague(true);
+        try {
+            haptics.warning();
+            await deleteDoc(doc(db, 'leagues', activeLeagueId));
+            localStorage.removeItem('activeLeagueId');
+            localStorage.removeItem('activeRole');
+            useStore.getState().setActiveLeagueId(null);
+            toast.success(`League "${leagueName || 'League'}" has been permanently deleted.`);
+            setShowDeleteLeagueModal(false);
+            setTimeout(() => {
+                navigate('/setup', { replace: true });
+            }, 600);
+        } catch (err: any) {
+            console.error('Failed to delete league:', err);
+            toast.error('Failed to delete league: ' + (err?.message || 'Error'));
+        } finally {
+            setIsDeletingLeague(false);
+        }
+    };
+
     const renderActiveMembersStrip = (extraClassName = '') => {
         // Funded members are considered active regardless of phone status
         // Only show as "Pending Onboarding" if they have no phone AND are not funded
@@ -978,13 +1002,30 @@ export default function Profile() {
             {/* Invite Hub Section */}
             <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 uppercase tracking-widest">
+                    <h3
+                        className="text-xs font-black uppercase tracking-widest text-amber-400"
+                        style={{
+                            background: 'linear-gradient(90deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                        }}
+                    >
                         Master Invite Code
                     </h3>
                     <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] uppercase font-bold tracking-widest rounded border border-amber-500/20">Active</span>
                 </div>
                 <div className="text-center mb-3">
-                    <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 tracking-widest block mb-1 drop-shadow-[0_2px_12px_rgba(251,191,36,0.35)]">{inviteCode || '------'}</span>
+                    <span
+                        className="text-4xl font-black tracking-widest block mb-1 select-all text-amber-400"
+                        style={{
+                            background: 'linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            filter: 'drop-shadow(0 2px 14px rgba(251,191,36,0.4))',
+                        }}
+                    >
+                        {inviteCode || '------'}
+                    </span>
                     <p className="text-xs text-gray-400 font-medium">Share this code with players to join with their M-Pesa number.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1343,6 +1384,37 @@ export default function Profile() {
         </div>
     );
 
+    const renderDeleteLeagueCard = () => (
+        <div className="fc-card w-full bg-gradient-to-br from-[#161214] via-[#1d1013] to-[#240e11] border border-red-500/30 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+            <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                    <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-red-300">
+                        Danger Zone · Delete League
+                    </h2>
+                    <p className="text-[10px] text-gray-400 font-medium">Permanently erase this league and all historical records</p>
+                </div>
+            </div>
+
+            <p className="text-xs text-red-200/70 mb-4 leading-relaxed font-medium">
+                Once deleted, all gameweek records, member registrations, pots, and settings for <strong className="text-white">{leagueName || 'this league'}</strong> will be permanently removed. This action cannot be reversed.
+            </p>
+
+            <button
+                type="button"
+                onClick={() => {
+                    haptics.warning();
+                    setShowDeleteLeagueModal(true);
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-red-600/90 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-[0_0_20px_rgba(239,68,68,0.25)] flex items-center justify-center gap-2 cursor-pointer border border-red-400/40"
+            >
+                <Trash2 className="w-4 h-4" /> Delete League Permanently
+            </button>
+        </div>
+    );
+
     return (
         <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white relative overflow-hidden bg-transparent">
             <div className="absolute inset-0 pointer-events-none opacity-75">
@@ -1600,7 +1672,6 @@ export default function Profile() {
                     {isAdminView && (
                         <div className="xl:hidden w-full flex flex-col gap-4">
                             {renderLeagueGovernance()}
-                            {renderRetirementCard()}
                         </div>
                     )}
 
@@ -1898,13 +1969,22 @@ export default function Profile() {
                             </div>
                         )}
                     </div>
+
+                    {/* Mobile View: Chairman Retirement and Delete League Cards at the very end */}
+                    {isAdminView && (
+                        <div className="xl:hidden w-full flex flex-col gap-4">
+                            {renderRetirementCard()}
+                            {renderDeleteLeagueCard()}
+                        </div>
+                    )}
                 </div>
 
-                {/* Desktop Right Column: League Governance & Retirement */}
+                {/* Desktop Right Column: League Governance, Retirement & Delete League */}
                 {isAdminView && (
                     <div className="hidden xl:flex xl:col-span-5 flex-col gap-4">
                         {renderLeagueGovernance()}
                         {renderRetirementCard()}
+                        {renderDeleteLeagueCard()}
                     </div>
                 )}
                 </div>
@@ -1969,6 +2049,19 @@ export default function Profile() {
                 cancelText="Cancel"
                 variant="danger"
                 isLoading={isRetiring}
+            />
+
+            {/* Delete League Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showDeleteLeagueModal}
+                onClose={() => setShowDeleteLeagueModal(false)}
+                onConfirm={handleDeleteLeague}
+                title={`Delete ${leagueName || 'League'}?`}
+                message={`Are you completely sure you want to permanently delete "${leagueName || 'this league'}"? All member rosters, gameweek history, pots, and settings will be permanently erased. This action cannot be reversed.`}
+                confirmText="Yes, Delete League"
+                cancelText="Cancel"
+                variant="danger"
+                isLoading={isDeletingLeague}
             />
 
             {/* Chama Constitution & Guides Modal */}

@@ -2122,8 +2122,7 @@ export default function AdminCommandCenter() {
         // Use cached page-load state — still workable for the pilot
       }
 
-      let finalWinnerName = gwWinner?.player_name || "Unknown";
-      let finalWinnerId = gwWinner?.id || "unknown";
+      let manualWinnerName: string | null = null;
       
       if (!isGwFinished) {
         setShowResolveModal(false);
@@ -2137,8 +2136,7 @@ export default function AdminCommandCenter() {
         }
         
         gwNumber = result.gw;
-        finalWinnerName = result.winner;
-        finalWinnerId = "manual-entry";
+        manualWinnerName = result.winner;
       }
 
       if (!gwNumber || isNaN(gwNumber)) {
@@ -2147,62 +2145,61 @@ export default function AdminCommandCenter() {
         );
       }
 
-      const payoutsRef = collection(db, "leagues", activeLeagueId, "payouts");
-      const q = query(payoutsRef, where("gw", "==", gwNumber));
-      const existing = await getDocs(q);
-
-      if (!existing.empty) {
-        throw new Error(`GW${gwNumber} has already been resolved.`);
-      }
-
-      await addDoc(payoutsRef, {
-        gw: gwNumber,
-        amount: weeklyPot,
-        winnerId: finalWinnerId,
-        winnerName: finalWinnerName,
-        status: "awaiting_approval",
-        timestamp: serverTimestamp(),
-        method: payoutMethod,
-        requestedBy: isCoChairSession ? "Co-Chair" : "Chairman",
-        approvalTarget: "co-chair",
-      });
-
-      // 1. Fetch live FPL Standings via generic proxy
-      const leagueRef = doc(db, "leagues", activeLeagueId);
-      const leagueSnap = await getDoc(leagueRef);
-      const fplLeagueId = leagueSnap.data()?.fplLeagueId;
-
-      if (!fplLeagueId) {
-        showToast("Cannot resolve: No FPL League linked. Please connect your official FPL League ID in Settings.");
+      // Check if this GW has already been resolved in pending_payouts
+      const pendingPayoutQ = query(
+        collection(db, "leagues", activeLeagueId, "pending_payouts"),
+        where("gw", "==", gwNumber),
+      );
+      const existingPending = await getDocs(pendingPayoutQ);
+      const alreadySettled = existingPending.docs.some((d) => ['approved', 'awaiting_approval'].includes(d.data().status));
+      if (alreadySettled) {
+        showToast(`GW${gwNumber} has already been resolved.`);
+        setShowResolveModal(false);
         setIsResolving(false);
         return;
       }
 
-      const res = await fetch(
-        `/fpl-api/leagues-classic/${fplLeagueId}/standings/`
-      );
-      if (!res.ok) throw new Error("Failed to fetch FPL standings for League ID " + fplLeagueId);
-      const data = await res.json();
+      // 1. Fetch live FPL Standings via generic proxy (with fallback to local standings / gwWinner)
+      let sortedStandings: any[] = [];
+      try {
+        const leagueRef = doc(db, "leagues", activeLeagueId);
+        const leagueSnap = await getDoc(leagueRef);
+        const fplLeagueId = leagueSnap.data()?.fplLeagueId;
 
-      const standings = data.standings.results || [];
-      // Sort by GW points (event_total)
-      const sortedStandings = [...standings].sort(
-        (a: any, b: any) =>
-          Number(b.event_total || 0) - Number(a.event_total || 0),
-      );
+        if (fplLeagueId) {
+          const res = await fetch(
+            `/fpl-api/leagues-classic/${fplLeagueId}/standings/`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const standings = data?.standings?.results || [];
+            sortedStandings = [...standings].sort(
+              (a: any, b: any) =>
+                Number(b.event_total || 0) - Number(a.event_total || 0),
+            );
+          }
+        }
+      } catch (fplErr) {
+        console.warn("[resolve] live standings fetch failed, using fallback:", fplErr);
+      }
 
-      const pendingPayoutQ = query(
-        collection(db, "leagues", activeLeagueId, "pending_payouts"),
-        where("gw", "==", gwNumber),
-        where("status", "==", "awaiting_approval"),
-      );
-      const existingPending = await getDocs(pendingPayoutQ);
-      if (!existingPending.empty) {
-        showToast(
-          `GW${gwNumber} already has a pending payout approval in queue.`,
-        );
-        setShowResolveModal(false);
-        return;
+      // Fallback: If sortedStandings is empty, build from manual entry, members or gwWinner
+      if (sortedStandings.length === 0) {
+        if (manualWinnerName) {
+          sortedStandings = [{
+            player_name: manualWinnerName,
+            entry_name: 'Manual Winner Entry',
+            event_total: 100,
+            entry: 'manual-entry',
+          }];
+        } else if (gwWinner) {
+          sortedStandings = [{
+            player_name: gwWinner.player_name,
+            entry_name: gwWinner.entry_name,
+            event_total: gwWinner.event_total || 0,
+            entry: gwWinner.id,
+          }];
+        }
       }
 
       // 2. Chama Rule: Filter the top scorer against Firebase memberships list.
@@ -3448,10 +3445,11 @@ burstFrame();
               const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : null;
               const runnerUp = gwWinner?.runnerUpName || null;
               
+              const isSeasonPotOnly = Number(rules.weekly || 0) === 0;
               const fundedActiveMembers = members.filter((m) => memberHasFunding(m) && m.isActive !== false && (m as any).playMode !== 'sidebets_only');
-              const calculatedPot = Math.round(
-                fundedActiveMembers.length * (gameweekStake || 0) * ((rules.weekly ?? 70) / 100)
-              ) || (fundedActiveMembers.length > 0 ? Math.round(fundedActiveMembers.length * (gameweekStake || 0)) : (weeklyPot || 0));
+              const calculatedPot = isSeasonPotOnly
+                ? 0
+                : Math.round(fundedActiveMembers.length * (gameweekStake || 0) * ((rules.weekly ?? 70) / 100));
 
               const finishedAtStored = Number(localStorage.getItem(`fc_gw_${currentGwNumber}_finished_at`) || 0);
               const hoursSinceFinished = finishedAtStored ? (Date.now() - finishedAtStored) / (1000 * 60 * 60) : 0;
@@ -3705,13 +3703,13 @@ burstFrame();
                     <div className="flex flex-col gap-2.5 w-full lg:w-64 xl:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
                       <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
-                          {isCurrentEventFinished ? `GW${currentGwNumber || 5} Cash Pot` : `Projected Cash Pot`}
+                          {isSeasonPotOnly ? `GW${currentGwNumber || effectiveStartGw || 5} Round` : isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`}
                         </p>
                         <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
-                          KES {isStealthMode ? "****" : calculatedPot.toLocaleString()}
+                          {isSeasonPotOnly ? "KES 0 (Bragging Rights)" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
-                          {fundedActiveMembers.length} active contribution{fundedActiveMembers.length === 1 ? '' : 's'}
+                          {isSeasonPotOnly ? "100% Season Vault Accumulation" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
                         </p>
                       </div>
 
@@ -3979,10 +3977,25 @@ burstFrame();
 
               <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-amber-500/25 rounded-[2rem] shadow-[0_0_30px_rgba(251,191,36,0.1)] overflow-hidden flex flex-col">
                 <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-xs font-black tracking-widest uppercase mb-4 mt-4">
+                  <span
+                    className="text-xs font-black tracking-widest uppercase mb-4 mt-4 text-amber-400"
+                    style={{
+                      background: 'linear-gradient(90deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
                     Master Invite Code
                   </span>
-                  <div className="text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 drop-shadow-[0_2px_15px_rgba(251,191,36,0.4)] tracking-tight mb-6 tabular-nums">
+                  <div
+                    className="text-5xl lg:text-6xl font-black tracking-tight mb-6 tabular-nums select-all text-amber-400"
+                    style={{
+                      background: 'linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      filter: 'drop-shadow(0 2px 14px rgba(251,191,36,0.45))',
+                    }}
+                  >
                     {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
                   </div>
                   <p className="text-gray-400 text-sm leading-relaxed mb-8">
@@ -5356,14 +5369,14 @@ burstFrame();
                     </div>
                   )}
 
-                  {weeklyPot === 0 ? (
+                  {weeklyPot === 0 || Number(rules.weekly || 0) === 0 ? (
                     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
                       <div className="flex items-center gap-2 text-amber-400">
-                        <Trophy className="w-5 h-5" />
+                        <Trophy className="w-5 h-5 shrink-0" />
                         <p className="text-xs font-black uppercase tracking-wider">Honorary Gameweek Crown (KES 0 Cash Pot)</p>
                       </div>
                       <p className="text-xs text-gray-300 leading-relaxed">
-                        This league operates on Season Vault focus or zero weekly cash pot. Resolving will officially award Gameweek {currentGwNumber || ''} bragging rights and crown the top-scoring manager on the ledger without disbursing cash.
+                        This league operates on Season Vault focus (0% weekly pot). Resolving will officially award Gameweek {currentGwNumber || ''} bragging rights and record the top-scoring manager on the ledger without disbursing cash.
                       </p>
                     </div>
                   ) : (
@@ -5412,28 +5425,30 @@ burstFrame();
                 </div>
 
                 {/* Footer */}
-                <div className="p-5 pt-3 border-t border-white/5 flex items-center gap-3">
+                <div className="p-5 pt-3 border-t border-white/5 grid grid-cols-2 gap-3">
                   <button
+                    type="button"
                     onClick={() => setShowResolveModal(false)}
                     disabled={isResolving}
-                    className="flex-1 px-4 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white border border-white/8 hover:border-white/15 hover:bg-white/5 transition-all text-sm cursor-pointer"
+                    className="h-12 w-full px-4 rounded-xl font-bold text-gray-300 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all text-xs sm:text-sm cursor-pointer flex items-center justify-center text-center select-none"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={handleResolveGameweek}
                     disabled={isResolving}
-                    className="flex-1 px-4 py-2.5 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-[0_0_20px_rgba(251,191,36,0.2)] cursor-pointer"
+                    className="h-12 w-full px-4 rounded-xl font-black bg-[#FBBF24] hover:bg-[#F59E0B] text-[#111613] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm shadow-[0_0_20px_rgba(251,191,36,0.25)] cursor-pointer text-center select-none"
                   >
                     {isResolving ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Resolving...
+                        <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                        <span>Resolving...</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="w-4 h-4" />
-                        {weeklyPot === 0 ? "Crown GW Winner 🏆" : "Confirm & Resolve"}
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>{weeklyPot === 0 || Number(rules.weekly || 0) === 0 ? "Crown GW Winner 🏆" : "Confirm & Resolve"}</span>
                       </>
                     )}
                   </button>
