@@ -896,7 +896,7 @@ export default function Profile() {
                 document.body
             )}
 
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2.5">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-2">
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
@@ -914,23 +914,23 @@ export default function Profile() {
                         && isActive
                         && (member.role === 'co-chair' || member.role === 'admin');
                     return (
-                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[82px] h-auto rounded-xl border border-white/10 bg-[#0f151a] p-2 flex flex-col items-center justify-center gap-1 shadow-xs hover:border-white/20 transition-all">
-                            <UserAvatar name={member.displayName} size="sm" />
+                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[76px] h-auto rounded-xl border border-white/10 bg-[#0f151a] p-1.5 flex flex-col items-center justify-center gap-1 shadow-xs hover:border-white/20 transition-all">
+                            <UserAvatar name={member.displayName} size="xs" />
                             <div className="text-center flex flex-col items-center gap-0.5 w-full">
-                                <span className={clsx("text-[10px] font-bold block w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
+                                <span className={clsx("text-[9.5px] font-bold block w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
                                 <div className="flex flex-col items-center justify-center">
                                     {isChairman && (
-                                        <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[7.5px] px-1 py-0.5 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
+                                        <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
                                             <ShieldAlert className="w-2 h-2" /> Chairman
                                         </span>
                                     )}
                                     {isValidCoChair && (
-                                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[7.5px] px-1 py-0.5 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
+                                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
                                             <ShieldCheck className="w-2 h-2" /> Co-Chair
                                         </span>
                                     )}
                                     {!isChairman && !isValidCoChair && (
-                                        <span className={clsx("text-[8px] font-black uppercase tracking-wider block",
+                                        <span className={clsx("text-[7.5px] font-black uppercase tracking-wider block",
                                             !isActive ? "text-gray-600" : (member.hasPaid ? "text-[#10B981]" : "text-red-500")
                                         )}>
                                             {!isActive ? "Inactive" : (member.hasPaid ? "Funded" : "Red Zone")}
@@ -1244,26 +1244,29 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* ── Theme & Stealth Display ── */}
-                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0d1217] dark:to-[#06090c] border border-slate-200 dark:border-slate-700/60 p-4 sm:p-5 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                        <div className="flex items-center justify-between gap-3 mb-3.5">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-zinc-800/90 border border-zinc-600/50 flex items-center justify-center shadow-sm shrink-0">
-                                    <Shield className="w-4 h-4 text-emerald-400" />
+                    {/* ── Theme & Stealth Display (Compact & Sleek) ── */}
+                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0d1217] dark:to-[#06090c] border border-slate-200 dark:border-slate-800/80 p-3.5 sm:p-4 rounded-2xl relative overflow-hidden flex flex-col shadow-lg">
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
                                 </div>
-                                <div>
-                                    <h2 className="fc-frosty-title text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Theme & Display
-                                    </h2>
-                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium">
-                                        Appearance & privacy options
-                                    </p>
-                                </div>
+                                <h2 className="fc-frosty-title text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                    Theme & Display
+                                </h2>
                             </div>
+                            <span className={clsx(
+                                "text-[8.5px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border",
+                                isStealthMode
+                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                                    : "bg-black/20 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400"
+                            )}>
+                                {isStealthMode ? "Masked" : "Standard"}
+                            </span>
                         </div>
 
                         {/* Theme Selector Pills */}
-                        <div className="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-slate-200/70 dark:bg-black/40 border border-slate-300/80 dark:border-white/10">
+                        <div className="grid grid-cols-4 gap-1 p-0.5 rounded-xl bg-slate-200/80 dark:bg-black/50 border border-slate-300/80 dark:border-white/10">
                             {[
                                 { key: 'dark', label: 'Dark', icon: '🌙' },
                                 { key: 'stealth', label: 'Stealth', icon: '🛡️' },
@@ -1286,22 +1289,22 @@ export default function Profile() {
                                             toast.success(`${t.label} theme activated`);
                                         }}
                                         className={clsx(
-                                            "py-2 px-1 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer select-none",
+                                            "py-1.5 px-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer select-none",
                                             isSelected
-                                                ? "bg-emerald-500 text-black shadow-md font-extrabold"
+                                                ? "bg-emerald-500 text-black shadow-sm font-extrabold"
                                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                         )}
                                     >
-                                        <span className="text-xs">{t.icon}</span>
-                                        <span className="text-[10px] font-bold">{t.label}</span>
+                                        <span className="text-[11px]">{t.icon}</span>
+                                        <span className="text-[9.5px] font-bold">{t.label}</span>
                                     </button>
                                 );
                             })}
                         </div>
 
                         {/* Mask Balances Row */}
-                        <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-white/5 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
+                        <div className="mt-2.5 pt-2.5 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1309,34 +1312,27 @@ export default function Profile() {
                                         toggleStealthMode();
                                     }}
                                     className={clsx(
-                                        "w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
-                                        isStealthMode ? "bg-emerald-500 border-emerald-400" : "bg-zinc-800 border-zinc-700"
+                                        "w-8 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
+                                        isStealthMode ? "bg-emerald-500 border-emerald-400" : "bg-zinc-700 border-zinc-600"
                                     )}
+                                    aria-label="Toggle Mask Figures"
                                 >
                                     <div
                                         className={clsx(
-                                            "w-4.5 h-4.5 rounded-full bg-white transition-transform shadow-sm",
-                                            isStealthMode ? "translate-x-4" : "translate-x-0"
+                                            "w-3.5 h-3.5 rounded-full bg-white transition-transform shadow-xs",
+                                            isStealthMode ? "translate-x-3" : "translate-x-0"
                                         )}
                                     />
                                 </button>
                                 <div>
-                                    <span className="text-xs font-bold text-slate-900 dark:text-gray-200 block">
+                                    <span className="text-[11px] font-bold text-slate-900 dark:text-gray-200 block leading-tight">
                                         Mask Figures
                                     </span>
-                                    <span className="text-[10px] text-gray-500 block">
-                                        Hides amounts with `KES ****`
+                                    <span className="text-[9px] text-gray-500 block leading-tight">
+                                        Hides financial numbers (`KES ****`)
                                     </span>
                                 </div>
                             </div>
-                            <span className={clsx(
-                                "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
-                                isStealthMode
-                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                                    : "bg-white/5 border-white/10 text-gray-400"
-                            )}>
-                                {isStealthMode ? "Masked" : "Visible"}
-                            </span>
                         </div>
                     </div>
 

@@ -99,7 +99,7 @@ export default function SideBets() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showOpponentPicker, setShowOpponentPicker] = useState(false);
     const [opponentSearch, setOpponentSearch] = useState('');
-    const [betFilterTab, setBetFilterTab] = useState<'active' | 'my' | 'past'>('active');
+    const [betFilterTab, setBetFilterTab] = useState<'active' | 'my' | 'past' | 'cancelled'>('active');
 
     // Resolve state
     const [resolvingBetId, setResolvingBetId] = useState<string | null>(null);
@@ -608,7 +608,8 @@ export default function SideBets() {
     };
 
     const activeBets = bets.filter(b => b.status !== 'resolved' && b.status !== 'cancelled');
-    const pastBets = bets.filter(b => b.status === 'resolved' || b.status === 'cancelled');
+    const pastResolvedBets = bets.filter(b => b.status === 'resolved');
+    const cancelledBets = bets.filter(b => b.status === 'cancelled');
     const myActiveBets = activeBets.filter(b =>
         b.challenger.id === activeUserId || b.opponent.id === activeUserId
     );
@@ -710,9 +711,24 @@ export default function SideBets() {
                         )}
                     >
                         <History className="w-3.5 h-3.5 text-emerald-400" />
-                        Past Side Bets & Winners
+                        Past Winners
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-                            {pastBets.length}
+                            {pastResolvedBets.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setBetFilterTab('cancelled')}
+                        className={clsx(
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            betFilterTab === 'cancelled'
+                                ? "bg-red-500/20 text-red-300 border border-red-500/30 font-black"
+                                : "text-gray-400 hover:text-white"
+                        )}
+                    >
+                        <X className="w-3.5 h-3.5 text-red-400" />
+                        Cancelled & Withdrawn
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                            {cancelledBets.length}
                         </span>
                     </button>
                 </div>
@@ -737,10 +753,10 @@ export default function SideBets() {
                             <Trophy className="w-4 h-4 text-emerald-400" />
                             <h3 className="font-bold text-sm uppercase tracking-widest text-emerald-400">Completed & Settled Duels</h3>
                             <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                {pastBets.length}
+                                {pastResolvedBets.length}
                             </span>
                         </div>
-                        {pastBets.length === 0 ? (
+                        {pastResolvedBets.length === 0 ? (
                             <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
                                 <Trophy className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
                                 <p className="text-sm font-bold text-gray-400">No past side bets resolved yet</p>
@@ -748,7 +764,51 @@ export default function SideBets() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {pastBets.map(bet => (
+                                {pastResolvedBets.map(bet => (
+                                    <BetCard
+                                        key={bet.id}
+                                        bet={bet}
+                                        currentUserId={activeUserId || ''}
+                                        isAdmin={isAdmin}
+                                        onSign={() => handleSign(bet)}
+                                        onEndorse={() => handleEndorse(bet)}
+                                        onApprove={() => handleChairmanApprove(bet)}
+                                        onReject={() => handleChairmanReject(bet)}
+                                        onResolveClick={() => { setResolvingBetId(bet.id); setResolveWinnerId(''); }}
+                                        onShareWin={() => setSharingBet(bet)}
+                                        onWithdraw={() => handleChallengerWithdraw(bet)}
+                                        onChairmanCancel={() => handleChairmanCancel(bet)}
+                                        onRequestCancel={() => handleRequestCancel(bet)}
+                                        onAgreeCancel={() => handleAgreeCancel(bet)}
+                                        onDeclineCancel={() => handleDeclineCancel(bet)}
+                                        onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
+                                        getStatusBadge={getStatusBadge}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* TAB: CANCELLED & WITHDRAWN */}
+                {betFilterTab === 'cancelled' && (
+                    <div>
+                        <div className="flex items-center gap-2 mb-4">
+                            <X className="w-4 h-4 text-red-400" />
+                            <h3 className="font-bold text-sm uppercase tracking-widest text-red-400">Cancelled & Withdrawn Duels</h3>
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+                                {cancelledBets.length}
+                            </span>
+                        </div>
+                        {cancelledBets.length === 0 ? (
+                            <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
+                                <X className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
+                                <p className="text-sm font-bold text-gray-400">No cancelled or withdrawn wagers</p>
+                                <p className="text-xs text-gray-500">Wagers withdrawn by challengers or cancelled by agreement are recorded here.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {cancelledBets.map(bet => (
                                     <BetCard
                                         key={bet.id}
                                         bet={bet}

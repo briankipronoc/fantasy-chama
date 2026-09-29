@@ -1109,7 +1109,10 @@ export default function AdminCommandCenter() {
           activeLeagueId,
           "notifications",
         );
-        const targetGw = Number(currentGwNumber || firestoreGw || 1);
+        const targetMember = members.find((m) => m.id === memberId);
+        const memberWallet = Number((targetMember as any)?.walletBalance ?? 0);
+        const roundsCovered = gameweekStake > 0 ? Math.floor(memberWallet / gameweekStake) : 0;
+        const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(effectiveStartGw || 1) + roundsCovered);
         await addDoc(notifsRef, {
           type: "success",
           message: `Deposit verified for ${memberName}. Account is now funded for GW${targetGw}.`,
@@ -1119,7 +1122,6 @@ export default function AdminCommandCenter() {
         });
 
         // Write Deposit Transaction to Ledger
-        const targetMember = members.find((m) => m.id === memberId);
         const txRef = collection(db, "leagues", activeLeagueId, "transactions");
         await addDoc(txRef, {
           type: "deposit",
@@ -1962,7 +1964,9 @@ export default function AdminCommandCenter() {
           "Payment server is not configured. Set VITE_API_URL for production.",
         );
 
-      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(currentGwNumber || firestoreGw || 1));
+      const memberWallet = Number((member as any)?.walletBalance ?? 0);
+      const roundsCovered = gameweekStake > 0 ? Math.floor(memberWallet / gameweekStake) : 0;
+      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(effectiveStartGw || 1) + roundsCovered);
       const data = await secureApiPost(`${payoutApiUrl}/api/mpesa/stkpush`, {
         phoneNumber: member.phone,
         amount,
@@ -2036,7 +2040,8 @@ export default function AdminCommandCenter() {
         paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
       });
 
-      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(currentGwNumber || firestoreGw || 1));
+      const roundsCovered = gameweekStake > 0 ? Math.floor(currentWallet / gameweekStake) : 0;
+      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(effectiveStartGw || 1) + roundsCovered);
       await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
         type: "wallet_funding",
         source: fundMethod,
