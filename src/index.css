@@ -3,8 +3,8 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *, [data-theme=dark], [data-theme=dark] *));
 @theme {
-  --color-chama-bg: #151f13;
-  --color-chama-surface: #1e2b1d;
+  --color-chama-bg: #0b1014;
+  --color-chama-surface: #10171d;
   --color-chama-card-start: #1c272c;
   --color-chama-card-end: #11171a;
   --color-chama-success: #43b12b;
@@ -2229,7 +2229,7 @@ html {
 .fc-main-scroll {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding-top: max(1.75rem, calc(env(safe-area-inset-top, 0px) + 1.25rem));
+  padding-top: max(1.25rem, calc(env(safe-area-inset-top, 0px) + 0.85rem));
 }
 
 .fc-finances-page {

@@ -4,10 +4,11 @@ import { db, auth } from '../firebase';
 import { doc, onSnapshot, collection, query, where, getDocs, setDoc, arrayUnion, serverTimestamp, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
-import { ChevronDown, Trophy, Check, Plus, Shield, Users, Loader2, X, Sparkles, ArrowRight } from 'lucide-react';
+import { ChevronDown, Trophy, Check, Plus, Shield, Users, Loader2, X, Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { useNavigate } from 'react-router-dom';
 import { normalizeKenyanPhone } from '../utils/phone';
+import { extractInviteCode } from '../utils/invite';
 import toast from 'react-hot-toast';
 
 interface LeagueEntry {
@@ -34,6 +35,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
     const cachedLeagueName = localStorage.getItem('activeLeagueName');
     const activeRole = localStorage.getItem('activeUserRole') || localStorage.getItem('fc-role') || 'member';
     const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid || null);
+    const isAnonymousUser = Boolean(auth.currentUser?.isAnonymous);
 
     // Join League by Code modal states
     const [showJoinModal, setShowJoinModal] = useState(false);
@@ -59,17 +61,26 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
         const updateMerged = () => {
             const map = new Map<string, LeagueEntry>();
-            // Add member leagues first
-            memberLeagues.forEach(l => map.set(l.leagueId, l));
-            // Add chairman leagues (they take precedence for role)
-            chairLeagues.forEach(l => map.set(l.leagueId, l));
+
+            if (activeRole === 'admin' && !isAnonymousUser) {
+                // In Chairman mode: strictly show Chairman leagues
+                chairLeagues.forEach(l => map.set(l.leagueId, l));
+            } else {
+                // In Member mode: strictly show Member leagues (never escalate to admin without password)
+                memberLeagues.forEach(l => {
+                    map.set(l.leagueId, {
+                        ...l,
+                        role: 'member'
+                    });
+                });
+            }
 
             // Ensure currently active league is always represented even before remote sync finishes
             if (activeLeagueId && !map.has(activeLeagueId)) {
                 map.set(activeLeagueId, {
                     leagueId: activeLeagueId,
                     leagueName: storeLeagueName || cachedLeagueName || 'League',
-                    role: activeRole,
+                    role: activeRole === 'admin' && !isAnonymousUser ? 'admin' : 'member',
                 });
             }
 
@@ -96,7 +107,8 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             updateMerged();
         }
 
-        if (currentUid) {
+        // Only query chairman leagues if the user is authenticated as an admin
+        if (currentUid && activeRole === 'admin' && !isAnonymousUser) {
             const leaguesRef = collection(db, 'leagues');
             const qChairman = query(leaguesRef, where('chairmanId', '==', currentUid));
             const unsubChairman = onSnapshot(qChairman, (snap) => {
@@ -121,7 +133,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                 try { u(); } catch {}
             });
         };
-    }, [phone, currentUid, activeLeagueId, storeLeagueName, activeRole]);
+    }, [phone, currentUid, activeLeagueId, storeLeagueName, activeRole, isAnonymousUser]);
 
     useEffect(() => {
         if (!open) return;
@@ -240,7 +252,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
     };
 
     const handleSearchCode = async (rawCode: string) => {
-        const cleanCode = rawCode.trim().toUpperCase();
+        const cleanCode = extractInviteCode(rawCode).trim().toUpperCase();
         setInviteCodeInput(cleanCode);
         setCodeError('');
         setFoundLeague(null);
@@ -454,18 +466,33 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                         </div>
 
                         <div className="pt-2 pb-1 px-1 border-t border-slate-100 dark:border-white/5 space-y-1">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    haptics.selection();
-                                    setOpen(false);
-                                    navigate('/setup');
-                                }}
-                                className="w-full py-2 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                            >
-                                <Plus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                <span>Create Another League</span>
-                            </button>
+                            {activeRole === 'admin' ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        setOpen(false);
+                                        navigate('/setup');
+                                    }}
+                                    className="w-full py-2 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                                >
+                                    <Plus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Create Another League</span>
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        setOpen(false);
+                                        navigate('/login', { state: { isAdminView: true } });
+                                    }}
+                                    className="w-full py-1.5 px-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-[9.5px] font-bold text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                    <Lock className="w-3 h-3 text-amber-500" />
+                                    <span>Switch to Chairman (Password Required)</span>
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => {

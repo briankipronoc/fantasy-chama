@@ -602,7 +602,7 @@ export default function AdminCommandCenter() {
             }
             setIsCurrentEventFinished(isEventFinished);
             setCurrentGwNumber(fetchedGwId);
-            const targetStartGw = fetchedGwId || 1;
+            const targetStartGw = (fetchedGwId && fetchedGwId <= 5) ? fetchedGwId : 5;
             if (activeLeagueId) {
               const needsStartGwUpdate = !data.startGw;
               if (needsStartGwUpdate) {
@@ -1305,18 +1305,19 @@ export default function AdminCommandCenter() {
   // Effective startGw: use startGw from state or leagueSettings
   // If the current event already concluded without any approved payouts in this chama,
   // the league officially begins at the next upcoming gameweek (e.g. GW5).
-  // All prior gameweeks (GW1..4) are strictly voided (pre-league).
-  const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
   const firstPayoutGw = pendingPayouts.reduce((minGw: number, p: any) => {
     const gw = Number(p.gw || 0);
     return gw > 0 ? Math.min(minGw, gw) : minGw;
   }, 999);
   // Ensure startGw from league settings / clean slate is the true authority
-  const effectiveStartGw = rawStartGw > 0 
-    ? rawStartGw 
-    : (firstPayoutGw !== 999 ? firstPayoutGw : (currentGwNumber || firestoreGw || 5));
-  const isPreLeagueRound = (currentGwNumber || firestoreGw || 1) < effectiveStartGw;
+  // If the league commenced or has contributions for GW5, lock effectiveStartGw to 5
+  const effectiveStartGw = (rawStartGw > 0 && rawStartGw <= 5)
+    ? rawStartGw
+    : (firstPayoutGw !== 999 && firstPayoutGw <= 5
+        ? firstPayoutGw
+        : (rawStartGw === 6 ? 5 : (rawStartGw || 5)));
+  const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
   const forfeitedGws: number[] = Array.from(new Set([
@@ -3731,27 +3732,33 @@ burstFrame();
               );
             })()}
 
-            <section className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
-              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-4xl border border-amber-300/40 dark:border-[#FBBF24]/24 bg-gradient-to-br from-amber-100 via-white to-slate-100 dark:from-[#FBBF24]/12 dark:via-[#161d24] dark:to-[#161d24] p-5 md:p-7 shadow-xl">
-                <div className="flex flex-col items-center text-center gap-5 mb-5">
-                  <div className="max-w-2xl space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-600 dark:text-[#FBBF24] mb-2">
-                      Chairman priorities
-                    </p>
-                    <h3 className="fc-command-board-title fc-command-board-title-heading text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm text-slate-900 dark:text-white">
+            <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full">
+              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-300/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/5 via-[#121922] to-[#0c1219] p-4 sm:p-6 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/5">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500 dark:text-[#FBBF24]">
+                        Chairman Priorities
+                      </p>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-0.5">
                       Priority Actions
                     </h3>
-                    <p className="fc-command-board-copy text-sm md:text-base mt-2 max-w-xl mx-auto leading-relaxed text-slate-600 dark:text-slate-300">
-                      Resolve the highest-risk items first, then move into the ledger and finance queues.
-                    </p>
                   </div>
+                  <p className="text-xs text-slate-500 dark:text-gray-400 font-medium max-w-sm sm:text-right leading-relaxed">
+                    Live operational queue: review payouts, funding gaps, and settlements.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4 w-full">
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3.5 w-full">
+                  {/* 1. Approve Payouts */}
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-[#FBBF24]/24 bg-gradient-to-br from-[#FBBF24]/12 via-[#161d24] to-[#161d24] p-4 hover:border-[#FBBF24]/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
-                      sortedPendingPayouts.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
+                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      sortedPendingPayouts.length > 0
+                        ? "border-amber-400/50 bg-amber-500/10 hover:border-amber-400/80 hover:bg-amber-500/15"
+                        : "border-white/10 bg-[#161f28]/70 hover:border-white/20 hover:bg-[#161f28]"
                     )}
                     onClick={() => {
                       if (sortedPendingPayouts.length > 0) {
@@ -3765,20 +3772,34 @@ burstFrame();
                     }}
                     title="Tap to review payout approvals"
                   >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
-                      approve payouts
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                        Payouts
+                      </p>
+                      {sortedPendingPayouts.length > 0 ? (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
                       {sortedPendingPayouts.length}
                     </p>
-                    <p className="text-[10px] text-gray-500 font-medium">
+                    <span className={clsx(
+                      "text-[9.5px] font-semibold truncate",
+                      sortedPendingPayouts.length > 0 ? "text-amber-400 font-bold" : "text-gray-500"
+                    )}>
                       {sortedPendingPayouts.length > 0 ? "Action required" : "All cleared ✓"}
-                    </p>
+                    </span>
                   </div>
+
+                  {/* 2. Red Zone Follow-ups */}
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-amber-500/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
-                      redZoneMembers.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
+                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      redZoneMembers.length > 0
+                        ? "border-rose-500/40 bg-rose-500/10 hover:border-rose-500/70 hover:bg-rose-500/15"
+                        : "border-white/10 bg-[#161f28]/70 hover:border-white/20 hover:bg-[#161f28]"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3788,20 +3809,34 @@ burstFrame();
                     }}
                     title="Tap to view Red Zone members"
                   >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold">
-                      red zone follow-ups
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                        Red Zone
+                      </p>
+                      {redZoneMembers.length > 0 ? (
+                        <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
                       {redZoneMembers.length}
                     </p>
-                    <p className="text-[10px] text-gray-500 font-medium">
-                      {redZoneMembers.length > 0 ? "Tap to send reminders" : "All members funded ✓"}
-                    </p>
+                    <span className={clsx(
+                      "text-[9.5px] font-semibold truncate",
+                      redZoneMembers.length > 0 ? "text-rose-400 font-bold" : "text-gray-500"
+                    )}>
+                      {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
+                    </span>
                   </div>
+
+                  {/* 3. Unresolved Disputes */}
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border border-white/10 bg-gradient-to-br from-[#161d24] via-[#161d24] to-[#0f1419] p-4 hover:border-blue-500/40 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
-                      pendingDisputes.length > 0 ? "fc-metric-alert" : "fc-metric-stable",
+                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      pendingDisputes.length > 0
+                        ? "border-blue-500/40 bg-blue-500/10 hover:border-blue-500/70 hover:bg-blue-500/15"
+                        : "border-white/10 bg-[#161f28]/70 hover:border-white/20 hover:bg-[#161f28]"
                     )}
                     onClick={() => {
                       setActiveTab("finance");
@@ -3810,22 +3845,34 @@ burstFrame();
                     }}
                     title="Tap to view payment disputes"
                   >
-                    <p className="fc-metric-label text-xs tracking-wide font-semibold text-white">
-                      unresolved disputes
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                        Disputes
+                      </p>
+                      {pendingDisputes.length > 0 ? (
+                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
                       {pendingDisputes.length}
                     </p>
-                    <p className="text-[10px] text-gray-500 font-medium">
-                      {pendingDisputes.length > 0 ? "Review payment claims" : "Zero active disputes ✓"}
-                    </p>
+                    <span className={clsx(
+                      "text-[9.5px] font-semibold truncate",
+                      pendingDisputes.length > 0 ? "text-blue-400 font-bold" : "text-gray-500"
+                    )}>
+                      {pendingDisputes.length > 0 ? "Review claims" : "Zero disputes ✓"}
+                    </span>
                   </div>
+
+                  {/* 4. Gameweek Settlement */}
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
-                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/12 via-[#161d24] to-[#161d24] hover:border-emerald-400/60 shadow-[0_0_18px_rgba(16,185,129,0.15)]"
-                        : "border-white/10 bg-gradient-to-br from-[#FBBF24]/10 via-[#161d24] to-[#161d24] hover:border-[#FBBF24]/50 hover:shadow-[0_0_20px_rgba(251,191,36,0.3)]"
+                        ? "border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/60"
+                        : "border-amber-400/40 bg-[#161f28]/80 hover:border-amber-400/70"
                     )}
                     onClick={() => {
                       setShowResolveModal(true);
@@ -3833,67 +3880,38 @@ burstFrame();
                     }}
                     title={gwAlreadySettled ? "Tap to review GW settlement" : "Tap to settle GW winner"}
                   >
-                    <div className="flex items-center justify-between gap-1 w-full">
-                      <p className={clsx(
-                        "fc-metric-label text-xs tracking-wide font-semibold",
-                        isPreLeagueRound ? "text-emerald-300" : gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-white" : "text-emerald-400"
-                      )}>
-                        {isPreLeagueRound
-                          ? `Season Kickoff`
-                          : gwAlreadySettled
-                          ? "GW Settled ✓"
-                          : Number(rules?.weekly ?? 70) === 0
-                            ? (isCurrentEventFinished ? "Standings Updated ✓" : "Season Vault Mode")
-                            : "Settle GW Winner"
-                        }
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                        Settlement
                       </p>
                       {gwAlreadySettled ? (
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      ) : !isCurrentEventFinished ? (
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                        </span>
-                      ) : null}
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Trophy className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                      )}
                     </div>
-
-                    <div className="my-auto py-1 flex flex-col items-center justify-center text-center w-full">
+                    <div className="my-1">
                       <span className={clsx(
-                        "text-[11px] font-bold px-2.5 py-0.5 rounded-full inline-block max-w-full truncate",
-                        isPreLeagueRound
-                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                          : gwAlreadySettled 
-                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" 
-                          : isCurrentEventFinished
-                            ? "text-[#FBBF24] bg-amber-500/15 border border-amber-500/30"
-                            : "text-emerald-300 bg-emerald-500/10 border border-emerald-500/30"
+                        "text-[11px] font-black px-2 py-0.5 rounded-lg inline-block truncate max-w-full",
+                        gwAlreadySettled
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
                       )}>
-                        {isPreLeagueRound
-                          ? `Kickoff at GW${effectiveStartGw}`
-                          : gwAlreadySettled 
-                          ? `GW${currentGwNumber || ''} Settled ✓` 
-                          : isCurrentEventFinished
-                            ? `Pay GW${currentGwNumber || ''} Winner`
-                            : "Fixtures in Progress"}
+                        {gwAlreadySettled ? `GW${currentGwNumber || 5} Settled` : `GW${currentGwNumber || 5} Ready`}
                       </span>
                     </div>
-
-                    <p className="text-[10px] text-gray-500 text-center font-medium">
-                      {isPreLeagueRound
-                        ? `Accepting deposits for GW${effectiveStartGw}`
-                        : gwAlreadySettled
-                        ? "Tap to review settlement"
-                        : isCurrentEventFinished
-                          ? "Tap to disburse or resolve"
-                          : "Resolves after final whistle"}
-                    </p>
+                    <span className="text-[9.5px] text-gray-500 font-semibold truncate">
+                      {gwAlreadySettled ? "Settlement verified ✓" : "Tap to resolve"}
+                    </span>
                   </div>
+
+                  {/* 5. Members Paid */}
                   <div
                     className={clsx(
-                      "fc-card rounded-2xl border p-4 transition-all shadow-[0_10px_24px_rgba(0,0,0,0.18)] min-h-[132px] flex flex-col justify-between cursor-pointer active:scale-95",
+                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       allPayableMembersFunded
-                        ? "border-emerald-500/40 bg-gradient-to-br from-emerald-500/14 via-[#161d24] to-[#0f1419] shadow-[0_0_18px_rgba(16,185,129,0.15)] fc-metric-stable hover:border-emerald-400/50"
-                        : "border-red-500/35 bg-gradient-to-br from-red-500/14 via-[#161d24] to-[#0f1419] fc-metric-alert hover:border-red-400/50",
+                        ? "border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/60"
+                        : "border-amber-500/40 bg-amber-500/10 hover:border-amber-500/60"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3903,34 +3921,26 @@ burstFrame();
                     }}
                     title="Tap to view member payment statuses in ledger"
                   >
-                    <p
-                      className={clsx(
-                        "fc-metric-label text-xs tracking-wide font-semibold",
-                        allPayableMembersFunded
-                          ? "text-emerald-700 dark:text-emerald-300"
-                          : "text-red-700 dark:text-red-300",
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                        Funded
+                      </p>
+                      {allPayableMembersFunded ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Users className="w-3.5 h-3.5 text-amber-400" />
                       )}
-                    >
-                      members paid
-                    </p>
-                    <p className="fc-metric-value text-2xl md:text-3xl font-semibold mt-2 tabular-nums">
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
                       {fundedMembersCount}/{Math.max(1, activeMembersCount)}
                     </p>
-                    <p
-                      className={clsx(
-                        "text-[10px] font-medium mt-1",
-                        allPayableMembersFunded
-                          ? "text-emerald-400/80"
-                          : "text-red-400/80 font-bold",
-                      )}
-                    >
-                      {!allPayableMembersFunded ? "funding incomplete · Tap to inspect" : "100% funded ✓"}
-                    </p>
+                    <span className={clsx(
+                      "text-[9.5px] font-semibold truncate",
+                      allPayableMembersFunded ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"
+                    )}>
+                      {allPayableMembersFunded ? "100% funded ✓" : "Pending dues"}
+                    </span>
                   </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {/* Action buttons removed as requested */}
                 </div>
               </div>
 

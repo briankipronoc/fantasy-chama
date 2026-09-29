@@ -7,6 +7,7 @@ import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signInAnonymously, sendPasswordResetEmail } from 'firebase/auth';
 import { normalizeKenyanPhone, getPhoneVariants } from '../utils/phone';
+import { extractInviteCode } from '../utils/invite';
 
 export default function Login() {
     const location = useLocation();
@@ -128,6 +129,15 @@ export default function Login() {
     useEffect(() => { localStorage.setItem('fc-login-code', code.join('')); }, [code]);
 
     const handleCodeChange = (index: number, value: string) => {
+        // If a long string is pasted via input change
+        if (value.length > 1) {
+            const extracted = extractInviteCode(value);
+            if (extracted.length === 6) {
+                setCode(extracted.split(''));
+                setTimeout(() => inputRefs.current[5]?.focus(), 0);
+                return;
+            }
+        }
         if (!/^[A-Za-z0-9]*$/.test(value)) return;
         const newCode = [...code];
         newCode[index] = value.toUpperCase();
@@ -141,16 +151,16 @@ export default function Login() {
         }
     };
 
-    // OTP Paste handler — distributes a pasted 6-char string across all cells
+    // OTP Paste handler — parses WhatsApp invite message, URLs, or plain code and distributes 6-char code
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
         e.preventDefault();
-        const pasted = e.clipboardData.getData('text').replace(/\s/g, '').toUpperCase().slice(0, 6);
-        if (!/^[A-Za-z0-9]+$/.test(pasted)) return;
+        const rawText = e.clipboardData.getData('text');
+        const extracted = extractInviteCode(rawText);
+        if (!extracted || !/^[A-Za-z0-9]+$/.test(extracted)) return;
         const newCode = ['', '', '', '', '', ''];
-        pasted.split('').forEach((char, i) => { newCode[i] = char; });
+        extracted.slice(0, 6).split('').forEach((char, i) => { newCode[i] = char.toUpperCase(); });
         setCode(newCode);
-        // Focus the last filled box
-        const lastIdx = Math.min(pasted.length - 1, 5);
+        const lastIdx = Math.min(extracted.length - 1, 5);
         setTimeout(() => inputRefs.current[lastIdx]?.focus(), 0);
     };
 
@@ -814,17 +824,15 @@ export default function Login() {
             </div>
 
             {/* Header Elements */}
-            <div className="absolute top-0 w-full p-6 md:p-8 flex justify-between items-center z-20">
+            <div className="absolute top-0 w-full px-6 md:px-8 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1.25rem))] pb-4 flex justify-between items-center z-20">
                 <div className="flex items-center gap-3">
-                    <div className="bg-[#10B981] p-1.5 md:p-2 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                        <div className="w-4 h-4 md:w-5 md:h-5 border-[2.5px] border-[#0b1014] rounded-md flex items-center justify-center relative">
-                            <div className="w-1.5 h-1.5 bg-[#0b1014] rounded-sm absolute right-0.5"></div>
-                        </div>
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.35)] shrink-0">
+                        <Trophy className="w-5 h-5 text-slate-950 fill-amber-950 font-black" />
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 md:gap-2 text-gray-500 text-xs md:text-sm font-medium">
-                    <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#22c55e]" />
+                <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 text-xs md:text-sm font-semibold bg-white/5 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
+                    <Shield className="w-3.5 h-3.5 text-[#22c55e]" />
                     <span>{isAdminView ? 'Chairman Login' : 'Member Login'}</span>
                 </div>
             </div>

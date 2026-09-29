@@ -1,7 +1,7 @@
 import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
-import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Flame, Wallet } from 'lucide-react';
+import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Flame, Trophy } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
@@ -190,8 +190,8 @@ export default function AppLayout() {
                         {!isSidebarCollapsed ? (
                             <div className="flex items-center justify-between pb-4 border-b border-white/5">
                                 <Link to="/dashboard" className="flex items-center gap-3 group">
-                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.35)] shrink-0 group-hover:scale-105 transition-transform">
-                                        <Wallet className="w-4 h-4 text-slate-950 font-black" />
+                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.35)] shrink-0 group-hover:scale-105 transition-transform">
+                                        <Trophy className="w-4.5 h-4.5 text-slate-950 font-black fill-amber-950" />
                                     </div>
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-1 leading-none">
@@ -220,8 +220,8 @@ export default function AppLayout() {
                                     <PanelLeftOpen className="w-4 h-4" />
                                 </button>
                                 <Link to="/dashboard" className="pt-1 flex flex-col items-center group" title="Fantasy Chama">
-                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.35)] shrink-0 group-hover:scale-105 transition-transform">
-                                        <Wallet className="w-4 h-4 text-slate-950 font-black" />
+                                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.35)] shrink-0 group-hover:scale-105 transition-transform">
+                                        <Trophy className="w-4.5 h-4.5 text-slate-950 font-black fill-amber-950" />
                                     </div>
                                 </Link>
                             </div>
@@ -334,7 +334,7 @@ export default function AppLayout() {
 
             {/* Main Content Area */}
             <main className="fc-main-shell flex-1 w-full relative overflow-hidden flex flex-col h-[100dvh] min-h-[100dvh]">
-                <div className={clsx('fc-main-scroll fc-route-stage flex-1 overflow-y-auto pt-[max(1.75rem,calc(env(safe-area-inset-top,0px)+1.25rem))] pb-28 lg:pb-0 scroll-smooth', routeTransitionClass)}>
+                <div className={clsx('fc-main-scroll fc-route-stage flex-1 overflow-y-auto pb-28 lg:pb-0 scroll-smooth', routeTransitionClass)}>
                     <Outlet />
                 </div>
             </main>

@@ -1,4 +1,4 @@
-import { Check, Share2, FileText, Shield, Users, Zap, Wallet, Trophy, ChevronDown } from 'lucide-react';
+import { Check, Share2, FileText, Shield, Users, Zap, Trophy, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
@@ -53,19 +53,16 @@ export default function InviteHub() {
         <div className="min-h-screen bg-[#0d1316] text-white font-sans flex flex-col relative overflow-hidden">
 
             {/* Minimal Top Header */}
-            <header className="flex items-center justify-between p-6 px-10 absolute top-0 w-full z-10">
+            <header className="flex items-center justify-between px-6 sm:px-10 absolute top-0 w-full z-10 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-4">
                 <div className="flex items-center gap-3">
-                    <div className="bg-[#10B981]/10 p-2 rounded-xl text-[#10B981]">
-                        <Wallet className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.35)] shrink-0">
+                        <Trophy className="w-4.5 h-4.5 text-slate-950 font-black fill-amber-950" />
                     </div>
-                    <span className="font-bold text-lg tracking-tight">Fantasy Chama</span>
+                    <span className="font-black text-lg tracking-tight text-white uppercase">Fantasy <span className="text-emerald-400">Chama</span></span>
                 </div>
                 <div className="flex items-center gap-3">
                     <button className="bg-[#1a232b] p-2.5 rounded-xl border border-white/5 text-[#FBBF24] hover:bg-white/5 transition-colors">
                         <Trophy className="w-5 h-5" />
-                    </button>
-                    <button className="bg-[#1a232b] p-2.5 rounded-xl border border-white/5 text-[#10B981] hover:bg-white/5 transition-colors">
-                        <Wallet className="w-5 h-5" />
                     </button>
                 </div>
             </header>

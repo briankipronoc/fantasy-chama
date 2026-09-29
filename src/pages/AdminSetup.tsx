@@ -2643,7 +2643,7 @@ export default function AdminSetup() {
             </div>
 
             {/* Header Elements */}
-            <div className="absolute top-0 w-full p-6 md:p-8 flex justify-between items-center z-20">
+            <div className="absolute top-0 w-full px-6 md:px-8 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1.25rem))] pb-4 flex justify-between items-center z-20">
                 <div 
                     onClick={() => {
                         if (step > 1 && step < STEPS) setShowExitModal(true);
@@ -2652,16 +2652,14 @@ export default function AdminSetup() {
                     className="flex items-center gap-3 cursor-pointer select-none"
                     title="Fantasy Chama"
                 >
-                    <div className="bg-[#10B981] p-1.5 md:p-2 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                        <div className="w-4 h-4 md:w-5 md:h-5 border-[2.5px] border-[#0b1014] rounded-md flex items-center justify-center relative">
-                            <div className="w-1.5 h-1.5 bg-[#0b1014] rounded-sm absolute right-0.5"></div>
-                        </div>
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-600 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,0.35)] shrink-0">
+                        <Trophy className="w-5 h-5 text-slate-950 fill-amber-950 font-black" />
                     </div>
                     <span className="font-extrabold text-lg md:text-xl tracking-wide">FANTASY <span className="text-[#10B981]">CHAMA</span></span>
                 </div>
                 <div className="flex items-center gap-3 md:gap-4">
-                    <div className="flex items-center gap-1.5 md:gap-2 text-gray-500 text-xs md:text-sm font-medium">
-                        <Shield className="w-3 h-3 md:w-4 md:h-4 text-[#22c55e]" />
+                    <div className="flex items-center gap-1.5 md:gap-2 text-gray-400 text-xs md:text-sm font-semibold bg-white/5 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
+                        <Shield className="w-3.5 h-3.5 text-[#22c55e]" />
                         <span>Step {step} of {STEPS - 1}</span>
                     </div>
                     {step < STEPS && (
