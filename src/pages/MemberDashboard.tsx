@@ -1776,10 +1776,10 @@ export default function MemberDashboard() {
                                     <span className="text-[9px] text-gray-400 uppercase block font-bold">GW Pts</span>
                                 </div>
                             </div>
-                            {gwWinner && (
+                            {gwWinner && currentFplEvent?.finished && (
                                 <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs mt-3">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">GW Pot Winner</span>
+                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">GW{currentFplEvent?.id || 5} Pot Winner</span>
                                         <span className="text-amber-300 font-bold flex items-center gap-1 text-xs">
                                             🥇 {gwWinner.player_name?.split(' ')[0] || 'Winner'}
                                         </span>

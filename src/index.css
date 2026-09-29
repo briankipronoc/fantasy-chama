@@ -520,19 +520,20 @@
     background: linear-gradient(135deg, #090d16 0%, #1e293b 35%, #475569 70%, #1e293b 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8)) !important;
+    -webkit-font-smoothing: antialiased;
   }
 
   .fc-dashboard-header-title {
     background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 40%, #94a3b8 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    -webkit-font-smoothing: antialiased;
   }
   [data-theme="light"] .fc-dashboard-header-title {
     background: linear-gradient(135deg, #090d16 0%, #1e293b 30%, #0f172a 65%, #334155 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.14)) !important;
+    -webkit-font-smoothing: antialiased;
   }
   .fc-dashboard-header-copy {
     color: #94a3b8;
