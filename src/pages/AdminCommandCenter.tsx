@@ -2304,8 +2304,19 @@ export default function AdminCommandCenter() {
             timestamp: serverTimestamp(),
           });
 
+          const primaryWinner = honoraryWinners[0];
+          setGwWinner({
+            player_name: honoraryWinners.map((w: any) => w.displayName).join(' & '),
+            entry_name: (primaryWinner as any).fplTeamName || (primaryWinner as any).teamName || 'Chama Top Rank',
+            event_total: honoraryWinningPoints,
+            event: gwNumber,
+            id: primaryWinner.id,
+          });
+
           setShowResolveModal(false);
-          showToast(`GW${gwNumber} resolved! ${honoraryWinners[0].displayName} crowned honorary champion 🏆`);
+          haptics.celebrate();
+          showToast(`🏆 GW${gwNumber} Champion Crowned! Opening WhatsApp Victory Card...`);
+          setShowChairmanFlexModal(true);
           triggerResolutionPulse();
           const endTime = Date.now() + 3000;
           const burstFrame = () => {
@@ -2433,10 +2444,21 @@ export default function AdminCommandCenter() {
           },
         );
 
+        const primaryWinner = winners[0];
+        setGwWinner({
+          player_name: winners.map((w: any) => w.displayName).join(' & '),
+          entry_name: (primaryWinner as any).fplTeamName || (primaryWinner as any).teamName || 'Chama Top Rank',
+          event_total: winningPoints,
+          event: gwNumber,
+          id: primaryWinner.id,
+        });
+
         setShowResolveModal(false);
+        haptics.celebrate();
         showToast(
-          `GW${gwNumber} resolved. Payout sent to Co-Chair for approval.`,
+          `🏆 GW${gwNumber} resolved! Opening WhatsApp Victory Card for ${winner.displayName}...`,
         );
+        setShowChairmanFlexModal(true);
         triggerResolutionPulse();
         const endTime = Date.now() + 3000;
 const burstFrame = () => {
@@ -2495,10 +2517,21 @@ burstFrame();
           },
         );
 
+        const primaryWinner = winners[0];
+        setGwWinner({
+          player_name: winners.map((w: any) => w.displayName).join(' & '),
+          entry_name: (primaryWinner as any).fplTeamName || (primaryWinner as any).teamName || 'Chama Top Rank',
+          event_total: winningPoints,
+          event: gwNumber,
+          id: primaryWinner.id,
+        });
+
         setShowResolveModal(false);
+        haptics.celebrate();
         showToast(
-          `GW${gwNumber} payout request created. Chairman signature required for ${winner.displayName}.`,
+          `🏆 GW${gwNumber} Champion Crowned! Opening WhatsApp Victory Card...`,
         );
+        setShowChairmanFlexModal(true);
         triggerResolutionPulse();
         setActionTimeline((prev) => ({
           ...prev,
@@ -3944,17 +3977,17 @@ burstFrame();
                 </div>
               </div>
 
-              <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col">
+              <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-amber-500/25 rounded-[2rem] shadow-[0_0_30px_rgba(251,191,36,0.1)] overflow-hidden flex flex-col">
                 <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
-                  <span className="text-[#10B981] text-xs font-bold tracking-widest uppercase mb-4 mt-4">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-xs font-black tracking-widest uppercase mb-4 mt-4">
                     Master Invite Code
                   </span>
-                  <div className="text-5xl lg:text-6xl font-black text-[#FBBF24] tracking-tight mb-6 tabular-nums">
+                  <div className="text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 drop-shadow-[0_2px_15px_rgba(251,191,36,0.4)] tracking-tight mb-6 tabular-nums">
                     {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
                   </div>
                   <p className="text-gray-400 text-sm leading-relaxed mb-8">
                     Share this 6-digit PIN to grant access to{" "}
-                    <strong>{leagueName}</strong>.
+                    <strong className="text-amber-300">{leagueName}</strong>.
                   </p>
                   <div className="flex flex-col gap-3 mt-auto">
                     <button

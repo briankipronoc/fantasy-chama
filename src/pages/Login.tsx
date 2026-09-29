@@ -715,8 +715,9 @@ export default function Login() {
 
     const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email || !password) {
-            setError('Please enter both email and password.');
+        const inputIdentifier = email.trim();
+        if (!inputIdentifier || !password) {
+            setError('Please enter your email or phone number, and password.');
             return;
         }
 
@@ -725,8 +726,30 @@ export default function Login() {
         setIsLoading(true);
 
         try {
-            console.log("1. Authenticating Chairman with Firebase Auth...");
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            let authEmail = inputIdentifier;
+
+            // If user typed a phone number, resolve their registered chairmanEmail
+            if (!inputIdentifier.includes('@')) {
+                const variants = getPhoneVariants(inputIdentifier);
+                const leaguesRef = collection(db, 'leagues');
+                if (variants.length > 0) {
+                    const qPhone = query(leaguesRef, where("chairmanPhone", "in", variants.slice(0, 10)));
+                    const phoneSnap = await getDocs(qPhone);
+                    if (!phoneSnap.empty) {
+                        const matchedLeague = phoneSnap.docs.find(d => d.data().chairmanEmail);
+                        if (matchedLeague && matchedLeague.data().chairmanEmail) {
+                            authEmail = matchedLeague.data().chairmanEmail;
+                        }
+                    }
+                }
+
+                if (!authEmail.includes('@')) {
+                    throw new Error('No chairman account found for this phone number. Please sign in with your email address or check your number.');
+                }
+            }
+
+            console.log("1. Authenticating Chairman with Firebase Auth...", authEmail);
+            const userCredential = await signInWithEmailAndPassword(auth, authEmail, password);
             const user = userCredential.user;
             console.log("2. Auth Success! User UID:", user.uid);
 
@@ -781,7 +804,7 @@ export default function Login() {
 
             console.log("6. Opening Dashboard portal...");
             setRole('admin');
-            navigate('/dashboard', { replace: true });
+            navigate('/admin', { replace: true });
         } catch (err: any) {
             console.error(err);
             if (
@@ -790,13 +813,13 @@ export default function Login() {
                 err.code === 'auth/wrong-password' ||
                 err.code === 'auth/invalid-email'
             ) {
-                setError('Invalid email or password. Check your credentials and try again.');
+                setError('Invalid credentials or password. Check your details and try again.');
             } else if (err.code === 'auth/too-many-requests') {
                 setError('Too many failed attempts. Please wait a few minutes or reset your password.');
             } else if (err.message?.includes('timeout')) {
                 setError('Connection timeout — check your internet or disable any ad-blockers.');
             } else {
-                setError('Authentication failed. Please try again.');
+                setError(err.message || 'Authentication failed. Please try again.');
             }
         } finally {
             setIsLoading(false);
@@ -1042,24 +1065,30 @@ export default function Login() {
                 ) : (
                     <form onSubmit={handleAdminLogin} className="space-y-6 relative z-10 animate-in fade-in duration-300">
                         <div>
-                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Email Address</label>
+                            <label className="block text-[10px] md:text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
+                                Chairman Email or M-Pesa Phone Number
+                            </label>
                             <div className="relative">
-                                <Mail className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                                {email.includes('@') ? (
+                                    <Mail className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                                ) : (
+                                    <Smartphone className="w-5 h-5 text-amber-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                                )}
                                 <input
-                                    type="email"
+                                    type="text"
                                     required
-                                    autoComplete="email"
-                                    pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+                                    autoComplete="username"
                                     value={email}
-                                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address (e.g. name@domain.com)')}
                                     onChange={(e) => {
-                                        (e.target as HTMLInputElement).setCustomValidity('');
                                         setEmail(e.target.value);
                                     }}
-                                    placeholder="chairman@fantasychama.co.ke"
-                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium"
+                                    placeholder="e.g. 0712345678 or chairman@domain.com"
+                                    className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium text-sm"
                                 />
                             </div>
+                            <p className="text-[10px] text-gray-500 font-medium mt-1.5">
+                                Enter the email or M-Pesa phone number registered to your Chairman account.
+                            </p>
                         </div>
 
                         <div>
@@ -1090,19 +1119,31 @@ export default function Login() {
                                     disabled={isResettingPassword}
                                     onClick={async () => {
                                         setInfoMessage('');
-                                        if (!email) {
-                                            setError('Please enter your email first to receive a password reset link.');
+                                        let resetTarget = email.trim();
+                                        if (!resetTarget) {
+                                            setError('Please enter your email or phone number first to receive a password reset link.');
                                             return;
                                         }
                                         setIsResettingPassword(true);
                                         try {
+                                            if (!resetTarget.includes('@')) {
+                                                const variants = getPhoneVariants(resetTarget);
+                                                const qPhone = query(collection(db, 'leagues'), where("chairmanPhone", "in", variants.slice(0, 10)));
+                                                const phoneSnap = await getDocs(qPhone);
+                                                const matched = phoneSnap.docs.find(d => d.data().chairmanEmail);
+                                                if (matched?.data()?.chairmanEmail) {
+                                                    resetTarget = matched.data().chairmanEmail;
+                                                } else {
+                                                    throw new Error('No registered email found for this phone number.');
+                                                }
+                                            }
                                             const actionCodeSettings = {
                                                 url: `${window.location.origin}/login`,
                                                 handleCodeInApp: false,
                                             };
-                                            await sendPasswordResetEmail(auth, email, actionCodeSettings);
+                                            await sendPasswordResetEmail(auth, resetTarget, actionCodeSettings);
                                             setError('');
-                                            setInfoMessage(`A secure password reset link has been sent to ${email}. Check your inbox and spam folder. The link expires in 1 hour.`);
+                                            setInfoMessage(`A secure password reset link has been sent to ${resetTarget}. Check your inbox and spam folder. The link expires in 1 hour.`);
                                         } catch (err: any) {
                                             setError(err.message || 'Failed to dispatch reset link.');
                                         } finally {

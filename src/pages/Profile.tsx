@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, Unlock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -962,7 +962,386 @@ export default function Profile() {
             </div>
         </div>
     );
-};
+    };
+
+    const renderLeagueGovernance = () => (
+        <div className="fc-card w-full bg-[#161d24] border border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10 pointer-events-none"></div>
+
+            <h2 className="fc-frosty-title text-xl font-black flex items-center gap-2 mb-2">
+                <Trophy className="w-5 h-5 text-amber-400" /> League Governance
+            </h2>
+            <p className="text-xs text-slate-400 dark:text-gray-400 mb-5 max-w-2xl font-medium">
+                Configure the financial engine, league branding, co-chair permissions, and invite access.
+            </p>
+
+            {/* Invite Hub Section */}
+            <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-xs font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 uppercase tracking-widest">
+                        Master Invite Code
+                    </h3>
+                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] uppercase font-bold tracking-widest rounded border border-amber-500/20">Active</span>
+                </div>
+                <div className="text-center mb-3">
+                    <span className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 tracking-widest block mb-1 drop-shadow-[0_2px_12px_rgba(251,191,36,0.35)]">{inviteCode || '------'}</span>
+                    <p className="text-xs text-gray-400 font-medium">Share this code with players to join with their M-Pesa number.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-[#161d24] hover:bg-white/5 text-white font-bold py-3 rounded-xl border border-white/10 transition-colors text-sm shadow-md cursor-pointer active:scale-95">
+                        <Copy className="w-4 h-4 text-gray-400" /> Copy
+                    </button>
+                    <button onClick={handleShare} className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.3)] transition-colors text-sm cursor-pointer active:scale-95">
+                        <Share2 className="w-4 h-4" /> Share
+                    </button>
+                </div>
+            </div>
+
+            {/* Rule Modification Form */}
+            <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
+                <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                            League Name
+                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                        </label>
+                    </div>
+                    <input
+                        type="text"
+                        disabled={isFinancialsLocked}
+                        value={leagueName}
+                        onChange={(e) => setLeagueName(e.target.value)}
+                        placeholder="e.g. Premier League 24/25"
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Clean sweep old season names to your current active league.</p>
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                            Gameweek Stake (KES)
+                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                        </label>
+                    </div>
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        disabled={isFinancialsLocked}
+                        value={gameweekStake === 0 ? '' : gameweekStake}
+                        placeholder="50"
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            setMonthlyContribution(cleaned === '' ? 0 : parseInt(cleaned, 10));
+                        }}
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                            FPL League ID
+                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                        </label>
+                    </div>
+                    <input
+                        type="text"
+                        disabled={isFinancialsLocked}
+                        value={fplLeagueId}
+                        onChange={(e) => {
+                            let val = e.target.value.trim();
+                            const match = val.match(/leagues\/(\d+)\/standings/);
+                            if (match && match[1]) val = match[1];
+                            setFplLeagueId(val.replace(/\D/g, ''));
+                        }}
+                        placeholder="e.g. 123456 or paste Standings URL"
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 font-medium leading-relaxed">
+                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-600 dark:text-gray-300 bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Pochi Receiving Number</label>
+                    <input
+                        type="tel"
+                        value={chairmanPhone}
+                        onChange={(e) => setChairmanPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                        placeholder="e.g. 0712345678"
+                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
+                    />
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
+                </div>
+
+                {/* Co-Chair Designation */}
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                            Designate Co-Chair
+                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                        </label>
+                    </div>
+                    <div className="relative">
+                        {(() => {
+                            const matchedCoChair = members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId) || m.role === 'co-chair');
+                            const resolvedCoAdminValue = matchedCoChair ? matchedCoChair.id : (coAdminId || '');
+                            return (
+                                <select
+                                    disabled={isFinancialsLocked}
+                                    value={resolvedCoAdminValue}
+                                    onChange={(e) => setCoAdminId(e.target.value)}
+                                    className="w-full bg-slate-50 dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-11 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer shadow-sm hover:border-[#FBBF24]/50"
+                                >
+                                    <option value="" className="bg-white dark:bg-[#0c1218] text-gray-500 dark:text-gray-400 py-1.5 font-medium">-- No Co-Chair Selected --</option>
+                                    {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.id !== chairmanId && (m as any).role !== 'chairman').map(m => (
+                                        <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-gray-900 dark:text-white py-1.5 font-medium">
+                                            {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.role === 'co-chair' ? '👑 Active Co-Chair' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            );
+                        })()}
+                        <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                    </div>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                            Distribution Split Logic
+                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                        </label>
+                        <span className="text-xs font-black text-[#FBBF24] px-2 py-1 bg-[#FBBF24]/10 rounded border border-[#FBBF24]/20">{weeklyPrizePercent} / {100 - weeklyPrizePercent}</span>
+                    </div>
+
+                    <div className="relative pt-2 pb-6">
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            disabled={isFinancialsLocked}
+                            value={weeklyPrizePercent}
+                            onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[4px] [&::-webkit-slider-thumb]:border-[#161d24] relative z-10 shadow-lg"
+                            style={{ background: `linear-gradient(to right, #FBBF24 ${weeklyPrizePercent}%, #10B981 ${weeklyPrizePercent}%)` }}
+                        />
+                    </div>
+
+                    <div className="flex justify-between text-[10px] text-gray-500 mt-[-10px] font-bold uppercase tracking-widest px-1">
+                        <span className="text-[#FBBF24]">Weekly Pot</span>
+                        <span className="text-[#10B981]">Season Vault</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-3">
+                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                            End of Season Winners
+                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                        </label>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3">
+                        {[
+                            { key: 'top1', label: 'Top 1' },
+                            { key: 'top3', label: 'Top 3' },
+                            { key: 'top5', label: 'Top 5' },
+                            { key: 'custom', label: 'Custom' },
+                        ].map((option) => (
+                            (() => {
+                                const neededMembers = option.key === 'top5' ? 5 : option.key === 'top3' ? 3 : 1;
+                                const isOptionLockedBySize = option.key !== 'custom' && activeMembersCount < neededMembers;
+                                const isDisabled = isFinancialsLocked || isOptionLockedBySize;
+                                return (
+                            <button
+                                key={option.key}
+                                type="button"
+                                disabled={isDisabled}
+                                onClick={() => {
+                                    if (isOptionLockedBySize) {
+                                        toast.error(`Need at least ${neededMembers} active members for ${option.label}.`);
+                                        return;
+                                    }
+                                    const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
+                                    setSeasonWinnersMode(mode);
+                                    if (mode === 'top1') setSeasonWinnersCount(1);
+                                    if (mode === 'top3') setSeasonWinnersCount(3);
+                                    if (mode === 'top5') setSeasonWinnersCount(5);
+                                }}
+                                className={clsx(
+                                    "py-3 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+                                    seasonWinnersMode === option.key
+                                        ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
+                                        : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
+                                )}
+                                title={isOptionLockedBySize ? `Requires at least ${neededMembers} active members` : undefined}
+                            >
+                                {option.label}
+                            </button>
+                                );
+                            })()
+                        ))}
+                    </div>
+
+                    <div className="fc-custom-winners-panel mt-3 space-y-3 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3.5">
+                        {seasonWinnersMode === 'custom' && (
+                            <>
+                                <div>
+                                    <label className="fc-custom-winners-label text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={maxAllowedWinners}
+                                        disabled={isFinancialsLocked}
+                                        value={normalizedCustomWinnerCount}
+                                        onFocus={(e) => e.target.select()}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                            setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(val) || 1)));
+                                        }}
+                                        className="fc-custom-winners-count mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                                    />
+                                    <p className="fc-custom-winners-meta text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (cannot exceed active members).</p>
+                                </div>
+
+                                <div className="fc-custom-winners-rows space-y-2">
+                                    {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
+                                        <div key={`profile-ratio-${idx}`} className="flex items-center gap-2">
+                                            <span className="fc-custom-winners-rank w-12 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                disabled={isFinancialsLocked}
+                                                value={customWinnerRatios[idx] || '0'}
+                                                onFocus={(e) => e.target.select()}
+                                                onChange={(e) => {
+                                                    const next = [...customWinnerRatios];
+                                                    next[idx] = e.target.value.replace(/^0+(?=\d)/, '');
+                                                    setCustomWinnerRatios(next);
+                                                }}
+                                                className="fc-custom-winners-input flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+                                            />
+                                            <span className="fc-custom-winners-percent text-[10px] font-black text-gray-500">%</span>
+                                            <span className="w-16 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                        <div className="fc-custom-winners-applied rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Applied ratios</p>
+                            <p className="text-[10px] text-[#FBBF24] font-bold mt-1">{effectiveSeasonDistribution.map((ratio, idx) => `#${idx + 1} ${ratio}%`).join(' · ')}</p>
+                            {seasonWinnersMode === 'custom' && (
+                                <p className="text-[9px] text-gray-500 mt-1">Raw input: {rawCustomRatioSummary || 'n/a'}</p>
+                            )}
+                        </div>
+                        {seasonWinnersMode === 'custom' && (
+                            <p className="fc-custom-winners-footnote text-[9px] text-gray-500">Raw custom inputs are auto-normalized to total 100%.</p>
+                        )}
+                    </div>
+                    <p className="text-[9px] text-gray-500 mt-2">Stored baseline winner count: Top {seasonWinnersCount}.</p>
+                </div>
+
+                {isFinancialsLocked ? (
+                    <button
+                        type="button"
+                        onClick={handleUnlockFinancials}
+                        className="w-full bg-[#161d24] hover:bg-white/5 border border-red-500/30 text-red-400 font-bold rounded-xl py-3.5 transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer shadow-sm"
+                    >
+                        <Lock className="w-4 h-4" /> Unlock to Modify League Rules
+                    </button>
+                ) : (
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsFinancialsLocked(true)}
+                            className="w-1/3 bg-[#161d24] hover:bg-white/5 border border-white/10 text-gray-400 font-bold rounded-xl py-3.5 transition-colors text-sm cursor-pointer"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSavingAdmin}
+                            className="w-2/3 bg-[#FBBF24] hover:bg-[#FBBF24]/80 text-[#0b1014] font-black rounded-xl py-3.5 transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer shadow-[0_0_15px_rgba(251,191,36,0.2)]"
+                        >
+                            {isSavingAdmin ? 'Saving...' : 'Save League Settings'}
+                        </button>
+                    </div>
+                )}
+            </form>
+        </div>
+    );
+
+    const renderRetirementCard = () => (
+        <div className="fc-card w-full bg-gradient-to-br from-[#161d24] via-[#1a1518] to-[#201214] border border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+            <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <Crown className="w-4 h-4" />
+                </div>
+                <div>
+                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-300">
+                        Chairman Retirement & Succession
+                    </h2>
+                    <p className="text-[10px] text-gray-400 font-medium">Step down and safely transfer chairmanship to the Co-Chair or a chosen manager</p>
+                </div>
+            </div>
+
+            <div className="space-y-3 mt-1">
+                {coAdminId && (
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Designated Successor (Co-Chair)</p>
+                            <p className="text-xs font-bold text-white truncate">
+                                {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSelectedSuccessorId(coAdminId);
+                                setShowRetireModal(true);
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                        >
+                            Pass to Co-Chair →
+                        </button>
+                    </div>
+                )}
+
+                <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+                        Or Transfer Chairmanship to Any Manager:
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <select
+                            value={selectedSuccessorId}
+                            onChange={(e) => setSelectedSuccessorId(e.target.value)}
+                            className="flex-1 bg-[#0c1218] border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-rose-500"
+                        >
+                            <option value="">-- Choose New Chairman --</option>
+                            {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            disabled={!selectedSuccessorId}
+                            onClick={() => setShowRetireModal(true)}
+                            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                        >
+                            Transfer Role
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white relative overflow-hidden bg-transparent">
@@ -1216,6 +1595,14 @@ export default function Profile() {
                             </form>
                         </div>
                     </div>
+
+                    {/* Mobile View: League Governance comes directly below Personal Details */}
+                    {isAdminView && (
+                        <div className="xl:hidden w-full flex flex-col gap-4">
+                            {renderLeagueGovernance()}
+                            {renderRetirementCard()}
+                        </div>
+                    )}
 
                     {/* Active Members / Chama Directory — Balanced in Column */}
                     {renderActiveMembersStrip('w-full')}
@@ -1511,381 +1898,15 @@ export default function Profile() {
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Desktop Right Column: League Governance & Retirement */}
+                {isAdminView && (
+                    <div className="hidden xl:flex xl:col-span-5 flex-col gap-4">
+                        {renderLeagueGovernance()}
+                        {renderRetirementCard()}
                     </div>
-
-                    {/* Right Column: League Governance & Chama Guides */}
-                    {isAdminView && (
-                        <div className="xl:col-span-5 flex flex-col gap-4">
-                            <div className="fc-card w-full bg-[#161d24] border border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10"></div>
-
-                            <h2 className="fc-frosty-title text-xl font-black flex items-center gap-2 mb-2">
-                                <Trophy className="w-5 h-5 text-amber-400" /> League Governance
-                            </h2>
-                            <p className="text-xs text-slate-400 dark:text-gray-400 mb-5 max-w-2xl font-medium">
-                                Configure the financial engine, league branding, co-chair permissions, and invite access.
-                            </p>
-
-                            {/* Invite Hub Section */}
-                            <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Share Invite Code</h3>
-                                    <span className="px-2 py-0.5 bg-[#10B981]/10 text-[#10B981] text-[9px] uppercase font-bold tracking-widest rounded border border-[#10B981]/20">Active</span>
-                                </div>
-                                <div className="text-center mb-3">
-                                    <span className="text-4xl font-black text-amber-400 tracking-widest block mb-1">{inviteCode || '------'}</span>
-                                    <p className="text-xs text-gray-400 font-medium">Share this code with players to join with their M-Pesa number.</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-[#161d24] hover:bg-white/5 text-white font-bold py-3 rounded-xl border border-white/10 transition-colors text-sm shadow-md">
-                                        <Copy className="w-4 h-4 text-gray-400" /> Copy
-                                    </button>
-                                    <button onClick={handleShare} className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.3)] transition-colors text-sm">
-                                        <Share2 className="w-4 h-4" /> Share
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Rule Modification Form */}
-                            <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
-                                <div>
-                                    <div className="flex justify-between items-center mb-1.5">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                            League Name
-                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                                        </label>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        disabled={isFinancialsLocked}
-                                        value={leagueName}
-                                        onChange={(e) => setLeagueName(e.target.value)}
-                                        placeholder="e.g. Premier League 24/25"
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                                    />
-                                    <p className="text-[10px] text-gray-500 mt-1">Clean sweep old season names like "Twende sana" to your current active league.</p>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between items-center mb-1.5">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                                            Gameweek Stake (KES)
-                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                                        </label>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        disabled={isFinancialsLocked}
-                                        value={gameweekStake === 0 ? '' : gameweekStake}
-                                        placeholder="50"
-                                        onFocus={(e) => e.target.select()}
-                                        onChange={(e) => {
-                                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
-                                            setMonthlyContribution(cleaned === '' ? 0 : parseInt(cleaned, 10));
-                                        }}
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            FPL League ID
-                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                                        </label>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        disabled={isFinancialsLocked}
-                                        value={fplLeagueId}
-                                        onChange={(e) => {
-                                            let val = e.target.value.trim();
-                                            const match = val.match(/leagues\/(\d+)\/standings/);
-                                            if (match && match[1]) val = match[1];
-                                            setFplLeagueId(val.replace(/\D/g, ''));
-                                        }}
-                                        placeholder="e.g. 123456 or paste Standings URL"
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                                    />
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 font-medium leading-relaxed">
-                                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-600 dark:text-gray-300 bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Pochi Receiving Number</label>
-                                    <input
-                                        type="tel"
-                                        value={chairmanPhone}
-                                        onChange={(e) => setChairmanPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                                        placeholder="e.g. 0712345678"
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
-                                    />
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
-                                </div>
-
-                                {/* Co-Chair Designation */}
-                                <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            Designate Co-Chair
-                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                                        </label>
-                                    </div>
-                                    <div className="relative">
-                                        {(() => {
-                                            const matchedCoChair = members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId) || m.role === 'co-chair');
-                                            const resolvedCoAdminValue = matchedCoChair ? matchedCoChair.id : (coAdminId || '');
-                                            return (
-                                                <select
-                                                    disabled={isFinancialsLocked}
-                                                    value={resolvedCoAdminValue}
-                                                    onChange={(e) => setCoAdminId(e.target.value)}
-                                                    className="w-full bg-slate-50 dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-11 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer shadow-sm hover:border-[#FBBF24]/50"
-                                                >
-                                                    <option value="" className="bg-white dark:bg-[#0c1218] text-gray-500 dark:text-gray-400 py-1.5 font-medium">-- No Co-Chair Selected --</option>
-                                                    {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.id !== chairmanId && (m as any).role !== 'chairman').map(m => (
-                                                        <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-gray-900 dark:text-white py-1.5 font-medium">
-                                                            {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.role === 'co-chair' ? '👑 Active Co-Chair' : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            );
-                                        })()}
-                                        <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
-                                    </div>
-                                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            Distribution Split Logic
-                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                                        </label>
-                                        <span className="text-xs font-black text-[#FBBF24] px-2 py-1 bg-[#FBBF24]/10 rounded border border-[#FBBF24]/20">{weeklyPrizePercent} / {100 - weeklyPrizePercent}</span>
-                                    </div>
-
-                                    <div className="relative pt-2 pb-6">
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="100"
-                                            step="5"
-                                            disabled={isFinancialsLocked}
-                                            value={weeklyPrizePercent}
-                                            onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
-                                            className="w-full h-2 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[4px] [&::-webkit-slider-thumb]:border-[#161d24] relative z-10 shadow-lg"
-                                            style={{ background: `linear-gradient(to right, #FBBF24 ${weeklyPrizePercent}%, #10B981 ${weeklyPrizePercent}%)` }}
-                                        />
-                                    </div>
-
-                                    <div className="flex justify-between text-[10px] text-gray-500 mt-[-10px] font-bold uppercase tracking-widest px-1">
-                                        <span className="text-[#FBBF24]">Weekly Pot</span>
-                                        <span className="text-[#10B981]">Season Vault</span>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex justify-between items-center mb-3">
-                                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                                            End of Season Winners
-                                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                                        </label>
-                                    </div>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {[
-                                            { key: 'top1', label: 'Top 1' },
-                                            { key: 'top3', label: 'Top 3' },
-                                            { key: 'top5', label: 'Top 5' },
-                                            { key: 'custom', label: 'Custom' },
-                                        ].map((option) => (
-                                            (() => {
-                                                const neededMembers = option.key === 'top5' ? 5 : option.key === 'top3' ? 3 : 1;
-                                                const isOptionLockedBySize = option.key !== 'custom' && activeMembersCount < neededMembers;
-                                                const isDisabled = isFinancialsLocked || isOptionLockedBySize;
-                                                return (
-                                            <button
-                                                key={option.key}
-                                                type="button"
-                                                disabled={isDisabled}
-                                                onClick={() => {
-                                                    if (isOptionLockedBySize) {
-                                                        toast.error(`Need at least ${neededMembers} active members for ${option.label}.`);
-                                                        
-                                                        return;
-                                                    }
-                                                    const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
-                                                    setSeasonWinnersMode(mode);
-                                                    if (mode === 'top1') setSeasonWinnersCount(1);
-                                                    if (mode === 'top3') setSeasonWinnersCount(3);
-                                                    if (mode === 'top5') setSeasonWinnersCount(5);
-                                                }}
-                                                className={clsx(
-                                                    "py-3 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-                                                    seasonWinnersMode === option.key
-                                                        ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
-                                                        : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
-                                                )}
-                                                title={isOptionLockedBySize ? `Requires at least ${neededMembers} active members` : undefined}
-                                            >
-                                                {option.label}
-                                            </button>
-                                                );
-                                            })()
-                                        ))}
-                                    </div>
-
-                                    <div className="fc-custom-winners-panel mt-3 space-y-3 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3.5">
-                                        {seasonWinnersMode === 'custom' && (
-                                            <>
-                                                <div>
-                                                    <label className="fc-custom-winners-label text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        max={maxAllowedWinners}
-                                                        disabled={isFinancialsLocked}
-                                                        value={normalizedCustomWinnerCount}
-                                                        onFocus={(e) => e.target.select()}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
-                                                            setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(val) || 1)));
-                                                        }}
-                                                        className="fc-custom-winners-count mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-                                                    />
-                                                    <p className="fc-custom-winners-meta text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (cannot exceed active members).</p>
-                                                </div>
-
-                                                <div className="fc-custom-winners-rows space-y-2">
-                                                    {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
-                                                        <div key={`profile-ratio-${idx}`} className="flex items-center gap-2">
-                                                            <span className="fc-custom-winners-rank w-12 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                disabled={isFinancialsLocked}
-                                                                value={customWinnerRatios[idx] || '0'}
-                                                                onFocus={(e) => e.target.select()}
-                                                                onChange={(e) => {
-                                                                    const next = [...customWinnerRatios];
-                                                                    next[idx] = e.target.value.replace(/^0+(?=\d)/, '');
-                                                                    setCustomWinnerRatios(next);
-                                                                }}
-                                                                className="fc-custom-winners-input flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-                                                            />
-                                                            <span className="fc-custom-winners-percent text-[10px] font-black text-gray-500">%</span>
-                                                            <span className="w-16 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
-                                        <div className="fc-custom-winners-applied rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Applied ratios</p>
-                                            <p className="text-[10px] text-[#FBBF24] font-bold mt-1">{effectiveSeasonDistribution.map((ratio, idx) => `#${idx + 1} ${ratio}%`).join(' · ')}</p>
-                                            {seasonWinnersMode === 'custom' && (
-                                                <p className="text-[9px] text-gray-500 mt-1">Raw input: {rawCustomRatioSummary || 'n/a'}</p>
-                                            )}
-                                        </div>
-                                        {seasonWinnersMode === 'custom' && (
-                                            <p className="fc-custom-winners-footnote text-[9px] text-gray-500">Raw custom inputs are auto-normalized to total 100%.</p>
-                                        )}
-                                    </div>
-                                    <p className="text-[9px] text-gray-500 mt-2">Stored baseline winner count: Top {seasonWinnersCount}.</p>
-                                </div>
-
-                                {isFinancialsLocked ? (
-                                    <button
-                                        type="button"
-                                        onClick={handleUnlockFinancials}
-                                        className="w-full bg-[#0b1014] hover:bg-[#1a232b] text-gray-600 dark:text-gray-400 hover:text-white border border-white/5 font-bold rounded-xl py-4 flex items-center justify-center gap-2 transition-colors mt-auto text-sm"
-                                    >
-                                        <Unlock className="w-4 h-4" /> Unlock to Edit Rules
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="submit"
-                                        disabled={isSavingAdmin}
-                                        className="w-full bg-[#FBBF24] hover:bg-[#eab308] text-[#0b1014] font-black rounded-xl py-4 transition-colors mt-auto text-sm shadow-[0_0_15px_rgba(251,191,36,0.3)]"
-                                    >
-                                        {isSavingAdmin ? 'Updating Logistics...' : 'Confirm Financial Overhaul'}
-                                    </button>
-                                )}
-                            </form>
-
-
-                            </div>
-
-                            {/* Chairman Retirement & Succession Protocol Card */}
-                            <div className="fc-card w-full bg-gradient-to-br from-[#161d24] via-[#1a1518] to-[#201214] border border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                                <div className="flex items-center gap-2.5 mb-3">
-                                    <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
-                                        <Crown className="w-4 h-4" />
-                                    </div>
-                                    <div>
-                                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-300">
-                                            Chairman Retirement & Succession
-                                        </h2>
-                                        <p className="text-[10px] text-gray-400 font-medium">Step down and safely transfer chairmanship to the Co-Chair or a chosen manager</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3 mt-1">
-                                    {coAdminId && (
-                                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Designated Successor (Co-Chair)</p>
-                                                <p className="text-xs font-bold text-white truncate">
-                                                    {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
-                                                </p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedSuccessorId(coAdminId);
-                                                    setShowRetireModal(true);
-                                                }}
-                                                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
-                                            >
-                                                Pass to Co-Chair →
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
-                                            Or Transfer Chairmanship to Any Manager:
-                                        </label>
-                                        <div className="flex flex-col sm:flex-row gap-2">
-                                            <select
-                                                value={selectedSuccessorId}
-                                                onChange={(e) => setSelectedSuccessorId(e.target.value)}
-                                                className="flex-1 bg-[#0c1218] border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-rose-500"
-                                            >
-                                                <option value="">-- Choose New Chairman --</option>
-                                                {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
-                                                    <option key={m.id} value={m.id}>
-                                                        {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                type="button"
-                                                disabled={!selectedSuccessorId}
-                                                onClick={() => setShowRetireModal(true)}
-                                                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
-                                            >
-                                                Transfer Role
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
+                )}
                 </div>
             </div>
 
@@ -1956,6 +1977,6 @@ export default function Profile() {
                 onClose={() => setShowDocsModal(false)}
             />
 
-        </div >
+        </div>
     );
 }

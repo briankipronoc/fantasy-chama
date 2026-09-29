@@ -7,7 +7,7 @@ import { useStore } from '../store/useStore';
 import { ChevronDown, Trophy, Check, Plus, Shield, Users, Loader2, X, Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { useNavigate } from 'react-router-dom';
-import { normalizeKenyanPhone } from '../utils/phone';
+import { normalizeKenyanPhone, getPhoneVariants } from '../utils/phone';
 import { extractInviteCode } from '../utils/invite';
 import toast from 'react-hot-toast';
 
@@ -32,8 +32,10 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
     const phone = localStorage.getItem('memberPhone');
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const storeLeagueName = useStore((state) => (state.league as any)?.leagueName || state.league?.name);
+    const storeRole = useStore((state) => state.role);
     const cachedLeagueName = localStorage.getItem('activeLeagueName');
-    const activeRole = localStorage.getItem('activeUserRole') || localStorage.getItem('fc-role') || 'member';
+    const localRole = localStorage.getItem('activeUserRole') || localStorage.getItem('fc-role') || 'member';
+    const activeRole = storeRole === 'admin' ? 'admin' : (localRole === 'admin' ? 'admin' : 'member');
     const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid || null);
     const isAnonymousUser = Boolean(auth.currentUser?.isAnonymous);
 
@@ -62,11 +64,11 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
         const updateMerged = () => {
             const map = new Map<string, LeagueEntry>();
 
-            if (activeRole === 'admin' && !isAnonymousUser) {
+            if (activeRole === 'admin') {
                 // In Chairman mode: strictly show Chairman leagues
-                chairLeagues.forEach(l => map.set(l.leagueId, l));
+                chairLeagues.forEach(l => map.set(l.leagueId, { ...l, role: 'admin' }));
             } else {
-                // In Member mode: strictly show Member leagues (never escalate to admin without password)
+                // In Member mode: strictly show Member leagues
                 memberLeagues.forEach(l => {
                     map.set(l.leagueId, {
                         ...l,
@@ -76,11 +78,12 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             }
 
             // Ensure currently active league is always represented even before remote sync finishes
-            if (activeLeagueId && !map.has(activeLeagueId)) {
+            if (activeLeagueId) {
+                const existing = map.get(activeLeagueId);
                 map.set(activeLeagueId, {
                     leagueId: activeLeagueId,
-                    leagueName: storeLeagueName || cachedLeagueName || 'League',
-                    role: activeRole === 'admin' && !isAnonymousUser ? 'admin' : 'member',
+                    leagueName: storeLeagueName || existing?.leagueName || cachedLeagueName || 'League',
+                    role: activeRole === 'admin' ? 'admin' : (existing?.role || 'member'),
                 });
             }
 
@@ -107,25 +110,48 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             updateMerged();
         }
 
-        // Only query chairman leagues if the user is authenticated as an admin
-        if (currentUid && activeRole === 'admin' && !isAnonymousUser) {
+        // Query chairman leagues across all leagues where user is Chairman (by UID or phone or email)
+        if (activeRole === 'admin') {
             const leaguesRef = collection(db, 'leagues');
-            const qChairman = query(leaguesRef, where('chairmanId', '==', currentUid));
-            const unsubChairman = onSnapshot(qChairman, (snap) => {
-                chairLeagues = snap.docs.map(d => {
+            const chairMap = new Map<string, LeagueEntry>();
+
+            const syncFromSnap = (snapDocs: any[]) => {
+                snapDocs.forEach(d => {
                     const data = d.data();
-                    return {
+                    chairMap.set(d.id, {
                         leagueId: d.id,
                         leagueName: data.name || data.leagueName || 'Unnamed League',
                         role: 'admin'
-                    };
+                    });
                 });
+                chairLeagues = Array.from(chairMap.values());
                 updateMerged();
-            }, (error) => {
-                console.warn('[league-switcher] chairman snapshot failed:', error?.message || error);
-                updateMerged();
-            });
-            unsubs.push(unsubChairman);
+            };
+
+            // 1. By Auth UID
+            if (currentUid && !isAnonymousUser) {
+                const qChairman = query(leaguesRef, where('chairmanId', '==', currentUid));
+                const unsubChairman = onSnapshot(qChairman, (snap) => {
+                    syncFromSnap(snap.docs);
+                }, (error) => {
+                    console.warn('[league-switcher] chairman UID snapshot failed:', error?.message || error);
+                });
+                unsubs.push(unsubChairman);
+            }
+
+            // 2. By Chairman Phone variants (allows multi-league chairmen identified by their phone)
+            if (phone) {
+                const variants = getPhoneVariants(phone);
+                if (variants.length > 0) {
+                    const qPhone = query(leaguesRef, where('chairmanPhone', 'in', variants.slice(0, 10)));
+                    const unsubPhoneChair = onSnapshot(qPhone, (snap) => {
+                        syncFromSnap(snap.docs);
+                    }, (error) => {
+                        console.warn('[league-switcher] chairman phone snapshot failed:', error?.message || error);
+                    });
+                    unsubs.push(unsubPhoneChair);
+                }
+            }
         }
 
         return () => {
@@ -133,7 +159,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                 try { u(); } catch {}
             });
         };
-    }, [phone, currentUid, activeLeagueId, storeLeagueName, activeRole, isAnonymousUser]);
+    }, [phone, currentUid, activeLeagueId, storeLeagueName, storeRole, activeRole, isAnonymousUser]);
 
     useEffect(() => {
         if (!open) return;
@@ -155,10 +181,11 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
         };
     }, [open]);
 
-    const active = leagues.find(l => l.leagueId === activeLeagueId) || {
+    const foundActive = leagues.find(l => l.leagueId === activeLeagueId);
+    const active: LeagueEntry = {
         leagueId: activeLeagueId || '',
-        leagueName: storeLeagueName || cachedLeagueName || 'League',
-        role: activeRole,
+        leagueName: storeLeagueName || foundActive?.leagueName || cachedLeagueName || 'League',
+        role: activeRole === 'admin' ? 'admin' : (foundActive?.role || activeRole),
     };
 
     const switchLeague = async (league: LeagueEntry) => {
@@ -230,10 +257,10 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
             setOpen(false);
 
-            // Smooth background transition: keep the sleek waiting overlay up briefly
-            // while React swaps the league data in memory, then smoothly navigate.
+            // Navigate to proper view: admin role -> /admin, member role -> /dashboard
+            const targetPath = league.role === 'admin' ? '/admin' : '/dashboard';
             setTimeout(() => {
-                navigate('/dashboard', { replace: true });
+                navigate(targetPath, { replace: true });
                 setTimeout(() => {
                     setIsSwitching(false);
                 }, 400);
@@ -244,7 +271,8 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             localStorage.setItem('activeUserRole', league.role);
             useStore.getState().setActiveLeagueId(league.leagueId);
             useStore.getState().setRole(league.role === 'admin' ? 'admin' : 'member');
-            navigate('/dashboard', { replace: true });
+            const targetPath = league.role === 'admin' ? '/admin' : '/dashboard';
+            navigate(targetPath, { replace: true });
             setTimeout(() => {
                 setIsSwitching(false);
             }, 400);

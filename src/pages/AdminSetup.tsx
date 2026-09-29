@@ -2554,13 +2554,13 @@ export default function AdminSetup() {
             </div>
 
             {/* 1. Master Invite Code */}
-            <div className="bg-[#151c18] border border-[#FBBF24]/30 p-5 sm:p-6 rounded-2xl w-full text-center shadow-[0_0_50px_rgba(251,191,36,0.05)] relative overflow-hidden space-y-1">
+            <div className="bg-[#151c18] border border-amber-500/30 p-5 sm:p-6 rounded-2xl w-full text-center shadow-[0_0_50px_rgba(251,191,36,0.15)] relative overflow-hidden space-y-1">
                 <div className="flex items-center justify-center gap-1.5 mb-1">
                     <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center justify-center">1</span>
-                    <p className="text-[#FBBF24] text-[10px] sm:text-xs font-black uppercase tracking-widest">Master Invite Code</p>
+                    <p className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300 text-[10px] sm:text-xs font-black uppercase tracking-widest">Master Invite Code</p>
                 </div>
-                <h1 className="text-4xl sm:text-5xl font-black font-mono tracking-widest text-white drop-shadow-md">
-                    {generatedCode.slice(0, 3)} <span className="text-[#FBBF24]">{generatedCode.slice(3, 6)}</span>
+                <h1 className="text-4xl sm:text-5xl font-black font-mono tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 drop-shadow-[0_2px_12px_rgba(251,191,36,0.4)]">
+                    {generatedCode.slice(0, 3)} {generatedCode.slice(3, 6)}
                 </h1>
             </div>
 
