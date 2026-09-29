@@ -334,7 +334,7 @@ export default function AppLayout() {
 
             {/* Main Content Area */}
             <main className="fc-main-shell flex-1 w-full relative overflow-hidden flex flex-col h-[100dvh] min-h-[100dvh]">
-                <div className={clsx('fc-main-scroll fc-route-stage flex-1 overflow-y-auto pt-[max(1.25rem,calc(env(safe-area-inset-top,0px)+0.75rem))] pb-28 lg:pb-0 scroll-smooth', routeTransitionClass)}>
+                <div className={clsx('fc-main-scroll fc-route-stage flex-1 overflow-y-auto pt-[max(1.75rem,calc(env(safe-area-inset-top,0px)+1.25rem))] pb-28 lg:pb-0 scroll-smooth', routeTransitionClass)}>
                     <Outlet />
                 </div>
             </main>

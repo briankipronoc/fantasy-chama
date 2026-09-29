@@ -473,17 +473,20 @@
      FROSTY METALLIC DESIGN SYSTEM (Luxury Metal & Glass)
   ══════════════════════════════════════════════ */
   .fc-frosty-title {
-    background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 40%, #94a3b8 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #cbd5e1 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 2px 10px rgba(255, 255, 255, 0.12));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     letter-spacing: -0.025em;
   }
   [data-theme="light"] .fc-frosty-title {
     background: linear-gradient(135deg, #090d16 0%, #1e293b 30%, #0f172a 65%, #334155 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.95)) drop-shadow(0 2px 6px rgba(15, 23, 42, 0.14)) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.025em;
   }
   .fc-frosty-sub {
@@ -2225,7 +2228,7 @@ html {
 .fc-main-scroll {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+  padding-top: max(1.75rem, calc(env(safe-area-inset-top, 0px) + 1.25rem));
 }
 
 .fc-finances-page {

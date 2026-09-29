@@ -3,7 +3,7 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, ArrowRight, Copy, PhoneCall } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, Copy, PhoneCall } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -57,7 +57,6 @@ export default function MemberDashboard() {
     const [gwWinner, setGwWinner] = useState<any>(null);
     const [fplStandings, setFplStandings] = useState<any[]>([]);
     const [rawFplStandings, setRawFplStandings] = useState<any[]>([]);
-    const [activeUserSideBets, setActiveUserSideBets] = useState<any[]>([]);
     const [currentFplEvent, setCurrentFplEvent] = useState<{
         id: number;
         name?: string;
@@ -530,14 +529,6 @@ export default function MemberDashboard() {
                     nextDeadlineTime: rawNext?.deadline_time || upcomingDeadlineTime,
                     isPreparingForNextGw: isPreparingForNext,
                 });
-
-                // Auto-persist startGw if the league doesn't have it yet
-                const leagueRef2 = activeLeagueId ? (await import('firebase/firestore').then(({ doc, getDoc }) => getDoc(doc(db, 'leagues', activeLeagueId)))) : null;
-                if (leagueRef2 && activeLeagueId && leagueRef2.data()?.startGw == null) {
-                    import('firebase/firestore').then(({ doc, updateDoc }) => {
-                        updateDoc(doc(db, 'leagues', activeLeagueId), { startGw: activeEventToDisplay.id }).catch(() => {});
-                    });
-                }
             } catch (err) {
                 console.warn('Could not fetch current FPL event', err);
             }
@@ -697,27 +688,6 @@ export default function MemberDashboard() {
             }
         };
     }, [activeLeagueId, currentUser?.id, coAdminId]);
-
-    // Listen for Active/Pending 1v1 Side Bets for the logged-in member
-    useEffect(() => {
-        if (!activeLeagueId || !currentUser?.id) return;
-        const betsRef = collection(db, 'leagues', activeLeagueId, 'side_bets');
-        const unsub = onSnapshot(betsRef, (snap) => {
-            const myBets = snap.docs
-                .map(d => ({ id: d.id, ...d.data() } as any))
-                .filter(b => 
-                    (b.challenger?.id === currentUser.id || b.opponent?.id === currentUser.id) &&
-                    b.status !== 'resolved' &&
-                    b.status !== 'declined'
-                );
-            setActiveUserSideBets(myBets);
-        }, (err) => {
-            console.warn('[member-dashboard] side bets listener failed:', err?.message || err);
-        });
-        return () => {
-            try { unsub(); } catch {}
-        };
-    }, [activeLeagueId, currentUser?.id]);
 
     useEffect(() => {
         if (!memberPhone) return;
@@ -1825,50 +1795,6 @@ export default function MemberDashboard() {
                                 <span>View Full Standings →</span>
                             </button>
                         </div>
-                    );
-                })()}
-
-                {/* ── Active / Upcoming 1v1 Side Bet Banner (Below GW Champion) ── */}
-                {activeUserSideBets && activeUserSideBets.length > 0 && (() => {
-                    const bet = activeUserSideBets[0];
-                    const isChallenger = bet.challenger?.id === currentUser?.id;
-                    const rivalName = isChallenger ? bet.opponent?.displayName || 'Opponent' : bet.challenger?.displayName || 'Challenger';
-                    const isActionRequired = !isChallenger && !bet.opponent?.signed;
-                    
-                    return (
-                        <section className="mb-3 rounded-3xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-in fade-in duration-300">
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0 shadow-sm">
-                                    <Swords className="w-5 h-5" />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">1v1 Side Bet Wager</span>
-                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30">KES {bet.stake?.toLocaleString() || '500'} STAKE</span>
-                                    </div>
-                                    <h4 className="text-sm md:text-base font-black text-white truncate">
-                                        vs {rivalName}: "{bet.terms?.title || bet.terms?.description || 'Custom Wager'}"
-                                    </h4>
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                        {bet.status === 'active'
-                                            ? '🔥 Match is live! Highest score takes the bag.'
-                                            : isActionRequired
-                                                ? '⚠️ You have been challenged! Review and accept before deadline.'
-                                                : '⏳ Awaiting Chairman approval / opponent signature.'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                <button
-                                    onClick={() => navigate('/sidebets')}
-                                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0e17] font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <span>{isActionRequired ? 'Review & Accept' : 'View Wagers'}</span>
-                                    <ArrowRight className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </section>
                     );
                 })()}
 

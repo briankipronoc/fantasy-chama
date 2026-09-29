@@ -2217,9 +2217,11 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         ? 'Inflow'
                                         : 'Outflow';
                             const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                            const targetTxGw = rawTxGw > 0 ? rawTxGw : (effectiveLeagueStartGw || 5);
+                            const minStartGw = Number(startGw || (leagueSettings as any)?.startGw || 5);
+                            const targetTxGw = rawTxGw > 0 ? Math.max(minStartGw, rawTxGw) : minStartGw;
                             const gwTag = `GW${targetTxGw}`;
-                            const sanitizedNote = String(tx.note || '');
+                            const rawNote = String(tx.note || '');
+                            const sanitizedNote = rawNote.replace(/\bGW[1-4]\b/g, `GW${minStartGw}`);
                             const activityLabel = isReversal
                                 ? (sanitizedNote || `Reversal • ${memberName}`)
                                 : tx.type === 'payout'
@@ -2327,9 +2329,11 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                         const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                                        const targetTxGw = rawTxGw > 0 ? rawTxGw : (effectiveLeagueStartGw || 5);
+                                        const minStartGw = Number(startGw || (leagueSettings as any)?.startGw || 5);
+                                        const targetTxGw = rawTxGw > 0 ? Math.max(minStartGw, rawTxGw) : minStartGw;
                                         const gwTag = `GW${targetTxGw}`;
-                                        const sanitizedNote = String(tx.note || '');
+                                        const rawNote = String(tx.note || '');
+                                        const sanitizedNote = rawNote.replace(/\bGW[1-4]\b/g, `GW${minStartGw}`);
                                         const statusLabel = isReversal
                                             ? 'Reversal'
                                             : isWalletFunding
