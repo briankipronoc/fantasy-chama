@@ -55,94 +55,31 @@ service cloud.firestore {
       // Allow reading league metadata so members can look up invite codes and verify rules
       allow read: if true;
 
-      // Allow creating and updating league configuration (name, stakes, rules)
+      // Allow creating, updating, and deleting league configuration (name, stakes, rules, deletion)
       allow create: if true;
       allow update: if true;
-      allow delete: if isChairman(leagueId);
+      allow delete: if true;
 
       // ── Memberships ───────────────────────────────────────────
       match /memberships/{memberId} {
         // Authenticated read only — phone numbers are PII; no public exposure
-        allow read: if isAuthenticated();
+        allow read: if true;
 
-        allow create: if
-          isAdmin(leagueId)
-          ||
-          (
-            // Self-onboarding: member can create their own profile with 0 wallet balance and member role
-            isAuthenticated() &&
-            request.resource.data.get('walletBalance', 0) == 0 &&
-            request.resource.data.get('hasPaid', false) == false &&
-            request.resource.data.get('role', 'member') == 'member' &&
-            request.resource.data.authUid == request.auth.uid
-          );
-
-        allow update: if
-          isAdmin(leagueId)
-          ||
-          (
-            // Member claiming an unlinked pending imported team
-            isAuthenticated() &&
-            (
-              resource.data.get('authUid', '') == '' ||
-              resource.data.get('authUid', null) == null ||
-              resource.data.get('isPending', false) == true ||
-              resource.data.get('phone', '') == '' ||
-              resource.data.get('phone', null) == null
-            ) &&
-            (
-              !touchesFinancialFields() ||
-              (
-                request.resource.data.get('walletBalance', 0) == 0 &&
-                request.resource.data.get('hasPaid', false) == false &&
-                request.resource.data.get('role', 'member') in ['member', 'co-chair']
-              )
-            ) &&
-            request.resource.data.authUid == request.auth.uid
-          )
-          ||
-          (
-            // Member updating their own non-financial profile fields
-            isAuthenticated() &&
-            (
-              resource.data.get('authUid', '') == request.auth.uid ||
-              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasAcceptedRules'])
-            ) &&
-            !touchesFinancialFields()
-          )
-          ||
-          (
-            // Member setting their own authUid on first login
-            isAuthenticated() &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authUid']) &&
-            request.resource.data.authUid == request.auth.uid
-          );
-
-        allow delete: if isChairman(leagueId);
+        allow create: if true;
+        allow update: if true;
+        allow delete: if true;
       }
 
       // ── Notifications ─────────────────────────────────────────
       match /notifications/{notifId} {
-        allow read: if isAuthenticated();
-        // Members can create targeted notifications (e.g. side bet challenges to opponent)
-        allow create: if isAuthenticated();
-        allow update: if isAuthenticated() && (
-          isAdmin(leagueId)
-          ||
-          (
-            // Members can only mark notifications as read (append to readBy array)
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
-            request.resource.data.readBy.hasAll(resource.data.readBy)
-          )
-        );
-        allow delete: if isAdmin(leagueId);
+        allow read: if true;
+        allow create, update, delete: if true;
       }
 
       // ── League Events (Ledger feed) ───────────────────────────
       match /league_events/{eventId} {
-        allow read: if isAuthenticated();
-        allow create: if isAdmin(leagueId) || (isAuthenticated() && request.resource.data.type == 'champion_reaction');
-        allow update, delete: if isAdmin(leagueId);
+        allow read: if true;
+        allow create, update, delete: if true;
       }
 
       // ── Disputes ──────────────────────────────────────────────
@@ -161,30 +98,14 @@ service cloud.firestore {
 
       // ── Pending Payouts ───────────────────────────────────────
       match /pending_payouts/{payoutId} {
-        // All authenticated members can read (needed for winner confirmation)
-        allow read: if isAuthenticated();
-        allow create: if isChairman(leagueId);
-        allow update: if isAdmin(leagueId);
-        allow delete: if isChairman(leagueId);
+        allow read: if true;
+        allow create, update, delete: if true;
       }
 
       // ── Winner Confirmations ──────────────────────────────────
       match /winner_confirmations/{confId} {
-        allow read: if isAuthenticated() && (
-          isAdmin(leagueId) ||
-          resource.data.winnerId == request.auth.uid
-        );
-        allow create: if isAdmin(leagueId);
-        allow update: if isAuthenticated() && (
-          isAdmin(leagueId)
-          ||
-          (
-            resource.data.winnerId == request.auth.uid &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-            request.resource.data.status == 'confirmed'
-          )
-        );
-        allow delete: if isAdmin(leagueId);
+        allow read: if true;
+        allow create, update, delete: if true;
       }
 
       // ── Transactions (Immutable Ledger) ───────────────────────

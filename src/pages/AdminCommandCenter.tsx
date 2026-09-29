@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 
 import { useNavigate, Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import Header from "../components/Header";
 import ChampionFlexCardModal from "../components/ChampionFlexCardModal";
 import ConfirmModal from "../components/ConfirmModal";
@@ -1187,8 +1188,14 @@ export default function AdminCommandCenter() {
 
   const showToast = (message: string) => {
     setToastMessage(message);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => setToastMessage(""), 3000);
+    if (message.includes('❌') || message.toLowerCase().includes('fail') || message.toLowerCase().includes('error') || message.toLowerCase().includes('denied')) {
+      toast.error(message);
+    } else if (message.includes('✅') || message.includes('🏆') || message.toLowerCase().includes('success') || message.toLowerCase().includes('resolved') || message.toLowerCase().includes('complete') || message.toLowerCase().includes('approved')) {
+      toast.success(message);
+    } else {
+      toast(message);
+    }
+    setTimeout(() => setToastMessage(""), 4000);
   };
 
   const handleSendReaction = async (emoji: string) => {
@@ -2096,6 +2103,7 @@ export default function AdminCommandCenter() {
 
   const handleResolveGameweek = async () => {
     if (!activeLeagueId) return;
+    setShowResolveModal(false);
     setIsResolving(true);
     try {
       // 1. Determine GW number quickly (timeout 2.5s)

@@ -691,6 +691,7 @@ export default function Profile() {
 
     const handleDeleteLeague = async () => {
         if (!activeLeagueId) return;
+        setShowDeleteLeagueModal(false);
         setIsDeletingLeague(true);
         try {
             haptics.warning();
@@ -746,7 +747,6 @@ export default function Profile() {
             localStorage.removeItem('activeLeagueId');
             localStorage.removeItem('activeRole');
             toast.success(`League "${leagueName || 'League'}" deleted.`);
-            setShowDeleteLeagueModal(false);
 
             // 4. If user has another league, switch to it; otherwise go to setup
             if (nextLeagueId) {

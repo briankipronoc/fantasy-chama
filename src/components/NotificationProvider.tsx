@@ -227,24 +227,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return (
         <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead, markAsRead }}>
             {children}
-            {/* Phase 10.5: Strict Toaster — theme-aware, top-center mobile / top-right desktop, highest zIndex */}
+            {/* Phase 10.5: Strict Toaster — theme-aware, top-center mobile below notch / top-right desktop, highest zIndex */}
             <Toaster
                 position={isMobile ? "top-center" : "top-right"}
                 toastOptions={{
-                    duration: 3600,
+                    duration: 4000,
                     className: 'fc-toast-item',
                     style: {
                         fontFamily: 'inherit',
-                        background: 'var(--fc-toast-bg, rgba(14, 20, 25, 0.96))',
+                        background: 'var(--fc-toast-bg, rgba(12, 18, 24, 0.98))',
                         color: 'var(--fc-toast-color, #f8fafc)',
-                        border: '1px solid var(--fc-toast-border, rgba(16,185,129,0.28))',
+                        border: '1px solid var(--fc-toast-border, rgba(16,185,129,0.35))',
                         borderRadius: '16px',
                         fontWeight: 700,
                         fontSize: '13px',
                         padding: '12px 18px',
-                        boxShadow: 'var(--fc-toast-shadow, 0 16px 40px rgba(0,0,0,0.3))',
-                        backdropFilter: 'blur(20px) saturate(140%)',
-                        WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+                        boxShadow: 'var(--fc-toast-shadow, 0 20px 50px rgba(0,0,0,0.6))',
+                        backdropFilter: 'blur(24px) saturate(140%)',
+                        WebkitBackdropFilter: 'blur(24px) saturate(140%)',
                         maxWidth: 'min(28rem, calc(100vw - 2rem))',
                         width: 'auto',
                         whiteSpace: 'normal',
@@ -258,9 +258,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     },
                     error: {
                         style: {
-                            background: 'var(--fc-toast-bg, rgba(14, 20, 25, 0.96))',
+                            background: 'var(--fc-toast-bg, rgba(18, 12, 12, 0.98))',
                             color: 'var(--fc-toast-color, #f8fafc)',
-                            border: '1px solid rgba(239,68,68,0.35)',
+                            border: '1px solid rgba(239,68,68,0.45)',
                             whiteSpace: 'normal',
                             wordBreak: 'normal',
                             overflowWrap: 'break-word',
@@ -270,8 +270,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     }
                 }}
                 containerStyle={{
-                    top: isMobile ? 16 : 84,
-                    zIndex: 999999,
+                    top: isMobile ? 64 : 84,
+                    zIndex: 99999999,
                 }}
             />
         </NotificationContext.Provider>
