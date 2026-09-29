@@ -174,7 +174,13 @@ export default function Standings() {
             return isFunded;
         });
         const sortedActiveResults = [...activeChamaResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+        const topScore = Number(sortedActiveResults[0]?.event_total || 0);
+        const tiedTopMembers = sortedActiveResults.filter((r: any) => Number(r.event_total || 0) === topScore);
+        const isTie = tiedTopMembers.length > 1;
         const topGwMember = sortedActiveResults[0];
+        const winnerDisplayName = isTie 
+            ? tiedTopMembers.map((m: any) => m.player_name.split(' ')[0]).join(' & ') + ' (Tie)'
+            : `${topGwMember?.player_name}`;
 
         const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated && (m as any)?.playMode !== 'sidebets_only' && (m.hasPaid || (stakeVal > 0 && (Number(m.walletBalance || 0)) >= stakeVal))).length || 1;
         const estimatedPot = isSeasonOnlyLeague ? 0 : Math.round(activeCount * stakeVal * weeklyPercent);
@@ -233,11 +239,11 @@ export default function Standings() {
                 if (topGwMember && Number(topGwMember.event_total) > 0) {
                     return {
                         gw,
-                        winnerName: `${topGwMember.player_name}`,
+                        winnerName: winnerDisplayName,
                         winnerTeam: isSeasonOnlyLeague
                             ? `${topGwMember.entry_name || 'Team'} · Live Leader`
                             : `${topGwMember.entry_name || 'Team'} · Live Leader`,
-                        amount: isSeasonOnlyLeague ? null : estimatedPot,
+                        amount: isSeasonOnlyLeague ? null : (isTie ? Math.round(estimatedPot / tiedTopMembers.length) : estimatedPot),
                         isCurrentLive: true,
                         isPaid: false,
                         isSeasonOnly: isSeasonOnlyLeague,
@@ -258,11 +264,11 @@ export default function Standings() {
                 if (gw >= effectiveStart && topGwMember && Number(topGwMember.event_total) > 0) {
                     return {
                         gw,
-                        winnerName: `${topGwMember.player_name}`,
+                        winnerName: winnerDisplayName,
                         winnerTeam: isSeasonOnlyLeague
                             ? `${topGwMember.entry_name || 'Team'} · GW Top Scorer (Vault)`
-                            : `${topGwMember.entry_name || 'Team'} · Pending Payout`,
-                        amount: isSeasonOnlyLeague ? null : estimatedPot,
+                            : isTie ? 'Split Pot · Pending Payout' : `${topGwMember.entry_name || 'Team'} · Pending Payout`,
+                        amount: isSeasonOnlyLeague ? null : (isTie ? Math.round(estimatedPot / tiedTopMembers.length) : estimatedPot),
                         isAwaitingPayment: !isSeasonOnlyLeague,
                         isSeasonOnly: isSeasonOnlyLeague,
                     };

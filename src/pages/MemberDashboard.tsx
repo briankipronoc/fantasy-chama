@@ -575,11 +575,19 @@ export default function MemberDashboard() {
         });
 
         if (eligibleResults.length >= 1 && Number(eligibleResults[0]?.event_total || 0) > 0) {
+            const topScore = Number(eligibleResults[0]?.event_total || 0);
+            const tiedWinners = eligibleResults.filter(r => Number(r.event_total || 0) === topScore);
+            const isTie = tiedWinners.length > 1;
             const winner = eligibleResults[0];
-            const runnerUp = eligibleResults[1] || null;
-            const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
+            const runnerUp = eligibleResults.find(r => Number(r.event_total || 0) < topScore) || null;
+            const leadMargin = runnerUp ? topScore - Number(runnerUp?.event_total || 0) : 0;
+            const tieNames = tiedWinners.map((w: any) => w.player_name?.split(' ')[0] || 'Winner').join(' & ');
+
             setGwWinner({
                 ...winner,
+                player_name: isTie ? `${tieNames} (Tie)` : winner.player_name,
+                isTie,
+                tiedWinnersCount: tiedWinners.length,
                 runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || null,
                 leadMargin: Math.max(0, leadMargin),
             });
