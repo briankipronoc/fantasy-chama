@@ -447,9 +447,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .filter(isTxRefundOrReversal)
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
-    const effectiveLeagueStartGw = firstTransactionGw !== 999
-        ? Math.min(Number(startGw || 999), firstTransactionGw)
-        : Math.max(1, Number(startGw || (leagueSettings as any)?.startGw || (currentGwNumber || 1)));
+    const effectiveLeagueStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0) > 0
+        ? Number(startGw || (leagueSettings as any)?.startGw)
+        : (firstTransactionGw !== 999 ? firstTransactionGw : Math.max(1, Number(currentGwNumber || 1)));
     const completedGwsCount = currentGwNumber && currentGwNumber >= effectiveLeagueStartGw
         ? Math.max(0, (isCurrentEventFinished ? currentGwNumber : currentGwNumber - 1) - effectiveLeagueStartGw + 1)
         : 0;
@@ -773,18 +773,16 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
 
     const totalCompletedOrCurrentGws = useMemo(() => {
-        const rawStart = Math.max(1, Number(startGw || 1));
+        const rawStart = Math.max(1, Number(startGw || 5));
         const currentGw = Number(currentGwNumber || rawStart);
-        // Guard: if startGw was auto-saved in a future GW (e.g., DB=6, current=5), use current GW as effective start
-        const effectiveStart = Math.min(rawStart, currentGw);
+        const effectiveStart = rawStart;
         return Math.max(0, currentGw - effectiveStart + 1);
     }, [startGw, currentGwNumber]);
 
     const memberFundingSummary = useMemo(() => {
-        const rawStart = Math.max(1, Number(startGw || 1));
+        const rawStart = Math.max(1, Number(startGw || 5));
         const currentGw = Number(currentGwNumber || rawStart);
-        // Guard: if startGw was auto-saved in a future GW (e.g., DB=6, current=5), clamp to current
-        const start = Math.min(rawStart, currentGw);
+        const start = rawStart;
         const totalCompleted = Math.max(0, currentGw - start + 1);
         const stake = Number(gameweekStake || 0);
 
@@ -1869,7 +1867,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <h3 className="font-bold text-lg text-white">Gameweek Funding & Arrears Audit</h3>
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                        Since GW{Math.min(startGw || 1, currentGwNumber || startGw || 1)}
+                                        Since GW{Number(startGw || 5)}
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-0.5">
@@ -1910,7 +1908,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-lg sm:text-xl font-black tabular-nums text-white mt-0.5">
                                 {totalCompletedOrCurrentGws} GW{totalCompletedOrCurrentGws !== 1 ? 's' : ''}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">GW{Math.min(startGw || 1, currentGwNumber || startGw || 1)} → GW{currentGwNumber || startGw || 1}</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">GW{Number(startGw || 5)} → GW{Math.max(Number(startGw || 5), Number(currentGwNumber || startGw || 5))}</p>
                         </div>
                         <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Fully Funded</p>
@@ -2932,7 +2930,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {(() => {
                     const rawLeagueStart = Math.max(1, Number(startGw || (leagueSettings as any)?.startGw || 1));
                     const effectiveGw = Number(currentGwNumber || rawLeagueStart);
-                    const effectiveLeagueStart = Math.min(rawLeagueStart, effectiveGw);
+                    const effectiveLeagueStart = rawLeagueStart;
                     const totalSeasonGWs = Math.max(1, 38 - effectiveLeagueStart + 1);
                     const vaultRatePerGW = totalSecured > 0
                         ? totalSecured * (Number(rules.vault || 30) / 100)

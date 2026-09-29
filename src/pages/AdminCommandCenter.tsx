@@ -840,7 +840,7 @@ export default function AdminCommandCenter() {
         const gwMatch = combined.match(/GW\s*(\d+)/i) || combined.match(/Gameweek\s*(\d+)/i);
         const eventGw = ev.gw ? Number(ev.gw) : (gwMatch ? Number(gwMatch[1]) : null);
         if (eventGw && eventGw >= 30) {
-          const currentGw = currentGwNumber || firestoreGw || 4;
+          const currentGw = currentGwNumber || firestoreGw || 5;
           if (currentGw < 25) return true;
         }
         return false;
@@ -1312,10 +1312,10 @@ export default function AdminCommandCenter() {
     const gw = Number(p.gw || 0);
     return gw > 0 ? Math.min(minGw, gw) : minGw;
   }, 999);
-  // Prevent DB drift from marking the active/finished round (e.g. GW5) as pre-league:
-  const effectiveStartGw = firstPayoutGw !== 999 
-    ? Math.min(rawStartGw > 0 ? rawStartGw : firstPayoutGw, firstPayoutGw)
-    : Math.max(1, currentGwNumber ? Math.min(rawStartGw || currentGwNumber, currentGwNumber) : (rawStartGw || 1));
+  // Ensure startGw from league settings / clean slate is the true authority
+  const effectiveStartGw = rawStartGw > 0 
+    ? rawStartGw 
+    : (firstPayoutGw !== 999 ? firstPayoutGw : (currentGwNumber || firestoreGw || 5));
   const isPreLeagueRound = (currentGwNumber || firestoreGw || 1) < effectiveStartGw;
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
@@ -3463,8 +3463,8 @@ burstFrame();
                       <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-xs">
                         <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                         {isPreLeagueRound 
-                          ? `Matchday Pulse • Pre-Season (GW${currentGwNumber || 4}) · Kickoff at GW${effectiveStartGw}`
-                          : `Matchday Pulse • GW${currentGwNumber || 5} ${isCurrentEventFinished ? "Finalized" : "Live"}`}
+                          ? `Matchday Pulse • Pre-Season · Kickoff at GW${effectiveStartGw}`
+                          : `Matchday Pulse • GW${currentGwNumber || effectiveStartGw || 5} ${isCurrentEventFinished ? "Finalized" : "Live"}`}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
                         <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
@@ -3475,8 +3475,8 @@ burstFrame();
                           ? `League officially begins with Gameweek ${effectiveStartGw}. Previous gameweek concluded prior to league activation.`
                           : isCurrentEventFinished 
                             ? (formattedDeadline 
-                                ? `GW${currentGwNumber || 5} finalized. Next GW${nextPlayableGw} payment deadline: ${formattedDeadline} (${daysUntilDeadline !== null ? `${daysUntilDeadline}d left` : 'upcoming'}).`
-                                : `GW${currentGwNumber || 5} finalized. Next Gameweek ${nextPlayableGw} approaching.`) 
+                                ? `GW${currentGwNumber || effectiveStartGw || 5} finalized. Next GW${nextPlayableGw} payment deadline: ${formattedDeadline} (${daysUntilDeadline !== null ? `${daysUntilDeadline}d left` : 'upcoming'}).`
+                                : `GW${currentGwNumber || effectiveStartGw || 5} finalized. Next Gameweek ${nextPlayableGw} approaching.`) 
                             : "Scores updating in real-time as fixtures progress."}
                       </span>
                     </div>
@@ -3533,7 +3533,7 @@ burstFrame();
                                 {isCelebrationWindowActive ? (
                                   <>
                                     <Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" />
-                                    GW {currentGwNumber || 4} Champion Crowned
+                                    GW {currentGwNumber || effectiveStartGw || 5} Champion Crowned
                                   </>
                                 ) : (
                                   <>
@@ -3550,7 +3550,7 @@ burstFrame();
                                     : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
                                 )}
                               >
-                                {isCurrentEventFinished ? `GW${currentGwNumber || 4} Final` : `GW${currentGwNumber || 4} Live`}
+                                {isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Final` : `GW${currentGwNumber || effectiveStartGw || 5} Live`}
                               </span>
                             </div>
 

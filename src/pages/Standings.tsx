@@ -217,8 +217,7 @@ export default function Standings() {
             }
 
             // 4. Pre-league gameweeks based on configured start GW (league commenced later)
-            // Use effectiveLeagueStartGw (clamped to currentEvent) to avoid marking active GWs as voided
-            const effectiveStart = currentEvent ? Math.min(leagueStartGw, currentEvent) : leagueStartGw;
+            const effectiveStart = leagueStartGw > 0 ? leagueStartGw : (currentEvent || 5);
             if (effectiveStart > 1 && gw < effectiveStart) {
                 return {
                     gw,
@@ -299,8 +298,8 @@ export default function Standings() {
         });
     }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
 
-    // Effective league start = clamped to currentEvent to handle DB drift (e.g., DB=6 but actual current=5)
-    const effectiveLeagueStartGw = currentEvent ? Math.min(leagueStartGw, currentEvent) : leagueStartGw;
+    // Effective league start configured for the chama
+    const effectiveLeagueStartGw = leagueStartGw > 0 ? leagueStartGw : (currentEvent || 5);
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');

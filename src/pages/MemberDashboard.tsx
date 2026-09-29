@@ -647,7 +647,7 @@ export default function MemberDashboard() {
                 const gwMatch = combined.match(/GW\s*(\d+)/i) || combined.match(/Gameweek\s*(\d+)/i);
                 const eventGw = ev.gw ? Number(ev.gw) : (gwMatch ? Number(gwMatch[1]) : null);
                 if (eventGw && eventGw >= 30) {
-                    const currentGw = currentFplEvent?.id || 4;
+                    const currentGw = currentFplEvent?.id || 5;
                     if (currentGw < 25) return true;
                 }
                 return false;
@@ -1115,15 +1115,15 @@ export default function MemberDashboard() {
     // Count-up animated values for wallet
     const animatedWalletBalance = useCountUp(walletBalance, 700);
 
-    // Clamp leagueStartGw to first transaction or currentEvent so DB drift (e.g. DB=6, actual=5) never makes the current GW pre-league
+    // Clamp leagueStartGw to first transaction or currentEvent only if leagueStartGw is not set
     const firstTxGw = (transactions || []).reduce((minGw: number, tx: any) => {
         const gw = Number(tx.gameweek || tx.gw || 0);
         return gw > 0 ? Math.min(minGw, gw) : minGw;
     }, 999);
-    const effectiveMdStartGw = firstTxGw !== 999 
-        ? Math.min(leagueStartGw, firstTxGw)
-        : (currentFplEvent?.id ? Math.min(leagueStartGw, currentFplEvent.id) : leagueStartGw);
-    const isPreLeagueGw = Boolean(currentFplEvent?.id && leagueStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
+    const effectiveMdStartGw = leagueStartGw > 0 
+        ? leagueStartGw 
+        : (firstTxGw !== 999 ? firstTxGw : (currentFplEvent?.id || 5));
+    const isPreLeagueGw = Boolean(currentFplEvent?.id && effectiveMdStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
 
     // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
     const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);

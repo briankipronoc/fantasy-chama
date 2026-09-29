@@ -67,7 +67,7 @@ export default function LiveMatchdayPulse({
                 const currentEvent = (data.events || []).find((e: any) => e.is_current) || (data.events || []).find((e: any) => e.is_next);
                 if (!currentEvent || !isMounted) return;
 
-                const gwNum = Number(currentEvent.id || 4);
+                const gwNum = Number(currentEvent.id || 5);
                 const isFin = Boolean(currentEvent.finished);
                 const isLv = Boolean(currentEvent.is_current && !isFin);
 
@@ -112,7 +112,7 @@ export default function LiveMatchdayPulse({
             } catch {
                 if (isMounted) {
                     setFetchedData({
-                        gw: 4,
+                        gw: 5,
                         leaderName: 'Leading Manager',
                         leaderTeam: 'Chama XI',
                         leaderPoints: 68,
@@ -139,9 +139,9 @@ export default function LiveMatchdayPulse({
     };
 
     // Resolved values prioritizing props
-    const gw = propGw ?? fetchedData?.gw ?? 4;
+    const gw = propGw ?? fetchedData?.gw ?? 5;
     const leagueStartGw = Number((league as any)?.startGw || (league as any)?.effectiveStartGw || 1);
-    const effectiveStartGw = Number(gw) ? Math.min(leagueStartGw, Number(gw)) : leagueStartGw;
+    const effectiveStartGw = leagueStartGw > 0 ? leagueStartGw : (Number(gw) || 5);
     const isPreLeague = Number(gw) < effectiveStartGw;
     const leaderName = propLeaderName ?? fetchedData?.leaderName ?? 'Leading Manager';
     const leaderTeam = propLeaderTeam ?? fetchedData?.leaderTeam ?? 'Chama XI';
