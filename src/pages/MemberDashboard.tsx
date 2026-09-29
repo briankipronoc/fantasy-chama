@@ -1439,7 +1439,7 @@ export default function MemberDashboard() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed top-4 right-4 left-4 sm:left-auto max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast",
+                "fixed top-6 right-4 left-4 sm:left-auto max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3.5 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.4)] fc-inline-toast",
                 toastMessage ? "opacity-100 translate-y-0 scale-100 visible" : "opacity-0 -translate-y-2 scale-95 invisible",
                 toastType === 'error'
                     ? "fc-inline-toast-error"
@@ -2277,32 +2277,32 @@ export default function MemberDashboard() {
 
                 {/* === ROW 1.5: Co-Chair Maker/Checker (Conditional) === */}
                 {(currentUser?.id === coAdminId || currentUser?.authUid === coAdminId || currentUser?.role === 'co-chair') && pendingPayouts.length > 0 && (
-                    <div className="mb-4 bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-[1.5rem] p-5 shadow-2xl overflow-hidden">
+                    <div className="mb-5 rounded-[2rem] bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white/90 dark:from-amber-500/15 dark:via-[#16130b] dark:to-[#0f141a] border border-amber-300/80 dark:border-[#FBBF24]/30 p-5 sm:p-6 shadow-xl overflow-hidden">
                         <div className="flex items-center gap-2 mb-4">
-                            <AlertTriangle className="w-5 h-5 text-[#FBBF24] animate-pulse" />
-                            <h3 className="text-xl font-black text-[#FBBF24] tracking-tight">Co-Chair Duty: Awaiting Approval</h3>
+                            <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-[#FBBF24] animate-pulse" />
+                            <h3 className="text-xl font-black text-amber-700 dark:text-[#FBBF24] tracking-tight">Co-Chair Duty: Awaiting Approval</h3>
                         </div>
                         <div className="space-y-3">
                             {pendingPayouts.map((payout) => (
-                                <div key={payout.id} className="bg-black/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div key={payout.id} className="bg-white/95 dark:bg-white/[0.04] border border-amber-200/80 dark:border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                                     <div>
-                                        <p className="text-white font-bold text-sm tracking-wide">{payout.gwName || `GW${payout.gw}`} Payout Request</p>
-                                        <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
-                                            <span className="text-[#FBBF24] font-black tracking-tight">KES {Number(payout.amount).toLocaleString()}</span> → {payout.winnerName} ({payout.winnerPhone})
+                                        <p className="text-slate-900 dark:text-white font-black text-sm tracking-tight">{payout.gwName || `GW${payout.gw}`} Payout Request</p>
+                                        <p className="text-slate-600 dark:text-gray-300 text-sm mt-1">
+                                            <span className="text-amber-600 dark:text-[#FBBF24] font-black tracking-tight">KES {Number(payout.amount).toLocaleString()}</span> → {payout.winnerName} ({payout.winnerPhone})
                                         </p>
-                                        <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
+                                        <p className="text-slate-400 dark:text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">Requested by: {payout.requestedBy || 'Chairman'}</p>
                                     </div>
                                     <div className="flex gap-2 w-full sm:w-auto">
                                         <button
                                             onClick={() => handleRejectPayout(payout.id)}
-                                            className="flex-1 sm:flex-none px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors"
+                                            className="flex-1 sm:flex-none px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors cursor-pointer"
                                         >
                                             Reject
                                         </button>
                                         <button
                                             onClick={() => handleApprovePayout(payout)}
                                             disabled={isApprovingPayout === payout.id}
-                                            className="flex-1 sm:flex-none px-5 py-2.5 bg-[#10B981] hover:bg-[#10b981]/90 text-black text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-60 flex items-center justify-center gap-2 active:scale-95"
+                                            className="flex-1 sm:flex-none px-5 py-2.5 bg-[#10B981] hover:bg-[#10b981]/90 text-black text-[11px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-60 flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
                                         >
                                             {isApprovingPayout === payout.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                                             {isApprovingPayout === payout.id ? 'Approving...' : 'Approve & Pay'}
@@ -2310,7 +2310,7 @@ export default function MemberDashboard() {
                                     </div>
                                     <button
                                         onClick={() => generateWhatsAppReceipt(payout)}
-                                        className="sm:hidden lg:flex px-4 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors items-center justify-center gap-1.5 active:scale-95 text-center w-full sm:w-auto"
+                                        className="sm:hidden lg:flex px-4 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[11px] font-black uppercase tracking-widest rounded-xl transition-colors items-center justify-center gap-1.5 active:scale-95 text-center w-full sm:w-auto cursor-pointer"
                                     >
                                         <Share2 className="w-3.5 h-3.5" /> Share
                                     </button>
@@ -2322,18 +2322,18 @@ export default function MemberDashboard() {
 
                 {/* Member Nudge: If pending payouts exist but user is NOT co-chair, show a nudge button */}
                 {pendingPayouts.length > 0 && payoutApproverId && currentUser?.id !== payoutApproverId && (
-                    <div className="mb-4 bg-[#FBBF24]/5 border border-[#FBBF24]/20 rounded-[1.5rem] p-4 flex items-center justify-between gap-3">
+                    <div className="mb-5 rounded-[2rem] bg-gradient-to-r from-amber-500/10 to-amber-500/5 dark:from-amber-500/15 dark:to-transparent border border-amber-300/60 dark:border-[#FBBF24]/20 p-4 sm:p-5 flex items-center justify-between gap-3 shadow-md">
                         <div className="flex items-center gap-3">
-                            <Trophy className="w-5 h-5 text-[#FBBF24] flex-shrink-0" />
+                            <Trophy className="w-5 h-5 text-amber-500 dark:text-[#FBBF24] flex-shrink-0" />
                             <div>
-                                <p className="text-sm font-bold text-[#FBBF24]">Payout Awaiting Approval</p>
-                                <p className="text-[10px] text-gray-500 font-medium">The Co-Chair needs to approve the payout before it's dispatched.</p>
+                                <p className="text-sm font-black text-amber-700 dark:text-[#FBBF24]">Payout Awaiting Approval</p>
+                                <p className="text-[10.5px] text-slate-500 dark:text-gray-400 font-medium">The Co-Chair needs to approve the payout before it's dispatched.</p>
                             </div>
                         </div>
                         <button
                             disabled={nudgeSent}
                             onClick={handleNudge}
-                            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50"
+                            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
                         >
                             {nudgeSent ? <CheckCircle2 className="w-3 h-3" /> : <Send className="w-3 h-3" />}
                             {nudgeSent ? 'Nudged ✓' : 'Nudge'}

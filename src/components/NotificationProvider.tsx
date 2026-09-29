@@ -133,26 +133,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 // Avoid aggressive toasts for general system announcements (unless it's an overarching transaction success)
                 if (!newNotif.targetMemberId && newNotif.type !== 'transactionSuccess') return;
 
-                // 🔔 Financial/Personal confirmation toast — slide up from bottom-right
+                // 🔔 Financial/Personal confirmation toast — slide up cleanly
                 const palette = getToastPalette();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
                 toast.success(newNotif.message, {
                     id: 'financial-toast', // ensures only 1 shown at a time (replaces previous)
                     style: {
                         background: palette.background,
                         color: palette.color,
                         border: palette.border,
-                        borderRadius: '12px',
-                        fontWeight: 600,
+                        borderRadius: '16px',
+                        fontWeight: 700,
                         fontSize: '13px',
-                        padding: '12px 16px',
+                        padding: '12px 18px',
                         boxShadow: palette.boxShadow,
-                        backdropFilter: 'blur(12px)',
-                        WebkitBackdropFilter: 'blur(12px)',
-                        maxWidth: '28rem',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'anywhere',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        maxWidth: 'min(28rem, calc(100vw - 2rem))',
+                        wordBreak: 'normal',
+                        overflowWrap: 'break-word',
                         lineHeight: '1.45',
+                        WebkitFontSmoothing: 'antialiased',
+                        textRendering: 'optimizeLegibility',
                     },
                     iconTheme: {
                         primary: '#10B981',
@@ -227,7 +228,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return (
         <NotificationContext.Provider value={{ notifications, unreadCount, markAllAsRead, markAsRead }}>
             {children}
-            {/* Phase 10.5: Strict Toaster — theme-aware, top-center mobile below notch / top-right desktop, highest zIndex */}
+            {/* Strict Toaster — theme-aware, crisp rendering, placed comfortably below notch */}
             <Toaster
                 position={isMobile ? "top-center" : "top-right"}
                 toastOptions={{
@@ -242,9 +243,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         fontWeight: 700,
                         fontSize: '13px',
                         padding: '12px 18px',
-                        boxShadow: 'var(--fc-toast-shadow, 0 20px 50px rgba(0,0,0,0.6))',
-                        backdropFilter: 'blur(24px) saturate(140%)',
-                        WebkitBackdropFilter: 'blur(24px) saturate(140%)',
+                        boxShadow: 'var(--fc-toast-shadow, 0 16px 36px rgba(0,0,0,0.35))',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                         maxWidth: 'min(28rem, calc(100vw - 2rem))',
                         width: 'auto',
                         whiteSpace: 'normal',
@@ -252,6 +253,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                         overflowWrap: 'break-word',
                         lineHeight: '1.45',
                         boxSizing: 'border-box',
+                        WebkitFontSmoothing: 'antialiased',
+                        textRendering: 'optimizeLegibility',
                     },
                     success: {
                         iconTheme: { primary: '#10B981', secondary: '#ffffff' },
@@ -265,12 +268,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                             wordBreak: 'normal',
                             overflowWrap: 'break-word',
                             lineHeight: '1.45',
+                            WebkitFontSmoothing: 'antialiased',
+                            textRendering: 'optimizeLegibility',
                         },
                         iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
                     }
                 }}
                 containerStyle={{
-                    top: isMobile ? 64 : 84,
+                    top: isMobile ? 24 : 32,
                     zIndex: 99999999,
                 }}
             />

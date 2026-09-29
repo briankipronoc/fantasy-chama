@@ -83,25 +83,27 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                 });
             }
 
-            // Ensure currently active league is represented if active
-            if (activeLeagueId) {
-                const existing = map.get(activeLeagueId);
-                if (existing) {
-                    map.set(activeLeagueId, {
-                        ...existing,
-                        leagueName: storeLeagueName || existing.leagueName || cachedLeagueName || 'League',
-                        role: activeRole === 'admin' ? 'admin' : (existing.role || 'member'),
-                    });
-                } else if (map.size === 0) {
-                    map.set(activeLeagueId, {
-                        leagueId: activeLeagueId,
-                        leagueName: storeLeagueName || cachedLeagueName || 'League',
-                        role: activeRole === 'admin' ? 'admin' : 'member',
-                    });
-                }
+            // Ensure currently active league is represented if active and valid
+            if (activeLeagueId && map.has(activeLeagueId)) {
+                const existing = map.get(activeLeagueId)!;
+                map.set(activeLeagueId, {
+                    ...existing,
+                    leagueName: storeLeagueName || existing.leagueName || cachedLeagueName || 'League',
+                    role: activeRole === 'admin' ? 'admin' : (existing.role || 'member'),
+                });
             }
 
-            setLeagues(Array.from(map.values()));
+            const validList = Array.from(map.values()).filter(l => Boolean(l.leagueId));
+
+            // If active league was deleted or invalid and other valid leagues exist, auto-repair active league pointer
+            if (validList.length > 0 && activeLeagueId && !map.has(activeLeagueId)) {
+                const first = validList[0];
+                localStorage.setItem('activeLeagueId', first.leagueId);
+                localStorage.setItem('activeLeagueName', first.leagueName);
+                useStore.getState().setActiveLeagueId(first.leagueId);
+            }
+
+            setLeagues(validList);
         };
 
         if (phone) {
@@ -206,10 +208,10 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
         };
     }, [open]);
 
-    const foundActive = leagues.find(l => l.leagueId === activeLeagueId);
+    const foundActive = leagues.find(l => l.leagueId === activeLeagueId) || (leagues.length > 0 ? leagues[0] : null);
     const active: LeagueEntry = {
-        leagueId: activeLeagueId || '',
-        leagueName: storeLeagueName || foundActive?.leagueName || cachedLeagueName || 'League',
+        leagueId: foundActive?.leagueId || activeLeagueId || '',
+        leagueName: foundActive?.leagueName || storeLeagueName || cachedLeagueName || 'League',
         role: activeRole === 'admin' ? 'admin' : (foundActive?.role || activeRole),
     };
 

@@ -3742,10 +3742,10 @@ burstFrame();
                   {/* 1. Approve Payouts */}
                   <div
                     className={clsx(
-                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       sortedPendingPayouts.length > 0
-                        ? "border-amber-400 bg-amber-100/70 dark:border-amber-400/60 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/30"
-                        : "border-amber-200 dark:border-amber-500/20 bg-amber-50/40 dark:bg-gradient-to-b dark:from-amber-500/[0.07] dark:to-transparent hover:bg-amber-100/50 dark:hover:bg-amber-500/10"
+                        ? "border-amber-400 bg-amber-100/80 dark:border-amber-400 dark:bg-gradient-to-b dark:from-amber-500/25 dark:via-[#1c1608] dark:to-[#120f06] hover:bg-amber-100 dark:hover:border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/50"
+                        : "border-amber-200/80 dark:border-amber-500/20 bg-amber-50/50 dark:bg-gradient-to-b dark:from-amber-500/10 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-amber-100/60 dark:hover:border-amber-500/40"
                     )}
                     onClick={() => {
                       if (sortedPendingPayouts.length > 0) {
@@ -3760,11 +3760,11 @@ burstFrame();
                     title="Tap to review payout approvals"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-amber-700 dark:text-amber-300/80 group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-black tracking-wider text-amber-700 dark:text-amber-300 group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors">
                         Payouts
                       </p>
                       {sortedPendingPayouts.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse shadow-[0_0_10px_#FBBF24]" />
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
@@ -3773,8 +3773,8 @@ burstFrame();
                       {sortedPendingPayouts.length}
                     </p>
                     <span className={clsx(
-                      "text-[9.5px] font-semibold truncate",
-                      sortedPendingPayouts.length > 0 ? "text-amber-700 dark:text-amber-300 font-bold" : "text-slate-500 dark:text-gray-400"
+                      "text-[9.5px] font-bold truncate",
+                      sortedPendingPayouts.length > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {sortedPendingPayouts.length > 0 ? "Action required" : "All cleared ✓"}
                     </span>
@@ -3783,10 +3783,10 @@ burstFrame();
                   {/* 2. Red Zone Follow-ups */}
                   <div
                     className={clsx(
-                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       redZoneMembers.length > 0
-                        ? "border-rose-400 bg-rose-100/70 dark:border-rose-500/60 dark:bg-rose-500/15 hover:bg-rose-100 dark:hover:bg-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.15)] ring-1 ring-rose-500/30"
-                        : "border-rose-200 dark:border-rose-500/20 bg-rose-50/40 dark:bg-gradient-to-b dark:from-rose-500/[0.07] dark:to-transparent hover:bg-rose-100/50 dark:hover:bg-rose-500/10"
+                        ? "border-rose-400 bg-rose-100/80 dark:border-rose-400 dark:bg-gradient-to-b dark:from-rose-500/25 dark:via-[#1c0d12] dark:to-[#12080c] hover:bg-rose-100 dark:hover:border-rose-300 shadow-[0_0_24px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/50"
+                        : "border-rose-200/80 dark:border-rose-500/20 bg-rose-50/50 dark:bg-gradient-to-b dark:from-rose-500/10 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-rose-100/60 dark:hover:border-rose-500/40"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3797,11 +3797,11 @@ burstFrame();
                     title="Tap to view Red Zone members"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-rose-700 dark:text-rose-300/80 group-hover:text-rose-800 dark:group-hover:text-rose-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-black tracking-wider text-rose-700 dark:text-rose-300 group-hover:text-rose-800 dark:group-hover:text-rose-200 transition-colors">
                         Red Zone
                       </p>
                       {redZoneMembers.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse shadow-[0_0_8px_#FB7185]" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse shadow-[0_0_10px_#FB7185]" />
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
@@ -3810,8 +3810,8 @@ burstFrame();
                       {redZoneMembers.length}
                     </p>
                     <span className={clsx(
-                      "text-[9.5px] font-semibold truncate",
-                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300 font-bold" : "text-slate-500 dark:text-gray-400"
+                      "text-[9.5px] font-bold truncate",
+                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
                     </span>
@@ -3820,10 +3820,10 @@ burstFrame();
                   {/* 3. Unresolved Disputes */}
                   <div
                     className={clsx(
-                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       pendingDisputes.length > 0
-                        ? "border-cyan-400 bg-cyan-100/70 dark:border-cyan-500/60 dark:bg-cyan-500/15 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/30"
-                        : "border-cyan-200 dark:border-cyan-500/20 bg-cyan-50/40 dark:bg-gradient-to-b dark:from-cyan-500/[0.07] dark:to-transparent hover:bg-cyan-100/50 dark:hover:bg-cyan-500/10"
+                        ? "border-cyan-400 bg-cyan-100/80 dark:border-cyan-400 dark:bg-gradient-to-b dark:from-cyan-500/25 dark:via-[#09171f] dark:to-[#050f14] hover:bg-cyan-100 dark:hover:border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/50"
+                        : "border-cyan-200/80 dark:border-cyan-500/20 bg-cyan-50/50 dark:bg-gradient-to-b dark:from-cyan-500/10 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-cyan-100/60 dark:hover:border-cyan-500/40"
                     )}
                     onClick={() => {
                       setActiveTab("finance");
@@ -3833,11 +3833,11 @@ burstFrame();
                     title="Tap to view payment disputes"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-cyan-700 dark:text-cyan-300/80 group-hover:text-cyan-800 dark:group-hover:text-cyan-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-black tracking-wider text-cyan-700 dark:text-cyan-300 group-hover:text-cyan-800 dark:group-hover:text-cyan-200 transition-colors">
                         Disputes
                       </p>
                       {pendingDisputes.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse shadow-[0_0_8px_#22D3EE]" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse shadow-[0_0_10px_#22D3EE]" />
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
@@ -3846,8 +3846,8 @@ burstFrame();
                       {pendingDisputes.length}
                     </p>
                     <span className={clsx(
-                      "text-[9.5px] font-semibold truncate",
-                      pendingDisputes.length > 0 ? "text-cyan-700 dark:text-cyan-300 font-bold" : "text-slate-500 dark:text-gray-400"
+                      "text-[9.5px] font-bold truncate",
+                      pendingDisputes.length > 0 ? "text-cyan-700 dark:text-cyan-300" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {pendingDisputes.length > 0 ? "Review claims" : "Zero disputes ✓"}
                     </span>
@@ -3856,10 +3856,10 @@ burstFrame();
                   {/* 4. Gameweek Settlement */}
                   <div
                     className={clsx(
-                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
-                        ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-500/40 dark:bg-gradient-to-b dark:from-emerald-500/15 dark:to-emerald-500/5 hover:bg-emerald-100/80 dark:hover:border-emerald-500/60 shadow-xs"
-                        : "border-amber-300 bg-amber-50/80 dark:border-amber-400/50 dark:bg-gradient-to-b dark:from-amber-500/15 dark:to-amber-500/5 hover:bg-amber-100/80 dark:hover:border-amber-400 shadow-xs ring-1 ring-amber-400/20"
+                        ? "border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-gradient-to-b dark:from-emerald-500/12 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-emerald-100/70 dark:hover:border-emerald-500/50"
+                        : "border-amber-300 bg-amber-50/80 dark:border-amber-400 dark:bg-gradient-to-b dark:from-amber-500/25 dark:via-[#1c1608] dark:to-[#120f06] hover:bg-amber-100/90 dark:hover:border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/40"
                     )}
                     onClick={() => {
                       setShowResolveModal(true);
@@ -3868,7 +3868,7 @@ burstFrame();
                     title={gwAlreadySettled ? "Tap to review GW settlement" : "Tap to settle GW winner"}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-emerald-700 dark:text-emerald-300/80 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-black tracking-wider text-emerald-700 dark:text-emerald-300 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition-colors">
                         Settlement
                       </p>
                       {gwAlreadySettled ? (
@@ -3882,12 +3882,12 @@ burstFrame();
                         "text-[11px] font-black px-2 py-0.5 rounded-lg inline-block truncate max-w-full",
                         gwAlreadySettled
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
-                          : "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30"
+                          : "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-400/40"
                       )}>
                         {gwAlreadySettled ? `GW${currentGwNumber || 5} Settled` : `GW${currentGwNumber || 5} Ready`}
                       </span>
                     </div>
-                    <span className="text-[9.5px] text-slate-500 dark:text-gray-400 font-semibold truncate">
+                    <span className="text-[9.5px] text-slate-500 dark:text-gray-400 font-bold truncate">
                       {gwAlreadySettled ? "Settlement verified ✓" : "Tap to resolve"}
                     </span>
                   </div>
@@ -3895,10 +3895,10 @@ burstFrame();
                   {/* 5. Members Paid */}
                   <div
                     className={clsx(
-                      "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                      "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       allPayableMembersFunded
-                        ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-500/40 dark:bg-gradient-to-b dark:from-emerald-500/15 dark:to-emerald-500/5 hover:bg-emerald-100/80 dark:hover:border-emerald-500/60 shadow-xs"
-                        : "border-teal-300 bg-teal-50/80 dark:border-teal-500/40 dark:bg-gradient-to-b dark:from-teal-500/15 dark:to-teal-500/5 hover:bg-teal-100/80 dark:hover:border-teal-500/60 shadow-xs"
+                        ? "border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-gradient-to-b dark:from-emerald-500/12 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-emerald-100/70 dark:hover:border-emerald-500/50"
+                        : "border-teal-300/80 dark:border-teal-500/25 bg-teal-50/60 dark:bg-gradient-to-b dark:from-teal-500/12 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-teal-100/70 dark:hover:border-teal-500/50"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3909,7 +3909,7 @@ burstFrame();
                     title="Tap to view member payment statuses in ledger"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-emerald-700 dark:text-teal-300/80 group-hover:text-emerald-800 dark:group-hover:text-teal-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-black tracking-wider text-teal-700 dark:text-teal-300 group-hover:text-teal-800 dark:group-hover:text-teal-200 transition-colors">
                         Funded
                       </p>
                       {allPayableMembersFunded ? (
@@ -3922,8 +3922,8 @@ burstFrame();
                       {fundedMembersCount}/{Math.max(1, activeMembersCount)}
                     </p>
                     <span className={clsx(
-                      "text-[9.5px] font-semibold truncate",
-                      allPayableMembersFunded ? "text-emerald-700 dark:text-emerald-400 font-bold" : "text-teal-700 dark:text-teal-300 font-bold"
+                      "text-[9.5px] font-bold truncate",
+                      allPayableMembersFunded ? "text-emerald-700 dark:text-emerald-400" : "text-teal-700 dark:text-teal-300"
                     )}>
                       {allPayableMembersFunded ? "100% funded ✓" : "Pending dues"}
                     </span>
@@ -4220,11 +4220,13 @@ burstFrame();
 
           {/* Co-Chair: Pending Payout Approval Panel */}
 
+          {/* Co-Chair: Pending Payout Approval Panel */}
+
           {sortedPendingPayouts.length > 0 && (
-            <section id="pending-payout-queue" className="space-y-4">
+            <section id="pending-payout-queue" className="rounded-[2rem] bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white/90 dark:from-amber-500/15 dark:via-[#16130b] dark:to-[#0f141a] border border-amber-300/80 dark:border-[#FBBF24]/30 p-5 sm:p-6 shadow-xl space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-extrabold flex items-center gap-2 text-[#FBBF24]">
-                  <AlertTriangle className="w-5 h-5" />{" "}
+                <h2 className="text-xl font-extrabold flex items-center gap-2 text-amber-700 dark:text-[#FBBF24]">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-[#FBBF24] animate-pulse" />{" "}
                   {isCoChairSession
                     ? "Co-Chair Inbox: Awaiting Approval"
                     : "Maker/Checker: Awaiting Approval"}
@@ -4233,7 +4235,7 @@ burstFrame();
                   <button
                     disabled={nudgeSent}
                     onClick={handleNudge}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
                   >
                     {nudgeSent ? (
                       <CheckCircle2 className="w-3 h-3" />
@@ -4280,36 +4282,36 @@ burstFrame();
                       <div
                         key={payout.id}
                         className={clsx(
-                          "bg-[#FBBF24]/10 border border-[#FBBF24]/40 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300",
+                          "bg-white/95 dark:bg-white/[0.04] border border-amber-200/80 dark:border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 shadow-sm",
                           resolutionPulse && "fc-burst-success",
                         )}
                       >
                         <div>
-                          <p className="text-white font-bold text-sm">
+                          <p className="text-slate-900 dark:text-white font-black text-sm tracking-tight">
                             {payout.gwName || `GW${payout.gw}`} Payout Request
                           </p>
-                          <p className="text-gray-300 text-sm mt-1">
-                            <span className="text-[#FBBF24] font-bold">
+                          <p className="text-slate-600 dark:text-gray-300 text-sm mt-1">
+                            <span className="text-amber-600 dark:text-[#FBBF24] font-black">
                               KES {Number(payout.amount).toLocaleString()}
                             </span>{" "}
                             → {payout.winnerName} ({payout.winnerPhone})
                           </p>
-                          <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">
+                          <p className="text-slate-400 dark:text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">
                             Requested by: {payout.requestedBy || "Chairman"}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {!payoutPhone && (
-                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-300">
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300">
                                 Missing phone
                               </span>
                             )}
                             {duplicateCandidate && (
-                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
                                 Possible duplicate
                               </span>
                             )}
                             {legacyApprovalTarget && (
-                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-sky-500/30 bg-sky-500/10 text-sky-300">
+                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300">
                                 Legacy approval target
                               </span>
                             )}
@@ -4317,8 +4319,8 @@ burstFrame();
                               className={clsx(
                                 "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border",
                                 payoutAgeMins > 30
-                                  ? "border-red-500/30 bg-red-500/10 text-red-300"
-                                  : "border-white/20 bg-white/10 text-gray-300",
+                                  ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300"
+                                  : "border-slate-200 dark:border-white/20 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300",
                               )}
                             >
                               SLA age: {payoutAgeMins}m
@@ -4326,9 +4328,9 @@ burstFrame();
                           </div>
 
                           {/* M-Pesa Actual Cost Input */}
-                          <div className="flex items-center gap-2 mt-2.5 bg-black/40 border border-white/5 rounded-xl px-3 py-1.5 w-fit">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">M-Pesa Fee:</span>
-                            <span className="text-xs text-emerald-400 font-mono">KES</span>
+                          <div className="flex items-center gap-2 mt-2.5 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/5 rounded-xl px-3 py-1.5 w-fit">
+                            <span className="text-[10px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">M-Pesa Fee:</span>
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold">KES</span>
                             <input
                               type="number"
                               min="0"
@@ -4336,16 +4338,16 @@ burstFrame();
                               value={payoutCustomFee[payout.id] ?? payout.mpesaFee ?? (isPilotMode ? 15 : Math.round(Number(payout.grossPot || payout.amount || 0) * 0.015))}
                               onFocus={(e) => e.target.select()}
                               onChange={(e) => setPayoutCustomFee(prev => ({ ...prev, [payout.id]: Math.max(0, Number(e.target.value)) }))}
-                              className="w-16 bg-black/60 border border-white/10 rounded px-2 py-0.5 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                              className="w-16 bg-white dark:bg-black/60 border border-slate-300 dark:border-white/10 rounded px-2 py-0.5 text-xs text-slate-900 dark:text-white font-mono focus:border-emerald-500 focus:outline-none"
                               placeholder="15"
                               title="Enter actual M-Pesa B2C / sending fee incurred"
                             />
-                            <span className="text-[9px] text-gray-500">{isPilotMode ? "Pilot Cost" : "1.5% network"}</span>
+                            <span className="text-[9px] text-slate-400 dark:text-gray-500">{isPilotMode ? "Pilot Cost" : "1.5% network"}</span>
                           </div>
                         </div>
                         <div className="flex gap-2 flex-wrap w-full sm:w-auto mt-2 sm:mt-0 items-center">
-                          <span className="flex-1 sm:flex-initial px-4 py-2.5 bg-black/40 text-[#FBBF24] border border-[#FBBF24]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 shadow-inner">
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />{" "}
+                          <span className="flex-1 sm:flex-initial px-4 py-2.5 bg-amber-50 dark:bg-black/40 text-amber-800 dark:text-[#FBBF24] border border-amber-200 dark:border-[#FBBF24]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 shadow-inner">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400" />{" "}
                             {requiresCoChairSignature
                               ? "Awaiting Co-Chair Signature"
                               : hasValidCoChair
@@ -4360,7 +4362,7 @@ burstFrame();
                           </button>
                           <button
                             onClick={() => handleRejectPayout(payout.id)}
-                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center justify-center gap-2 cursor-pointer"
+                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <ShieldAlert className="w-3.5 h-3.5" /> Reject
                           </button>
@@ -4386,7 +4388,7 @@ burstFrame();
                                     handleApprovePayout(payout, "cash")
                                   }
                                   disabled={isApprovingPayout === payout.id}
-                                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                   <Banknote className="w-3.5 h-3.5" />
                                   Cash Handoff
@@ -5356,12 +5358,12 @@ burstFrame();
 
                   {weeklyPot === 0 || Number(rules.weekly || 0) === 0 ? (
                     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-amber-400">
+                      <div className="flex items-center gap-2 text-amber-500 dark:text-amber-400">
                         <Trophy className="w-5 h-5 shrink-0" />
-                        <p className="text-xs font-black uppercase tracking-wider">Honorary Gameweek Crown (KES 0 Cash Pot)</p>
+                        <p className="text-xs font-black uppercase tracking-wider">Season Vault League • Honorary Gameweek Crown</p>
                       </div>
-                      <p className="text-xs text-gray-300 leading-relaxed">
-                        This league operates on Season Vault focus (0% weekly pot). Resolving will officially award Gameweek {currentGwNumber || ''} bragging rights and record the top-scoring manager on the ledger without disbursing cash.
+                      <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed">
+                        This league operates on Season Vault focus (0% weekly pot). Resolving will award the official Gameweek {currentGwNumber || ''} winner title and record the top-scoring manager on the official ledger.
                       </p>
                     </div>
                   ) : (

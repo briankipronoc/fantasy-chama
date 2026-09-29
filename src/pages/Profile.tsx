@@ -805,15 +805,15 @@ export default function Profile() {
         const directoryMembers = members.filter((m: any) => !isMemberPending(m));
         return (
         <div className={clsx(
-            "fc-active-members-card fc-card bg-[#161d24] border border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden h-fit",
+            "fc-active-members-card fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden h-fit shadow-xl text-slate-900 dark:text-white",
             extraClassName
         )}>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div>
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-white">
+                    <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-slate-900 dark:text-white">
                         <Users className="w-5 h-5 text-[#10B981]" /> Active Members
                     </h2>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Chama Members</p>
+                    <p className="text-slate-500 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest">Chama Members</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {pendingMembers.length > 0 && (
@@ -823,7 +823,7 @@ export default function Profile() {
                                 haptics.selection();
                                 setShowPendingOnboarding(true);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)] group active:scale-95"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)] group active:scale-95"
                             title="Click to view and onboard pending FPL members"
                         >
                             <span className="relative flex h-2 w-2">
@@ -833,7 +833,7 @@ export default function Profile() {
                             <span>{pendingMembers.length} Pending Onboarding</span>
                         </button>
                     )}
-                    <span className="bg-[#0b1014] text-white border border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
+                    <span className="bg-slate-100 dark:bg-[#0b1014] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
                         {activeMembersCount}
                     </span>
                 </div>
@@ -842,11 +842,11 @@ export default function Profile() {
             {/* Centered Interactive Modal: FPL Sync • Pending Onboarding */}
             {showPendingOnboarding && pendingMembers.length > 0 && typeof document !== 'undefined' && createPortal(
                 <div
-                    className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
                     onClick={() => setShowPendingOnboarding(false)}
                 >
                     <div
-                        className="relative w-full max-w-xl bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-emerald-500/30 rounded-3xl shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white"
+                        className="relative w-full max-w-xl bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-emerald-500/30 rounded-[2rem] shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
@@ -1019,24 +1019,24 @@ export default function Profile() {
                         && isActive
                         && (member.role === 'co-chair' || member.role === 'admin');
                     return (
-                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[76px] h-auto rounded-xl border border-white/10 bg-[#0f151a] p-1.5 flex flex-col items-center justify-center gap-1 shadow-xs hover:border-white/20 transition-all">
+                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[76px] h-auto rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f151a] p-1.5 flex flex-col items-center justify-center gap-1 shadow-xs hover:border-emerald-500/40 dark:hover:border-white/20 transition-all">
                             <UserAvatar name={member.displayName} size="xs" />
                             <div className="text-center flex flex-col items-center gap-0.5 w-full">
-                                <span className={clsx("text-[9.5px] font-bold block w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-500 line-through" : "text-white")}>{member.displayName}</span>
+                                <span className={clsx("text-[9.5px] font-bold block w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-400 line-through" : "text-slate-800 dark:text-white")}>{member.displayName}</span>
                                 <div className="flex flex-col items-center justify-center">
                                     {isChairman && (
-                                        <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
+                                        <span className="bg-[#FBBF24]/10 text-amber-600 dark:text-[#FBBF24] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
                                             <ShieldAlert className="w-2 h-2" /> Chairman
                                         </span>
                                     )}
                                     {isValidCoChair && (
-                                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
+                                        <span className="bg-[#3B82F6]/10 text-blue-600 dark:text-[#3B82F6] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
                                             <ShieldCheck className="w-2 h-2" /> Co-Chair
                                         </span>
                                     )}
                                     {!isChairman && !isValidCoChair && (
                                         <span className={clsx("text-[7.5px] font-black uppercase tracking-wider block",
-                                            !isActive ? "text-gray-600" : (member.hasPaid ? "text-[#10B981]" : "text-red-500")
+                                            !isActive ? "text-gray-400 dark:text-gray-600" : (member.hasPaid ? "text-emerald-600 dark:text-[#10B981]" : "text-red-500")
                                         )}>
                                             {!isActive ? "Inactive" : (member.hasPaid ? "Funded" : "Red Zone")}
                                         </span>
@@ -1047,17 +1047,17 @@ export default function Profile() {
                                 <div className="absolute -top-1 -right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                     <button
                                         onClick={() => handleToggleActive(memberId, isActive)}
-                                        className="bg-[#161d24] border border-white/10 rounded-full p-1 shadow-md hover:bg-white/10"
+                                        className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-full p-1 shadow-md hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
                                         title={isActive ? "Deactivate User" : "Reactivate User"}
                                     >
-                                        {isActive ? <UserMinus className="w-2.5 h-2.5 text-amber-400" /> : <UserPlus className="w-2.5 h-2.5 text-[#10B981]" />}
+                                        {isActive ? <UserMinus className="w-2.5 h-2.5 text-amber-500" /> : <UserPlus className="w-2.5 h-2.5 text-emerald-600 dark:text-[#10B981]" />}
                                     </button>
                                     <button
                                         onClick={() => handleDeleteMember(memberId, member.displayName)}
-                                        className="bg-[#161d24] border border-white/10 rounded-full p-1 shadow-md hover:bg-red-500/20 hover:border-red-500/40"
+                                        className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-full p-1 shadow-md hover:bg-red-50 dark:hover:bg-red-500/20 hover:border-red-300 dark:hover:border-red-500/40 cursor-pointer"
                                         title="Permanently remove user from league"
                                     >
-                                        <Trash2 className="w-2.5 h-2.5 text-red-400" />
+                                        <Trash2 className="w-2.5 h-2.5 text-red-500 dark:text-red-400" />
                                     </button>
                                 </div>
                             )}
@@ -1070,48 +1070,48 @@ export default function Profile() {
     };
 
     const renderLeagueGovernance = () => (
-        <div className="fc-card w-full bg-[#161d24] border border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-2xl">
+        <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-amber-300/70 dark:border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl text-slate-900 dark:text-white">
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#FBBF24] blur-[100px] opacity-10 transform translate-x-10 -translate-y-10 pointer-events-none"></div>
 
-            <h2 className="fc-frosty-title text-xl font-black flex items-center gap-2 mb-2">
-                <Trophy className="w-5 h-5 text-amber-400" /> League Governance
+            <h2 className="fc-frosty-title text-xl font-black flex items-center gap-2 mb-2 text-slate-900 dark:text-white">
+                <Trophy className="w-5 h-5 text-amber-500 dark:text-amber-400" /> League Governance
             </h2>
-            <p className="text-xs text-slate-400 dark:text-gray-400 mb-5 max-w-2xl font-medium">
+            <p className="text-xs text-slate-600 dark:text-gray-400 mb-5 max-w-2xl font-medium">
                 Configure the financial engine, league branding, co-chair permissions, and invite access.
             </p>
 
             {/* Invite Hub Section */}
-            <div className="bg-[#0b1014] border border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
+            <div className="bg-slate-50 dark:bg-[#0b1014] border border-slate-200 dark:border-white/5 rounded-2xl p-4 mb-5 shadow-inner">
                 <div className="flex justify-between items-center mb-3">
                     <h3
-                        className="text-xs font-black uppercase tracking-widest text-amber-400"
+                        className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400"
                         style={{
-                            background: 'linear-gradient(90deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                            background: 'linear-gradient(90deg, #D97706 0%, #F59E0B 50%, #B45309 100%)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                         }}
                     >
                         Master Invite Code
                     </h3>
-                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] uppercase font-bold tracking-widest rounded border border-amber-500/20">Active</span>
+                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] uppercase font-bold tracking-widest rounded border border-amber-500/20">Active</span>
                 </div>
                 <div className="text-center mb-3">
                     <span
-                        className="text-4xl font-black tracking-widest block mb-1 select-all text-amber-400"
+                        className="text-4xl font-black tracking-widest block mb-1 select-all text-amber-600 dark:text-amber-400"
                         style={{
-                            background: 'linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                            background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
-                            filter: 'drop-shadow(0 2px 14px rgba(251,191,36,0.4))',
+                            filter: 'drop-shadow(0 2px 14px rgba(245,158,11,0.3))',
                         }}
                     >
                         {inviteCode || '------'}
                     </span>
-                    <p className="text-xs text-gray-400 font-medium">Share this code with players to join with their M-Pesa number.</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Share this code with players to join with their M-Pesa number.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-[#161d24] hover:bg-white/5 text-white font-bold py-3 rounded-xl border border-white/10 transition-colors text-sm shadow-md cursor-pointer active:scale-95">
-                        <Copy className="w-4 h-4 text-gray-400" /> Copy
+                    <button onClick={handleCopy} className="flex items-center justify-center gap-2 bg-white dark:bg-[#161d24] hover:bg-slate-100 dark:hover:bg-white/5 text-slate-800 dark:text-white font-bold py-3 rounded-xl border border-slate-300 dark:border-white/10 transition-colors text-sm shadow-sm cursor-pointer active:scale-95">
+                        <Copy className="w-4 h-4 text-slate-500 dark:text-gray-400" /> Copy
                     </button>
                     <button onClick={handleShare} className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.3)] transition-colors text-sm cursor-pointer active:scale-95">
                         <Share2 className="w-4 h-4" /> Share
@@ -1123,7 +1123,7 @@ export default function Profile() {
             <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
                 <div>
                     <div className="flex justify-between items-center mb-1.5">
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                             League Name
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1134,14 +1134,14 @@ export default function Profile() {
                         value={leagueName}
                         onChange={(e) => setLeagueName(e.target.value)}
                         placeholder="e.g. Premier League 24/25"
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    <p className="text-[10px] text-gray-500 mt-1">Clean sweep old season names to your current active league.</p>
+                    <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-1">Clean sweep old season names to your current active league.</p>
                 </div>
 
                 <div>
                     <div className="flex justify-between items-center mb-1.5">
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                             Gameweek Stake (KES)
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1157,13 +1157,13 @@ export default function Profile() {
                             const cleaned = e.target.value.replace(/[^0-9]/g, '');
                             setMonthlyContribution(cleaned === '' ? 0 : parseInt(cleaned, 10));
                         }}
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                 </div>
 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                        <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
                             FPL League ID
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1179,21 +1179,21 @@ export default function Profile() {
                             setFplLeagueId(val.replace(/\D/g, ''));
                         }}
                         placeholder="e.g. 123456 or paste Standings URL"
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 font-medium leading-relaxed">
-                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-600 dark:text-gray-300 bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
+                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-600 dark:text-gray-300 bg-slate-200/60 dark:bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
                     </p>
                 </div>
 
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Pochi Receiving Number</label>
+                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest mb-2">Pochi Receiving Number</label>
                     <input
                         type="tel"
                         value={chairmanPhone}
                         onChange={(e) => setChairmanPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                         placeholder="e.g. 0712345678"
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
                     />
                     <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
                 </div>
@@ -1614,7 +1614,7 @@ export default function Profile() {
                                         type="text"
                                         value={displayName}
                                         onChange={(e) => setDisplayName(e.target.value)}
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium placeholder:text-gray-600"
+                                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium placeholder:text-slate-400 dark:placeholder:text-gray-600"
                                         placeholder="Enter your Display Name"
                                     />
                                 </div>
@@ -1644,7 +1644,7 @@ export default function Profile() {
                                         Link FPL Team
                                     </label>
                                     {isFetchingFpl ? (
-                                        <div className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-gray-500 italic">
+                                        <div className="w-full bg-slate-100 dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-500 dark:text-gray-400 italic">
                                             Syncing with Fantasy Premier League Server...
                                         </div>
                                     ) : fplStandings.length > 0 ? (
@@ -1668,7 +1668,7 @@ export default function Profile() {
                                             type="text"
                                             value={fplTeamName}
                                             onChange={(e) => setFplTeamName(e.target.value)}
-                                            className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-gray-500 outline-none font-medium cursor-not-allowed opacity-60"
+                                            className="w-full bg-slate-100 dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-500 dark:text-gray-400 outline-none font-medium cursor-not-allowed opacity-60"
                                             placeholder="League Standings unavailable."
                                             disabled
                                         />
@@ -1686,7 +1686,7 @@ export default function Profile() {
                                         type="email"
                                         value={userEmail}
                                         disabled
-                                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-gray-500 outline-none font-medium cursor-not-allowed opacity-60"
+                                        className="w-full bg-slate-100 dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-500 dark:text-gray-400 outline-none font-medium cursor-not-allowed opacity-60"
                                         placeholder="Loading..."
                                     />
                                     <p className="text-[10px] text-gray-600 font-medium mt-1.5 leading-relaxed">Managed by Firebase Auth. Cannot be changed here.</p>
@@ -1694,25 +1694,25 @@ export default function Profile() {
 
                                 {/* Participation Mode Selector */}
                                 <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Trophy className="w-3 h-3 text-amber-400" /> Chama Participation Mode
+                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Trophy className="w-3 h-3 text-amber-500 dark:text-amber-400" /> Chama Participation Mode
                                     </label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                         <button
                                             type="button"
                                             onClick={() => setPlayMode('pot')}
                                             className={clsx(
-                                                "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                                                "p-3.5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm",
                                                 playMode === 'pot'
-                                                    ? "border-emerald-500/50 bg-emerald-500/10 text-white shadow-sm"
-                                                    : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
+                                                    ? "border-emerald-500/60 bg-emerald-50/80 dark:bg-emerald-500/10 text-emerald-950 dark:text-white ring-1 ring-emerald-500/30"
+                                                    : "border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-black/20 text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-white/20"
                                             )}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs font-bold text-emerald-400">Weekly & Season Pot</span>
-                                                {playMode === 'pot' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                                                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Weekly & Season Pot</span>
+                                                {playMode === 'pot' && <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
                                             </div>
-                                            <p className="text-[10px] text-gray-400 leading-snug">
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-snug">
                                                 Active cash pot contender. Eligible for weekly & season prizes when wallet is funded.
                                             </p>
                                         </button>
@@ -1721,17 +1721,17 @@ export default function Profile() {
                                             type="button"
                                             onClick={() => setPlayMode('sidebets_only')}
                                             className={clsx(
-                                                "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                                                "p-3.5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm",
                                                 playMode === 'sidebets_only'
-                                                    ? "border-indigo-500/50 bg-indigo-500/15 text-white shadow-sm"
-                                                    : "border-white/10 bg-black/20 text-gray-400 hover:border-white/20"
+                                                    ? "border-indigo-500/60 bg-indigo-50/80 dark:bg-indigo-500/15 text-indigo-950 dark:text-white ring-1 ring-indigo-500/30"
+                                                    : "border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-black/20 text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-white/20"
                                             )}
                                         >
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-xs font-bold text-indigo-400">Spectator Mode</span>
-                                                {playMode === 'sidebets_only' && <CheckCircle2 className="w-4 h-4 text-indigo-400" />}
+                                                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">Spectator Mode</span>
+                                                {playMode === 'sidebets_only' && <CheckCircle2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
                                             </div>
-                                            <p className="text-[10px] text-gray-400 leading-snug">
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-snug">
                                                 Free system visibility. Play 1v1 side bets. Not enrolled in cash pot dues or payouts.
                                             </p>
                                         </button>

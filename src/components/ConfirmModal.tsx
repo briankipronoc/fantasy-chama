@@ -100,9 +100,9 @@ export default function ConfirmModal({
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-            {/* Dark glass backdrop */}
+            {/* Theme-adaptive glass backdrop */}
             <div
-                className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+                className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
                 onClick={() => {
                     if (!isLoading) onClose();
                 }}
@@ -111,7 +111,7 @@ export default function ConfirmModal({
             {/* Modal Dialog Squircle Card */}
             <div
                 className={clsx(
-                    'relative w-full bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans',
+                    'relative w-full bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-slate-900 dark:text-white font-sans',
                     maxWidth
                 )}
                 role="dialog"
@@ -120,7 +120,7 @@ export default function ConfirmModal({
                 {/* Glow ambient accent */}
                 <div
                     className={clsx(
-                        'absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35',
+                        'absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-25 dark:opacity-35',
                         glowColor
                     )}
                 />
@@ -129,7 +129,7 @@ export default function ConfirmModal({
                 <button
                     onClick={onClose}
                     disabled={isLoading}
-                    className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50 cursor-pointer"
+                    className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10 transition-all disabled:opacity-50 cursor-pointer"
                     aria-label="Close dialog"
                 >
                     <X className="w-5 h-5" />
@@ -146,9 +146,9 @@ export default function ConfirmModal({
                         {icon || defaultIcon}
                     </div>
                     <div className="min-w-0 flex-1 pr-6">
-                        <h3 className="fc-frosty-title text-xl font-black tracking-tight">{title}</h3>
-                        {subtitle && <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mt-0.5">{subtitle}</p>}
-                        {message && <p className="text-gray-300 text-sm mt-2 leading-relaxed font-medium">{message}</p>}
+                        <h3 className="fc-frosty-title text-xl font-black tracking-tight text-slate-900 dark:text-white">{title}</h3>
+                        {subtitle && <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
+                        {message && <p className="text-slate-600 dark:text-gray-300 text-sm mt-2 leading-relaxed font-medium">{message}</p>}
                     </div>
                 </div>
 
@@ -157,14 +157,14 @@ export default function ConfirmModal({
 
                 {/* Actions */}
                 {!hideButtons && (
-                    <div className="mt-6 pt-4 border-t border-white/5">
+                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
                         {showCancel ? (
                             <div className="grid grid-cols-2 gap-3">
                                 <button
                                     type="button"
                                     onClick={onClose}
                                     disabled={isLoading}
-                                    className="h-12 w-full px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 active:scale-95 cursor-pointer flex items-center justify-center text-center select-none"
+                                    className="h-12 w-full px-4 rounded-2xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:hover:text-white text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 active:scale-95 cursor-pointer flex items-center justify-center text-center select-none"
                                 >
                                     {cancelText}
                                 </button>
