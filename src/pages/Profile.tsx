@@ -9,6 +9,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import { useTheme } from '../hooks/useTheme';
 import { compressProfileImage } from '../utils/imageCompressor';
+import { getPhoneVariants } from '../utils/phone';
 import clsx from 'clsx';
 import Header from '../components/Header';
 import ConfirmModal from '../components/ConfirmModal';
@@ -691,6 +692,7 @@ export default function Profile() {
 
     const handleDeleteLeague = async () => {
         if (!activeLeagueId) return;
+        const deletingLeagueId = activeLeagueId;
         setShowDeleteLeagueModal(false);
         setIsDeletingLeague(true);
         try {
@@ -699,7 +701,7 @@ export default function Profile() {
             // 1. Soft-delete and attempt hard-delete with timeout race
             const deleteWork = (async () => {
                 try {
-                    await updateDoc(doc(db, 'leagues', activeLeagueId), {
+                    await updateDoc(doc(db, 'leagues', deletingLeagueId), {
                         isDeleted: true,
                         status: 'deleted',
                         deletedAt: serverTimestamp(),
@@ -708,7 +710,7 @@ export default function Profile() {
                     console.warn('Soft delete leagueDoc error (non-fatal):', e);
                 }
                 try {
-                    await deleteDoc(doc(db, 'leagues', activeLeagueId));
+                    await deleteDoc(doc(db, 'leagues', deletingLeagueId));
                 } catch (e) {
                     console.warn('Delete leagueDoc error (non-fatal):', e);
                 }
@@ -719,22 +721,39 @@ export default function Profile() {
                 new Promise(resolve => setTimeout(resolve, 2000))
             ]);
 
-            // 2. Remove this league from the chairman's userLeagues document
-            const rawPhone = phoneNumber || currentUser?.phone || currentUser?.phoneNumber || localStorage.getItem('userPhone') || '';
-            const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+            // 2. Remove this league from the chairman's userLeagues documents (check all phone variants)
+            const candidatePhones = [
+                phoneNumber,
+                currentUser?.phone,
+                currentUser?.phoneNumber,
+                chairmanPhone,
+                localStorage.getItem('memberPhone'),
+                localStorage.getItem('userPhone')
+            ].filter(Boolean) as string[];
+
+            const allCleanPhones = new Set<string>();
+            candidatePhones.forEach(p => {
+                getPhoneVariants(p).forEach(v => {
+                    const clean = v.replace(/[^0-9]/g, '');
+                    if (clean) allCleanPhones.add(clean);
+                });
+                const directClean = p.replace(/[^0-9]/g, '');
+                if (directClean) allCleanPhones.add(directClean);
+            });
+
             let nextLeagueId: string | null = null;
 
-            if (cleanPhone) {
+            for (const cleanPhone of allCleanPhones) {
                 try {
                     const ulRef = doc(db, 'userLeagues', cleanPhone);
                     const ulSnap = await getDoc(ulRef);
                     if (ulSnap.exists()) {
                         const existingLeagues = ulSnap.data().leagues || [];
                         const remaining = existingLeagues.filter((l: any) => 
-                            l.leagueId !== activeLeagueId && l.id !== activeLeagueId
+                            l.leagueId !== deletingLeagueId && l.id !== deletingLeagueId && !l.isDeleted && l.status !== 'deleted'
                         );
                         await setDoc(ulRef, { leagues: remaining }, { merge: true });
-                        if (remaining.length > 0) {
+                        if (!nextLeagueId && remaining.length > 0) {
                             nextLeagueId = remaining[0].leagueId || remaining[0].id || null;
                         }
                     }
@@ -744,8 +763,12 @@ export default function Profile() {
             }
 
             // 3. Clear current league session
-            localStorage.removeItem('activeLeagueId');
-            localStorage.removeItem('activeRole');
+            if (localStorage.getItem('activeLeagueId') === deletingLeagueId) {
+                localStorage.removeItem('activeLeagueId');
+                localStorage.removeItem('activeLeagueName');
+                localStorage.removeItem('activeRole');
+                localStorage.removeItem('activeUserRole');
+            }
             toast.success(`League "${leagueName || 'League'}" deleted.`);
 
             // 4. If user has another league, switch to it; otherwise go to setup
@@ -1376,16 +1399,16 @@ export default function Profile() {
     );
 
     const renderRetirementCard = () => (
-        <div className="fc-card w-full bg-gradient-to-br from-[#161d24] via-[#1a1518] to-[#201214] border border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+        <div className="fc-card w-full bg-gradient-to-br from-rose-50/80 via-white to-rose-100/40 dark:from-[#161d24] dark:via-[#1a1518] dark:to-[#201214] border border-rose-200 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
             <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
                     <Crown className="w-4 h-4" />
                 </div>
                 <div>
-                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-300">
+                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
                         Chairman Retirement & Succession
                     </h2>
-                    <p className="text-[10px] text-gray-400 font-medium">Step down and safely transfer chairmanship to the Co-Chair or a chosen manager</p>
+                    <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Step down and safely transfer chairmanship to the Co-Chair or a chosen manager</p>
                 </div>
             </div>
 
@@ -1393,8 +1416,8 @@ export default function Profile() {
                 {coAdminId && (
                     <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
                         <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Designated Successor (Co-Chair)</p>
-                            <p className="text-xs font-bold text-white truncate">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Designated Successor (Co-Chair)</p>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                                 {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
                             </p>
                         </div>
@@ -1412,18 +1435,18 @@ export default function Profile() {
                 )}
 
                 <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">
+                    <label className="text-[10px] font-bold text-slate-700 dark:text-gray-400 uppercase tracking-widest block mb-1.5">
                         Or Transfer Chairmanship to Any Manager:
                     </label>
                     <div className="flex flex-col sm:flex-row gap-2">
                         <select
                             value={selectedSuccessorId}
                             onChange={(e) => setSelectedSuccessorId(e.target.value)}
-                            className="flex-1 bg-[#0c1218] border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-rose-500"
+                            className="flex-1 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 shadow-xs transition-colors"
                         >
-                            <option value="">-- Choose New Chairman --</option>
+                            <option value="" className="bg-white dark:bg-[#0c1218] text-slate-500 dark:text-gray-400">-- Choose New Chairman --</option>
                             {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
-                                <option key={m.id} value={m.id}>
+                                <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-slate-900 dark:text-white">
                                     {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
                                 </option>
                             ))}
@@ -1432,7 +1455,7 @@ export default function Profile() {
                             type="button"
                             disabled={!selectedSuccessorId}
                             onClick={() => setShowRetireModal(true)}
-                            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:bg-slate-200 dark:disabled:bg-white/10 disabled:text-slate-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
                         >
                             Transfer Role
                         </button>
@@ -1443,21 +1466,21 @@ export default function Profile() {
     );
 
     const renderDeleteLeagueCard = () => (
-        <div className="fc-card w-full bg-gradient-to-br from-[#161214] via-[#1d1013] to-[#240e11] border border-red-500/30 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+        <div className="fc-card w-full bg-gradient-to-br from-red-50/80 via-white to-red-100/40 dark:from-[#161214] dark:via-[#1d1013] dark:to-[#240e11] border border-red-200 dark:border-red-500/30 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
             <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-600 dark:text-red-400">
                     <Trash2 className="w-4 h-4" />
                 </div>
                 <div>
-                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-red-300">
+                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-red-700 dark:text-red-300">
                         Danger Zone · Delete League
                     </h2>
-                    <p className="text-[10px] text-gray-400 font-medium">Permanently erase this league and all historical records</p>
+                    <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Permanently erase this league and all historical records</p>
                 </div>
             </div>
 
-            <p className="text-xs text-red-200/70 mb-4 leading-relaxed font-medium">
-                Once deleted, all gameweek records, member registrations, pots, and settings for <strong className="text-white">{leagueName || 'this league'}</strong> will be permanently removed. This action cannot be reversed.
+            <p className="text-xs text-slate-600 dark:text-red-200/70 mb-4 leading-relaxed font-medium">
+                Once deleted, all gameweek records, member registrations, pots, and settings for <strong className="text-slate-900 dark:text-white">{leagueName || 'this league'}</strong> will be permanently removed. This action cannot be reversed.
             </p>
 
             <button
@@ -1466,7 +1489,7 @@ export default function Profile() {
                     haptics.warning();
                     setShowDeleteLeagueModal(true);
                 }}
-                className="w-full py-3 px-4 rounded-xl bg-red-600/90 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-[0_0_20px_rgba(239,68,68,0.25)] flex items-center justify-center gap-2 cursor-pointer border border-red-400/40"
+                className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-md shadow-red-500/20 flex items-center justify-center gap-2 cursor-pointer border border-red-500"
             >
                 <Trash2 className="w-4 h-4" /> Delete League Permanently
             </button>

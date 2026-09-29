@@ -66,25 +66,39 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
             if (activeRole === 'admin') {
                 // In Chairman mode: strictly show Chairman leagues
-                chairLeagues.forEach(l => map.set(l.leagueId, { ...l, role: 'admin' }));
+                chairLeagues.forEach(l => {
+                    if (l.leagueId) map.set(l.leagueId, { ...l, role: 'admin' });
+                });
             } else {
                 // In Member mode: strictly show Member leagues
                 memberLeagues.forEach(l => {
-                    map.set(l.leagueId, {
-                        ...l,
-                        role: 'member'
-                    });
+                    const id = l.leagueId || (l as any).id;
+                    if (id) {
+                        map.set(id, {
+                            ...l,
+                            leagueId: id,
+                            role: 'member'
+                        });
+                    }
                 });
             }
 
-            // Ensure currently active league is always represented even before remote sync finishes
+            // Ensure currently active league is represented if active
             if (activeLeagueId) {
                 const existing = map.get(activeLeagueId);
-                map.set(activeLeagueId, {
-                    leagueId: activeLeagueId,
-                    leagueName: storeLeagueName || existing?.leagueName || cachedLeagueName || 'League',
-                    role: activeRole === 'admin' ? 'admin' : (existing?.role || 'member'),
-                });
+                if (existing) {
+                    map.set(activeLeagueId, {
+                        ...existing,
+                        leagueName: storeLeagueName || existing.leagueName || cachedLeagueName || 'League',
+                        role: activeRole === 'admin' ? 'admin' : (existing.role || 'member'),
+                    });
+                } else if (map.size === 0) {
+                    map.set(activeLeagueId, {
+                        leagueId: activeLeagueId,
+                        leagueName: storeLeagueName || cachedLeagueName || 'League',
+                        role: activeRole === 'admin' ? 'admin' : 'member',
+                    });
+                }
             }
 
             setLeagues(Array.from(map.values()));
@@ -96,7 +110,14 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             const unsubPhone = onSnapshot(ref, (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
-                    memberLeagues = (data.leagues || []) as LeagueEntry[];
+                    const raw = (data.leagues || []) as any[];
+                    memberLeagues = raw
+                        .filter(l => !l.isDeleted && l.status !== 'deleted' && (l.leagueId || l.id))
+                        .map(l => ({
+                            leagueId: l.leagueId || l.id,
+                            leagueName: l.leagueName || l.name || 'Unnamed League',
+                            role: 'member'
+                        }));
                 } else {
                     memberLeagues = [];
                 }
@@ -118,6 +139,10 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             const syncFromSnap = (snapDocs: any[]) => {
                 snapDocs.forEach(d => {
                     const data = d.data();
+                    if (data.isDeleted || data.status === 'deleted') {
+                        chairMap.delete(d.id);
+                        return;
+                    }
                     chairMap.set(d.id, {
                         leagueId: d.id,
                         leagueName: data.name || data.leagueName || 'Unnamed League',
@@ -539,20 +564,22 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
             {/* Smooth League Switch Transition Overlay (Mounted to Body to cover whole viewport without clipping) */}
             {isSwitching && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 bg-[#070b10]/85 backdrop-blur-xl z-[999999] flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-[#0e1620] border border-emerald-500/30 p-7 rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col items-center gap-4 text-center max-w-xs mx-4 text-white">
+                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-xl z-[999999] flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="relative overflow-hidden bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 border border-slate-200 dark:border-white/10 p-7 rounded-[2rem] shadow-2xl flex flex-col items-center gap-4 text-center max-w-xs mx-4 text-slate-900 dark:text-white">
+                        {/* Ambient top-right glow flare */}
+                        <div className="absolute -top-10 -right-10 w-44 h-44 bg-emerald-500/15 rounded-full blur-[65px] pointer-events-none" />
                         <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                            <Trophy className="w-8 h-8 text-emerald-400 animate-bounce" />
+                            <Trophy className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-bounce" />
                         </div>
                         <div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                                 Connecting Chama
                             </span>
-                            <h3 className="text-xl font-black text-white mt-2 tracking-tight">{switchingLeagueName}</h3>
-                            <p className="text-xs text-gray-400 mt-1">Syncing escrow vault & live standings...</p>
+                            <h3 className="text-xl font-black text-slate-900 dark:text-white mt-2.5 tracking-tight">{switchingLeagueName}</h3>
+                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Syncing escrow vault & live standings...</p>
                         </div>
-                        <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-300/90 pt-1">
-                            <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                        <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300/90 pt-1">
+                            <Loader2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-spin" />
                             <span>Switching smoothly...</span>
                         </div>
                     </div>
@@ -562,8 +589,10 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
             {/* In-App Join League by Invite Code Modal */}
             {showJoinModal && typeof document !== 'undefined' && createPortal(
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-md bg-white dark:bg-[#0d141c] border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl relative text-slate-900 dark:text-white">
+                <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="relative overflow-hidden w-full max-w-md bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 shadow-2xl text-slate-900 dark:text-white">
+                        {/* Ambient top-right glow flare */}
+                        <div className="absolute -top-10 -right-10 w-44 h-44 bg-emerald-500/10 rounded-full blur-[65px] pointer-events-none" />
                         <button
                             type="button"
                             onClick={() => { setShowJoinModal(false); setFoundLeague(null); setInviteCodeInput(''); }}
@@ -573,18 +602,18 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                         </button>
 
                         <div className="flex items-center gap-3 mb-5">
-                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                                 <Sparkles className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black tracking-tight">Join Another League</h3>
+                                <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Join Another League</h3>
                                 <p className="text-xs text-slate-500 dark:text-gray-400">Enter the 6-character code from your Chairman</p>
                             </div>
                         </div>
 
                         <form onSubmit={handleExecuteJoin} className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400 mb-1.5">
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-400 mb-1.5">
                                     6-Character Invite Code
                                 </label>
                                 <div className="relative">
@@ -594,7 +623,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                                         value={inviteCodeInput}
                                         onChange={(e) => handleSearchCode(e.target.value)}
                                         placeholder="e.g. 882109 or KIP4FC"
-                                        className="w-full bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/15 rounded-xl px-4 py-3 text-lg font-black tracking-widest uppercase text-center focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-400 dark:placeholder:text-gray-600"
+                                        className="w-full bg-slate-50 dark:bg-black/40 border border-slate-300 dark:border-white/15 rounded-2xl px-4 py-3 text-lg font-black tracking-widest uppercase text-center focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-colors text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-600 shadow-inner"
                                         autoFocus
                                     />
                                     {isSearchingCode && (
@@ -632,7 +661,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                                                 value={joinPhoneInput}
                                                 onChange={(e) => setJoinPhoneInput(e.target.value)}
                                                 placeholder="e.g. 0712345678"
-                                                className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+                                                className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                                             />
                                         </div>
                                         <div>
@@ -644,7 +673,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                                                 value={joinNameInput}
                                                 onChange={(e) => setJoinNameInput(e.target.value)}
                                                 placeholder="e.g. Kevin Sifuna"
-                                                className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-emerald-500"
+                                                className="w-full bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                                             />
                                         </div>
                                     </div>

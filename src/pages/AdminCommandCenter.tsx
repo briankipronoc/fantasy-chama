@@ -3720,12 +3720,12 @@ burstFrame();
             })()}
 
             <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full">
-              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-400/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/5 via-[#121922] to-[#0c1219] p-4 sm:p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/5">
+              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-300/70 dark:border-[#FBBF24]/20 bg-white dark:bg-gradient-to-br dark:from-amber-500/5 dark:via-[#121922] dark:to-[#0c1219] p-4 sm:p-6 shadow-xl backdrop-blur-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500 dark:text-[#FBBF24]">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-600 dark:text-[#FBBF24]">
                         Chairman Priorities
                       </p>
                     </div>
@@ -3744,8 +3744,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       sortedPendingPayouts.length > 0
-                        ? "border-amber-400/60 bg-amber-500/15 hover:border-amber-400 hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/20"
-                        : "border-amber-500/20 bg-gradient-to-b from-amber-500/[0.07] to-transparent hover:border-amber-500/35 hover:bg-amber-500/10"
+                        ? "border-amber-400 bg-amber-100/70 dark:border-amber-400/60 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/30"
+                        : "border-amber-200 dark:border-amber-500/20 bg-amber-50/40 dark:bg-gradient-to-b dark:from-amber-500/[0.07] dark:to-transparent hover:bg-amber-100/50 dark:hover:bg-amber-500/10"
                     )}
                     onClick={() => {
                       if (sortedPendingPayouts.length > 0) {
@@ -3760,21 +3760,21 @@ burstFrame();
                     title="Tap to review payout approvals"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-amber-300/80 group-hover:text-amber-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-amber-700 dark:text-amber-300/80 group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors">
                         Payouts
                       </p>
                       {sortedPendingPayouts.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
+                        <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
                       {sortedPendingPayouts.length}
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      sortedPendingPayouts.length > 0 ? "text-amber-300 font-bold" : "text-gray-400 dark:text-gray-400"
+                      sortedPendingPayouts.length > 0 ? "text-amber-700 dark:text-amber-300 font-bold" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {sortedPendingPayouts.length > 0 ? "Action required" : "All cleared ✓"}
                     </span>
@@ -3785,8 +3785,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       redZoneMembers.length > 0
-                        ? "border-rose-500/60 bg-rose-500/15 hover:border-rose-500 hover:bg-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.15)] ring-1 ring-rose-500/20"
-                        : "border-rose-500/20 bg-gradient-to-b from-rose-500/[0.07] to-transparent hover:border-rose-500/35 hover:bg-rose-500/10"
+                        ? "border-rose-400 bg-rose-100/70 dark:border-rose-500/60 dark:bg-rose-500/15 hover:bg-rose-100 dark:hover:bg-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.15)] ring-1 ring-rose-500/30"
+                        : "border-rose-200 dark:border-rose-500/20 bg-rose-50/40 dark:bg-gradient-to-b dark:from-rose-500/[0.07] dark:to-transparent hover:bg-rose-100/50 dark:hover:bg-rose-500/10"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3797,21 +3797,21 @@ burstFrame();
                     title="Tap to view Red Zone members"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-rose-300/80 group-hover:text-rose-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-rose-700 dark:text-rose-300/80 group-hover:text-rose-800 dark:group-hover:text-rose-200 transition-colors">
                         Red Zone
                       </p>
                       {redZoneMembers.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shadow-[0_0_8px_#FB7185]" />
+                        <span className="w-2 h-2 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse shadow-[0_0_8px_#FB7185]" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
                       {redZoneMembers.length}
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      redZoneMembers.length > 0 ? "text-rose-300 font-bold" : "text-gray-400 dark:text-gray-400"
+                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300 font-bold" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
                     </span>
@@ -3822,8 +3822,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       pendingDisputes.length > 0
-                        ? "border-cyan-500/60 bg-cyan-500/15 hover:border-cyan-500 hover:bg-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20"
-                        : "border-cyan-500/20 bg-gradient-to-b from-cyan-500/[0.07] to-transparent hover:border-cyan-500/35 hover:bg-cyan-500/10"
+                        ? "border-cyan-400 bg-cyan-100/70 dark:border-cyan-500/60 dark:bg-cyan-500/15 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/30"
+                        : "border-cyan-200 dark:border-cyan-500/20 bg-cyan-50/40 dark:bg-gradient-to-b dark:from-cyan-500/[0.07] dark:to-transparent hover:bg-cyan-100/50 dark:hover:bg-cyan-500/10"
                     )}
                     onClick={() => {
                       setActiveTab("finance");
@@ -3833,21 +3833,21 @@ burstFrame();
                     title="Tap to view payment disputes"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-cyan-300/80 group-hover:text-cyan-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-cyan-700 dark:text-cyan-300/80 group-hover:text-cyan-800 dark:group-hover:text-cyan-200 transition-colors">
                         Disputes
                       </p>
                       {pendingDisputes.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22D3EE]" />
+                        <span className="w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse shadow-[0_0_8px_#22D3EE]" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
                       {pendingDisputes.length}
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      pendingDisputes.length > 0 ? "text-cyan-300 font-bold" : "text-gray-400 dark:text-gray-400"
+                      pendingDisputes.length > 0 ? "text-cyan-700 dark:text-cyan-300 font-bold" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {pendingDisputes.length > 0 ? "Review claims" : "Zero disputes ✓"}
                     </span>
@@ -3858,8 +3858,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
-                        ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/15 to-emerald-500/5 hover:border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                        : "border-amber-400/50 bg-gradient-to-b from-amber-500/15 to-amber-500/5 hover:border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.15)] ring-1 ring-amber-400/20"
+                        ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-500/40 dark:bg-gradient-to-b dark:from-emerald-500/15 dark:to-emerald-500/5 hover:bg-emerald-100/80 dark:hover:border-emerald-500/60 shadow-xs"
+                        : "border-amber-300 bg-amber-50/80 dark:border-amber-400/50 dark:bg-gradient-to-b dark:from-amber-500/15 dark:to-amber-500/5 hover:bg-amber-100/80 dark:hover:border-amber-400 shadow-xs ring-1 ring-amber-400/20"
                     )}
                     onClick={() => {
                       setShowResolveModal(true);
@@ -3868,26 +3868,26 @@ burstFrame();
                     title={gwAlreadySettled ? "Tap to review GW settlement" : "Tap to settle GW winner"}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-emerald-300/80 group-hover:text-emerald-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-emerald-700 dark:text-emerald-300/80 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition-colors">
                         Settlement
                       </p>
                       {gwAlreadySettled ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <Trophy className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                        <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 animate-pulse" />
                       )}
                     </div>
                     <div className="my-1">
                       <span className={clsx(
                         "text-[11px] font-black px-2 py-0.5 rounded-lg inline-block truncate max-w-full",
                         gwAlreadySettled
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
+                          : "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30"
                       )}>
                         {gwAlreadySettled ? `GW${currentGwNumber || 5} Settled` : `GW${currentGwNumber || 5} Ready`}
                       </span>
                     </div>
-                    <span className="text-[9.5px] text-gray-400 dark:text-gray-400 font-semibold truncate">
+                    <span className="text-[9.5px] text-slate-500 dark:text-gray-400 font-semibold truncate">
                       {gwAlreadySettled ? "Settlement verified ✓" : "Tap to resolve"}
                     </span>
                   </div>
@@ -3897,8 +3897,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       allPayableMembersFunded
-                        ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/15 to-emerald-500/5 hover:border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                        : "border-teal-500/40 bg-gradient-to-b from-teal-500/15 to-teal-500/5 hover:border-teal-500/60"
+                        ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-500/40 dark:bg-gradient-to-b dark:from-emerald-500/15 dark:to-emerald-500/5 hover:bg-emerald-100/80 dark:hover:border-emerald-500/60 shadow-xs"
+                        : "border-teal-300 bg-teal-50/80 dark:border-teal-500/40 dark:bg-gradient-to-b dark:from-teal-500/15 dark:to-teal-500/5 hover:bg-teal-100/80 dark:hover:border-teal-500/60 shadow-xs"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3909,21 +3909,21 @@ burstFrame();
                     title="Tap to view member payment statuses in ledger"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-teal-300/80 group-hover:text-teal-200 transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-emerald-700 dark:text-teal-300/80 group-hover:text-emerald-800 dark:group-hover:text-teal-200 transition-colors">
                         Funded
                       </p>
                       {allPayableMembersFunded ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <Users className="w-3.5 h-3.5 text-teal-400" />
+                        <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                       )}
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
+                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
                       {fundedMembersCount}/{Math.max(1, activeMembersCount)}
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      allPayableMembersFunded ? "text-emerald-400 font-bold" : "text-teal-300 font-bold"
+                      allPayableMembersFunded ? "text-emerald-700 dark:text-emerald-400 font-bold" : "text-teal-700 dark:text-teal-300 font-bold"
                     )}>
                       {allPayableMembersFunded ? "100% funded ✓" : "Pending dues"}
                     </span>
@@ -3931,12 +3931,12 @@ burstFrame();
                 </div>
               </div>
 
-              <div className="fc-invite-card xl:col-span-4 w-full bg-[#161d24] border border-amber-500/25 rounded-[2rem] shadow-[0_0_30px_rgba(251,191,36,0.1)] overflow-hidden flex flex-col">
-                <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-[#1a232b] to-[#161d24] h-full">
+              <div className="fc-invite-card xl:col-span-4 w-full bg-white dark:bg-[#161d24] border border-amber-300/70 dark:border-amber-500/25 rounded-[2rem] shadow-xl overflow-hidden flex flex-col">
+                <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-amber-50/40 via-white to-amber-50/20 dark:from-[#1a232b] dark:to-[#161d24] h-full">
                   <span
-                    className="text-xs font-black tracking-widest uppercase mb-4 mt-4 text-amber-400"
+                    className="text-xs font-black tracking-widest uppercase mb-4 mt-4 text-amber-600 dark:text-amber-400"
                     style={{
-                      background: 'linear-gradient(90deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                      background: 'linear-gradient(90deg, #D97706 0%, #F59E0B 50%, #B45309 100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                     }}
@@ -3944,29 +3944,29 @@ burstFrame();
                     Master Invite Code
                   </span>
                   <div
-                    className="text-5xl lg:text-6xl font-black tracking-tight mb-6 tabular-nums select-all text-amber-400"
+                    className="text-5xl lg:text-6xl font-black tracking-tight mb-6 tabular-nums select-all text-amber-600 dark:text-amber-400"
                     style={{
-                      background: 'linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
+                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 2px 14px rgba(251,191,36,0.45))',
+                      filter: 'drop-shadow(0 2px 14px rgba(245,158,11,0.25))',
                     }}
                   >
                     {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
                   </div>
-                  <p className="text-gray-400 text-sm leading-relaxed mb-8">
+                  <p className="text-slate-600 dark:text-gray-400 text-sm leading-relaxed mb-8 font-medium">
                     Share this 6-digit PIN to grant access to{" "}
-                    <strong className="text-amber-300">{leagueName}</strong>.
+                    <strong className="text-amber-700 dark:text-amber-300">{leagueName}</strong>.
                   </p>
                   <div className="flex flex-col gap-3 mt-auto">
                     <button
                       onClick={shareInviteCode}
-                      className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl transition-colors shadow-[0_0_15px_rgba(37,211,102,0.3)]"
+                      className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl transition-colors shadow-[0_0_15px_rgba(37,211,102,0.3)] cursor-pointer active:scale-95"
                     >
                       <Share2 className="w-4 h-4" /> Share via WhatsApp
                     </button>
                     <button
-                      className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-3 hover:bg-white/5 border border-white/10 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                      className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-3 hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-white font-bold rounded-xl transition-colors disabled:opacity-50"
                       disabled
                     >
                       <RefreshCw className="w-4 h-4" /> Regenerate
