@@ -3659,10 +3659,10 @@ burstFrame();
                     <div className="flex flex-col gap-2.5 w-full lg:w-64 xl:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
                       <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
-                          {isSeasonPotOnly ? `GW${currentGwNumber || effectiveStartGw || 5} Round` : isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`}
+                          {isSeasonPotOnly ? `GW${currentGwNumber || effectiveStartGw || 5} Winner` : isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`}
                         </p>
                         <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
-                          {isSeasonPotOnly ? "KES 0 (Bragging Rights)" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
+                          {isSeasonPotOnly ? "Season Vault Focus 🏆" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
                           {isSeasonPotOnly ? "100% Season Vault Accumulation" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
@@ -3720,7 +3720,7 @@ burstFrame();
             })()}
 
             <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full">
-              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-300/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/5 via-[#121922] to-[#0c1219] p-4 sm:p-6 shadow-xl">
+              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-400/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/5 via-[#121922] to-[#0c1219] p-4 sm:p-6 shadow-xl backdrop-blur-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/5">
                   <div>
                     <div className="flex items-center gap-2">
@@ -3744,8 +3744,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       sortedPendingPayouts.length > 0
-                        ? "border-amber-400/50 bg-amber-500/10 hover:border-amber-400/80 hover:bg-amber-500/15"
-                        : "border-white/10 bg-[#161f28]/70 hover:border-white/20 hover:bg-[#161f28]"
+                        ? "border-amber-400/60 bg-amber-500/15 hover:border-amber-400 hover:bg-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.15)] ring-1 ring-amber-400/20"
+                        : "border-amber-500/20 bg-gradient-to-b from-amber-500/[0.07] to-transparent hover:border-amber-500/35 hover:bg-amber-500/10"
                     )}
                     onClick={() => {
                       if (sortedPendingPayouts.length > 0) {
@@ -3760,11 +3760,11 @@ burstFrame();
                     title="Tap to review payout approvals"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-amber-300/80 group-hover:text-amber-200 transition-colors">
                         Payouts
                       </p>
                       {sortedPendingPayouts.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-[0_0_8px_#FBBF24]" />
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       )}
@@ -3774,7 +3774,7 @@ burstFrame();
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      sortedPendingPayouts.length > 0 ? "text-amber-400 font-bold" : "text-gray-500"
+                      sortedPendingPayouts.length > 0 ? "text-amber-300 font-bold" : "text-gray-400 dark:text-gray-400"
                     )}>
                       {sortedPendingPayouts.length > 0 ? "Action required" : "All cleared ✓"}
                     </span>
@@ -3785,8 +3785,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       redZoneMembers.length > 0
-                        ? "border-rose-500/40 bg-rose-500/10 hover:border-rose-500/70 hover:bg-rose-500/15"
-                        : "border-white/10 bg-[#161f28]/70 hover:border-white/20 hover:bg-[#161f28]"
+                        ? "border-rose-500/60 bg-rose-500/15 hover:border-rose-500 hover:bg-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.15)] ring-1 ring-rose-500/20"
+                        : "border-rose-500/20 bg-gradient-to-b from-rose-500/[0.07] to-transparent hover:border-rose-500/35 hover:bg-rose-500/10"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3797,11 +3797,11 @@ burstFrame();
                     title="Tap to view Red Zone members"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-rose-300/80 group-hover:text-rose-200 transition-colors">
                         Red Zone
                       </p>
                       {redZoneMembers.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse shadow-[0_0_8px_#FB7185]" />
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       )}
@@ -3811,7 +3811,7 @@ burstFrame();
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      redZoneMembers.length > 0 ? "text-rose-400 font-bold" : "text-gray-500"
+                      redZoneMembers.length > 0 ? "text-rose-300 font-bold" : "text-gray-400 dark:text-gray-400"
                     )}>
                       {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
                     </span>
@@ -3822,8 +3822,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       pendingDisputes.length > 0
-                        ? "border-blue-500/40 bg-blue-500/10 hover:border-blue-500/70 hover:bg-blue-500/15"
-                        : "border-white/10 bg-[#161f28]/70 hover:border-white/20 hover:bg-[#161f28]"
+                        ? "border-cyan-500/60 bg-cyan-500/15 hover:border-cyan-500 hover:bg-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20"
+                        : "border-cyan-500/20 bg-gradient-to-b from-cyan-500/[0.07] to-transparent hover:border-cyan-500/35 hover:bg-cyan-500/10"
                     )}
                     onClick={() => {
                       setActiveTab("finance");
@@ -3833,11 +3833,11 @@ burstFrame();
                     title="Tap to view payment disputes"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-cyan-300/80 group-hover:text-cyan-200 transition-colors">
                         Disputes
                       </p>
                       {pendingDisputes.length > 0 ? (
-                        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_#22D3EE]" />
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       )}
@@ -3847,7 +3847,7 @@ burstFrame();
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      pendingDisputes.length > 0 ? "text-blue-400 font-bold" : "text-gray-500"
+                      pendingDisputes.length > 0 ? "text-cyan-300 font-bold" : "text-gray-400 dark:text-gray-400"
                     )}>
                       {pendingDisputes.length > 0 ? "Review claims" : "Zero disputes ✓"}
                     </span>
@@ -3858,8 +3858,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
-                        ? "border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/60"
-                        : "border-amber-400/40 bg-[#161f28]/80 hover:border-amber-400/70"
+                        ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/15 to-emerald-500/5 hover:border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                        : "border-amber-400/50 bg-gradient-to-b from-amber-500/15 to-amber-500/5 hover:border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.15)] ring-1 ring-amber-400/20"
                     )}
                     onClick={() => {
                       setShowResolveModal(true);
@@ -3868,7 +3868,7 @@ burstFrame();
                     title={gwAlreadySettled ? "Tap to review GW settlement" : "Tap to settle GW winner"}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-emerald-300/80 group-hover:text-emerald-200 transition-colors">
                         Settlement
                       </p>
                       {gwAlreadySettled ? (
@@ -3887,7 +3887,7 @@ burstFrame();
                         {gwAlreadySettled ? `GW${currentGwNumber || 5} Settled` : `GW${currentGwNumber || 5} Ready`}
                       </span>
                     </div>
-                    <span className="text-[9.5px] text-gray-500 font-semibold truncate">
+                    <span className="text-[9.5px] text-gray-400 dark:text-gray-400 font-semibold truncate">
                       {gwAlreadySettled ? "Settlement verified ✓" : "Tap to resolve"}
                     </span>
                   </div>
@@ -3897,8 +3897,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3 sm:p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       allPayableMembersFunded
-                        ? "border-emerald-500/40 bg-emerald-500/10 hover:border-emerald-500/60"
-                        : "border-amber-500/40 bg-amber-500/10 hover:border-amber-500/60"
+                        ? "border-emerald-500/40 bg-gradient-to-b from-emerald-500/15 to-emerald-500/5 hover:border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                        : "border-teal-500/40 bg-gradient-to-b from-teal-500/15 to-teal-500/5 hover:border-teal-500/60"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3909,13 +3909,13 @@ burstFrame();
                     title="Tap to view member payment statuses in ledger"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-gray-400 group-hover:text-white transition-colors">
+                      <p className="text-[10.5px] uppercase font-bold tracking-wider text-teal-300/80 group-hover:text-teal-200 transition-colors">
                         Funded
                       </p>
                       {allPayableMembersFunded ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                       ) : (
-                        <Users className="w-3.5 h-3.5 text-amber-400" />
+                        <Users className="w-3.5 h-3.5 text-teal-400" />
                       )}
                     </div>
                     <p className="text-2xl sm:text-3xl font-black tracking-tight text-white my-1 tabular-nums">
@@ -3923,7 +3923,7 @@ burstFrame();
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-semibold truncate",
-                      allPayableMembersFunded ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"
+                      allPayableMembersFunded ? "text-emerald-400 font-bold" : "text-teal-300 font-bold"
                     )}>
                       {allPayableMembersFunded ? "100% funded ✓" : "Pending dues"}
                     </span>

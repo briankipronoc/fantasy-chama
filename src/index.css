@@ -2759,24 +2759,27 @@ textarea {
 }
 
 /* ══════════════════════════════════════════════
-   STEALTH THEME — Tactical Obsidian & Brushed Titanium Aesthetic
-   Deep matte obsidian blacks (#06080c, #090d13), charcoal greys,
-   brushed silver titanium borders, anti-glare matte cards,
-   crisp silver-white typography, and sharp tactical accents.
+   STEALTH THEME — Pitch Black OLED & Nothing-OS Android Aesthetic
+   Pure OLED blacks (#000000), ultra-clean matte card layers (#080808),
+   crisp 1px razor silver borders (rgba(255,255,255,0.12)),
+   minimalist monochrome typography, phosphor dot indicators,
+   and anti-glare tactical contrast.
 ══════════════════════════════════════════════ */
 [data-theme="stealth"] {
-  --fc-toast-bg: rgba(6, 8, 12, 0.98);
-  --fc-toast-color: #f8fafc;
-  --fc-toast-border: rgba(148, 163, 184, 0.35);
-  --fc-toast-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
-  --fc-card-bg: #0b0f16;
-  --fc-card-border: rgba(148, 163, 184, 0.22);
+  --fc-toast-bg: rgba(0, 0, 0, 0.98);
+  --fc-toast-color: #ffffff;
+  --fc-toast-border: rgba(255, 255, 255, 0.2);
+  --fc-toast-shadow: 0 24px 60px rgba(0, 0, 0, 0.98);
+  --fc-card-bg: #080808;
+  --fc-card-border: rgba(255, 255, 255, 0.12);
 }
 
 [data-theme="stealth"] body,
 html.stealth body {
-  background-color: #06080c !important;
-  color: #e2e8f0 !important;
+  background-color: #000000 !important;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.035) 1px, transparent 0) !important;
+  background-size: 32px 32px !important;
+  color: #f1f5f9 !important;
 }
 
 [data-theme="stealth"] .fc-shell-default,
@@ -2789,26 +2792,26 @@ html.stealth .fc-shell-warroom,
 html.stealth .fc-shell-standings,
 html.stealth .fc-shell-finances,
 html.stealth .fc-shell-profile {
-  background: #06080c !important;
-  background-color: #06080c !important;
+  background: #000000 !important;
+  background-color: #000000 !important;
 }
 
-/* Tactical Matte Charcoal & Silver Cards */
+/* OLED Tactical Cards */
 [data-theme="stealth"] .fc-card,
 [data-theme="stealth"] .fc-highlight-card,
 [data-theme="stealth"] .glass-panel,
 html.stealth .fc-card,
 html.stealth .fc-highlight-card,
 html.stealth .glass-panel {
-  background: linear-gradient(180deg, #0d121a 0%, #080b10 100%) !important;
-  border: 1px solid rgba(148, 163, 184, 0.24) !important;
-  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  background: linear-gradient(180deg, #0b0b0b 0%, #030303 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
 }
 
 [data-theme="stealth"] .fc-card:hover,
 html.stealth .fc-card:hover {
-  border-color: rgba(203, 213, 225, 0.45) !important;
-  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.98), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.98), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Brushed Titanium / Silver Badges & Chips */
@@ -2816,8 +2819,8 @@ html.stealth .fc-card:hover {
 [data-theme="stealth"] .fc-metallic-badge *,
 html.stealth .fc-metallic-badge,
 html.stealth .fc-metallic-badge * {
-  color: #f8fafc !important;
-  -webkit-text-fill-color: #f8fafc !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   background: none !important;
   -webkit-background-clip: unset !important;
   background-clip: unset !important;
@@ -2864,7 +2867,7 @@ html.stealth header span {
   background-clip: unset !important;
   text-shadow: none !important;
   filter: none !important;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.015em;
 }
 
 /* Ensure dark-text utility classes inside stealth theme render as crisp white/silver */
@@ -2905,9 +2908,9 @@ html.stealth .fc-meta-label {
 html.stealth input,
 html.stealth select,
 html.stealth textarea {
-  background-color: #090d14 !important;
-  border-color: rgba(148, 163, 184, 0.25) !important;
-  color: #f8fafc !important;
+  background-color: #060606 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
 }
 
 [data-theme="stealth"] input:focus,
@@ -2916,21 +2919,28 @@ html.stealth textarea {
 html.stealth input:focus,
 html.stealth select:focus,
 html.stealth textarea:focus {
-  border-color: rgba(251, 191, 36, 0.7) !important;
-  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.15) !important;
+  border-color: rgba(251, 191, 36, 0.8) !important;
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2) !important;
 }
 
 /* Tactical Header & Bottom Bar in Stealth */
 [data-theme="stealth"] header,
 html.stealth header {
-  background: rgba(8, 11, 16, 0.92) !important;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+  background: rgba(0, 0, 0, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
 }
 
 [data-theme="stealth"] nav,
 html.stealth nav {
-  background: rgba(8, 11, 16, 0.95) !important;
-  border-top: 1px solid rgba(148, 163, 184, 0.2) !important;
+  background: rgba(0, 0, 0, 0.97) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Universal Dialog & Modal Card Protection across all themes */
+[role="dialog"] h1, [role="dialog"] h2, [role="dialog"] h3, [role="dialog"] h4,
+[role="dialog"] .text-white, .fc-team-picks-modal h3, .fc-team-picks-modal .text-white {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 

@@ -1554,18 +1554,18 @@ export default function Profile() {
                                             type="button"
                                             disabled={isCompressingPhoto}
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="px-3.5 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                                            className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 dark:text-emerald-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
                                         >
-                                            <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                                            <Camera className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                             <span>{photoUrl ? 'Change Photo' : 'Upload Photo'}</span>
                                         </button>
                                         {photoUrl && (
                                             <button
                                                 type="button"
                                                 onClick={handleRemovePhoto}
-                                                className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                                                className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 dark:bg-rose-500/15 dark:hover:bg-rose-500/25 dark:border-rose-500/30 dark:text-rose-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 shadow-sm"
                                             >
-                                                <Trash2 className="w-3 h-3 text-rose-400" />
+                                                <Trash2 className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                                                 <span>Remove</span>
                                             </button>
                                         )}
