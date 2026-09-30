@@ -1310,20 +1310,17 @@ export default function AdminCommandCenter() {
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
   // Effective startGw: use startGw from state or leagueSettings
-  // If the current event already concluded without any approved payouts in this chama,
-  // the league officially begins at the next upcoming gameweek (e.g. GW5).
+  // If the league commenced or has payouts/transactions for GW5 (or earlier),
+  // lock effectiveStartGw to that earliest active round (e.g. GW5).
   const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
-  const firstPayoutGw = pendingPayouts.reduce((minGw: number, p: any) => {
+  const earliestActivityGw = pendingPayouts.reduce((minGw: number, p: any) => {
     const gw = Number(p.gw || 0);
     return gw > 0 ? Math.min(minGw, gw) : minGw;
   }, 999);
-  // Ensure startGw from league settings / clean slate is the true authority
-  // If the league commenced or has contributions for GW5, lock effectiveStartGw to 5
-  const effectiveStartGw = (rawStartGw > 0 && rawStartGw <= 5)
-    ? rawStartGw
-    : (firstPayoutGw !== 999 && firstPayoutGw <= 5
-        ? firstPayoutGw
-        : (rawStartGw === 6 ? 5 : (rawStartGw || 5)));
+  const effectiveStartGw = Math.min(
+    rawStartGw > 0 && rawStartGw <= 5 ? rawStartGw : (rawStartGw || 5),
+    earliestActivityGw !== 999 ? earliestActivityGw : (rawStartGw > 0 && rawStartGw <= 5 ? rawStartGw : 5)
+  );
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);

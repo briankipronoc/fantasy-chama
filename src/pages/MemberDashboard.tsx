@@ -1093,14 +1093,22 @@ export default function MemberDashboard() {
     // Count-up animated values for wallet
     const animatedWalletBalance = useCountUp(walletBalance, 700);
 
-    // Clamp leagueStartGw to first transaction or currentEvent only if leagueStartGw is not set
-    const firstTxGw = (transactions || []).reduce((minGw: number, tx: any) => {
-        const gw = Number(tx.gameweek || tx.gw || 0);
-        return gw > 0 ? Math.min(minGw, gw) : minGw;
-    }, 999);
-    const effectiveMdStartGw = leagueStartGw > 0 
-        ? leagueStartGw 
-        : (firstTxGw !== 999 ? firstTxGw : (currentFplEvent?.id || 5));
+    // Any payout, settled round, or transaction for GW5 (or earlier) anchors the league start to that round
+    const earliestActivityGw = Math.min(
+        (transactions || []).reduce((minGw: number, tx: any) => {
+            const gw = Number(tx.gameweek || tx.gw || 0);
+            return gw > 0 ? Math.min(minGw, gw) : minGw;
+        }, 999),
+        (pendingPayouts || []).reduce((minGw: number, p: any) => {
+            const gw = Number(p.gw || 0);
+            return gw > 0 ? Math.min(minGw, gw) : minGw;
+        }, 999)
+    );
+    const rawStart = Number(leagueStartGw || 0);
+    const effectiveMdStartGw = Math.min(
+        rawStart > 0 && rawStart <= 5 ? rawStart : (rawStart || 5),
+        earliestActivityGw !== 999 ? earliestActivityGw : (rawStart > 0 && rawStart <= 5 ? rawStart : 5)
+    );
     const isPreLeagueGw = Boolean(currentFplEvent?.id && effectiveMdStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
 
     // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
