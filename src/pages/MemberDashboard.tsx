@@ -88,7 +88,16 @@ export default function MemberDashboard() {
     const [isUpgradingToPot, setIsUpgradingToPot] = useState(false);
     const [activeReactionAnim, setActiveReactionAnim] = useState<{ emoji: string; isExiting: boolean } | null>(null);
 
-    const members = useStore(state => state.members);
+    const rawMembers = useStore(state => state.members);
+    const members = useMemo(() => {
+        const seen = new Set<string>();
+        return (rawMembers || []).filter((m: any) => {
+            const key = m.phone ? `phone:${m.phone}` : (m.authUid ? `auth:${m.authUid}` : `id:${m.id}`);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [rawMembers]);
     const logout = useStore(state => state.logout);
     const leagueSettings = useStore(state => state.league);
     
@@ -1085,40 +1094,6 @@ export default function MemberDashboard() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeLeagueId, currentUser?.id]);
 
-    // Dynamic Calculations
-    const isMemberFunded = (m: any) => Boolean((m.hasPaid || (gameweekStake > 0 && Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending);
-    const paidMembersCount = members.filter(isMemberFunded).length;
-    const totalCollected = paidMembersCount * gameweekStake;
-    const weeklyPot = totalCollected * (rules.weekly / 100);
-
-    // Count-up animated values for wallet
-    const animatedWalletBalance = useCountUp(walletBalance, 700);
-
-    // Any payout, settled round, or transaction for GW5 (or earlier) anchors the league start to that round
-    const earliestActivityGw = Math.min(
-        (transactions || []).reduce((minGw: number, tx: any) => {
-            const gw = Number(tx.gameweek || tx.gw || 0);
-            return gw > 0 ? Math.min(minGw, gw) : minGw;
-        }, 999),
-        (pendingPayouts || []).reduce((minGw: number, p: any) => {
-            const gw = Number(p.gw || 0);
-            return gw > 0 ? Math.min(minGw, gw) : minGw;
-        }, 999)
-    );
-    const rawStart = Number(leagueStartGw || 0);
-    const effectiveMdStartGw = Math.min(
-        rawStart > 0 && rawStart <= 5 ? rawStart : (rawStart || 5),
-        earliestActivityGw !== 999 ? earliestActivityGw : (rawStart > 0 && rawStart <= 5 ? rawStart : 5)
-    );
-    const isPreLeagueGw = Boolean(currentFplEvent?.id && effectiveMdStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
-
-    // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
-    const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);
-    const vaultPercent = Number(rules.vault ?? (100 - rules.weekly));
-    const vaultMultiplier = (vaultPercent > 0 ? vaultPercent : 30) / 100;
-    const activeContendersCount = members.filter(m => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending).length;
-    const seasonVaultProjected = activeContendersCount * gameweekStake * totalLeagueGws * vaultMultiplier;
-
     // Actual accumulated season vault to date (net of any reversals/refunds)
     const isTxValidInflow = (tx: any) => {
         const type = String(tx.type || '').toLowerCase();
@@ -1134,18 +1109,76 @@ export default function MemberDashboard() {
     };
     const isTxRefundOrReversal = (tx: any) => {
         const type = String(tx.type || '').toLowerCase();
+        const source = String(tx.source || '').toLowerCase();
         const status = String(tx.status || '').toLowerCase();
+        const note = String(tx.note || '').toLowerCase();
         return (
             type === 'refund' ||
             type === 'reversal' ||
-            tx.source === 'manual_reversal' ||
-            tx.category === 'refund' ||
+            type.includes('revers') ||
+            source === 'manual_reversal' ||
+            source.includes('revers') ||
             status === 'refund' ||
             status === 'refunded' ||
-            (type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+            status === 'reversed' ||
+            tx.isReversed === true ||
+            tx.reversed === true ||
+            note.includes('reversal') ||
+            note.includes('reversed') ||
+            (type === 'ledger_adjustment' && (source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
             Number(tx.amount || 0) < 0
         );
     };
+
+    // Dynamic Calculations
+    const isMemberFunded = (m: any) => {
+        if (!m || m.isActive === false || (m as any).isEliminated || (m as any).isPending) return false;
+        if ((m as any).playMode === 'sidebets_only') return false;
+
+        const isMatchedMember = (tx: any) =>
+            (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+            (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+            (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
+
+        const refundTotal = (transactions || []).filter((tx: any) => {
+            if (!isMatchedMember(tx)) return false;
+            return isTxRefundOrReversal(tx);
+        }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+
+        const memberInflows = (transactions || []).filter((tx: any) => {
+            if (!isTxValidInflow(tx)) return false;
+            return isMatchedMember(tx);
+        }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+
+        const netDeposited = Math.max(0, memberInflows - refundTotal);
+        const effectiveWallet = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
+
+        if (refundTotal > 0 && netDeposited < gameweekStake && effectiveWallet < gameweekStake) {
+            return false;
+        }
+
+        return Boolean((m.hasPaid && (refundTotal === 0 || netDeposited >= gameweekStake)) || (gameweekStake > 0 && effectiveWallet >= gameweekStake));
+    };
+
+    const paidMembersCount = members.filter(isMemberFunded).length;
+    const totalCollected = paidMembersCount * gameweekStake;
+    const weeklyPot = totalCollected * (rules.weekly / 100);
+
+    // Count-up animated values for wallet
+    const animatedWalletBalance = useCountUp(walletBalance, 700);
+
+    // Dynamic start gameweek: respect configured startGw or leagueStartGw, default 1
+    const rawStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 1);
+    const effectiveMdStartGw = Math.max(1, rawStart);
+    const isPreLeagueGw = Boolean(currentFplEvent?.id && effectiveMdStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
+
+    // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
+    const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);
+    const vaultPercent = Number(rules.vault ?? (100 - rules.weekly));
+    const vaultMultiplier = (vaultPercent > 0 ? vaultPercent : 30) / 100;
+    const activeContendersCount = members.filter(m => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending).length;
+    const seasonVaultProjected = activeContendersCount * gameweekStake * totalLeagueGws * vaultMultiplier;
+
     const grossInflows = (transactions || [])
         .filter(isTxValidInflow)
         .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);

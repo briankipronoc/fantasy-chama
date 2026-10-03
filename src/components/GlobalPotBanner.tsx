@@ -27,7 +27,13 @@ export default function GlobalPotBanner() {
         return () => unsubscribe();
     }, [activeLeagueId]);
 
-    const paidMembersCount = members.filter(m => m.hasPaid && m.isActive !== false).length;
+    const paidMembersCount = (members || []).filter(m =>
+        m.isActive !== false &&
+        !(m as any).isEliminated &&
+        !(m as any).isPending &&
+        (m as any).playMode !== 'sidebets_only' &&
+        (m.hasPaid || (gameweekStake > 0 && Number(m.walletBalance || 0) >= gameweekStake))
+    ).length;
     const totalCollected = paidMembersCount * gameweekStake;
     const weeklyPot = totalCollected * (rules.weekly / 100);
     const seasonVaultProjected = members.length * gameweekStake * 38 * (rules.vault / 100);

@@ -98,6 +98,7 @@ export default function AdminCommandCenter() {
   // @ts-ignore
     const [chairmanId, setChairmanId] = useState<string | null>(null);
   const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [isApprovingPayout, setIsApprovingPayout] = useState<string | null>(
     null,
   );
@@ -773,6 +774,19 @@ export default function AdminCommandCenter() {
     return () => unsub();
   }, [activeLeagueId]);
 
+  // Listen to transactions for real-time reversal deductions and ledger reconciliation
+  useEffect(() => {
+    if (!activeLeagueId) return;
+    const txRef = collection(db, "leagues", activeLeagueId, "transactions");
+    const q = query(txRef, orderBy("timestamp", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      setTransactions(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }, (err) => {
+      console.warn('[admin] transactions listener failed:', err);
+    });
+    return () => unsub();
+  }, [activeLeagueId]);
+
   const hasFinalGwChampion = Boolean(
     gwWinner && isCurrentEventFinished && Number(gwWinner.event_total) > 0,
   );
@@ -1247,12 +1261,87 @@ export default function AdminCommandCenter() {
   };
 
   // Dynamic Calculations
-  // Math scales properly natively since `members` array is reactive via useStore (which listens to Firestore)
-  const memberHasFunding = (member: any) => {
+  const isMemberSpectator = (m: any) =>
+    (m as any).playMode === "sidebets_only";
+
+  const isTxRefundOrReversal = (tx: any) => {
+    const type = String(tx.type || '').toLowerCase();
+    const source = String(tx.source || '').toLowerCase();
+    const status = String(tx.status || '').toLowerCase();
+    const note = String(tx.note || '').toLowerCase();
+    const category = String(tx.category || '').toLowerCase();
     return (
-      member.isActive !== false &&
-      (member.hasPaid === true ||
-        (gameweekStake > 0 && (member.walletBalance || 0) >= gameweekStake))
+      type === 'refund' ||
+      type === 'reversal' ||
+      type.includes('revers') ||
+      source === 'manual_reversal' ||
+      source.includes('revers') ||
+      category === 'refund' ||
+      category.includes('revers') ||
+      status === 'refund' ||
+      status === 'refunded' ||
+      status === 'reversed' ||
+      tx.isReversed === true ||
+      tx.reversed === true ||
+      note.includes('reversal') ||
+      note.includes('reversed') ||
+      (type === 'ledger_adjustment' && (source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
+      Number(tx.amount || 0) < 0
+    );
+  };
+
+  const isTxValidInflow = (tx: any) => {
+    const type = String(tx.type || '').toLowerCase();
+    const status = String(tx.status || '').toLowerCase();
+    const source = String(tx.source || '').toLowerCase();
+    const note = String(tx.note || '').toLowerCase();
+    if (tx.isReversed === true || tx.reversed === true) return false;
+    if (status === 'reversed' || status === 'failed' || status === 'cancelled' || status === 'voided' || status === 'refunded') return false;
+    if (source === 'manual_reversal' || source.includes('revers')) return false;
+    if (type === 'refund' || type === 'reversal' || type.includes('revers')) return false;
+    if (note.includes('reversal') || note.includes('reversed')) return false;
+    if (Number(tx.amount || 0) <= 0) return false;
+    return true;
+  };
+
+  const getMemberRefundTotal = (m: any) => {
+    return transactions.filter((tx: any) => {
+      const isMatch = (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+        (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+        (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
+      return isMatch && isTxRefundOrReversal(tx);
+    }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+  };
+
+  const getMemberInflowTotal = (m: any) => {
+    return transactions.filter((tx: any) => {
+      const isMatch = (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+        (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+        (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
+      return isMatch && isTxValidInflow(tx);
+    }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+  };
+
+  // Math scales properly natively and reconciles reversals from the ledger
+  const memberHasFunding = (member: any) => {
+    if (!member || member.isActive === false) return false;
+    if ((member as any).isEliminated === true) return false;
+    if (isPendingMember(member)) return false;
+    if (isMemberSpectator(member)) return false;
+
+    const refundTotal = getMemberRefundTotal(member);
+    const inflowTotal = getMemberInflowTotal(member);
+    const netDeposited = Math.max(0, inflowTotal - refundTotal);
+    const effectiveWallet = Math.max(0, Number(member.walletBalance || 0) - refundTotal);
+
+    // If transactions exist and show that this member's deposit was reversed, they are NOT funded
+    if (refundTotal > 0 && netDeposited < gameweekStake && effectiveWallet < gameweekStake) {
+      return false;
+    }
+
+    return (
+      (gameweekStake > 0 && effectiveWallet >= gameweekStake) ||
+      (member.hasPaid === true && (refundTotal === 0 || netDeposited >= gameweekStake))
     );
   };
 
@@ -1326,10 +1415,9 @@ export default function AdminCommandCenter() {
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  // Effective startGw: league officially began clean slate on GW5.
-  // Lock effectiveStartGw to minimum 5 so prior unplayed GW1-4 never pollute active ledger or calculate false arrears.
-  const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 5);
-  const effectiveStartGw = Math.max(5, rawStartGw || 5);
+  // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
+  const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
+  const effectiveStartGw = Math.max(1, rawStartGw);
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
@@ -4875,14 +4963,16 @@ burstFrame();
                 </div>
               ) : (
                 filteredMembers.map((row: any) => {
-                  const wallet = (row as any).walletBalance ?? 0;
+                  const refundTotal = getMemberRefundTotal(row);
+                  const rawWallet = (row as any).walletBalance ?? 0;
+                  const wallet = Math.max(0, rawWallet - refundTotal);
                   const gwCost = gameweekStake;
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                   const isRowSpectator = (row as any).playMode === "sidebets_only";
                   const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
                   const currentGw = Number(currentGwNumber || start);
                   const totalCompletedOrCurrent = Math.max(0, currentGw - start + 1);
-                  const rowHasPaidCurrent = Boolean(row.hasPaid) || (gwCost > 0 && wallet >= gwCost);
+                  const rowHasPaidCurrent = memberHasFunding(row);
                   const rowFundedCount = rowHasPaidCurrent ? Math.max(1, gwsLeft) : gwsLeft;
                   const rowSkippedGws = isRowSpectator ? 0 : Math.max(0, totalCompletedOrCurrent - rowFundedCount);
                   const rowOwedArrears = rowSkippedGws * gwCost;
@@ -4991,25 +5081,25 @@ burstFrame();
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={Boolean(row.hasPaid)}
-                        onClick={() => handleTogglePayment(row.id, row.hasPaid, row.displayName)}
+                        aria-checked={Boolean(rowHasPaidCurrent)}
+                        onClick={() => handleTogglePayment(row.id, rowHasPaidCurrent, row.displayName)}
                         className={clsx(
                           "relative inline-flex h-7 w-14 items-center rounded-full p-0.5 border transition-all duration-200 ease-in-out cursor-pointer select-none shrink-0 shadow-xs focus:outline-none",
-                          row.hasPaid
+                          rowHasPaidCurrent
                             ? "bg-[#10B981]/25 border-[#10B981]/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
                             : "bg-slate-800/90 border-slate-700/80 hover:border-slate-600"
                         )}
-                        title={row.hasPaid ? "Funded — Click to mark unpaid / reverse" : "Unpaid — Click to mark funded"}
+                        title={rowHasPaidCurrent ? "Funded — Click to mark unpaid / reverse" : "Unpaid — Click to mark funded"}
                       >
                         <span
                           className={clsx(
                             "inline-flex h-6 w-6 items-center justify-center rounded-full shadow-md transform transition-transform duration-200 ease-in-out",
-                            row.hasPaid
+                            rowHasPaidCurrent
                               ? "translate-x-7 bg-[#10B981] text-black"
                               : "translate-x-0 bg-slate-600 text-slate-300"
                           )}
                         >
-                          {row.hasPaid ? (
+                          {rowHasPaidCurrent ? (
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           ) : (
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />

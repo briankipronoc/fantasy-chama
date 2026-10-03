@@ -1821,26 +1821,31 @@ export default function Profile() {
                                             toast.success(`${t.label} activated`);
                                         }}
                                         className={clsx(
-                                            "p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between cursor-pointer select-none",
+                                            "p-3 sm:p-3.5 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer select-none active:scale-95 min-h-[82px]",
                                             isSelected
-                                                ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 shadow-md ring-1 ring-emerald-500/30"
-                                                : "bg-white/80 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
+                                                ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
+                                                : "bg-white/80 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
                                         )}
                                     >
-                                        <div className="flex items-center justify-between w-full mb-2">
-                                            <span className="text-lg leading-none">{t.icon}</span>
-                                            {isSelected && (
-                                                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10B981]" />
+                                        <div className="flex items-center justify-between w-full mb-1.5">
+                                            <span className="text-xl sm:text-2xl leading-none drop-shadow-xs">{t.icon}</span>
+                                            {isSelected ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400">Active</span>
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10B981] animate-pulse" />
+                                                </div>
+                                            ) : (
+                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-white/20" />
                                             )}
                                         </div>
                                         <div>
                                             <p className={clsx(
-                                                "text-xs font-black tracking-tight",
+                                                "text-xs sm:text-sm font-black tracking-tight leading-tight",
                                                 isSelected ? "text-emerald-700 dark:text-emerald-300 font-extrabold" : "text-slate-800 dark:text-white"
                                             )}>
                                                 {t.label}
                                             </p>
-                                            <p className="text-[9.5px] text-slate-500 dark:text-gray-400 font-medium leading-tight mt-0.5">
+                                            <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 font-medium leading-tight mt-0.5">
                                                 {t.desc}
                                             </p>
                                         </div>

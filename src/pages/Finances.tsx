@@ -345,20 +345,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         };
     }, [activeLeagueId, role, activeUserId, memberPhone]);
 
-    const isMemberFunded = (m: any) => Boolean((m.hasPaid || (gameweekStake > 0 && Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending);
-    const paidMembers = members.filter(isMemberFunded);
-    const totalSecured = paidMembers.length * (gameweekStake || 0);
-    
-    const rawStart = Number(startGw || (leagueSettings as any)?.startGw || 0);
-    const leagueStartGw = Math.max(5, rawStart || 5);
-    
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-    
-    const toJoinedGw = (joinedMs?: number | null) => {
-        if (!leagueCreatedAtMs || !joinedMs) return leagueStartGw;
-        const weeksSinceStart = Math.max(0, Math.floor((joinedMs - leagueCreatedAtMs) / WEEK_MS));
-        return Math.min(38, leagueStartGw + weeksSinceStart);
-    };
     const contributionTypes = new Set(['deposit', 'payment', 'contribution', 'wallet_funding', 'wallet_prefund', 'manual_deposit', 'ledger_adjustment']);
     const isTxValidInflow = (tx: any) => {
         const type = String(tx.type || '').toLowerCase();
@@ -403,6 +389,50 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             (type === 'ledger_adjustment' && (source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
             Number(tx.amount || 0) < 0
         );
+    };
+
+    const isMemberFunded = (m: any) => {
+        if (!m || m.isActive === false || (m as any).isEliminated || (m as any).isPending) return false;
+        if ((m as any).playMode === 'sidebets_only') return false;
+
+        const isMatchedMember = (tx: any) =>
+            (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+            (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+            (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
+
+        const refundTotal = (transactions || []).filter((tx: any) => {
+            if (!isMatchedMember(tx)) return false;
+            return isTxRefundOrReversal(tx);
+        }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+
+        const memberInflows = (transactions || []).filter((tx: any) => {
+            if (!isTxValidInflow(tx)) return false;
+            return isMatchedMember(tx);
+        }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+
+        const netDeposited = Math.max(0, memberInflows - refundTotal);
+        const effectiveWallet = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
+
+        if (refundTotal > 0 && netDeposited < (gameweekStake || 0) && effectiveWallet < (gameweekStake || 0)) {
+            return false;
+        }
+
+        return Boolean((m.hasPaid && (refundTotal === 0 || netDeposited >= (gameweekStake || 0))) || ((gameweekStake || 0) > 0 && effectiveWallet >= (gameweekStake || 0)));
+    };
+
+    const paidMembers = members.filter(isMemberFunded);
+    const totalSecured = paidMembers.length * (gameweekStake || 0);
+    
+    // Dynamic start gameweek: respect league settings if configured, fallback to 1
+    const rawStart = Number((leagueSettings as any)?.startGw || startGw || 1);
+    const leagueStartGw = Math.max(1, rawStart);
+    
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    
+    const toJoinedGw = (joinedMs?: number | null) => {
+        if (!leagueCreatedAtMs || !joinedMs) return leagueStartGw;
+        const weeksSinceStart = Math.max(0, Math.floor((joinedMs - leagueCreatedAtMs) / WEEK_MS));
+        return Math.min(38, leagueStartGw + weeksSinceStart);
     };
 
     const activeMembers = members.filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending);
@@ -710,7 +740,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
                 if (ts && ts < currentSeasonStartMs) return false;
                 const gw = Number(tx.gw || tx.gameweek || 0);
-                if (gw > 0 && gw < 5) return false;
+                if (gw > 0 && gw < leagueStartGw) return false;
             }
             return true;
         });
@@ -787,14 +817,14 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
 
     const totalCompletedOrCurrentGws = useMemo(() => {
-        const rawStart = Math.max(5, Number(startGw || 5));
+        const rawStart = Math.max(1, Number(leagueSettings?.startGw || startGw || 1));
         const currentGw = Number(currentGwNumber || rawStart);
         const effectiveStart = rawStart;
         return Math.max(0, currentGw - effectiveStart + 1);
-    }, [startGw, currentGwNumber]);
+    }, [startGw, currentGwNumber, leagueSettings]);
 
     const memberFundingSummary = useMemo(() => {
-        const rawStart = Math.max(5, Number(startGw || 5));
+        const rawStart = Math.max(1, Number(leagueSettings?.startGw || startGw || 1));
         const currentGw = Number(currentGwNumber || rawStart);
         const start = rawStart;
         const totalCompleted = Math.max(0, currentGw - start + 1);
@@ -805,8 +835,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             .map((m: any) => {
                 const isPendingOnboarding = Boolean(m.isPending === true || (!m.phone && !m.phoneNumber) || !m.authUid);
                 const isMemberSpectator = (m as any).playMode === 'sidebets_only';
-                const memberBalance = Number(m.walletBalance || 0);
-                const hasPaidCurrent = Boolean(m.hasPaid) || (stake > 0 && memberBalance >= stake);
 
                 // Identify all deposit / inflow transactions associated with this member
                 const memberInflowTxs = transactions.filter((tx: any) => {
@@ -818,7 +846,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     );
                 });
 
-                // Also calculate refunds/reversals to net out from totalDeposited
+                // Also calculate refunds/reversals to net out from totalDeposited and wallet
                 const isMatchedMember = (tx: any) =>
                     (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
                     (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
@@ -826,19 +854,16 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
                 const refundTotal = transactions.filter((tx: any) => {
                     if (!isMatchedMember(tx)) return false;
-                    return (
-                        tx.type === 'refund' ||
-                        tx.type === 'reversal' ||
-                        tx.source === 'manual_reversal' ||
-                        tx.category === 'refund' ||
-                        String(tx.status || '').toLowerCase() === 'refunded' ||
-                        (tx.type === 'ledger_adjustment' && (tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0)) ||
-                        Number(tx.amount || 0) < 0
-                    );
+                    return isTxRefundOrReversal(tx);
                 }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
                 const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
+                const effectiveMemberBalance = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
+                const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
+                    (Boolean(m.hasPaid) && (refundTotal === 0 || totalDeposited >= stake)) ||
+                    (stake > 0 && effectiveMemberBalance >= stake)
+                );
 
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
                 const rawFundedCount = stake > 0 ? Math.floor(totalDeposited / stake) : totalCompleted;
@@ -861,7 +886,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     role: m.role || 'member',
                     isSpectator: isMemberSpectator,
                     isPendingOnboarding,
-                    walletBalance: memberBalance,
+                    walletBalance: effectiveMemberBalance,
                     hasPaidCurrent,
                     totalDeposited,
                     gwsFundedCount,
