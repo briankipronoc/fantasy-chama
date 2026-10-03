@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { DashboardSkeleton } from '../components/Skeleton';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
+import ChamaBanterSlipModal, { BanterSlipData } from '../components/ChamaBanterSlipModal';
 import { haptics } from '../utils/haptics';
 import confetti from 'canvas-confetti';
 
@@ -71,6 +72,7 @@ export default function MemberDashboard() {
     // Phase 30: panel toggles
     const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
     const [showFlexModal, setShowFlexModal] = useState(false);
+    const [showBanterSlipModal, setShowBanterSlipModal] = useState(false);
     // const [showAllWinners, setShowAllWinners] = useState(false);
 
     // Phase 31: Real FPL Performance Trajectory
@@ -1217,6 +1219,51 @@ export default function MemberDashboard() {
     const payoutDestinationPhone = chairmanPhone || members.find(m => m.role === 'admin' || (m as any).role === 'chairman')?.phone || 'Chairman Number';
     const hasDualTeam = Boolean(currentUser?.secondFplTeamId);
 
+    const banterSlipData: BanterSlipData = useMemo(() => {
+        const activeContenders = members.filter((m: any) => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending && (m as any).playMode !== 'sidebets_only');
+        const sortedByPoints = [...activeContenders].sort((a: any, b: any) => Number(b.eventPoints || b.gwPoints || b.points || 0) - Number(a.eventPoints || a.gwPoints || a.points || 0));
+        const topScorer = sortedByPoints[0];
+        const lowest = sortedByPoints.length > 1 ? sortedByPoints[sortedByPoints.length - 1] : null;
+
+        const highestBench = [...activeContenders].sort((a: any, b: any) => Number(b.benchPoints || 0) - Number(a.benchPoints || 0))[0];
+
+        const redZone = members.filter((m: any) => !isMemberFunded(m) && m.role !== 'admin' && m.isActive !== false && (m as any).playMode !== 'sidebets_only').map((m: any) => ({
+            name: m.displayName || m.name || 'Member',
+            phone: m.phone || m.phoneNumber,
+            balance: m.walletBalance || 0,
+        }));
+
+        return {
+            gameweek: currentFplEvent?.id || 6,
+            leagueName: leagueName || 'Fantasy Chama',
+            stake: gameweekStake || 50,
+            vaultPercent: rules?.vault ?? 30,
+            currentVaultTotal: seasonVaultFromTxs || 0,
+            winner: gwWinner?.player_name ? {
+                name: gwWinner.player_name,
+                teamName: gwWinner.entry_name,
+                points: Number(gwWinner.event_total || 0),
+                amountWon: weeklyPot || ((paidMembersCount || 7) * (gameweekStake || 50) * 0.7),
+            } : topScorer ? {
+                name: topScorer.displayName,
+                teamName: (topScorer as any).fplTeamName,
+                points: Number((topScorer as any).eventPoints || (topScorer as any).gwPoints || (topScorer as any).points || 0),
+                amountWon: weeklyPot || ((paidMembersCount || 7) * (gameweekStake || 50) * 0.7),
+            } : null,
+            lowestScorer: lowest && Number((lowest as any).eventPoints || (lowest as any).points || 0) > 0 ? {
+                name: lowest.displayName,
+                teamName: (lowest as any).fplTeamName,
+                points: Number((lowest as any).eventPoints || (lowest as any).points || 0),
+            } : null,
+            benchRegret: highestBench && Number((highestBench as any).benchPoints || 0) > 0 ? {
+                name: highestBench.displayName,
+                teamName: (highestBench as any).fplTeamName,
+                benchPoints: Number((highestBench as any).benchPoints || 0),
+            } : null,
+            redZoneMembers: redZone,
+        };
+    }, [members, gwWinner, currentFplEvent?.id, leagueName, gameweekStake, rules, seasonVaultFromTxs, weeklyPot, paidMembersCount, isMemberFunded]);
+
     const dismissLeagueGuide = () => {
         if (!activeLeagueId) return;
         const guideKey = `fc-member-league-guide-dismissed-${activeLeagueId}-${activeUserId}`;
@@ -1402,6 +1449,13 @@ export default function MemberDashboard() {
                 leagueCode={(leagueSettings as any)?.code || ''}
                 sharedBy={isAdmin && !isCurrentUserGwWinner ? 'chairman' : 'winner'}
                 chairmanName={members.find(m => (m as any).role === 'admin')?.displayName || 'Chairman'}
+            />
+
+            {/* Chama WhatsApp Banter Slip Modal */}
+            <ChamaBanterSlipModal
+                isOpen={showBanterSlipModal}
+                onClose={() => setShowBanterSlipModal(false)}
+                data={banterSlipData}
             />
 
             {/* Phase 40: HQ Suspension Lockout Overlay */}
@@ -1638,15 +1692,28 @@ export default function MemberDashboard() {
                                 </p>
                             </div>
                             {/* Phase 8: Flex on WhatsApp */}
-                            <button
-                                onClick={() => {
-                                    haptics.celebrate();
-                                    setShowFlexModal(true);
-                                }}
-                                className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
-                            >
-                                🏆 Victory Card
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        haptics.celebrate();
+                                        setShowFlexModal(true);
+                                    }}
+                                    className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
+                                >
+                                    🏆 Victory Card
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.impact();
+                                        setShowBanterSlipModal(true);
+                                    }}
+                                    className="relative z-10 flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 transition-all duration-300 active:scale-95 shadow-sm"
+                                    title="Open WhatsApp Banter Slip"
+                                >
+                                    📰 Banter Slip
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className="w-full rounded-[2rem] border border-amber-500/30 bg-gradient-to-br from-[#1b170c] via-[#161d24] to-[#0c1218] p-5 md:p-6 shadow-2xl relative overflow-hidden mb-3">
@@ -1771,6 +1838,18 @@ export default function MemberDashboard() {
                                                     <span>Share Winner as Chairman 📢</span>
                                                 </button>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    haptics.impact();
+                                                    setShowBanterSlipModal(true);
+                                                }}
+                                                className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
+                                                title="Open 1-Tap WhatsApp Banter Slip"
+                                            >
+                                                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span>Matchday Banter Slip 📰</span>
+                                            </button>
                                         </div>
                                     );
                                 })()}

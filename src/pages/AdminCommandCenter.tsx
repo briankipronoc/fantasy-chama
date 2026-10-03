@@ -38,8 +38,12 @@ import {
   Flame,
   Star,
   X,
+  Calculator,
+  MessageCircle,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
+import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
+import MidSeasonBuyInCalculatorModal from "../components/MidSeasonBuyInCalculatorModal";
 import { db, auth } from "../firebase";
 import {
   doc,
@@ -105,6 +109,8 @@ export default function AdminCommandCenter() {
   const [whatsappReceipt, setWhatsappReceipt] = useState<string | null>(null);
   const [liveOpsEvents, setLiveOpsEvents] = useState<any[]>([]);
   const [showOpsModal, setShowOpsModal] = useState(false);
+  const [showBanterSlipModal, setShowBanterSlipModal] = useState(false);
+  const [showBuyInModal, setShowBuyInModal] = useState(false);
   const [resolveTargetGw, setResolveTargetGw] = useState<number | null>(null);
   const [selectedGwForAction, setSelectedGwForAction] = useState<number | null>(null);
   const [showGwActionModal, setShowGwActionModal] = useState(false);
@@ -1435,6 +1441,108 @@ export default function AdminCommandCenter() {
   const projectedRemainingGws = Math.max(0, 38 - (currentGwNumber || firestoreGw || 1));
   const projectedRemainingGross = projectedRemainingGws * Math.max(1, activeMembersCount) * (gameweekStake || 0);
   const projectedSeasonVault = Math.round((totalCollected + projectedRemainingGross) * (rules.vault / 100));
+
+  const banterSlipData: BanterSlipData = useMemo(() => {
+    const activeContenders = members.filter(
+      (m: any) =>
+        m.isActive !== false &&
+        !(m as any).isEliminated &&
+        !(m as any).isPending &&
+        (m as any).playMode !== "sidebets_only",
+    );
+    const sortedByPoints = [...activeContenders].sort(
+      (a: any, b: any) =>
+        Number(b.eventPoints || b.gwPoints || b.points || 0) -
+        Number(a.eventPoints || a.gwPoints || a.points || 0),
+    );
+    const topScorer = sortedByPoints[0];
+    const lowest =
+      sortedByPoints.length > 1
+        ? sortedByPoints[sortedByPoints.length - 1]
+        : null;
+
+    const highestBench = [...activeContenders].sort(
+      (a: any, b: any) =>
+        Number(b.benchPoints || 0) - Number(a.benchPoints || 0),
+    )[0];
+
+    const redZone = members
+      .filter(
+        (m: any) =>
+          !memberHasFunding(m) &&
+          m.role !== "admin" &&
+          m.isActive !== false &&
+          (m as any).playMode !== "sidebets_only",
+      )
+      .map((m: any) => ({
+        name: m.displayName || m.name || "Member",
+        phone: m.phone || m.phoneNumber,
+        balance: m.walletBalance || 0,
+      }));
+
+    return {
+      gameweek: currentGwNumber || firestoreGw || 6,
+      leagueName: leagueName || "Fantasy Chama",
+      stake: gameweekStake || 50,
+      vaultPercent: rules?.vault ?? 30,
+      currentVaultTotal: Math.round(seasonVault || 0),
+      winner: gwWinner?.player_name
+        ? {
+            name: gwWinner.player_name,
+            teamName: gwWinner.entry_name,
+            points: Number(gwWinner.event_total || 0),
+            amountWon:
+              weeklyPot ||
+              Math.round(
+                fundedMembersCount * (gameweekStake || 50) * (rules.weekly / 100),
+              ),
+          }
+        : topScorer
+        ? {
+            name: topScorer.displayName,
+            teamName: (topScorer as any).fplTeamName,
+            points: Number(
+              (topScorer as any).eventPoints || (topScorer as any).gwPoints || (topScorer as any).points || 0,
+            ),
+            amountWon:
+              weeklyPot ||
+              Math.round(
+                fundedMembersCount * (gameweekStake || 50) * (rules.weekly / 100),
+              ),
+          }
+        : null,
+      lowestScorer:
+        lowest && Number((lowest as any).eventPoints || (lowest as any).points || 0) > 0
+          ? {
+              name: lowest.displayName,
+              teamName: (lowest as any).fplTeamName,
+              points: Number((lowest as any).eventPoints || (lowest as any).points || 0),
+            }
+          : null,
+      benchRegret:
+        highestBench && Number((highestBench as any).benchPoints || 0) > 0
+          ? {
+              name: highestBench.displayName,
+              teamName: (highestBench as any).fplTeamName,
+              benchPoints: Number((highestBench as any).benchPoints || 0),
+            }
+          : null,
+      redZoneMembers: redZone,
+    };
+  }, [
+    members,
+    gwWinner,
+    currentGwNumber,
+    firestoreGw,
+    leagueName,
+    gameweekStake,
+    rules,
+    seasonVault,
+    weeklyPot,
+    fundedMembersCount,
+    memberHasFunding,
+  ]);
+
   const currentMember = members.find((m) => m.id === activeUserId || m.authUid === activeUserId || (auth.currentUser?.uid && m.authUid === auth.currentUser.uid));
   const isCoChairSession = (!!coAdminId && (coAdminId === activeUserId || (auth.currentUser?.uid && coAdminId === auth.currentUser.uid))) || (currentMember?.role === "co-chair");
   // highRiskTwoWeekMisses available via members.filter(...) if needed in future
@@ -3429,6 +3537,17 @@ burstFrame();
                   <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
                 </button>
                 <button
+                  type="button"
+                  onClick={() => {
+                    haptics.impact();
+                    setShowBuyInModal(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs sm:text-sm font-bold rounded-xl transition-all shrink-0 cursor-pointer shadow-sm active:scale-95"
+                  title="Calculate fair mid-season buy-in for new recruits"
+                >
+                  <Calculator className="w-4 h-4 text-amber-500" /> Buy-In Calculator 🧮
+                </button>
+                <button
                   onClick={handleBulkNudge}
                   className="flex items-center justify-center gap-2 px-3.5 py-2 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(239,68,68,0.28)] shrink-0"
                 >
@@ -3809,14 +3928,28 @@ burstFrame();
                               Kickoff GW{effectiveStartGw} Active
                             </div>
                           ) : (
-                            <button
-                              id="tour-resolve-gw"
-                              onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
-                            >
-                              <Trophy className="w-3.5 h-3.5" />
-                              <span>Resolve GW{currentGwNumber || 5}</span>
-                            </button>
+                            <>
+                              <button
+                                id="tour-resolve-gw"
+                                onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
+                              >
+                                <Trophy className="w-3.5 h-3.5" />
+                                <span>Resolve GW{currentGwNumber || 5}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  haptics.impact();
+                                  setShowBanterSlipModal(true);
+                                }}
+                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                title="Generate 1-tap WhatsApp matchday digest for your Chama group"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                <span>Chama Banter Slip 📰</span>
+                              </button>
+                            </>
                           )}
                         </>
                       )}
@@ -5401,6 +5534,24 @@ burstFrame();
               chairmanName={currentMember?.displayName || (leagueSettings as any)?.chairmanName || 'The Chairman'}
             />
           )}
+
+          {/* Chama WhatsApp Banter Slip Modal */}
+          <ChamaBanterSlipModal
+            isOpen={showBanterSlipModal}
+            onClose={() => setShowBanterSlipModal(false)}
+            data={banterSlipData}
+          />
+
+          {/* Mid-Season Buy-In Calculator Modal */}
+          <MidSeasonBuyInCalculatorModal
+            isOpen={showBuyInModal}
+            onClose={() => setShowBuyInModal(false)}
+            leagueName={leagueName || "Fantasy Chama"}
+            leagueStartGw={effectiveStartGw}
+            currentGw={currentGwNumber || firestoreGw || 6}
+            gameweekStake={gameweekStake || 50}
+            vaultPercent={rules?.vault ?? 30}
+          />
           </div>
         </div>
 

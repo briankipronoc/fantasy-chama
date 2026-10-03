@@ -11,6 +11,15 @@ export const haptics = {
     } catch {}
   },
 
+  /** Crisp tap for buttons and interactive controls */
+  impact: () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(15);
+      }
+    } catch {}
+  },
+
   /** Rhythmic double buzz for successful actions: payment toggled, bet confirmed, etc. */
   success: () => {
     try {
