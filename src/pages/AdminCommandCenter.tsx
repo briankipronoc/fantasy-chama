@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment, useMemo } from "react";
 import { createPortal } from "react-dom";
 
 import { useNavigate, Link } from "react-router-dom";
@@ -1261,16 +1261,33 @@ export default function AdminCommandCenter() {
     !memberHasFunding(m) &&
     (m.isPending === true || (!m.phone && !m.phoneNumber));
 
-  const filteredMembers = members.filter((m) => {
-    if (m.isActive === false || isPendingMember(m)) return false;
+  // Deduplicate members by id and phone so no member is ever repeated in the master ledger or collections
+  const uniqueMembers = useMemo(() => {
+    const list: typeof members = [];
+    const seenIds = new Set<string>();
+    const seenPhones = new Set<string>();
+    for (const m of members) {
+      if (!m || m.isActive === false) continue;
+      const phone = (m.phone || (m as any).phoneNumber || '').trim();
+      if (m.id && seenIds.has(m.id)) continue;
+      if (phone && phone.length > 5 && seenPhones.has(phone)) continue;
+      if (m.id) seenIds.add(m.id);
+      if (phone && phone.length > 5) seenPhones.add(phone);
+      list.push(m);
+    }
+    return list;
+  }, [members]);
+
+  const filteredMembers = uniqueMembers.filter((m: any) => {
+    if (isPendingMember(m)) return false;
     if (paymentFilter === "Verified") return memberHasFunding(m);
     if (paymentFilter === "Red Zone") return !memberHasFunding(m) && (m as any).playMode !== "sidebets_only";
     return true;
   });
 
-  const fundedMembersCount = members.filter(memberHasFunding).length;
-  const activeMembersCount = members.filter(
-    (m) => m.isActive !== false && !isPendingMember(m) && (m as any).playMode !== "sidebets_only",
+  const fundedMembersCount = uniqueMembers.filter(memberHasFunding).length;
+  const activeMembersCount = uniqueMembers.filter(
+    (m: any) => !isPendingMember(m) && (m as any).playMode !== "sidebets_only",
   ).length;
   const totalSecured = fundedMembersCount * gameweekStake;
   const exactCurrentGwFormula = `${fundedMembersCount} × KES ${Number(gameweekStake || 0).toLocaleString()} = KES ${Number(totalSecured || 0).toLocaleString()}`;
@@ -1302,25 +1319,17 @@ export default function AdminCommandCenter() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal, showHqSettlementForm, showTutorial, showOpsModal, resolveTargetGw]);
-  const redZoneMembers = members.filter(
-    (m) => !memberHasFunding(m) && m.role !== "admin" && m.isActive !== false && (m as any).playMode !== "sidebets_only",
+  const redZoneMembers = uniqueMembers.filter(
+    (m: any) => !memberHasFunding(m) && m.role !== "admin" && (m as any).playMode !== "sidebets_only",
   );
   const allPayableMembersFunded =
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  // Effective startGw: use startGw from state or leagueSettings
-  // If the league commenced or has payouts/transactions for GW5 (or earlier),
-  // lock effectiveStartGw to that earliest active round (e.g. GW5).
-  const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 0);
-  const earliestActivityGw = pendingPayouts.reduce((minGw: number, p: any) => {
-    const gw = Number(p.gw || 0);
-    return gw > 0 ? Math.min(minGw, gw) : minGw;
-  }, 999);
-  const effectiveStartGw = Math.min(
-    rawStartGw > 0 && rawStartGw <= 5 ? rawStartGw : (rawStartGw || 5),
-    earliestActivityGw !== 999 ? earliestActivityGw : (rawStartGw > 0 && rawStartGw <= 5 ? rawStartGw : 5)
-  );
+  // Effective startGw: league officially began clean slate on GW5.
+  // Lock effectiveStartGw to minimum 5 so prior unplayed GW1-4 never pollute active ledger or calculate false arrears.
+  const rawStartGw = Number(startGw || (leagueSettings as any)?.startGw || 5);
+  const effectiveStartGw = Math.max(5, rawStartGw || 5);
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
@@ -4062,9 +4071,9 @@ burstFrame();
                 </div>
               </div>
               <div ref={gwLedgerScrollRef} className="flex gap-2 overflow-x-auto snap-x pb-2 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
-                {Array.from({ length: 38 }, (_, i) => i + 1).map((gw) => {
-                  const isKickoffStart = gw === effectiveStartGw && effectiveStartGw > 1;
-                  const isPreLeague = effectiveStartGw > 1 && gw < effectiveStartGw;
+                {Array.from({ length: 38 - Math.max(1, effectiveStartGw) + 1 }, (_, i) => i + Math.max(1, effectiveStartGw)).map((gw) => {
+                  const isKickoffStart = gw === effectiveStartGw;
+                  const isPreLeague = false;
                   const approvedPayout = pendingPayouts.find(
                     (p) => Number(p.gw) === gw && p.status === 'approved'
                   );
@@ -4865,7 +4874,7 @@ burstFrame();
                   No members found matching this filter.
                 </div>
               ) : (
-                filteredMembers.map((row) => {
+                filteredMembers.map((row: any) => {
                   const wallet = (row as any).walletBalance ?? 0;
                   const gwCost = gameweekStake;
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
@@ -5292,6 +5301,8 @@ burstFrame();
               )}
               leagueName={leagueName || "FantasyChama"}
               leagueCode={(leagueSettings as any)?.code || ''}
+              sharedBy="chairman"
+              chairmanName={currentMember?.displayName || (leagueSettings as any)?.chairmanName || 'The Chairman'}
             />
           )}
           </div>

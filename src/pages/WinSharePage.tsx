@@ -1,7 +1,7 @@
-// WinSharePage.tsx — OG Social Share Card for GW Winners
+// WinSharePage.tsx — OG Social Share Card for GW Winners & Chairman Announcements
 import { useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Trophy, Share2, ArrowLeft, Copy } from 'lucide-react';
+import { Trophy, Share2, ArrowLeft, Copy, Crown, ShieldCheck } from 'lucide-react';
 
 export default function WinSharePage() {
     const [params] = useSearchParams();
@@ -12,25 +12,34 @@ export default function WinSharePage() {
     const amount = Number(params.get('amount') || 0);
     const pts = params.get('pts') || '';
     const code = params.get('code') || '';
+    const by = params.get('by') || 'winner';
+    const isChairman = by === 'chairman';
+    const chairman = params.get('chairman') || 'The Chairperson';
 
     useEffect(() => {
-        document.title = `🏆 ${winner} wins GW${gw} — ${league} | FantasyChama`;
+        document.title = isChairman
+            ? `📢 Official Communiqué: ${winner} wins GW${gw} — ${league} | FantasyChama`
+            : `🏆 ${winner} wins GW${gw} — ${league} | FantasyChama`;
         const setMeta = (property: string, content: string) => {
             let el = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement;
             if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el); }
             el.content = content;
         };
-        setMeta('og:title', `🏆 ${winner} wins Gameweek ${gw}!`);
-        setMeta('og:description', `${winner} just won KES ${amount.toLocaleString()} from ${league}. ${pts ? `${pts} pts` : ''} Join the action on FantasyChama!`);
+        setMeta('og:title', isChairman ? `📢 Official Communiqué: ${winner} wins Gameweek ${gw}!` : `🏆 ${winner} wins Gameweek ${gw}!`);
+        setMeta('og:description', isChairman
+            ? `Office of the Chairperson officially crowns ${winner} for winning Gameweek ${gw} on ${league}. Disbursed KES ${amount.toLocaleString()}. Join the action!`
+            : `${winner} just won KES ${amount.toLocaleString()} from ${league}. ${pts ? `${pts} pts` : ''} Join the action on FantasyChama!`);
         setMeta('og:url', window.location.href);
         setMeta('og:image', 'https://fantasy-chama.vercel.app/og-preview.png');
-    }, [league, gw, winner, amount, pts]);
+    }, [league, gw, winner, amount, pts, isChairman]);
 
     const appOrigin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
     const shareUrl = code
         ? `${appOrigin}/login?code=${code}`
         : appOrigin;
-    const shareText = `🏆 ${winner} just won KES ${amount.toLocaleString()} from Gameweek ${gw} on ${league}!${pts ? ` (${pts} pts)` : ''}\n\nJoin the action on FantasyChama 👇\n${shareUrl}${code ? `\nInvite Code: ${code}` : ''}`;
+    const shareText = isChairman
+        ? `📢 *OFFICIAL CHAMA COMMUNIQUÉ — GW${gw}* 👑\n\nOffice of the Chair officially certifies *${winner}* as the GW${gw} Champion on *${league}* with *${pts ? `${pts} pts` : 'top score'}*!\n💰 Pot Disbursed: *KES ${amount.toLocaleString()}*\nRatified by Chairman ${chairman}.\n\nJoin our Chama 👇\n${shareUrl}${code ? `\nInvite Code: ${code}` : ''}`
+        : `🏆 ${winner} just won KES ${amount.toLocaleString()} from Gameweek ${gw} on ${league}!${pts ? ` (${pts} pts)` : ''}\n\nJoin the action on FantasyChama 👇\n${shareUrl}${code ? `\nInvite Code: ${code}` : ''}`;
 
     const handleShare = () => {
         if (navigator.share) {
@@ -50,39 +59,76 @@ export default function WinSharePage() {
 
             <div className="relative z-10 w-full max-w-sm">
                 {/* Brand */}
-                <p className="text-center text-[10px] font-black uppercase tracking-[0.3em] text-amber-500/60 mb-6">FantasyChama</p>
+                <p className="text-center text-[10px] font-black uppercase tracking-[0.3em] text-amber-500/60 mb-6">
+                    {isChairman ? 'Office of the Chairperson • FantasyChama' : 'FantasyChama Official'}
+                </p>
 
                 {/* Main card */}
-                <div className="bg-gradient-to-b from-[#1c1500] via-[#120f02] to-[#0a0e17] border border-amber-500/40 rounded-[2rem] p-8 text-center shadow-[0_0_80px_rgba(251,191,36,0.2)] relative overflow-hidden">
-                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-amber-500 blur-[60px] opacity-20 pointer-events-none" />
+                <div className={`border rounded-[2rem] p-8 text-center relative overflow-hidden ${
+                    isChairman
+                        ? 'bg-gradient-to-b from-[#091524] via-[#090f17] to-[#04080e] border-emerald-500/40 shadow-[0_0_80px_rgba(16,185,129,0.2)]'
+                        : 'bg-gradient-to-b from-[#1c1500] via-[#120f02] to-[#0a0e17] border-amber-500/40 shadow-[0_0_80px_rgba(251,191,36,0.2)]'
+                }`}>
+                    <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${
+                        isChairman ? 'via-emerald-400' : 'via-amber-400'
+                    } to-transparent`} />
+                    <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 ${
+                        isChairman ? 'bg-emerald-500' : 'bg-amber-500'
+                    } blur-[60px] opacity-20 pointer-events-none`} />
 
-                    {/* Trophy */}
+                    {/* Emblem */}
                     <div className="relative inline-flex mb-5">
-                        <div className="absolute inset-0 rounded-full bg-amber-500/20 animate-ping" style={{ animationDuration: '2s' }} />
-                        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 p-[2px] shadow-[0_0_40px_rgba(251,191,36,0.4)]">
+                        <div className={`absolute inset-0 rounded-full animate-ping ${
+                            isChairman ? 'bg-emerald-500/20' : 'bg-amber-500/20'
+                        }`} style={{ animationDuration: '2s' }} />
+                        <div className={`relative w-20 h-20 rounded-full p-[2px] ${
+                            isChairman
+                                ? 'bg-gradient-to-br from-emerald-400 to-teal-700 shadow-[0_0_40px_rgba(16,185,129,0.4)]'
+                                : 'bg-gradient-to-br from-amber-400 to-amber-700 shadow-[0_0_40px_rgba(251,191,36,0.4)]'
+                        }`}>
                             <div className="w-full h-full rounded-full bg-[#0a0e17] flex items-center justify-center">
-                                <Trophy className="w-9 h-9 text-amber-400" />
+                                {isChairman ? (
+                                    <Crown className="w-9 h-9 text-emerald-400" />
+                                ) : (
+                                    <Trophy className="w-9 h-9 text-amber-400" />
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {/* League + GW */}
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-500/80 mb-1">{league}</p>
-                    <p className="text-xs font-bold text-gray-500 mb-4">Gameweek {gw} Champion</p>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.25em] mb-1 ${
+                        isChairman ? 'text-emerald-400' : 'text-amber-500/80'
+                    }`}>{league}</p>
+                    <p className="text-xs font-bold text-gray-400 mb-4">
+                        {isChairman ? `Official GW${gw} Ratified Result` : `Gameweek ${gw} Champion`}
+                    </p>
 
                     {/* Winner name */}
                     <h1 className="text-3xl font-black text-white tracking-tight leading-tight mb-2">{winner}</h1>
 
                     {/* Pts */}
                     {pts && (
-                        <p className="text-sm font-bold text-amber-400/70 mb-4">{pts} points this GW</p>
+                        <p className={`text-sm font-bold mb-4 ${
+                            isChairman ? 'text-emerald-400/90' : 'text-amber-400/70'
+                        }`}>{pts} points recorded this GW</p>
+                    )}
+
+                    {isChairman && (
+                        <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 font-bold mb-3">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span>Officially Certified by Chairman {chairman}</span>
+                        </div>
                     )}
 
                     {/* Amount */}
-                    <div className="bg-black/40 border border-amber-500/20 rounded-2xl px-6 py-4 my-5 inline-block w-full">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Payout Received</p>
-                        <p className="text-4xl font-black text-amber-400 tabular-nums tracking-tight">KES {amount.toLocaleString()}</p>
+                    <div className="bg-black/40 border border-white/10 rounded-2xl px-6 py-4 my-4 inline-block w-full">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                            {isChairman ? 'Disbursed via M-Pesa' : 'Payout Received'}
+                        </p>
+                        <p className={`text-4xl font-black tabular-nums tracking-tight ${
+                            isChairman ? 'text-emerald-400' : 'text-amber-400'
+                        }`}>KES {amount.toLocaleString()}</p>
                     </div>
 
                     {/* Invite code chip */}
@@ -104,17 +150,21 @@ export default function WinSharePage() {
                         </div>
                     )}
 
-                    <p className="text-xs text-gray-600 mb-6 leading-relaxed">
-                        Automated FPL pot. 91% to the winner.<br />Zero drama, M-Pesa powered.
+                    <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+                        Automated FPL pot. Zero drama, instant M-Pesa disbursement.
                     </p>
 
                     {/* Actions */}
                     <div className="flex flex-col gap-2">
                         <button
                             onClick={handleShare}
-                            className="w-full flex items-center justify-center gap-2 py-4 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/25 text-sm uppercase tracking-widest"
+                            className={`w-full flex items-center justify-center gap-2 py-4 font-black rounded-xl transition-all active:scale-95 shadow-lg text-sm uppercase tracking-widest ${
+                                isChairman
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/25'
+                                    : 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/25'
+                            }`}
                         >
-                            <Share2 className="w-4 h-4" /> Share This Win 🏆
+                            <Share2 className="w-4 h-4" /> {isChairman ? 'Share Official Proclamation 📢' : 'Share This Win 🏆'}
                         </button>
                         <Link
                             to="/"

@@ -3,7 +3,7 @@ import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import LeagueRulesModal from '../components/LeagueRulesModal';
-import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, Copy, PhoneCall } from 'lucide-react';
+import { Trophy, BarChart3, Banknote, ShieldCheck, AlertCircle, Zap, Check, Activity, Terminal, AlertTriangle, RefreshCw, CheckCircle2, Share2, Star, Send, AlertOctagon, Bell, Smartphone, Wallet, MessageCircle, Calendar, Flame, Swords, Copy, PhoneCall, Crown } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, updateDoc, orderBy, limit, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
@@ -143,6 +143,7 @@ export default function MemberDashboard() {
         || members.find(m => m.phone === memberPhone)
         || (role === 'admin' ? chairmanMember : undefined)
         || (role === 'admin' ? members.find(m => (m as any).role === 'admin') : undefined);
+    const isAdmin = role === 'admin' || currentUser?.role === 'admin';
     const walletBalance = currentUser?.walletBalance || 0;
     const isSpectator = currentUser?.playMode === 'sidebets_only';
     const hasPaid = currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake);
@@ -1307,9 +1308,9 @@ export default function MemberDashboard() {
     const greetingText = getGreeting();
     const firstName = (currentUser?.displayName || 'Manager').split(' ')[0];
     const currentGwBadge = currentFplEvent
-        ? (isTargetGwUpcoming
-            ? (isCurrentFunded ? `GW ${activeFundingGw} Secured` : `GW ${activeFundingGw} Due`)
-            : `GW ${currentFplEvent.id} ${currentFplEvent.finished ? 'Complete' : 'Live'}`)
+        ? (currentFplEvent.finished
+            ? `GW ${currentFplEvent.id} Complete`
+            : `GW ${currentFplEvent.id} Live`)
         : gwWinner?.event
             ? `GW ${gwWinner.event} Active`
             : 'GW Active';
@@ -1366,6 +1367,8 @@ export default function MemberDashboard() {
                 amountWon={Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
                 leagueName={leagueName}
                 leagueCode={(leagueSettings as any)?.code || ''}
+                sharedBy={isAdmin && !isCurrentUserGwWinner ? 'chairman' : 'winner'}
+                chairmanName={members.find(m => (m as any).role === 'admin')?.displayName || 'Chairman'}
             />
 
             {/* Phase 40: HQ Suspension Lockout Overlay */}
@@ -1721,6 +1724,20 @@ export default function MemberDashboard() {
                                                     );
                                                 })}
                                             </div>
+                                            {isAdmin && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        haptics.celebrate();
+                                                        setShowFlexModal(true);
+                                                    }}
+                                                    className="w-full mt-2 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs"
+                                                    title="Share official Chairman announcement card"
+                                                >
+                                                    <Crown className="w-3.5 h-3.5 text-emerald-400" />
+                                                    <span>Share Winner as Chairman 📢</span>
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })()}

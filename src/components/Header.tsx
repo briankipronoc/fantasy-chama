@@ -361,8 +361,8 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
             {!shouldHideExtraControls && (
                 <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
 
-                    {/* Theme Toggle — 3-way pill: Dark | OS / System | Light */}
-                    <div className="fc-theme-toggle-shell flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
+                    {/* Theme Toggle — 3-way pill: Dark | OS / System | Light (Desktop/Tablet only; on mobile, switched via Profile module) */}
+                    <div className="fc-theme-toggle-shell hidden md:flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
                         {(['dark', 'system', 'light'] as const).map((mode) => (
                             <button
                                 key={mode}

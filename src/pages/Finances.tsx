@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle } from 'lucide-react';
+import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
@@ -67,7 +67,17 @@ export default function Finances() {
     const activeLeagueId = localStorage.getItem('activeLeagueId');
     const memberPhone = localStorage.getItem('memberPhone');
     const activeUserId = localStorage.getItem('activeUserId');
-    const { members, listenToLeagueMembers, isStealthMode, role, league: leagueSettings } = useStore();
+    const { members: rawMembers, listenToLeagueMembers, isStealthMode, role, league: leagueSettings } = useStore();
+
+    const members = useMemo(() => {
+        const seen = new Set<string>();
+        return (rawMembers || []).filter((m: any) => {
+            const key = m.phone ? `phone:${m.phone}` : (m.authUid ? `auth:${m.authUid}` : `id:${m.id}`);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }, [rawMembers]);
 
     const [transactions, setTransactions] = useState<any[]>([]);
     const [gameweekStake, setMonthlyContribution] = useState(0);
@@ -251,7 +261,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 console.warn('[finances] members listener cleanup failed:', err);
             }
         };
-    }, [activeLeagueId, listenToLeagueMembers, members.length]);
+    }, [activeLeagueId, listenToLeagueMembers, rawMembers?.length]);
 
     useEffect(() => {
         const raf = window.requestAnimationFrame(() => setShowVaultChart(true));
@@ -338,16 +348,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const isMemberFunded = (m: any) => Boolean((m.hasPaid || (gameweekStake > 0 && Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending);
     const paidMembers = members.filter(isMemberFunded);
     const totalSecured = paidMembers.length * (gameweekStake || 0);
-    const firstTransactionGw = transactions.reduce((minGw, tx) => {
-        const value = Number(tx.gameweek || tx.gw || 999);
-        return Number.isFinite(value) && value > 0 ? Math.min(minGw, value) : minGw;
-    }, 999);
     
     const rawStart = Number(startGw || (leagueSettings as any)?.startGw || 0);
-    const leagueStartGw = Math.min(
-        rawStart > 0 && rawStart <= 5 ? rawStart : (rawStart || 5),
-        firstTransactionGw !== 999 ? firstTransactionGw : 5
-    );
+    const leagueStartGw = Math.max(5, rawStart || 5);
     
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     
@@ -675,7 +678,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             }
             // Filter out test payouts logged before official start gameweek
             const txGw = Number(t.gw || t.gameweek);
-            if (Number.isFinite(txGw) && startGw && txGw < startGw) return false;
+            if (Number.isFinite(txGw) && txGw < Math.max(5, startGw || 5)) return false;
             return true;
         })
         .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
@@ -695,14 +698,23 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     );
 
     const currentSeasonStartMs = new Date('2026-08-01T00:00:00Z').getTime();
-    const displayedTransactions = myTransactions.filter((tx: any) => {
-        const ts = toMillis(tx.timestamp);
-        if (seasonFilter === 'current') {
-            if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
-            if (ts && ts < currentSeasonStartMs) return false;
-        }
-        return true;
-    });
+    const displayedTransactions = useMemo(() => {
+        const seen = new Set<string>();
+        return myTransactions.filter((tx: any) => {
+            const txId = tx.id || tx.receiptId || `${tx.timestamp}_${tx.amount}_${tx.type}`;
+            if (seen.has(txId)) return false;
+            seen.add(txId);
+
+            const ts = toMillis(tx.timestamp);
+            if (seasonFilter === 'current') {
+                if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
+                if (ts && ts < currentSeasonStartMs) return false;
+                const gw = Number(tx.gw || tx.gameweek || 0);
+                if (gw > 0 && gw < 5) return false;
+            }
+            return true;
+        });
+    }, [myTransactions, seasonFilter, lastResetAtMs, currentSeasonStartMs]);
 
     const filteredModalTransactions = useMemo(() => {
         return displayedTransactions.filter((tx: any) => {
@@ -775,14 +787,14 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
 
     const totalCompletedOrCurrentGws = useMemo(() => {
-        const rawStart = Math.max(1, Number(startGw || 5));
+        const rawStart = Math.max(5, Number(startGw || 5));
         const currentGw = Number(currentGwNumber || rawStart);
         const effectiveStart = rawStart;
         return Math.max(0, currentGw - effectiveStart + 1);
     }, [startGw, currentGwNumber]);
 
     const memberFundingSummary = useMemo(() => {
-        const rawStart = Math.max(1, Number(startGw || 5));
+        const rawStart = Math.max(5, Number(startGw || 5));
         const currentGw = Number(currentGwNumber || rawStart);
         const start = rawStart;
         const totalCompleted = Math.max(0, currentGw - start + 1);
@@ -2264,15 +2276,41 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-white/5">
                                         <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
                                         <div className="flex items-center gap-2">
-                                            {tx.type === 'payout' && (
-                                                <button
-                                                    onClick={() => setSelectedPayoutForFlex(tx)}
-                                                    className="px-2 py-1 rounded-md border border-amber-400/30 bg-amber-400/10 text-[9px] font-black uppercase tracking-wider text-amber-300 hover:bg-amber-400/20 transition-colors flex items-center gap-1"
-                                                >
-                                                    <Trophy className="w-2.5 h-2.5 text-amber-400" />
-                                                    Flex
-                                                </button>
-                                            )}
+                                            {tx.type === 'payout' && (() => {
+                                                const isWinnerOfTx = Boolean(
+                                                    currentUser && (
+                                                        (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+                                                        (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone || tx.winnerPhone === currentUser.phone)) ||
+                                                        (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.winnerName === currentUser.displayName || tx.playerName === currentUser.displayName))
+                                                    )
+                                                );
+                                                if (!isAdmin && !isWinnerOfTx) return null;
+                                                const isChairmanShare = isAdmin && !isWinnerOfTx;
+                                                return (
+                                                    <button
+                                                        onClick={() => setSelectedPayoutForFlex(tx)}
+                                                        className={clsx(
+                                                            "px-2 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider transition-colors flex items-center gap-1",
+                                                            isChairmanShare
+                                                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                                                : "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                                                        )}
+                                                        title={isChairmanShare ? "Announce Winner as Chairman" : "Share Victory Card"}
+                                                    >
+                                                        {isChairmanShare ? (
+                                                            <>
+                                                                <Crown className="w-2.5 h-2.5 text-emerald-400" />
+                                                                Announce
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Trophy className="w-2.5 h-2.5 text-amber-400" />
+                                                                Flex
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })()}
                                             <button
                                                 onClick={() => shareTransactionReceipt(tx)}
                                                 className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-wider text-white hover:bg-white/10 transition-colors"
@@ -2402,15 +2440,41 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {tx.type === 'payout' && (
-                                                            <button
-                                                                onClick={() => setSelectedPayoutForFlex(tx)}
-                                                                className="px-2.5 py-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-400/20 transition-colors flex items-center gap-1"
-                                                            >
-                                                                <Trophy className="w-3 h-3 text-amber-400" />
-                                                                Flex
-                                                            </button>
-                                                        )}
+                                                        {tx.type === 'payout' && (() => {
+                                                            const isWinnerOfTx = Boolean(
+                                                                currentUser && (
+                                                                    (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+                                                                    (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone || tx.winnerPhone === currentUser.phone)) ||
+                                                                    (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.winnerName === currentUser.displayName || tx.playerName === currentUser.displayName))
+                                                                )
+                                                            );
+                                                            if (!isAdmin && !isWinnerOfTx) return null;
+                                                            const isChairmanShare = isAdmin && !isWinnerOfTx;
+                                                            return (
+                                                                <button
+                                                                    onClick={() => setSelectedPayoutForFlex(tx)}
+                                                                    className={clsx(
+                                                                        "px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1",
+                                                                        isChairmanShare
+                                                                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                                                            : "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                                                                    )}
+                                                                    title={isChairmanShare ? "Announce Winner as Chairman" : "Share Victory Card"}
+                                                                >
+                                                                    {isChairmanShare ? (
+                                                                        <>
+                                                                            <Crown className="w-3 h-3 text-emerald-400" />
+                                                                            Announce
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Trophy className="w-3 h-3 text-amber-400" />
+                                                                            Flex
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })()}
                                                         <button
                                                             onClick={() => shareTransactionReceipt(tx)}
                                                             className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors"
@@ -2635,18 +2699,44 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                             </td>
                                                             <td className="px-6 py-3.5 text-right">
                                                                 <div className="flex items-center justify-end gap-2">
-                                                                    {tx.type === 'payout' && (
-                                                                        <button
-                                                                            onClick={() => {
-                                                                                setIsLedgerModalOpen(false);
-                                                                                setSelectedPayoutForFlex(tx);
-                                                                            }}
-                                                                            className="px-2 py-1 rounded-lg border border-amber-400/30 bg-amber-400/10 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-400/20 transition-colors flex items-center gap-1 cursor-pointer"
-                                                                        >
-                                                                            <Trophy className="w-3 h-3 text-amber-400" />
-                                                                            Flex
-                                                                        </button>
-                                                                    )}
+                                                                    {tx.type === 'payout' && (() => {
+                                                                        const isWinnerOfTx = Boolean(
+                                                                            currentUser && (
+                                                                                (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+                                                                                (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone || tx.winnerPhone === currentUser.phone)) ||
+                                                                                (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.winnerName === currentUser.displayName || tx.playerName === currentUser.displayName))
+                                                                            )
+                                                                        );
+                                                                        if (!isAdmin && !isWinnerOfTx) return null;
+                                                                        const isChairmanShare = isAdmin && !isWinnerOfTx;
+                                                                        return (
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setIsLedgerModalOpen(false);
+                                                                                    setSelectedPayoutForFlex(tx);
+                                                                                }}
+                                                                                className={clsx(
+                                                                                    "px-2 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1 cursor-pointer",
+                                                                                    isChairmanShare
+                                                                                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                                                                        : "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                                                                                )}
+                                                                                title={isChairmanShare ? "Announce Winner as Chairman" : "Share Victory Card"}
+                                                                            >
+                                                                                {isChairmanShare ? (
+                                                                                    <>
+                                                                                        <Crown className="w-3 h-3 text-emerald-400" />
+                                                                                        Announce
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <Trophy className="w-3 h-3 text-amber-400" />
+                                                                                        Flex
+                                                                                    </>
+                                                                                )}
+                                                                            </button>
+                                                                        );
+                                                                    })()}
                                                                     <button
                                                                         onClick={() => shareTransactionReceipt(tx)}
                                                                         className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -2737,18 +2827,44 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-white/5">
                                                         <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
                                                         <div className="flex items-center gap-2">
-                                                            {tx.type === 'payout' && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setIsLedgerModalOpen(false);
-                                                                        setSelectedPayoutForFlex(tx);
-                                                                    }}
-                                                                    className="px-2 py-1 rounded-md border border-amber-400/30 bg-amber-400/10 text-[9px] font-black uppercase tracking-wider text-amber-300 hover:bg-amber-400/20 transition-colors flex items-center gap-1 cursor-pointer"
-                                                                >
-                                                                    <Trophy className="w-2.5 h-2.5 text-amber-400" />
-                                                                    Flex
-                                                                </button>
-                                                            )}
+                                                            {tx.type === 'payout' && (() => {
+                                                                const isWinnerOfTx = Boolean(
+                                                                    currentUser && (
+                                                                        (currentUser.id && (tx.memberId === currentUser.id || tx.userId === currentUser.id)) ||
+                                                                        (currentUser.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone || tx.winnerPhone === currentUser.phone)) ||
+                                                                        (currentUser.displayName && (tx.memberName === currentUser.displayName || tx.winnerName === currentUser.displayName || tx.playerName === currentUser.displayName))
+                                                                    )
+                                                                );
+                                                                if (!isAdmin && !isWinnerOfTx) return null;
+                                                                const isChairmanShare = isAdmin && !isWinnerOfTx;
+                                                                return (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setIsLedgerModalOpen(false);
+                                                                            setSelectedPayoutForFlex(tx);
+                                                                        }}
+                                                                        className={clsx(
+                                                                            "px-2 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer",
+                                                                            isChairmanShare
+                                                                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                                                                : "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                                                                        )}
+                                                                        title={isChairmanShare ? "Announce Winner as Chairman" : "Share Victory Card"}
+                                                                    >
+                                                                        {isChairmanShare ? (
+                                                                            <>
+                                                                                <Crown className="w-2.5 h-2.5 text-emerald-400" />
+                                                                                Announce
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Trophy className="w-2.5 h-2.5 text-amber-400" />
+                                                                                Flex
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })()}
                                                             <button
                                                                 onClick={() => shareTransactionReceipt(tx)}
                                                                 className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-wider text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -3036,19 +3152,33 @@ const handleRejectPendingPayout = async (payout: any) => {
                 />
             )}
 
-            {selectedPayoutForFlex && (
-                <ChampionFlexCardModal
-                    isOpen={Boolean(selectedPayoutForFlex)}
-                    onClose={() => setSelectedPayoutForFlex(null)}
-                    winnerName={selectedPayoutForFlex.winnerName || selectedPayoutForFlex.memberName || 'Gameweek Champion'}
-                    teamName={selectedPayoutForFlex.teamName}
-                    points={selectedPayoutForFlex.points || selectedPayoutForFlex.event_total || 0}
-                    gameweek={selectedPayoutForFlex.gameweek || selectedPayoutForFlex.gw || ''}
-                    amountWon={Number(selectedPayoutForFlex.amount || 0)}
-                    leagueName={leagueName}
-                    winType="gameweek"
-                />
-            )}
+            {selectedPayoutForFlex && (() => {
+                const isWinnerOfSelected = Boolean(
+                    currentUser && (
+                        (currentUser.id && (selectedPayoutForFlex.memberId === currentUser.id || selectedPayoutForFlex.userId === currentUser.id)) ||
+                        (currentUser.phone && (selectedPayoutForFlex.phoneNumber === currentUser.phone || selectedPayoutForFlex.phone === currentUser.phone || selectedPayoutForFlex.winnerPhone === currentUser.phone)) ||
+                        (currentUser.displayName && (selectedPayoutForFlex.memberName === currentUser.displayName || selectedPayoutForFlex.winnerName === currentUser.displayName || selectedPayoutForFlex.playerName === currentUser.displayName))
+                    )
+                );
+                const sharedBy = (isAdmin && !isWinnerOfSelected) ? 'chairman' : 'winner';
+                const chairmanName = leagueSettings?.chairmanName || (currentUser?.displayName && isAdmin ? currentUser.displayName : 'Chairman');
+
+                return (
+                    <ChampionFlexCardModal
+                        isOpen={Boolean(selectedPayoutForFlex)}
+                        onClose={() => setSelectedPayoutForFlex(null)}
+                        winnerName={selectedPayoutForFlex.winnerName || selectedPayoutForFlex.memberName || 'Gameweek Champion'}
+                        teamName={selectedPayoutForFlex.teamName}
+                        points={selectedPayoutForFlex.points || selectedPayoutForFlex.event_total || 0}
+                        gameweek={selectedPayoutForFlex.gameweek || selectedPayoutForFlex.gw || ''}
+                        amountWon={Number(selectedPayoutForFlex.amount || 0)}
+                        leagueName={leagueName}
+                        winType="gameweek"
+                        sharedBy={sharedBy}
+                        chairmanName={chairmanName}
+                    />
+                );
+            })()}
             </div>
         </div>
     );
