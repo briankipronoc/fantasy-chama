@@ -2943,4 +2943,21 @@ html.stealth nav {
   -webkit-text-fill-color: #ffffff !important;
 }
 
+/* Master Invite Card & Command Board Stealth / Dark Protections */
+[data-theme="stealth"] .fc-invite-card,
+[data-theme="stealth"] .fc-invite-card-body,
+html.stealth .fc-invite-card,
+html.stealth .fc-invite-card-body {
+  background: #06080b !important;
+  background-color: #06080b !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme="dark"] .fc-invite-card,
+[data-theme="dark"] .fc-invite-card-body {
+  background: #0c1219 !important;
+  background-color: #0c1219 !important;
+}
+
+
 

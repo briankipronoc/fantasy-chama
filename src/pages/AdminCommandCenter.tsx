@@ -1621,12 +1621,16 @@ export default function AdminCommandCenter() {
       hoursText,
       `Kuna watu wanataka kucheza na jasho ya watu! 😂 Hawa wafuatao ${redZoneMembers.length} bado hawajatoa stake ya KES ${gameweekStake.toLocaleString()}:`,
       ``,
-      ...redZoneMembers.map((m, idx) => `${idx + 1}. *${m.displayName}* (${m.teamName || 'FPL Team'})`),
+      ...redZoneMembers.map((m, idx) => {
+        const bal = Number(m.walletBalance || 0);
+        const deficit = Math.max(0, gameweekStake - bal);
+        return `${idx + 1}. *${m.displayName}* (${m.teamName || 'FPL Team'})${bal > 0 ? ` — Balance: KES ${bal.toLocaleString()} (Needs KES ${deficit.toLocaleString()})` : ` — Balance: KES 0`}`;
+      }),
       ``,
       `💰 Weekly Cash Pot: *KES ${weeklyPrize.toLocaleString()}*`,
       pochiText ? `📱 Tuma kakitu via Pochi / M-Pesa: *${pochiText}*` : '',
       ``,
-      `⚠️ *Kumbuka: Kama hujaweka kakitu, scores zitakuwa blurred na huwezi kula pot ata ukipata 100 points!*`,
+      `⚠️ *Kumbuka: Kama wallet haina minimum stake ya KES ${gameweekStake.toLocaleString()}, scores zitakuwa locked na huwezi kula pot ata ukipata 100 points!*`,
       `👉 Lipa chap chap hapa: ${appUrl}/dashboard`
     ].filter(Boolean).join('\n');
     
@@ -1645,9 +1649,11 @@ export default function AdminCommandCenter() {
           activeLeagueId,
           "notifications",
         );
+        const bal = Number(member.walletBalance || 0);
+        const deficit = Math.max(0, gameweekStake - bal);
         return addDoc(notifsRef, {
           type: "warning",
-          message: `URGENT Chairman Nudge: Gameweek Deadline approaching. Please complete your active Gameweek contribution to avoid being locked out.`,
+          message: `URGENT Chairman Nudge: Gameweek Deadline approaching. Your wallet balance (KES ${bal.toLocaleString()}) is below the required KES ${gameweekStake.toLocaleString()} matchday stake. Top up KES ${deficit.toLocaleString()} to qualify for the cash pot.`,
           timestamp: serverTimestamp(),
           readBy: [],
           targetMemberId: member.id,
@@ -3652,60 +3658,61 @@ burstFrame();
                       )}
                     </div>
 
-                    {/* Right: Projected Pot + Action Buttons — Resolve placed directly below Projected Cash Pot with matching length */}
-                    <div className="flex flex-col gap-2.5 w-full lg:w-64 xl:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0">
-                      <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-black/40 border-slate-200 dark:border-white/10 shadow-xs">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
-                          {isSeasonPotOnly ? `GW${currentGwNumber || effectiveStartGw || 5} Winner` : isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`}
-                        </p>
-                        <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
-                          {isSeasonPotOnly ? "Season Vault Focus 🏆" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
-                        </p>
-                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
-                          {isSeasonPotOnly ? "100% Season Vault Accumulation" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
-                        </p>
-                      </div>
-
-                      {formattedDeadline && (
-                        <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold text-center">
-                          <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                          <span>GW{nextPlayableGw} Deadline: {formattedDeadline}</span>
-                        </div>
-                      )}
-
-                      {isPreLeagueRound ? (
-                        <div className="w-full text-center px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shadow-xs">
-                          Kickoff GW{effectiveStartGw} Active
-                        </div>
-                      ) : (
-                        <>
-                          {/* Resolve button directly below Projected Cash Pot — matching width */}
-                          <button
-                            id="tour-resolve-gw"
-                            onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                            disabled={isResolved}
-                            className={clsx(
-                              "w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
-                              isResolved
-                                ? "bg-slate-200 text-slate-500 border border-slate-300 dark:bg-white/10 dark:border-white/10 dark:text-gray-400 cursor-not-allowed"
-                                : "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
-                            )}
-                          >
-                            <Trophy className="w-3.5 h-3.5" />
-                            <span>{isResolved ? "Resolved ✓" : `Resolve GW${currentGwNumber || 5}`}</span>
-                          </button>
-
+                    {/* Right: Projected Pot + Action Buttons / Resolved status */}
+                    <div className="flex flex-col gap-2.5 w-full lg:w-60 xl:w-64 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0 justify-center">
+                      {isResolved ? (
+                        <div className="flex flex-col items-center justify-center gap-2.5 py-1">
+                          <div className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-xs font-black tracking-wide rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 shadow-xs">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span>Resolved ✓</span>
+                          </div>
                           {leaderName && (
                             <button
                               onClick={() => {
                                 haptics.celebrate();
                                 setShowChairmanFlexModal(true);
                               }}
-                              className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                              className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
                               title="Generate Champion Victory Card for WhatsApp"
                             >
                               <Share2 className="w-3.5 h-3.5" />
                               <span>Victory Card</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-[#111822] border-slate-200 dark:border-white/10 shadow-xs">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
+                              {isSeasonPotOnly ? `GW${currentGwNumber || effectiveStartGw || 5} Winner` : isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`}
+                            </p>
+                            <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
+                              {isSeasonPotOnly ? "Season Vault Focus 🏆" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
+                              {isSeasonPotOnly ? "100% Season Vault Accumulation" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
+                            </p>
+                          </div>
+
+                          {formattedDeadline && (
+                            <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold text-center">
+                              <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                              <span>GW{nextPlayableGw} Deadline: {formattedDeadline}</span>
+                            </div>
+                          )}
+
+                          {isPreLeagueRound ? (
+                            <div className="w-full text-center px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shadow-xs">
+                              Kickoff GW{effectiveStartGw} Active
+                            </div>
+                          ) : (
+                            <button
+                              id="tour-resolve-gw"
+                              onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
+                            >
+                              <Trophy className="w-3.5 h-3.5" />
+                              <span>Resolve GW{currentGwNumber || 5}</span>
                             </button>
                           )}
                         </>
@@ -3717,7 +3724,7 @@ burstFrame();
             })()}
 
             <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full">
-              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-300/70 dark:border-[#FBBF24]/20 bg-white dark:bg-gradient-to-br dark:from-amber-500/5 dark:via-[#121922] dark:to-[#0c1219] p-4 sm:p-6 shadow-xl backdrop-blur-xl">
+              <div className="xl:col-span-8 fc-highlight-card fc-command-board rounded-3xl border border-amber-300/70 dark:border-white/10 bg-white dark:bg-[#0c1219] p-4 sm:p-6 shadow-xl backdrop-blur-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
                   <div>
                     <div className="flex items-center gap-2">
@@ -3741,8 +3748,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       sortedPendingPayouts.length > 0
-                        ? "border-amber-400 bg-amber-100/80 dark:border-amber-400 dark:bg-gradient-to-b dark:from-amber-500/25 dark:via-[#1c1608] dark:to-[#120f06] hover:bg-amber-100 dark:hover:border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/50"
-                        : "border-amber-200/80 dark:border-amber-500/20 bg-amber-50/50 dark:bg-gradient-to-b dark:from-amber-500/10 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-amber-100/60 dark:hover:border-amber-500/40"
+                        ? "border-amber-400 bg-amber-100/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/50"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
                     )}
                     onClick={() => {
                       if (sortedPendingPayouts.length > 0) {
@@ -3782,8 +3789,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       redZoneMembers.length > 0
-                        ? "border-rose-400 bg-rose-100/80 dark:border-rose-400 dark:bg-gradient-to-b dark:from-rose-500/25 dark:via-[#1c0d12] dark:to-[#12080c] hover:bg-rose-100 dark:hover:border-rose-300 shadow-[0_0_24px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/50"
-                        : "border-rose-200/80 dark:border-rose-500/20 bg-rose-50/50 dark:bg-gradient-to-b dark:from-rose-500/10 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-rose-100/60 dark:hover:border-rose-500/40"
+                        ? "border-rose-400 bg-rose-100/80 dark:border-rose-400 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:border-rose-300 shadow-[0_0_24px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/50"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3819,8 +3826,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       pendingDisputes.length > 0
-                        ? "border-cyan-400 bg-cyan-100/80 dark:border-cyan-400 dark:bg-gradient-to-b dark:from-cyan-500/25 dark:via-[#09171f] dark:to-[#050f14] hover:bg-cyan-100 dark:hover:border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/50"
-                        : "border-cyan-200/80 dark:border-cyan-500/20 bg-cyan-50/50 dark:bg-gradient-to-b dark:from-cyan-500/10 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-cyan-100/60 dark:hover:border-cyan-500/40"
+                        ? "border-cyan-400 bg-cyan-100/80 dark:border-cyan-400 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/50"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
                     )}
                     onClick={() => {
                       setActiveTab("finance");
@@ -3855,8 +3862,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
-                        ? "border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-gradient-to-b dark:from-emerald-500/12 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-emerald-100/70 dark:hover:border-emerald-500/50"
-                        : "border-amber-300 bg-amber-50/80 dark:border-amber-400 dark:bg-gradient-to-b dark:from-amber-500/25 dark:via-[#1c1608] dark:to-[#120f06] hover:bg-amber-100/90 dark:hover:border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/40"
+                        ? "border-emerald-300/80 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-[#111822] hover:bg-emerald-100/60 dark:hover:bg-[#151f2c] dark:hover:border-emerald-500/50"
+                        : "border-amber-300 bg-amber-50/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100/90 dark:hover:border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/40"
                     )}
                     onClick={() => {
                       setShowResolveModal(true);
@@ -3894,8 +3901,8 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       allPayableMembersFunded
-                        ? "border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-gradient-to-b dark:from-emerald-500/12 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-emerald-100/70 dark:hover:border-emerald-500/50"
-                        : "border-teal-300/80 dark:border-teal-500/25 bg-teal-50/60 dark:bg-gradient-to-b dark:from-teal-500/12 dark:via-[#161b22] dark:to-[#0f141a] hover:bg-teal-100/70 dark:hover:border-teal-500/50"
+                        ? "border-emerald-300/80 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-[#111822] hover:bg-emerald-100/60 dark:hover:bg-[#151f2c] dark:hover:border-emerald-500/50"
+                        : "border-teal-300/80 dark:border-teal-500/25 bg-teal-50/50 dark:bg-[#111822] hover:bg-teal-100/60 dark:hover:bg-[#151f2c] dark:hover:border-teal-500/40"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -3928,42 +3935,34 @@ burstFrame();
                 </div>
               </div>
 
-              <div className="fc-invite-card xl:col-span-4 w-full bg-white dark:bg-[#161d24] border border-amber-300/70 dark:border-amber-500/25 rounded-[2rem] shadow-xl overflow-hidden flex flex-col">
-                <div className="fc-invite-card-body p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-amber-50/40 via-white to-amber-50/20 dark:from-[#1a232b] dark:to-[#161d24] h-full">
+              <div className="fc-invite-card xl:col-span-4 w-full bg-white dark:bg-[#0c1219] border border-amber-300/70 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden flex flex-col">
+                <div className="fc-invite-card-body p-6 sm:p-8 flex flex-col justify-center relative min-h-[220px] bg-gradient-to-b from-amber-50/50 via-white to-amber-50/20 dark:from-[#111822] dark:via-[#0c1219] dark:to-[#080d13] h-full">
                   <span
-                    className="text-xs font-black tracking-widest uppercase mb-4 mt-4 text-amber-600 dark:text-amber-400"
-                    style={{
-                      background: 'linear-gradient(90deg, #D97706 0%, #F59E0B 50%, #B45309 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
+                    className="text-xs font-black tracking-widest uppercase mb-4 mt-2 text-amber-600 dark:text-[#FBBF24]"
                   >
                     Master Invite Code
                   </span>
                   <div
-                    className="text-5xl lg:text-6xl font-black tracking-tight mb-6 tabular-nums select-all text-amber-600 dark:text-amber-400"
+                    className="text-5xl lg:text-6xl font-black tracking-tight mb-5 tabular-nums select-all text-amber-600 dark:text-[#FBBF24]"
                     style={{
-                      background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      filter: 'drop-shadow(0 2px 14px rgba(245,158,11,0.25))',
+                      textShadow: '0 2px 20px rgba(245,158,11,0.25)',
                     }}
                   >
                     {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
                   </div>
-                  <p className="text-slate-600 dark:text-gray-400 text-sm leading-relaxed mb-8 font-medium">
+                  <p className="text-slate-600 dark:text-gray-300 text-sm leading-relaxed mb-6 font-medium">
                     Share this 6-digit PIN to grant access to{" "}
                     <strong className="text-amber-700 dark:text-amber-300">{leagueName}</strong>.
                   </p>
                   <div className="flex flex-col gap-3 mt-auto">
                     <button
                       onClick={shareInviteCode}
-                      className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl transition-colors shadow-[0_0_15px_rgba(37,211,102,0.3)] cursor-pointer active:scale-95"
+                      className="fc-invite-share flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl transition-all shadow-[0_0_15px_rgba(37,211,102,0.3)] cursor-pointer active:scale-95"
                     >
                       <Share2 className="w-4 h-4" /> Share via WhatsApp
                     </button>
                     <button
-                      className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-3 hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                      className="fc-invite-regenerate flex items-center justify-center gap-2 w-full py-2.5 hover:bg-slate-100 dark:hover:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-gray-400 font-bold rounded-xl transition-colors disabled:opacity-50"
                       disabled
                     >
                       <RefreshCw className="w-4 h-4" /> Regenerate
