@@ -661,8 +661,8 @@ app.post('/api/league/deduct-gw-cost', verifyFirebaseToken, async (req, res) => 
         for (const mDoc of membersSnap.docs) {
             const data = mDoc.data();
             
-            // Do not deduct or penalize members who are already inactive
-            if (data.isActive === false) continue;
+            // Do not deduct or penalize members who are inactive, eliminated, pending, or spectators
+            if (data.isActive === false || data.isEliminated === true || data.isPending === true || data.playMode === 'sidebets_only') continue;
 
             const currentBalance = Number(data.walletBalance) || 0;
             const newBalance = currentBalance - cost;
@@ -1201,7 +1201,7 @@ const runFPLAutopilot = async () => {
                 const membershipsSnap = await db.collection(`leagues/${leagueId}/memberships`).get();
                 const members = membershipsSnap.docs
                     .map(d => ({ id: d.id, ...d.data() }))
-                    .filter(m => m.hasPaid && m.isActive !== false);
+                    .filter(m => m.hasPaid && m.isActive !== false && !m.isEliminated && !m.isPending && m.playMode !== 'sidebets_only');
 
                 if (members.length === 0) {
                     console.log(`[AUTOPILOT] League ${leagueId}: No paid members. Skipping.`);
@@ -1411,6 +1411,9 @@ const runDailyReminder = async () => {
 
                 for (const memberDoc of membersSnap.docs) {
                     const member = memberDoc.data();
+                    if (member.isActive === false || member.isPending === true || member.isEliminated === true || member.playMode === 'sidebets_only') {
+                        continue;
+                    }
                     await db.collection(`leagues/${leagueId}/notifications`).add({
                         type: 'warning',
                         message: `⏰ REMINDER: ${nextEvent.name} deadline is in ${Math.ceil(hoursLeft)}h! Your wallet balance is empty. Pay via M-Pesa now to stay eligible for the pot.`,

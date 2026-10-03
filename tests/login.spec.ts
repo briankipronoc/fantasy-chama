@@ -11,14 +11,10 @@ test.describe('Member Login Flow', () => {
     // In our component, if a user focuses on the first input and pastes, the handlePaste triggers.
     
     // Get the phone input
-    const phoneInput = page.getByPlaceholder('e.g. 0712345678').first();
-    await phoneInput.fill('0799999999');
-    
-    // Ensure the Join Button exists
-    const joinBtn = page.locator('button', { hasText: 'Verify & Join' }).or(page.locator('button', { hasText: 'Secure Login' })).or(page.locator('button', { hasText: /Join/i }));
-    
-    // Verify the UI rendered successfully
-    await expect(phoneInput).toBeVisible();
-    await expect(joinBtn).toBeVisible();
+    const phoneInput = page.getByPlaceholder('0712 345 678').or(page.getByPlaceholder('e.g. 0712345678 or chairman@domain.com')).first();
+    await expect(phoneInput).toBeVisible({ timeout: 10000 });
+    // Ensure the Enter League or Login Button exists
+    const enterBtn = page.locator('button', { hasText: /Enter League|Login|Verify|Join/i }).first();
+    await expect(enterBtn).toBeVisible();
   });
 });

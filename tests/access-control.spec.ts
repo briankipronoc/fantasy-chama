@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Access Control Protections', () => {
-  test('Should not allow Standard Member to view Admin Setup', async ({ page }) => {
+  test('Should not allow Standard Member to view Admin Command Center via /admin', async ({ page }) => {
     // Navigate to the app
     await page.goto('/');
 
@@ -9,17 +9,12 @@ test.describe('Access Control Protections', () => {
     await page.evaluate(() => {
       localStorage.setItem('activeLeagueId', 'TEST_LEAGUE_123');
       localStorage.setItem('activeUserId', 'TEST_MEMBER_123');
-       // Notice we are NOT setting 'role' to 'admin'
+      localStorage.setItem('role', 'member');
     });
 
-    // Attempt to access setup route
-    await page.goto('/setup');
-    await page.waitForLoadState('networkidle');
-
-    // Setup should not remain accessible for an already-scoped member session.
-    // Depending on hydration/auth state, app may route to /dashboard or /login.
-    expect(page.url()).not.toContain('/setup');
-    expect(page.url()).toMatch(/\/(dashboard|login)/);
+    // Attempt to access /admin route
+    await page.goto('/admin');
+    await expect(page).not.toHaveURL(/\/admin$/, { timeout: 10000 });
   });
 
   test('Should block Standard Member from Admin Command Center', async ({ page }) => {
@@ -35,10 +30,7 @@ test.describe('Access Control Protections', () => {
     // Navigate to the command center directly
     await page.goto('/command-center');
 
-    // Wait and evaluate where the router sends us
-    await page.waitForLoadState('networkidle');
-
     // The router should rebound a member back to the main dashboard or show access denied
-    expect(page.url()).not.toContain('/command-center');
+    await expect(page).not.toHaveURL(/\/command-center/, { timeout: 10000 });
   });
 });

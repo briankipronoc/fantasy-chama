@@ -2725,7 +2725,13 @@ burstFrame();
 
       // Deduct gameweek stake from each funded member's wallet directly via Firestore
       const fundedMembers = members.filter(
-        (m) => m.isActive !== false && m.hasPaid && gameweekStake > 0,
+        (m) =>
+          m.isActive !== false &&
+          !(m as any).isEliminated &&
+          !(m as any).isPending &&
+          (m as any).playMode !== "sidebets_only" &&
+          memberHasFunding(m) &&
+          gameweekStake > 0,
       );
       for (const m of fundedMembers) {
         const memberRef = doc(
