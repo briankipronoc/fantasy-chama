@@ -766,8 +766,8 @@ export default function SuperAdminDashboard() {
                             </div>
                             <p className="text-2xl font-black text-emerald-400 tabular-nums">{fmt(stats.totalPlatformRev)}</p>
                         </div>
-                        <div className="h-45">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-48 w-full" style={{ position: 'relative' }}>
+                            <ResponsiveContainer width="100%" height={180} minWidth={100} debounce={100}>
                                 <AreaChart data={revenueTrend} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
                                     <defs>
                                         <linearGradient id="hqGradient" x1="0" y1="0" x2="0" y2="1">

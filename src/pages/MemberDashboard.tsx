@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
@@ -105,6 +105,17 @@ export default function MemberDashboard() {
             return true;
         });
     }, [rawMembers]);
+
+    // Stable team IDs string key to prevent trajectory loops on membership updates
+    const memberTeamIdsKey = useMemo(() => {
+        return members
+            .map((m: any) => `${m.fplTeamId || ''}_${m.secondFplTeamId || ''}`)
+            .sort()
+            .join(',');
+    }, [members]);
+
+    const lastLoginTrackedRef = useRef<string>('');
+    const lastSyncedMissedGwRef = useRef<string>('');
     const logout = useStore(state => state.logout);
     const leagueSettings = useStore(state => state.league);
     
@@ -251,8 +262,9 @@ export default function MemberDashboard() {
         const unsubscribeMembers = listenToLeagueMembers(activeLeagueId);
         const unsubscribeTransactions = listenToLeagueTransactions(activeLeagueId);
 
-        // Update lastLoginAt for retention tracking
-        if (activeUserId && activeUserId !== 'dummy') {
+        // Update lastLoginAt for retention tracking (guarded to once per session to prevent write/snapshot loops)
+        if (activeUserId && activeUserId !== 'dummy' && lastLoginTrackedRef.current !== `${activeLeagueId}_${activeUserId}`) {
+            lastLoginTrackedRef.current = `${activeLeagueId}_${activeUserId}`;
             const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', activeUserId);
             updateDoc(memberRef, { 
                 lastLoginAt: serverTimestamp() 
@@ -474,7 +486,7 @@ export default function MemberDashboard() {
         return () => {
             isMounted = false;
         };
-    }, [rawFplStandings, currentUser?.fplTeamId, currentUser?.secondFplTeamId, currentUser?.displayName, currentFplEvent?.id, currentFplEvent?.deadlineTime, members]);
+    }, [rawFplStandings, currentUser?.fplTeamId, currentUser?.secondFplTeamId, currentUser?.displayName, currentFplEvent?.id, currentFplEvent?.deadlineTime, memberTeamIdsKey]);
 
     useEffect(() => {
         const fetchCurrentEvent = async () => {
@@ -687,7 +699,9 @@ export default function MemberDashboard() {
         }
 
         const storedMissed = Number((currentUser as any).missedGameweeks || 0);
-        if (consecutiveMissed !== storedMissed) {
+        const syncKey = `${activeLeagueId}_${currentUser.id}_${consecutiveMissed}`;
+        if (consecutiveMissed !== storedMissed && lastSyncedMissedGwRef.current !== syncKey) {
+            lastSyncedMissedGwRef.current = syncKey;
             const memberRef = doc(db, 'leagues', activeLeagueId, 'memberships', currentUser.id);
             updateDoc(memberRef, { missedGameweeks: consecutiveMissed }).catch(() => {});
         }

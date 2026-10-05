@@ -881,21 +881,21 @@
   }
 
   .fc-error-boundary {
-    background: rgba(13, 18, 24, 0.9);
-    border: 1px solid rgba(239, 68, 68, 0.28);
-    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.24);
+    background: #0a0e17;
+    border: none;
+    box-shadow: none;
     color: #f8fafc;
   }
   .fc-error-boundary-copy {
     color: #94a3b8;
   }
   .fc-error-boundary-retry {
-    background: rgba(239, 68, 68, 0.12);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: #10b981;
+    color: #022c22;
+    border: 1px solid rgba(16, 185, 129, 0.4);
   }
   .fc-error-boundary-retry:hover {
-    background: rgba(239, 68, 68, 0.2);
+    background: #059669;
   }
 
   .fc-landing-shell {
@@ -1927,21 +1927,21 @@
 }
 
 [data-theme="light"] .fc-error-boundary {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(239, 68, 68, 0.28) !important;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1) !important;
+  background: #f8fafc !important;
+  border: none !important;
+  box-shadow: none !important;
   color: #0f172a !important;
 }
 [data-theme="light"] .fc-error-boundary-copy {
   color: #475569 !important;
 }
 [data-theme="light"] .fc-error-boundary-retry {
-  background: rgba(254, 242, 242, 0.95) !important;
-  border-color: rgba(239, 68, 68, 0.28) !important;
-  color: #b91c1c !important;
+  background: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  color: #ffffff !important;
 }
 [data-theme="light"] .fc-error-boundary-retry:hover {
-  background: rgba(254, 226, 226, 0.95) !important;
+  background: #059669 !important;
 }
 
 [data-theme="light"] .fc-member-dashboard {

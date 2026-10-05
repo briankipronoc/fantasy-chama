@@ -115,7 +115,9 @@ export default class ErrorBoundary extends Component<Props, State> {
             sessionStorage.removeItem('fc_reload_guard');
         } catch {}
         this.setState({ hasError: false, error: null });
-        window.location.reload();
+        if (typeof window !== 'undefined') {
+            window.location.href = window.location.pathname;
+        }
     };
 
     handleGoToDashboard = () => {
@@ -143,7 +145,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             const info = getHumanFriendlyErrorInfo(this.state.error, this.props.fallbackMessage);
 
             return (
-                <div className="fc-error-boundary min-h-[100dvh] w-full flex flex-col items-center justify-center gap-5 px-4 sm:px-6 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+2rem))] pb-12 text-center bg-[#0a0e17] text-white select-none">
+                <div className="fc-error-boundary min-h-[100dvh] w-full flex flex-col items-center justify-center gap-5 px-4 sm:px-6 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+2rem))] pb-12 text-center bg-[#0a0e17] text-white select-none border-0 outline-none">
                     {/* Visual Status Indicator Icon */}
                     <div className="relative">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.18)]">
@@ -182,7 +184,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                         <button
                             type="button"
                             onClick={this.handleReload}
-                            className="fc-error-boundary-retry w-full sm:flex-1 py-3 px-5 text-xs font-black uppercase tracking-wider rounded-2xl transition-all bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer font-bold"
+                            className="w-full sm:flex-1 py-3 px-5 text-xs font-black uppercase tracking-wider rounded-2xl transition-all bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer font-bold border-0"
                         >
                             <RefreshCw className="w-4 h-4" />
                             <span>Fix & Reload</span>

@@ -1453,7 +1453,7 @@ export default function Standings() {
                                     </div>
 
                                     <div className="h-64 sm:h-72 w-full" style={{ position: 'relative' }}>
-                                        <ResponsiveContainer width="100%" height="100%" minWidth={100} debounce={100}>
+                                        <ResponsiveContainer width="100%" height={260} minWidth={100} debounce={100}>
                                             <LineChart data={performanceData}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
                                                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />

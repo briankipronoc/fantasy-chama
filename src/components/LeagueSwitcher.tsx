@@ -88,9 +88,10 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
             // Ensure currently active league is represented if active and valid
             if (activeLeagueId && map.has(activeLeagueId)) {
                 const existing = map.get(activeLeagueId)!;
+                const dynamicLeagueName = storeLeagueName || useStore.getState().league?.name || existing.leagueName || cachedLeagueName || 'League';
                 map.set(activeLeagueId, {
                     ...existing,
-                    leagueName: storeLeagueName || existing.leagueName || cachedLeagueName || 'League',
+                    leagueName: dynamicLeagueName,
                     role: activeRole === 'admin' ? 'admin' : (existing.role || 'member'),
                 });
             }
@@ -189,7 +190,7 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
                 try { u(); } catch {}
             });
         };
-    }, [phone, currentUid, activeLeagueId, storeLeagueName, storeRole, activeRole, isAnonymousUser]);
+    }, [phone, currentUid, activeLeagueId, storeRole, activeRole, isAnonymousUser]);
 
     useEffect(() => {
         if (!open) return;
