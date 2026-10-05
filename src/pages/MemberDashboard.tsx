@@ -15,6 +15,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { DashboardSkeleton } from '../components/Skeleton';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import ChamaBanterSlipModal, { BanterSlipData } from '../components/ChamaBanterSlipModal';
+import FplServerStatusBanner from '../components/FplServerStatusBanner';
 import { haptics } from '../utils/haptics';
 import confetti from 'canvas-confetti';
 
@@ -34,6 +35,10 @@ export default function MemberDashboard() {
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
     const [isPushingMpesa, setIsPushingMpesa] = useState(false);
+    const [isFplUpdating, setIsFplUpdating] = useState(false);
+    const [fplLastUpdated, setFplLastUpdated] = useState<string | undefined>(undefined);
+    const [isCheckingFpl, setIsCheckingFpl] = useState(false);
+    const [currentFplLeagueId, setCurrentFplLeagueId] = useState<number | null>(null);
 
     // Module 3B: Dispute/Claim state
     const [showClaimModal, setShowClaimModal] = useState(false);
@@ -173,7 +178,7 @@ export default function MemberDashboard() {
             navigate('/login');
             return;
         }
-        if (!memberPhone && role !== 'admin') {
+        if (!memberPhone && !activeUserIdStored && role !== 'admin') {
             navigate('/login');
             return;
         }
@@ -194,7 +199,9 @@ export default function MemberDashboard() {
 
                 // Phase 29: Fetch FPL GW Winner continuously with caching and 503 resilience
                 if (data.fplLeagueId) {
-                    const standingsCacheKey = `fpl_standings_${data.fplLeagueId}`;
+                    const numFplId = Number(data.fplLeagueId);
+                    setCurrentFplLeagueId(numFplId);
+                    const standingsCacheKey = `fpl_standings_${numFplId}`;
                     const cachedStandingsRaw = localStorage.getItem(standingsCacheKey);
 
                     if (cachedStandingsRaw) {
@@ -202,19 +209,29 @@ export default function MemberDashboard() {
                             const parsed = JSON.parse(cachedStandingsRaw);
                             if (parsed?.data && parsed.data.length > 0) {
                                 setRawFplStandings(parsed.data);
+                                if (parsed.timestamp) {
+                                    setFplLastUpdated(new Date(parsed.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                                }
                             }
                         } catch {}
                     }
 
-                    fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
+                    fetch(`/fpl-api/leagues-classic/${numFplId}/standings/`)
                         .then(res => {
-                            if (!res.ok) throw new Error(`FPL Standings returned ${res.status}`);
+                            if (!res.ok) {
+                                if (res.status === 503 || res.status === 502 || res.status === 504) {
+                                    setIsFplUpdating(true);
+                                }
+                                throw new Error(`FPL Standings returned ${res.status}`);
+                            }
                             return res.json();
                         })
                         .then(fplData => {
                             const results = fplData?.standings?.results;
                             if (results && results.length > 0) {
                                 setRawFplStandings(results);
+                                setIsFplUpdating(false);
+                                setFplLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
                                 try {
                                     localStorage.setItem(standingsCacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
                                 } catch {}
@@ -222,12 +239,12 @@ export default function MemberDashboard() {
                         })
                         .catch(err => {
                             console.warn("Could not fetch fresh FPL winner/standings, relying on cache:", err?.message || err);
+                            setIsFplUpdating(true);
                         });
                 }
             }
         }, (err: any) => {
-            console.error("Error listening to league:", err);
-            navigate('/login');
+            console.warn("[member-dashboard] League snapshot notice:", err?.message || err);
         });
 
         // Initialize Live Ledger for Members
@@ -294,6 +311,37 @@ export default function MemberDashboard() {
             return () => clearTimeout(timer);
         }
     }, [members.length, currentUser, leagueName, activeLeagueId, location.state]);
+
+    const handleFplRefresh = async () => {
+        if (!currentFplLeagueId || isCheckingFpl) return;
+        setIsCheckingFpl(true);
+        try {
+            const res = await fetch(`/fpl-api/leagues-classic/${currentFplLeagueId}/standings/`);
+            if (!res.ok) {
+                if (res.status === 503 || res.status === 502 || res.status === 504) {
+                    setIsFplUpdating(true);
+                }
+                throw new Error(`FPL Standings returned ${res.status}`);
+            }
+            const fplData = await res.json();
+            const results = fplData?.standings?.results;
+            if (results && results.length > 0) {
+                setRawFplStandings(results);
+                setIsFplUpdating(false);
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                setFplLastUpdated(timeStr);
+                const standingsCacheKey = `fpl_standings_${currentFplLeagueId}`;
+                try {
+                    localStorage.setItem(standingsCacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
+                } catch {}
+            }
+        } catch (err: any) {
+            console.warn("FPL refresh failed:", err?.message || err);
+            setIsFplUpdating(true);
+        } finally {
+            setIsCheckingFpl(false);
+        }
+    };
 
     // Build league-wide GW average and user trajectory from GW1 to latest completed GW
     useEffect(() => {
@@ -1562,6 +1610,15 @@ export default function MemberDashboard() {
                     hideExtraControls={true}
                 />
 
+                {isFplUpdating && (
+                    <FplServerStatusBanner
+                        isRefreshing={isCheckingFpl}
+                        onRefresh={handleFplRefresh}
+                        lastUpdated={fplLastUpdated}
+                        className="mt-3 mb-2"
+                    />
+                )}
+
                 {/* ── GREETING CARD — First thing member sees ── */}
                 <section className={clsx(
                     "fc-card mt-3 mb-3 rounded-3xl border p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4",
@@ -2551,7 +2608,7 @@ export default function MemberDashboard() {
 
                     <div className="h-56 w-full">
                         {performanceData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={220} minWidth={100} debounce={100}>
                             <LineChart data={performanceData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
                                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />

@@ -11,6 +11,7 @@ import TeamPicksModal from '../components/TeamPicksModal';
 import UserAvatar from '../components/UserAvatar';
 import { StandingsSkeleton } from '../components/Skeleton';
 import { haptics } from '../utils/haptics';
+import FplServerStatusBanner from '../components/FplServerStatusBanner';
 
 const fetchFplStandings = async (leagueId: number) => {
     const cacheKey = `fpl_standings_${leagueId}`;
@@ -885,45 +886,24 @@ export default function Standings() {
 
                 {/* Graceful banner when using cached standings while FPL is 503 updating */}
                 {isCachedStandings && isFplMaintenance && (
-                    <div className="fc-card bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-200 animate-in fade-in duration-300">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-                                <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-amber-300 flex items-center gap-2">
-                                    <span>Official FPL Servers Updating</span>
-                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 font-bold uppercase">HTTP 503</span>
-                                </p>
-                                <p className="text-[11px] text-gray-300 mt-0.5">
-                                    Displaying your chama's latest verified standings. Pot calculations and standings will refresh live as soon as Premier League servers finish crunching scores.
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => {
-                                const reload = async () => {
-                                    setIsLoading(true);
-                                    setError(null);
-                                    if (!dbFplLeagueId) { setIsLoading(false); return; }
-                                    try {
-                                        const res = await fetchFplStandings(dbFplLeagueId);
-                                        setStandingsData(res?.results || []);
-                                        setIsCachedStandings(Boolean(res?.isCached));
-                                        setIsFplMaintenance(Boolean(res?.isMaintenance));
-                                    } catch (e: any) {
-                                        setError(e?.message || 'Sync failed');
-                                    } finally {
-                                        setIsLoading(false);
-                                    }
-                                };
-                                reload();
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-200 text-xs font-bold transition-all shrink-0 self-end sm:self-center cursor-pointer active:scale-95"
-                        >
-                            Check Live Status
-                        </button>
-                    </div>
+                    <FplServerStatusBanner
+                        onRefresh={async () => {
+                            setIsLoading(true);
+                            setError(null);
+                            if (!dbFplLeagueId) { setIsLoading(false); return; }
+                            try {
+                                const res = await fetchFplStandings(dbFplLeagueId);
+                                setStandingsData(res?.results || []);
+                                setIsCachedStandings(Boolean(res?.isCached));
+                                setIsFplMaintenance(Boolean(res?.isMaintenance));
+                            } catch (e: any) {
+                                setError(e?.message || 'Sync failed');
+                            } finally {
+                                setIsLoading(false);
+                            }
+                        }}
+                        className="mb-4"
+                    />
                 )}
                 {/* Stats swapper + user hero */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1097,7 +1077,7 @@ export default function Standings() {
                             </div>
                             <h3 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight">Official FPL Servers Updating</h3>
                             <p className="text-sm text-gray-300 max-w-md mx-auto leading-relaxed mb-6">
-                                Official Premier League servers are currently crunching matchday scores, bonus points, or undergoing scheduled maintenance right now (HTTP 503). Your chama records and escrow pot are completely safe and will refresh live here automatically once FPL finishes updating.
+                                Official Premier League servers are currently crunching matchday scores and bonus points, or undergoing scheduled maintenance. Your chama records and escrow pot are completely safe and will refresh live here automatically once Premier League servers finish updating.
                             </p>
                             <button
                                 onClick={() => {
@@ -1473,7 +1453,7 @@ export default function Standings() {
                                     </div>
 
                                     <div className="h-64 sm:h-72 w-full" style={{ position: 'relative' }}>
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={100} debounce={100}>
                                             <LineChart data={performanceData}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" vertical={false} />
                                                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />

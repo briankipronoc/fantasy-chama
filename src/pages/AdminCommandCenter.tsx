@@ -44,6 +44,7 @@ import {
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
 import MidSeasonBuyInCalculatorModal from "../components/MidSeasonBuyInCalculatorModal";
+import FplServerStatusBanner from "../components/FplServerStatusBanner";
 import { db, auth } from "../firebase";
 import {
   doc,
@@ -135,12 +136,47 @@ export default function AdminCommandCenter() {
   const [gwWinner, setGwWinner] = useState<any>(null);
   const [rawFplStandings, setRawFplStandings] = useState<any[]>([]);
   const [isFplStandingsLoading, setIsFplStandingsLoading] = useState(true);
+  const [isFplUpdating, setIsFplUpdating] = useState(false);
+  const [fplLastUpdated, setFplLastUpdated] = useState<string | undefined>(undefined);
+  const [isCheckingFpl, setIsCheckingFpl] = useState(false);
+  const [currentFplLeagueId, setCurrentFplLeagueId] = useState<number | null>(null);
   const [showChairmanFlexModal, setShowChairmanFlexModal] = useState(false);
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
   const [nextDeadlineTime, setNextDeadlineTime] = useState<string | null>(null);
   const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
   const [startGw, setStartGw] = useState<number | null>(null);
+
+  const handleFplRefresh = async () => {
+    if (!currentFplLeagueId || isCheckingFpl) return;
+    setIsCheckingFpl(true);
+    try {
+      const res = await fetch(`/fpl-api/leagues-classic/${currentFplLeagueId}/standings/`);
+      if (!res.ok) {
+        if (res.status === 503 || res.status === 502 || res.status === 504) {
+          setIsFplUpdating(true);
+        }
+        throw new Error(`FPL Standings returned ${res.status}`);
+      }
+      const fplData = await res.json();
+      const results = fplData?.standings?.results;
+      if (results && results.length > 0) {
+        setRawFplStandings(results);
+        setIsFplUpdating(false);
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setFplLastUpdated(timeStr);
+        const standingsCacheKey = `fpl_standings_${currentFplLeagueId}`;
+        try {
+          localStorage.setItem(standingsCacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
+        } catch {}
+      }
+    } catch (err: any) {
+      console.warn("FPL refresh failed:", err?.message || err);
+      setIsFplUpdating(true);
+    } finally {
+      setIsCheckingFpl(false);
+    }
+  };
 
   // Ref for GW ledger auto-scroll
   const gwLedgerScrollRef = useRef<HTMLDivElement>(null);
@@ -626,6 +662,8 @@ export default function AdminCommandCenter() {
 
       // Fetch Live FPL Standings with caching fallback
       if (data.fplLeagueId) {
+        const numFplId = Number(data.fplLeagueId);
+        setCurrentFplLeagueId(numFplId);
         setIsFplStandingsLoading(true);
         const cacheKey = `fpl_standings_${data.fplLeagueId}`;
         const cachedRaw = localStorage.getItem(cacheKey);
@@ -634,25 +672,38 @@ export default function AdminCommandCenter() {
             const parsed = JSON.parse(cachedRaw);
             if (parsed?.data && parsed.data.length > 0) {
               setRawFplStandings(parsed.data);
+              if (parsed.timestamp) {
+                setFplLastUpdated(new Date(parsed.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+              }
             }
           } catch {}
         }
 
         fetch(`/fpl-api/leagues-classic/${data.fplLeagueId}/standings/`)
           .then(async (res) => {
-            if (!res.ok) throw new Error(`FPL Standings failed with status: ${res.status}`);
+            if (!res.ok) {
+              if (res.status === 503 || res.status === 502 || res.status === 504) {
+                setIsFplUpdating(true);
+              }
+              throw new Error(`FPL Standings failed with status: ${res.status}`);
+            }
             return res.json();
           })
           .then((fplData) => {
             const results = fplData?.standings?.results;
             if (results && results.length > 0) {
               setRawFplStandings(results);
+              setIsFplUpdating(false);
+              setFplLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
               try {
                 localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: results }));
               } catch {}
             }
           })
-          .catch((err) => console.warn("Could not fetch FPL standings, cached fallback preserved:", err?.message || err))
+          .catch((err) => {
+            console.warn("Could not fetch FPL standings, cached fallback preserved:", err?.message || err);
+            setIsFplUpdating(true);
+          })
           .finally(() => setIsFplStandingsLoading(false));
       } else {
         setIsFplStandingsLoading(false);
@@ -3516,6 +3567,15 @@ burstFrame();
             title={leagueName || "Command Center"}
             subtitle="Chairman Hub"
           />
+
+          {isFplUpdating && (
+            <FplServerStatusBanner
+              isRefreshing={isCheckingFpl}
+              onRefresh={handleFplRefresh}
+              lastUpdated={fplLastUpdated}
+              className="mt-2"
+            />
+          )}
 
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 pt-1 pb-2">
             <div>

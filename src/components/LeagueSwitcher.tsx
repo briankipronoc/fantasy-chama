@@ -56,6 +56,8 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
         return () => unsubAuth();
     }, []);
 
+    const repairedRef = useRef(false);
+
     useEffect(() => {
         let unsubs: Array<() => void> = [];
         let memberLeagues: LeagueEntry[] = [];
@@ -95,8 +97,9 @@ export default function LeagueSwitcher({ variant = 'header', isCollapsed = false
 
             const validList = Array.from(map.values()).filter(l => Boolean(l.leagueId));
 
-            // If active league was deleted or invalid and other valid leagues exist, auto-repair active league pointer
-            if (validList.length > 0 && activeLeagueId && !map.has(activeLeagueId)) {
+            // If active league was deleted or invalid and other valid leagues exist, auto-repair active league pointer (guarded to once)
+            if (validList.length > 0 && activeLeagueId && !map.has(activeLeagueId) && !repairedRef.current) {
+                repairedRef.current = true;
                 const first = validList[0];
                 localStorage.setItem('activeLeagueId', first.leagueId);
                 localStorage.setItem('activeLeagueName', first.leagueName);
