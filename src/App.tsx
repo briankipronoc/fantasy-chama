@@ -138,7 +138,7 @@ function App() {
   return (
     <>
       <OfflineBanner />
-      <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe — please retry.">
+      <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe. Please retry.">
         <Suspense fallback={<RouteLoader />}>
           <Routes>
             {/* Public routes — no AppLayout shell */}

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const fallbackText = 'FantasyChama encountered an unexpected error. Your data is safe — please retry.';
+const fallbackText = 'FantasyChama encountered an unexpected error. Your data is safe. Please retry.';
 
 const seedSession = async (page: any) => {
   await page.addInitScript(() => {

@@ -2620,7 +2620,7 @@ export default function MemberDashboard() {
                         );
                     })()}
 
-                    <div className="h-56 w-full">
+                    <div className="h-56 w-full" style={{ position: 'relative' }}>
                         {performanceData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={220} minWidth={100} debounce={100}>
                             <LineChart data={performanceData}>

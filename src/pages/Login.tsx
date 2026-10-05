@@ -1082,12 +1082,12 @@ export default function Login() {
                                     onChange={(e) => {
                                         setEmail(e.target.value);
                                     }}
-                                    placeholder="e.g. 0712345678 or chairman@domain.com"
+                                    placeholder="0712 345 678"
                                     className="w-full bg-[#161d24] border border-white/5 rounded-xl py-3.5 md:py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 focus:ring-1 focus:ring-[#FBBF24]/50 transition-all font-medium text-sm"
                                 />
                             </div>
                             <p className="text-[10px] text-gray-500 font-medium mt-1.5">
-                                Enter the email or M-Pesa phone number registered to your Chairman account.
+                                Enter the phone number or email registered to your Chairman account.
                             </p>
                         </div>
 

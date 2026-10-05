@@ -28,7 +28,7 @@ function getHumanFriendlyErrorInfo(error: Error | null, fallbackMessage?: string
         return {
             title: 'Temporary Refresh Loop',
             headline: 'Your session hit a brief loading loop',
-            explanation: 'The app ran into a temporary refresh cycle while synchronizing your view. Don’t worry — your Chama pot, payment history, and wallet balance are 100% safe.',
+            explanation: 'The app ran into a temporary refresh cycle while synchronizing your view. Your Chama pot, payment history, and wallet balance are completely safe.',
             actionAdvice: 'Tap "Fix & Reload" below to reset the view and jump right back in.',
             icon: 'refresh' as const,
         };
@@ -114,9 +114,23 @@ export default class ErrorBoundary extends Component<Props, State> {
             sessionStorage.removeItem('fc_chunk_retry');
             sessionStorage.removeItem('fc_reload_guard');
         } catch {}
+        if (typeof window !== 'undefined') {
+            if ('caches' in window) {
+                try {
+                    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+                } catch {}
+            }
+            if ('serviceWorker' in navigator) {
+                try {
+                    navigator.serviceWorker.getRegistrations().then(regs => {
+                        regs.forEach(r => r.unregister());
+                    });
+                } catch {}
+            }
+        }
         this.setState({ hasError: false, error: null });
         if (typeof window !== 'undefined') {
-            window.location.href = window.location.pathname;
+            window.location.href = window.location.pathname + '?reload=' + Date.now();
         }
     };
 
