@@ -194,13 +194,60 @@ Post both every GW to prove the math and build trust.
 
 ---
 
-## Part 10: May 2026 Governance Update
+## Part 10: Governance Architecture
 
-- Default pot split changed to **60/40** (weekly/vault).
-- Season vault projection now uses the league's actual `startGw` (auto-persisted on first load). Mid-season leagues get accurate projections.
+- Default pot split configured per league (e.g. 60/40 or 70/30 weekly/vault).
+- Season vault projection dynamically anchors to the league's actual `startGw`.
 - **Edit Member Modal**: Tap ✏️ in the Command Center ledger to update any member's name, phone, or FPL Team ID. Changes are audited to the Operations Feed.
 - **Phone → FPL Team linking**: See `/manual/chairman` Section 3 for step-by-step.
 - **Docs Hub** (`/docs`): Accessible via the `?` icon in the header. Contains Member Guide, Chairman Playbook, FAQ, Rules, Privacy, Terms.
-- Standings page now uses responsive card rows (no horizontal scroll on mobile), shows user's personal rank hero card, and highlights top N vault leaders with medals.
-- GW leader shown with ⭐ badge on standings (replaces far-right status column).
-- WinSharePage supports `?code=` and `?pts=` params for better WhatsApp previews.
+- Standings page uses responsive card rows, shows user's personal rank hero card, and highlights top N vault leaders with medals.
+- GW leader shown with ⭐ badge on standings.
+- WinSharePage supports `?code=` and `?pts=` params for rich WhatsApp previews.
+
+---
+
+## Part 11: Mid-Season Fair Buy-In Calculator
+
+When a friend wants to join your Chama mid-season (e.g. at Gameweek 10 or 15), founding members who paid every week often object to diluting the Season Vault. FantasyChama eliminates this friction with the **Fair Entry Formula**:
+
+$$\text{Buy-In} = (\text{Current GW} - \text{Start GW}) \times \text{Gameweek Stake} \times \text{Vault \%} + \text{First GW Stake}$$
+
+### How to use:
+1. Tap **"Buy-In Calc 🧮"** in your Command Center toolbar or Ledger header.
+2. Select the recruit's **Join Gameweek** (e.g. GW10).
+3. The system calculates:
+   - **Backdated Vault Equity**: Catch-up contribution directly into the Season Vault.
+   - **First Active Round Stake**: Funds their first eligible gameweek pot.
+   - **Total Due**: The exact shilling amount required to activate their spot.
+4. Tap **"Share Invoice to WhatsApp"** — sends a clean, itemized invoice with payment instructions to the recruit.
+5. Once paid, fund their wallet or mark them active. Existing members' equity is 100% protected.
+
+---
+
+## Part 12: Chama WhatsApp Banter Slip
+
+Immediately after resolving a Gameweek, don't leave the group chat silent. Tap **"Banter Slip 🔥"** on your dashboard to generate an automated matchday digest formatted for WhatsApp:
+
+### Roast Heat Levels:
+- **☕ Mild Chai**: Safe, cordial, office-appropriate league summary.
+- **🔥 Proper Roast**: Authentic Kenyan football banter with spicy commentary and local Sheng slang.
+- **☢️ Nuclear Matusi**: High-octane roast for inner circle friends with zero filter.
+
+### Highlighted Callouts:
+- 👑 **King of the Week**: Winner name, net points, and cash prize won.
+- 🥔 **Mtu wa Chini (Wooden Spoon)**: Lowest score of the round with tactical roasting.
+- 🤦 **Benched Regret**: Points squandered on the bench (e.g. Palmer's 18 points sitting out).
+- 🚨 **Red Zone Callout**: Members with negative or zero balance who must top up before Friday 8 PM.
+
+Tap **"Copy Banter Slip"** and paste directly into WhatsApp. No typing required!
+
+---
+
+## Part 13: Clean Slate Accounting & Reversal Reconciliation
+
+The accounting engine guarantees mathematical integrity across all gameweek transitions:
+- **Universal Dynamic GW Start**: Leagues starting at any round (e.g. GW5) automatically lock calculations to `Math.max(1, startGw)`. Pre-season test rounds (GW1–4) are insulated and excluded from active round tallies.
+- **Reversal Netting**: If test stakes or mistaken transfers are reversed, the ledger enforces `effectiveWallet = max(0, wallet - refunds)`. Master collected funds strictly reflect actual net funded cash (e.g. 7 funded players @ KES 50 = KES 350).
+- **Spectator Segregation**: Members enrolled as spectators (`sidebets_only`) are excluded from weekly pot deductions and cron debt penalties, while remaining free to enter 1v1 side bets.
+- **Roster Deduplication**: Duplicate registrations across phone numbers are unified, ensuring summary cards and audit CSVs show exact headcounts.

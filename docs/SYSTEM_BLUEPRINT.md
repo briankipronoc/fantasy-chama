@@ -276,3 +276,48 @@ Season Vault: Default 40% of all weekly pots accumulate into a season-end prize 
 
 ## Wallet-First Architecture
 To improve cash-float and accommodate varying transaction sizes (from student micro-payments to 4-week bulk top-ups), the core architecture relies on an internal Wallet ledger. Users deposit via M-Pesa to a central holding state. Gameweek stakes are deducted from this wallet programmatically, drastically reducing M-Pesa API STK push fatigue and enabling flexible payment frequencies.
+
+---
+
+## 8. Reversal Reconciliation & Dynamic GW Accounting Engine
+
+### Reversal & Refund Netting
+To maintain mathematical parity between physical M-Pesa statements and internal ledgers, the accounting system audits transactions for refunds and reversals:
+- **Detection**: `isTxRefundOrReversal(tx)` regex pattern audits notes, receipts, and descriptions:
+  `/refund|reversal|reversed|cancelled|void/i`
+- **Net Member Balances**: `effectiveWallet = Math.max(0, (member.walletBalance || 0) - totalRefunds)`
+- **Collected Pot Reconciliation**: Master collection metrics strictly compute net funded capital (e.g. 7 funded contenders @ KES 50 = KES 350 gross), excluding reversed test stakes.
+
+### Dynamic Gameweek Start & Pre-Season Insulation
+- **Dynamic Start Anchor**: `effectiveStartGw = Math.max(1, Number(league.startGw) || 1)`
+- **Test Insulation**: Pre-season transactions occurring prior to `effectiveStartGw` are insulated from active ledger summaries and do not trigger false arrears or skipped gameweek counters.
+- **Roster Deduplication**: Members registered across identical phone numbers or team entries are deduplicated, ensuring headcounts and summaries match active individuals.
+- **Spectator Isolation**: Members tagged with `participation_mode === 'sidebets_only'` are bypassed during automated pot stake deductions and debt cron jobs, while remaining fully active for 1v1 Side Bets.
+
+---
+
+## 9. Chama WhatsApp Banter Slip Engine (`ChamaBanterSlipModal`)
+
+Automated post-matchday viral digest engine generating formatted WhatsApp copy with zero manual typing:
+- **Roast Heat Engine**:
+  - `chai`: Mild Chai ☕ (Clean, cordial, corporate-friendly)
+  - `proper`: Proper Roast 🔥 (Authentic Kenyan football banter & local Sheng)
+  - `nuclear`: Nuclear Matusi ☢️ (High-octane roast for close peer groups)
+- **Callout Modules**:
+  - `King of the Week`: Highest scorer, net points, and cash prize won.
+  - `Mtu wa Chini (Wooden Spoon)`: Lowest scorer with comedic roast commentary.
+  - `Benched Regret`: Maximum points benched by any manager in the round.
+  - `Red Zone Debtors`: Real-time callout of managers requiring wallet top-up before the next deadline.
+- **Output**: 1-tap clipboard copy or direct `whatsapp://send` deep-link.
+
+---
+
+## 10. Mid-Season Fair Buy-In Calculator (`MidSeasonBuyInCalculatorModal`)
+
+Solves mid-season onboarding friction and season vault dilution through algorithmic equity math:
+- **Formula**:
+  $$\text{Buy-In} = (\text{Join GW} - \text{Start GW}) \times \text{Gameweek Stake} \times \text{Vault \%} + \text{First GW Stake}$$
+- **Components**:
+  - **Backdated Vault Equity**: Equalizes the late entrant's contribution to the Season Vault with founding members.
+  - **First Active Round Stake**: Pre-funds their entry into their first active gameweek.
+- **Invoice Generation**: 1-tap WhatsApp itemized invoice with Chairman Pochi / M-Pesa payment details.

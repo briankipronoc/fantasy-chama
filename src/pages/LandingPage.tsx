@@ -1,7 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useEffect, useState, useRef } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon, Laptop, ChevronDown } from 'lucide-react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon, Laptop, ChevronDown, Flame, MessageSquare, Calculator, Copy } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 
 // ─── Dynamic Animating System-Accurate Ledger Demo ────────────────────────────────
@@ -24,7 +24,8 @@ const initialDemoMembers: DemoMember[] = [
 function LedgerDemo() {
     const [members, setMembers] = useState(initialDemoMembers);
     const [highlightId, setHighlightId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'ledger' | 'victory' | 'mockup'>('ledger');
+    const [activeTab, setActiveTab] = useState<'ledger' | 'banter' | 'victory' | 'mockup'>('ledger');
+    const [copiedBanter, setCopiedBanter] = useState(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -47,6 +48,11 @@ function LedgerDemo() {
         return () => clearInterval(interval);
     }, []);
 
+    const copyBanterToClipboard = () => {
+        setCopiedBanter(true);
+        setTimeout(() => setCopiedBanter(false), 2000);
+    };
+
     return (
         <div className="fc-landing-card w-full rounded-[2rem] bg-white/95 dark:bg-gradient-to-b dark:from-[#18222c]/90 dark:via-[#101720]/95 dark:to-[#0a0f15] border-2 border-emerald-500/25 overflow-hidden shadow-xl dark:shadow-[0_0_60px_rgba(16,185,129,0.12)] relative">
             {/* Ambient Lighting Orbs */}
@@ -54,12 +60,12 @@ function LedgerDemo() {
             <div className="absolute bottom-0 left-0 w-56 h-56 bg-amber-500/10 rounded-full blur-[90px] pointer-events-none" />
 
             {/* Interactive Card Mode Tabs */}
-            <div className="px-4 pt-3.5 pb-2.5 bg-slate-50/90 dark:bg-[#0e151c]/90 border-b border-slate-200/80 dark:border-white/5 flex items-center justify-between gap-2 relative z-10">
-                <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 dark:bg-black/40 border border-slate-300/60 dark:border-white/10 rounded-xl backdrop-blur-md">
+            <div className="px-3 sm:px-4 pt-3.5 pb-2.5 bg-slate-50/90 dark:bg-[#0e151c]/90 border-b border-slate-200/80 dark:border-white/5 flex items-center justify-between gap-2 relative z-10 overflow-x-auto">
+                <div className="flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-200/60 dark:bg-black/40 border border-slate-300/60 dark:border-white/10 rounded-xl backdrop-blur-md">
                     <button
                         type="button"
                         onClick={() => setActiveTab('ledger')}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'ledger'
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
                                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
@@ -69,8 +75,19 @@ function LedgerDemo() {
                     </button>
                     <button
                         type="button"
+                        onClick={() => setActiveTab('banter')}
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
+                            activeTab === 'banter'
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                    >
+                        🔥 Banter Slip
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setActiveTab('victory')}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'victory'
                                 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(251,191,36,0.25)]'
                                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
@@ -81,7 +98,7 @@ function LedgerDemo() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('mockup')}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'mockup'
                                 ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
                                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
@@ -91,7 +108,7 @@ function LedgerDemo() {
                     </button>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/60 dark:border-white/10 text-[10px] font-bold text-slate-600 dark:text-gray-400">
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-200/60 dark:bg-white/5 border border-slate-300/60 dark:border-white/10 text-[10px] font-bold text-slate-600 dark:text-gray-400 shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     LIVE FPL SYNC
                 </div>
@@ -208,7 +225,71 @@ function LedgerDemo() {
                 </div>
             )}
 
-            {/* TAB 2: Official WhatsApp Victory Card Visual */}
+            {/* TAB 2: Official Chama WhatsApp Banter Slip Visual */}
+            {activeTab === 'banter' && (
+                <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
+                    <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                            🔥 Chama WhatsApp Banter Slip
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            1-Tap Group Export
+                        </span>
+                    </div>
+
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center">
+                        {/* Branded WhatsApp Message Card */}
+                        <div className="w-full max-w-sm rounded-2xl bg-[#0b141a] border-2 border-emerald-500/40 p-4 sm:p-5 shadow-[0_16px_40px_rgba(16,185,129,0.15)] relative overflow-hidden text-left font-sans text-xs">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-2.5 mb-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base">📋</span>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Matchday Digest</p>
+                                        <p className="text-xs font-bold text-white">Chama WhatsApp Banter</p>
+                                    </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black">
+                                    ROAST: PROPER 🔥
+                                </span>
+                            </div>
+
+                            <div className="space-y-2.5 bg-black/40 border border-white/10 rounded-xl p-3 text-slate-200 text-[11px] leading-relaxed font-mono">
+                                <p className="font-bold text-emerald-300">🏆 *NAIROBI CHAMA GW5 DIGEST*</p>
+                                <p>👑 *King of the Week:* Joel Sifuna — 78 pts (KES 1,960) 💰<br /><span className="text-gray-400 italic">"Huyu jamaa ameiba points tena, sherehe iko wapi?"</span></p>
+                                <p>🥔 *Mtu wa Chini:* David Ochieng — 54 pts 🥄<br /><span className="text-gray-400 italic">"Form imeshuka kama shillingi. Tafuta fundi wa defense."</span></p>
+                                <p>🤦 *Benched Regret:* Kevin benched Palmer (18 pts)<br /><span className="text-gray-400 italic">"Points za bure zikilala kwa bench."</span></p>
+                                <p className="text-amber-400 font-bold">🚨 *Red Zone:* 1 member atume 50 bob kabla Ijumaa 8 PM!</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={copyBanterToClipboard}
+                                className="w-full mt-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0a0e17] font-black text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>{copiedBanter ? '✓ Copied to WhatsApp!' : 'Copy Banter Slip for WhatsApp'}</span>
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-slate-600 dark:text-gray-300 mt-3 font-medium max-w-sm text-center">
+                            Zero typing. 1-tap post-matchday summary with real Kenyan football banter tailored for your WhatsApp group.
+                        </p>
+                    </div>
+
+                    <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-gray-300">
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                            Kenyan Sheng & Heat Levels
+                        </span>
+                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                            Instant Group Virality
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 3: Official WhatsApp Victory Card Visual */}
             {activeTab === 'victory' && (
                 <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
                     <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
@@ -750,6 +831,38 @@ export default function LandingPage() {
                                 <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Live FPL Sync</h3>
                                 <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
                                     Direct integration with Official FPL APIs. Standings update automatically without manual spreadsheet entry.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Feature: Chama WhatsApp Banter Slip */}
+                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#18231c] dark:to-[#0f1814] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-emerald-500/35 transition-all relative overflow-hidden shadow-lg group">
+                            <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
+                                <Flame className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">WhatsApp Banter Slip</h3>
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase">Instant Digest</span>
+                                </div>
+                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                    Automated 1-tap post-matchday summary with authentic Kenyan Sheng. Highlights King of the Week, Mtu wa Chini (Wooden Spoon), Benched Regret, and Red Zone debt alerts across 3 customizable heat levels. Zero manual typing.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Feature: Mid-Season Fair Buy-In Calculator */}
+                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#1c1e28] dark:to-[#11131a] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-blue-500/35 transition-all relative overflow-hidden shadow-lg group">
+                            <div className="w-10 h-10 bg-blue-500/15 border border-blue-500/30 rounded-xl flex items-center justify-center mb-4">
+                                <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Fair Buy-In Calculator</h3>
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase">Math Guaranteed</span>
+                                </div>
+                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
+                                    Want to invite a friend at Gameweek 10 or 15? The algorithmic formula calculates their exact backdated share into the Season Vault so existing members aren't cheated. Generates a 1-tap WhatsApp invoice instantly.
                                 </p>
                             </div>
                         </div>

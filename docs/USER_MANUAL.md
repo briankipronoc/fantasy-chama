@@ -78,6 +78,15 @@ Fantasy Chama actively protects members' stakes.
 - If the Chairman refuses to pay platform operational fees or delays your pot payouts, **HQ automatically shuts down the Chairman's dashboard**.
 - Members will see a massive prompt that the Chairman's license is suspended. You are given a button to aggressively "Nudge" your Chairman until they resolve it!
 
+### 5. Chama WhatsApp Banter Slip
+- Immediately after resolution, the Chairman taps **"Banter Slip 🔥"** in the Command Center.
+- Select your heat level: **Mild Chai ☕**, **Proper Roast 🔥**, or **Nuclear Matusi ☢️**.
+- The app generates a 1-tap WhatsApp summary covering King of the Week 👑, Mtu wa Chini (Wooden Spoon) 🥔, Benched Regret 🤦, and Red Zone Callouts 🚨.
+
+### 6. Mid-Season Fair Buy-Ins & Spectator Arena
+- **Late Entrants**: Use the **Fair Buy-In Calculator** ($\text{Buy-In} = (\text{Current GW} - \text{Start GW}) \times \text{Stake} \times \text{Vault \%} + \text{First GW Stake}$) to join at GW10 or GW15 with 100% mathematical equity.
+- **Spectators**: Can follow the league for free and duel friends in the 1v1 Side Bets Arena without being docked for weekly pot stakes.
+
 ---
 
 ## 🏦 The 9% Transparent Economy Engine
@@ -87,7 +96,7 @@ We believe in maximum transparency. The Gross Gameweek Pot is sliced autonomousl
 | Recipient | Logic | Pot Percentage |
 | :--- | :--- | :--- |
 | **Gameweek Winner** | The member who scores the highest points. | **91.0%** |
-| **FPL Chama Platform HQ** | Software operation, AI verification, automated SMS. | **4.0%** |
+| **FPL Chama Platform HQ** | Software operation, automated scoring, SMS. | **3.5%** |
 | **Chairman** | Governance routing and administrative oversight. | **4.0%** _(3% if Co-Chair exists)_ |
-| **M-Pesa Network Fee** | Safaricom B2C algorithmic transfer protections. | **1.0%** |
+| **M-Pesa Network Fee** | Safaricom B2C algorithmic transfer protections. | **1.5%** |
 | **Co-Chairman (If active)**| Single-click payout signature authorization. | **1.0%** |

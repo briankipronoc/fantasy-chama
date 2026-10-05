@@ -92,8 +92,8 @@ export default function CoChairManual() {
           />
           <Step 
             n={3} 
-            title="Audit Pot Math & Split" 
-            desc="Review the KES amount. For example, in a 10-member league at KES 50/GW with 70/30 split: Gross pot = KES 500. Weekly payout = KES 350 (minus 1.5% M-Pesa fee), Grand Vault deposit = KES 150." 
+            title="Audit Pot Math & Net Reversal Deductions" 
+            desc="Review the KES amount. The system nets out any reversed test transactions or refunded stakes (effectiveWallet = max(0, wallet - refunds)). For example, 7 funded players @ KES 50 = KES 350 gross pot. Weekly payout = KES 245 (70%), Grand Vault = KES 105 (30%). Confirm that spectator players (sidebets_only) were not deducted." 
           />
           <Step 
             n={4} 
@@ -173,6 +173,11 @@ export default function CoChairManual() {
             n={3} 
             title="Season Vault Verification" 
             desc="Monitor the accumulated Grand Vault balance. Ensure that monthly HQ platform settlements (if applicable) are up to date so your league remains active for season-end podium awards." 
+          />
+          <Step 
+            n={4} 
+            title="Mid-Season Fair Buy-In Audit" 
+            desc="When new managers join mid-season (e.g. at GW10 or GW15), cross-check that their Fair Buy-In deposit was correctly calculated via the formula: Buy-In = (Current GW - Start GW) × Stake × Vault % + First GW Stake. Verify the backdated portion is deposited directly into the Season Vault." 
           />
           <div className="flex gap-3 bg-blue-500/5 border border-blue-500/20 rounded-xl p-3.5">
             <Zap className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />

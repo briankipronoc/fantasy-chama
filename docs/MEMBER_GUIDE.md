@@ -179,11 +179,40 @@ A: The Season Vault (default 40% of all weekly pots) is distributed among the to
 
 ---
 
-## Part 12: May 2026 Member Experience Update
+## Part 12: Member Experience Architecture
 
-- **Standings mobile cards**: No more horizontal scrolling on phone. Rankings show 🥇🥈🥉 medals for top 3.
-- **Your GW Rank card**: A personal hero card at the top of Standings showing your rank, points, and gap to #1.
+- **Standings mobile cards**: Responsive layout designed for mobile. Rankings show 🥇🥈🥉 medals for podium positions.
+- **Your GW Rank card**: Personal hero card at the top of Standings showing your rank, points, and gap to leader.
 - **Docs hub**: Tap the `?` icon in the header to access Member Guide, FAQ, Rules, and more.
-- **Correct share links**: App URL is `fantasychama.vercel.app` (no dash). OG images now render correctly when shared on WhatsApp.
-- **GW leader badge**: Standings show ⭐ Live / ⭐ Champion next to the GW leader instead of a text column on the far right.
-- **Season vault accuracy**: If your league started mid-season (e.g. GW10), the projected vault is calculated from that GW, not GW1.
+- **GW leader badge**: Standings show ⭐ Live / ⭐ Champion next to the GW leader.
+- **Dynamic season vault**: Projection dynamically calculates from when your league started (not GW1).
+
+---
+
+## Part 13: Contender vs Spectator Mode (`sidebets_only`) & 1v1 Arena
+
+Not ready to commit to the full 38-gameweek cash pot? FantasyChama supports **Spectator Mode**:
+- **Free Entry**: Join your friends' league for free. You appear on the live leaderboard and can view the weekly drama.
+- **Zero Stake Deductions**: Spectator wallets are never docked for weekly pot stakes or hit with missed gameweek debt penalties.
+- **1v1 Side Bets Arena**: You can still challenge any rival to head-to-head cash duels! Deposit 500 KES, set your matchday stake, and battle 1-on-1. The escrow system locks both stakes and auto-disburses the pot to the winner at full-time.
+- **Victory Cards**: When you win a duel or a round, generate a branded Victory Card to post directly to your WhatsApp Status.
+
+---
+
+## Part 14: Chama WhatsApp Banter Slip
+
+Immediately after the Chairman resolves each Gameweek, look out for the **Official Banter Slip** in your WhatsApp group:
+- 👑 **King of the Week**: Celebrates the highest scorer and announces their cash winnings.
+- 🥔 **Mtu wa Chini (Wooden Spoon)**: Highlights the bottom manager with authentic Kenyan football banter.
+- 🤦 **Benched Regret**: Publicly exposes who left double-digit points sitting on their bench.
+- 🚨 **Red Zone Callout**: Polite (or spicy!) nudge for members with low balances to top up before Friday deadline.
+
+---
+
+## Part 15: Mid-Season Fair Buy-Ins
+
+Joining the Chama mid-season (e.g. at Gameweek 10)?
+- Your Chairman will share an automated **Fair Buy-In Invoice** on WhatsApp.
+- The formula calculates your exact fair entry:
+  $$\text{Buy-In} = (\text{Current GW} - \text{Start GW}) \times \text{Stake} \times \text{Vault \%} + \text{First GW Stake}$$
+- Paying the invoice means you immediately purchase equity into the Grand Season Vault, making you eligible for the season-end podium prize pool without any friction or disputes from founding members.
