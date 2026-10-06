@@ -20,6 +20,8 @@
     --fc-toast-color: #f1f5f9;
     --fc-toast-border: rgba(16, 185, 129, 0.28);
     --fc-toast-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+    --fc-slider-track: #1e293b;
+    --fc-slider-border: rgba(255, 255, 255, 0.12);
   }
 
   [data-theme="light"] {
@@ -27,6 +29,8 @@
     --fc-toast-color: #0f172a;
     --fc-toast-border: rgba(16, 185, 129, 0.35);
     --fc-toast-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+    --fc-slider-track: #e2e8f0;
+    --fc-slider-border: rgba(15, 23, 42, 0.16);
   }
 
   html {
@@ -395,58 +399,48 @@
   .fc-range {
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
     outline: none;
+    cursor: pointer;
+    border-radius: 9999px;
+    border: 1px solid var(--fc-slider-border, rgba(255, 255, 255, 0.12));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
   }
   .fc-range::-webkit-slider-runnable-track {
-    height: 0.5rem;
+    height: 0.55rem;
     border-radius: 9999px;
-    background: rgba(15, 23, 42, 0.18);
-    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+    background: transparent;
   }
   .fc-range::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.25rem;
+    height: 1.25rem;
     border-radius: 9999px;
-    background: #0f172a;
-    border: 3px solid #fbbf24;
-    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.14);
-    margin-top: -0.325rem;
+    background: #10b981;
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(16, 185, 129, 0.25);
+    margin-top: -0.35rem;
+    cursor: grab;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+  .fc-range::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.12);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), 0 0 0 5px rgba(16, 185, 129, 0.35);
   }
   .fc-range::-moz-range-track {
-    height: 0.5rem;
+    height: 0.55rem;
     border-radius: 9999px;
-    background: rgba(15, 23, 42, 0.18);
-    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
-  }
-  .fc-range::-moz-range-progress {
-    height: 0.5rem;
-    border-radius: 9999px;
-    background: rgba(251, 191, 36, 0.8);
-  }
-  [data-theme="light"] .fc-range::-webkit-slider-runnable-track,
-  [data-theme="light"] .fc-range::-moz-range-track {
-    background: rgba(15, 23, 42, 0.22);
-    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
-  }
-  [data-theme="light"] .fc-range::-moz-range-progress {
-    background: rgba(251, 191, 36, 0.95);
+    background: transparent;
   }
   .fc-range::-moz-range-thumb {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.25rem;
+    height: 1.25rem;
     border-radius: 9999px;
-    background: #0f172a;
-    border: 3px solid #fbbf24;
-    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.14);
-  }
-  [data-theme="light"] .fc-range::-webkit-slider-thumb,
-  [data-theme="light"] .fc-range::-moz-range-thumb {
-    background: #111827;
-    border-color: #f59e0b;
-    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18);
+    background: #10b981;
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(16, 185, 129, 0.25);
+    cursor: grab;
   }
   [data-theme="light"] .fc-card {
     background: rgba(255, 255, 255, 0.92);

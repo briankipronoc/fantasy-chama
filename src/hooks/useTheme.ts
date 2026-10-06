@@ -27,7 +27,7 @@ export function initializeTheme() {
 
     const hasExplicitUserTheme = localStorage.getItem(THEME_USER_SET_KEY) === '1';
     const savedTheme = (localStorage.getItem(THEME_KEY) as Theme | null);
-    const resolvedTheme: Theme = hasExplicitUserTheme && savedTheme ? savedTheme : 'system';
+    const resolvedTheme: Theme = (hasExplicitUserTheme && savedTheme && savedTheme !== 'system') ? savedTheme : 'system';
 
     if (resolvedTheme === 'system') {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -42,9 +42,10 @@ export function initializeTheme() {
 
 export function useTheme() {
     const [theme, setTheme] = useState<Theme>(() => {
-        const hasExplicitUserTheme = typeof window !== 'undefined' && localStorage.getItem(THEME_USER_SET_KEY) === '1';
-        const saved = typeof window !== 'undefined' ? (localStorage.getItem(THEME_KEY) as Theme) : null;
-        return (hasExplicitUserTheme && saved) ? saved : 'system';
+        if (typeof window === 'undefined') return 'system';
+        const hasExplicitUserTheme = localStorage.getItem(THEME_USER_SET_KEY) === '1';
+        const saved = localStorage.getItem(THEME_KEY) as Theme | null;
+        return (hasExplicitUserTheme && saved && saved !== 'system') ? saved : 'system';
     });
 
     const [isSystemDark, setIsSystemDark] = useState<boolean>(() => {
@@ -57,10 +58,11 @@ export function useTheme() {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             applyTheme(isDark ? 'dark' : 'light');
             setIsSystemDark(isDark);
+            localStorage.setItem(THEME_KEY, 'system');
         } else {
             applyTheme(theme);
+            localStorage.setItem(THEME_KEY, theme);
         }
-        localStorage.setItem(THEME_KEY, theme);
     }, [theme]);
 
     // Listen to OS changes when on system mode
@@ -78,12 +80,27 @@ export function useTheme() {
     }, [theme]);
 
     const cycle = () => {
-        localStorage.setItem(THEME_USER_SET_KEY, '1');
-        setTheme(prev => prev === 'stealth' ? 'dark' : prev === 'dark' ? 'system' : prev === 'system' ? 'light' : 'stealth');
+        setTheme(prev => {
+            const next = prev === 'stealth' ? 'dark' : prev === 'dark' ? 'system' : prev === 'system' ? 'light' : 'stealth';
+            if (next === 'system') {
+                localStorage.removeItem(THEME_USER_SET_KEY);
+                localStorage.setItem(THEME_KEY, 'system');
+            } else {
+                localStorage.setItem(THEME_USER_SET_KEY, '1');
+                localStorage.setItem(THEME_KEY, next);
+            }
+            return next;
+        });
     };
 
     const setThemePreference = (nextTheme: Theme) => {
-        localStorage.setItem(THEME_USER_SET_KEY, '1');
+        if (nextTheme === 'system') {
+            localStorage.removeItem(THEME_USER_SET_KEY);
+            localStorage.setItem(THEME_KEY, 'system');
+        } else {
+            localStorage.setItem(THEME_USER_SET_KEY, '1');
+            localStorage.setItem(THEME_KEY, nextTheme);
+        }
         setTheme(nextTheme);
     };
 

@@ -1,7 +1,30 @@
 <!doctype html>
-<html lang="en" class="dark" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function() {
+        try {
+          var userSet = localStorage.getItem('fc-theme-user-set') === '1';
+          var saved = localStorage.getItem('fc-theme');
+          var theme = (userSet && saved && saved !== 'system') ? saved : 'system';
+          var target = theme;
+          if (theme === 'system') {
+            target = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          var root = document.documentElement;
+          root.setAttribute('data-theme', target);
+          if (target === 'stealth') {
+            root.classList.add('dark', 'stealth');
+          } else if (target === 'dark') {
+            root.classList.add('dark');
+            root.classList.remove('stealth');
+          } else {
+            root.classList.remove('dark', 'stealth');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/pwa-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />

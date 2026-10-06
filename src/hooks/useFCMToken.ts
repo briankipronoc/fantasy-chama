@@ -4,15 +4,15 @@
 
 import { useEffect } from 'react';
 import { getApps } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
 export async function registerFCMToken() {
-    // Only run in browser environments with notification support
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    // Only run in browser environments with notification and service worker support
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) return;
     // If the user previously dismissed or denied notification permission, do not spam or prompt again
     if (Notification.permission === 'denied') return;
     if (!VAPID_KEY) {
@@ -20,6 +20,9 @@ export async function registerFCMToken() {
     }
 
     try {
+        const supported = await isSupported().catch(() => false);
+        if (!supported) return;
+
         // If not yet granted, request permission
         const permission = Notification.permission === 'granted' 
             ? 'granted' 
@@ -29,11 +32,17 @@ export async function registerFCMToken() {
         const app = getApps()[0];
         if (!app) return;
 
+        const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js').catch((err) => {
+            console.warn('[FCM] Service worker registration bypassed:', err);
+            return null;
+        });
+        if (!swReg) return;
+
         const messaging = getMessaging(app);
 
         const token = await getToken(messaging, {
             vapidKey: VAPID_KEY,
-            serviceWorkerRegistration: await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            serviceWorkerRegistration: swReg
         });
 
         if (token) {
