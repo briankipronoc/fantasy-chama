@@ -61,14 +61,14 @@ function LedgerDemo() {
 
             {/* Interactive Card Mode Tabs */}
             <div className="px-3 sm:px-4 pt-3.5 pb-2.5 bg-slate-50/90 dark:bg-[#0e151c]/90 border-b border-slate-200/80 dark:border-white/5 flex items-center justify-between gap-2 relative z-10 overflow-x-auto">
-                <div className="flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-200/60 dark:bg-black/40 border border-slate-300/60 dark:border-white/10 rounded-xl backdrop-blur-md">
+                <div className="flex items-center gap-1 sm:gap-1.5 p-1 bg-slate-200/70 dark:bg-black/40 border border-slate-300/70 dark:border-white/10 rounded-xl backdrop-blur-md">
                     <button
                         type="button"
                         onClick={() => setActiveTab('ledger')}
                         className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'ledger'
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 dark:border-emerald-500/40 shadow-sm'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
                         }`}
                     >
                         ⚡ Live Ledger
@@ -78,8 +78,8 @@ function LedgerDemo() {
                         onClick={() => setActiveTab('banter')}
                         className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'banter'
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 dark:border-emerald-500/40 shadow-sm'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
                         }`}
                     >
                         🔥 Banter Slip
@@ -89,8 +89,8 @@ function LedgerDemo() {
                         onClick={() => setActiveTab('victory')}
                         className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'victory'
-                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 shadow-[0_0_12px_rgba(251,191,36,0.25)]'
-                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-amber-600/15 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/35 dark:border-amber-500/40 shadow-sm'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
                         }`}
                     >
                         🏆 Victory Card
@@ -100,11 +100,11 @@ function LedgerDemo() {
                         onClick={() => setActiveTab('mockup')}
                         className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap ${
                             activeTab === 'mockup'
-                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                ? 'bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 dark:border-emerald-500/40 shadow-sm'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
                         }`}
                     >
-                        💳 System Cards
+                        💳 Escrow Pot
                     </button>
                 </div>
 
@@ -120,7 +120,7 @@ function LedgerDemo() {
                     {/* Real System Card Header */}
                     <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex flex-col gap-3">
                         <div className="flex items-center justify-between">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
                                 GW4 LIVE POT
                             </div>
@@ -132,13 +132,13 @@ function LedgerDemo() {
 
                         <div className="flex items-baseline justify-between pt-1">
                             <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400/80">Total Escrow Pot</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400/80">Total Escrow Pot</p>
                                 <p className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
                                     KES 2,800
                                 </p>
                             </div>
                             <div className="text-right">
-                                <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30">
+                                <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider border border-amber-500/30">
                                     91/9 Model
                                 </span>
                                 <p className="text-[11px] text-slate-600 dark:text-gray-300 font-semibold mt-1">
@@ -159,9 +159,9 @@ function LedgerDemo() {
                                     key={m.id}
                                     className={`flex items-center justify-between p-2.5 sm:p-3 rounded-2xl transition-all duration-500 border ${
                                         isLeader
-                                            ? 'bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(251,191,36,0.12)]'
+                                            ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40 shadow-sm dark:shadow-[0_0_20px_rgba(251,191,36,0.12)]'
                                             : isHighlighted
-                                                ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                                                ? 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-400 dark:border-emerald-500/50 shadow-sm dark:shadow-[0_0_15px_rgba(16,185,129,0.2)]'
                                                 : 'bg-white dark:bg-white/[0.03] border-slate-200/80 dark:border-white/[0.06] hover:bg-slate-100/80 dark:hover:bg-white/[0.06]'
                                     }`}
                                 >
@@ -192,16 +192,16 @@ function LedgerDemo() {
 
                                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                                         <span className={`text-xs sm:text-sm font-black tabular-nums transition-colors ${
-                                            isHighlighted ? 'text-emerald-600 dark:text-emerald-400 font-extrabold' : isLeader ? 'text-amber-600 dark:text-amber-300' : 'text-slate-800 dark:text-gray-200'
+                                            isHighlighted ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' : isLeader ? 'text-amber-700 dark:text-amber-300' : 'text-slate-800 dark:text-gray-200'
                                         }`}>
                                             {m.pts} pts
                                         </span>
                                         <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[9px] sm:text-[10px] font-extrabold tracking-wide uppercase ${
                                             m.status === 'funded'
-                                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35 shadow-sm'
+                                                ? 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/35 shadow-sm'
                                                 : m.status === 'spectator'
-                                                    ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30'
-                                                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                                                    ? 'bg-indigo-100 dark:bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-500/30'
+                                                    : 'bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30'
                                         }`}>
                                             {m.status === 'funded' ? 'Funded ✓' : m.status === 'spectator' ? 'Spectator 🛡️' : 'Pending ⏳'}
                                         </span>
@@ -217,7 +217,7 @@ function LedgerDemo() {
                             <Lock className="w-3.5 h-3.5 text-emerald-500" />
                             M-Pesa Escrow Verified
                         </span>
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             Auto-Disbursed at Final Whistle
                         </span>
@@ -229,7 +229,7 @@ function LedgerDemo() {
             {activeTab === 'banter' && (
                 <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
                     <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
                             🔥 Chama WhatsApp Banter Slip
                         </div>
                         <span className="text-[11px] font-bold text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
@@ -240,32 +240,32 @@ function LedgerDemo() {
 
                     <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center">
                         {/* Branded WhatsApp Message Card */}
-                        <div className="w-full max-w-sm rounded-2xl bg-[#0b141a] border-2 border-emerald-500/40 p-4 sm:p-5 shadow-[0_16px_40px_rgba(16,185,129,0.15)] relative overflow-hidden text-left font-sans text-xs">
-                            <div className="flex items-center justify-between border-b border-white/10 pb-2.5 mb-3">
+                        <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#0b141a] border-2 border-emerald-500/30 dark:border-emerald-500/40 p-4 sm:p-5 shadow-lg dark:shadow-[0_16px_40px_rgba(16,185,129,0.15)] relative overflow-hidden text-left font-sans text-xs">
+                            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2.5 mb-3">
                                 <div className="flex items-center gap-2">
                                     <span className="text-base">📋</span>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Matchday Digest</p>
-                                        <p className="text-xs font-bold text-white">Chama WhatsApp Banter</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Matchday Digest</p>
+                                        <p className="text-xs font-bold text-slate-900 dark:text-white">Chama WhatsApp Banter</p>
                                     </div>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 text-[9px] font-black">
                                     ROAST: PROPER 🔥
                                 </span>
                             </div>
 
-                            <div className="space-y-2.5 bg-black/40 border border-white/10 rounded-xl p-3 text-slate-200 text-[11px] leading-relaxed font-mono">
-                                <p className="font-bold text-emerald-300">🏆 *NAIROBI CHAMA GW5 DIGEST*</p>
-                                <p>👑 *King of the Week:* Joel Sifuna — 78 pts (KES 1,960) 💰<br /><span className="text-gray-400 italic">"Huyu jamaa ameiba points tena, sherehe iko wapi?"</span></p>
-                                <p>🥔 *Mtu wa Chini:* David Ochieng — 54 pts 🥄<br /><span className="text-gray-400 italic">"Form imeshuka kama shillingi. Tafuta fundi wa defense."</span></p>
-                                <p>🤦 *Benched Regret:* Kevin benched Palmer (18 pts)<br /><span className="text-gray-400 italic">"Points za bure zikilala kwa bench."</span></p>
-                                <p className="text-amber-400 font-bold">🚨 *Red Zone:* 1 member atume 50 bob kabla Ijumaa 8 PM!</p>
+                            <div className="space-y-2.5 bg-slate-50 dark:bg-black/40 border border-slate-200/80 dark:border-white/10 rounded-xl p-3 text-slate-800 dark:text-slate-200 text-[11px] leading-relaxed font-mono">
+                                <p className="font-bold text-emerald-700 dark:text-emerald-300">🏆 *NAIROBI CHAMA GW5 DIGEST*</p>
+                                <p>👑 *King of the Week:* Joel Sifuna — 78 pts (KES 1,960) 💰<br /><span className="text-slate-500 dark:text-gray-400 italic">"Huyu jamaa ameiba points tena, sherehe iko wapi?"</span></p>
+                                <p>🥔 *Mtu wa Chini:* David Ochieng — 54 pts 🥄<br /><span className="text-slate-500 dark:text-gray-400 italic">"Form imeshuka kama shillingi. Tafuta fundi wa defense."</span></p>
+                                <p>🤦 *Benched Regret:* Kevin benched Palmer (18 pts)<br /><span className="text-slate-500 dark:text-gray-400 italic">"Points za bure zikilala kwa bench."</span></p>
+                                <p className="text-amber-700 dark:text-amber-400 font-bold">🚨 *Red Zone:* 1 member atume 50 bob kabla Ijumaa 8 PM!</p>
                             </div>
 
                             <button
                                 type="button"
                                 onClick={copyBanterToClipboard}
-                                className="w-full mt-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0a0e17] font-black text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                                className="w-full mt-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <Copy className="w-3.5 h-3.5" />
                                 <span>{copiedBanter ? '✓ Copied to WhatsApp!' : 'Copy Banter Slip for WhatsApp'}</span>
@@ -282,7 +282,7 @@ function LedgerDemo() {
                             <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
                             Kenyan Sheng & Heat Levels
                         </span>
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                             Instant Group Virality
                         </span>
                     </div>
@@ -293,7 +293,7 @@ function LedgerDemo() {
             {activeTab === 'victory' && (
                 <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
                     <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider shadow-sm">
                             🏆 WhatsApp Flex Engine
                         </div>
                         <span className="text-[11px] font-bold text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
@@ -304,41 +304,41 @@ function LedgerDemo() {
 
                     <div className="p-4 sm:p-5 flex-1 flex flex-col items-center justify-center text-center">
                         {/* Branded Vector Victory Card */}
-                        <div className="w-full max-w-sm rounded-2xl bg-gradient-to-b from-[#18231c] via-[#0d141b] to-[#080d12] border-2 border-amber-500/40 p-5 shadow-[0_16px_40px_rgba(245,158,11,0.15)] relative overflow-hidden text-left font-sans">
-                            <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-[40px] pointer-events-none" />
+                        <div className="w-full max-w-sm rounded-2xl bg-gradient-to-b from-amber-50/90 via-white to-amber-50/40 dark:from-[#18231c] dark:via-[#0d141b] dark:to-[#080d12] border-2 border-amber-400/80 dark:border-amber-500/40 p-5 shadow-lg dark:shadow-[0_16px_40px_rgba(245,158,11,0.15)] relative overflow-hidden text-left font-sans">
+                            <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-400/20 dark:bg-amber-500/20 rounded-full blur-[40px] pointer-events-none" />
                             
-                            <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+                            <div className="flex items-center justify-between border-b border-amber-200/80 dark:border-white/10 pb-3 mb-3">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
-                                        <Trophy className="w-4 h-4 text-amber-400" />
+                                    <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 dark:bg-amber-500/20 dark:border-amber-500/40 flex items-center justify-center">
+                                        <Trophy className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Gameweek 4 Champion</p>
-                                        <p className="text-xs font-bold text-gray-300">Official Chama Crown</p>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400">Gameweek 4 Champion</p>
+                                        <p className="text-xs font-bold text-slate-600 dark:text-gray-300">Official Chama Crown</p>
                                     </div>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider">
                                     VERIFIED
                                 </span>
                             </div>
 
                             <div className="space-y-1 mb-4">
-                                <p className="text-xl font-black text-white tracking-tight">Joel Sifuna</p>
-                                <p className="text-xs text-amber-300/80 font-semibold">Sifuna Stars · 78 pts</p>
+                                <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Joel Sifuna</p>
+                                <p className="text-xs text-amber-800 dark:text-amber-300/80 font-semibold">Sifuna Stars · 78 pts</p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 bg-black/40 border border-white/10 rounded-xl p-3 mb-3">
+                            <div className="grid grid-cols-2 gap-2 bg-white/80 dark:bg-black/40 border border-amber-200/80 dark:border-white/10 rounded-xl p-3 mb-3 shadow-sm">
                                 <div>
-                                    <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Cash Pot Won</p>
-                                    <p className="text-base font-black text-emerald-400 tabular-nums">KES 1,960</p>
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Cash Pot Won</p>
+                                    <p className="text-base font-black text-emerald-700 dark:text-emerald-400 tabular-nums">KES 1,960</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Season Rank</p>
-                                    <p className="text-base font-black text-amber-400">#1 (Podium)</p>
+                                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Season Rank</p>
+                                    <p className="text-base font-black text-amber-700 dark:text-amber-400">#1 (Podium)</p>
                                 </div>
                             </div>
 
-                            <div className="w-full py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-black uppercase tracking-widest text-center">
+                            <div className="w-full py-2 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest text-center">
                                 📱 Ready to flex on WhatsApp Status
                             </div>
                         </div>
@@ -353,21 +353,21 @@ function LedgerDemo() {
                             <Trophy className="w-3.5 h-3.5 text-amber-500" />
                             Official Podium Card
                         </span>
-                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                        <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
                             One-Tap WhatsApp Share
                         </span>
                     </div>
                 </div>
             )}
 
-            {/* TAB 3: Multi-Card System Mockup */}
+            {/* TAB 4: Multi-Card System Mockup */}
             {activeTab === 'mockup' && (
                 <div className="w-full flex flex-col justify-between min-h-[460px] animate-in fade-in duration-300">
                     <div className="px-5 py-4 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 backdrop-blur-md flex items-center justify-between">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-sm">
                             🔒 Transparent Escrow Architecture
                         </div>
-                        <span className="text-[11px] font-bold text-slate-600 dark:text-gray-300 flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                             91/9 Model
                         </span>
@@ -377,36 +377,36 @@ function LedgerDemo() {
                         {/* Interactive Vector Escrow Engine Architecture */}
                         <div className="w-full max-w-sm space-y-2.5 text-left font-sans">
                             {/* Card 1: Matchday Pot */}
-                            <div className="rounded-xl bg-slate-900/90 dark:bg-[#111822] border border-emerald-500/30 p-3 shadow-sm">
+                            <div className="rounded-xl bg-emerald-50/90 dark:bg-[#111822] border border-emerald-200 dark:border-emerald-500/30 p-3 shadow-sm transition-all">
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
                                         <Banknote className="w-3.5 h-3.5" /> Weekly Matchday Pot (70%)
                                     </span>
-                                    <span className="text-xs font-black text-white tabular-nums">KES 1,960</span>
+                                    <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">KES 1,960</span>
                                 </div>
-                                <p className="text-[10px] text-gray-400">Auto-disbursed to top scorer at final match whistle.</p>
+                                <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Auto-disbursed to top scorer at final match whistle.</p>
                             </div>
 
                             {/* Card 2: Season Vault */}
-                            <div className="rounded-xl bg-slate-900/90 dark:bg-[#111822] border border-amber-500/30 p-3 shadow-sm">
+                            <div className="rounded-xl bg-amber-50/90 dark:bg-[#111822] border border-amber-200 dark:border-amber-500/30 p-3 shadow-sm transition-all">
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-400 flex items-center gap-1">
                                         <Lock className="w-3.5 h-3.5" /> 38-GW Season Vault (30%)
                                     </span>
-                                    <span className="text-xs font-black text-white tabular-nums">KES 840 / GW</span>
+                                    <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">KES 840 / GW</span>
                                 </div>
-                                <p className="text-[10px] text-gray-400">Accumulates locked in escrow until GW38 season finale.</p>
+                                <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Accumulates locked in escrow until GW38 season finale.</p>
                             </div>
 
                             {/* Card 3: Chairman Operations */}
-                            <div className="rounded-xl bg-slate-900/90 dark:bg-[#111822] border border-indigo-500/30 p-3 shadow-sm">
+                            <div className="rounded-xl bg-indigo-50/90 dark:bg-[#111822] border border-indigo-200 dark:border-indigo-500/30 p-3 shadow-sm transition-all">
                                 <div className="flex items-center justify-between mb-1">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 flex items-center gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-800 dark:text-indigo-400 flex items-center gap-1">
                                         <Shield className="w-3.5 h-3.5" /> Chairman Kickback (4%)
                                     </span>
-                                    <span className="text-xs font-black text-white tabular-nums">KES 112</span>
+                                    <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">KES 112</span>
                                 </div>
-                                <p className="text-[10px] text-gray-400">Automated stipend directly credited to Chairman wallet.</p>
+                                <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Automated stipend directly credited to Chairman wallet.</p>
                             </div>
                         </div>
 
@@ -420,7 +420,7 @@ function LedgerDemo() {
                             <Lock className="w-3.5 h-3.5 text-emerald-500" />
                             M-Pesa Escrow Verified
                         </span>
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                             Auto-Disbursed at Final Whistle
                         </span>
                     </div>
@@ -796,26 +796,26 @@ export default function LandingPage() {
                                 </div>
                                 <div className="sm:col-span-5">
                                     {/* Vector Escrow Engine Card */}
-                                    <div className="rounded-2xl p-4 bg-slate-900/90 dark:bg-[#0c1218] border border-emerald-500/30 shadow-lg space-y-3 text-left font-sans">
-                                        <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1">
+                                    <div className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0c1218] border border-emerald-200 dark:border-emerald-500/30 shadow-md dark:shadow-lg space-y-3 text-left font-sans">
+                                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                                                 <Shield className="w-3 h-3" /> M-Pesa Escrow Lock
                                             </span>
-                                            <span className="text-[9px] font-bold text-gray-400">GW4 Active</span>
+                                            <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400">GW4 Active</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
-                                            <div className="bg-black/40 border border-white/5 rounded-xl p-2.5">
-                                                <p className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Weekly Pot</p>
-                                                <p className="text-sm font-black text-emerald-400 tabular-nums">KES 1,960</p>
+                                            <div className="bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/5 rounded-xl p-2.5 shadow-sm">
+                                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Weekly Pot</p>
+                                                <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 tabular-nums">KES 1,960</p>
                                             </div>
-                                            <div className="bg-black/40 border border-white/5 rounded-xl p-2.5">
-                                                <p className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Season Vault</p>
-                                                <p className="text-sm font-black text-amber-400 tabular-nums">KES 31,920</p>
+                                            <div className="bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/5 rounded-xl p-2.5 shadow-sm">
+                                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Season Vault</p>
+                                                <p className="text-sm font-black text-amber-700 dark:text-amber-400 tabular-nums">KES 31,920</p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center justify-between pt-1 text-[10px] text-gray-300 font-medium">
-                                            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-400" /> Auto Disbursal</span>
-                                            <span className="text-emerald-400 font-bold">100% Precision</span>
+                                        <div className="flex items-center justify-between pt-1 text-[10px] text-slate-600 dark:text-gray-300 font-medium">
+                                            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Auto Disbursal</span>
+                                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">100% Precision</span>
                                         </div>
                                     </div>
                                 </div>
@@ -917,32 +917,32 @@ export default function LandingPage() {
                                 </div>
                                 <div className="sm:col-span-5">
                                     {/* 1v1 Head-to-Head Vector Arena Duel Card */}
-                                    <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-b from-[#1c221a] to-[#0c1214] border-2 border-amber-500/40 shadow-xl space-y-3.5 text-left font-sans">
-                                        <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                                    <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 dark:from-[#1c221a] dark:to-[#0c1214] border-2 border-amber-300 dark:border-amber-500/40 shadow-lg dark:shadow-xl space-y-3.5 text-left font-sans">
+                                        <div className="flex items-center justify-between border-b border-amber-200/80 dark:border-white/10 pb-2.5">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">1v1 Matchday Duel</span>
+                                                <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-ping" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400">1v1 Matchday Duel</span>
                                             </div>
-                                            <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-black uppercase">
+                                            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 text-[9px] font-black uppercase border border-amber-200 dark:border-transparent">
                                                 KES 1,000 POT
                                             </span>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3 items-center py-1">
                                             <div className="space-y-1">
-                                                <p className="text-xs font-bold text-white truncate">Brian Mwangi</p>
-                                                <p className="text-lg font-black text-emerald-400 tabular-nums">74 pts</p>
-                                                <span className="text-[9px] font-bold text-emerald-300/80 uppercase">Leading 🔥</span>
+                                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Brian Mwangi</p>
+                                                <p className="text-lg font-black text-emerald-700 dark:text-emerald-400 tabular-nums">74 pts</p>
+                                                <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300/80 uppercase">Leading 🔥</span>
                                             </div>
-                                            <div className="space-y-1 text-right border-l border-white/10 pl-3">
-                                                <p className="text-xs font-bold text-white truncate">Kevin Otieno</p>
-                                                <p className="text-lg font-black text-gray-300 tabular-nums">68 pts</p>
-                                                <span className="text-[9px] font-bold text-gray-500 uppercase">-6 pts</span>
+                                            <div className="space-y-1 text-right border-l border-amber-200/80 dark:border-white/10 pl-3">
+                                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Kevin Otieno</p>
+                                                <p className="text-lg font-black text-slate-700 dark:text-gray-300 tabular-nums">68 pts</p>
+                                                <span className="text-[9px] font-bold text-slate-500 dark:text-gray-500 uppercase">-6 pts</span>
                                             </div>
                                         </div>
 
-                                        <div className="w-full py-2 rounded-xl bg-black/40 border border-white/10 text-gray-300 text-[10px] font-bold text-center flex items-center justify-center gap-1.5">
-                                            <Lock className="w-3 h-3 text-amber-400" />
+                                        <div className="w-full py-2 rounded-xl bg-amber-100/70 dark:bg-black/40 border border-amber-200 dark:border-white/10 text-slate-700 dark:text-gray-300 text-[10px] font-bold text-center flex items-center justify-center gap-1.5">
+                                            <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
                                             <span>M-Pesa Escrow Locked · Disburses at 90'</span>
                                         </div>
                                     </div>

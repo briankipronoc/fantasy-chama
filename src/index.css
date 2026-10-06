@@ -971,8 +971,7 @@
   }
   [data-theme="light"] .fc-landing-shell h1,
   [data-theme="light"] .fc-landing-shell h2,
-  [data-theme="light"] .fc-landing-shell h3,
-  [data-theme="light"] .fc-landing-shell .text-white {
+  [data-theme="light"] .fc-landing-shell h3 {
     color: #0f172a !important;
   }
   [data-theme="light"] .fc-landing-shell .text-gray-200,
