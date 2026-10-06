@@ -1403,9 +1403,11 @@ export default function AdminCommandCenter() {
   };
 
   const isPendingMember = (m: any) =>
-    m.isActive !== false &&
-    !memberHasFunding(m) &&
-    (m.isPending === true || (!m.phone && !m.phoneNumber));
+    Boolean(
+      m &&
+      m.isActive !== false &&
+      (m.isPending === true || (!m.phone && !m.phoneNumber))
+    );
 
   // Deduplicate members by id and phone so no member is ever repeated in the master ledger or collections
   const uniqueMembers = useMemo(() => {
