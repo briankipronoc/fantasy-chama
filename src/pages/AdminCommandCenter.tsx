@@ -35,7 +35,6 @@ import {
   Wallet,
   Coins,
   Radio,
-  Flame,
   Star,
   X,
   Calculator,
@@ -145,6 +144,12 @@ export default function AdminCommandCenter() {
   const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
   const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
   const [nextDeadlineTime, setNextDeadlineTime] = useState<string | null>(null);
+  const [fixtureStats, setFixtureStats] = useState<{
+    finished: number;
+    total: number;
+    remaining: number;
+    inPlay: number;
+  } | null>(null);
   const [firestoreGw, setFirestoreGw] = useState<number | null>(null);
   const [startGw, setStartGw] = useState<number | null>(null);
 
@@ -633,9 +638,18 @@ export default function AdminCommandCenter() {
                 if (fixRes.ok) {
                   const fixtures = await fixRes.json();
                   if (Array.isArray(fixtures) && fixtures.length > 0) {
+                    const activeFixtures = fixtures.filter((f: any) => !f.postponed);
+                    const total = activeFixtures.length;
+                    const finished = activeFixtures.filter((f: any) => f.finished === true || f.finished_provisional === true).length;
+                    const inPlay = activeFixtures.filter((f: any) => !f.finished && !f.finished_provisional && (f.started === true || (f.kickoff_time && Date.now() >= new Date(f.kickoff_time).getTime() && (Date.now() - new Date(f.kickoff_time).getTime()) < 125 * 60 * 1000))).length;
+                    const remaining = Math.max(0, total - finished);
+
+                    setFixtureStats({ finished, total, remaining, inPlay });
+
                     const allDone = fixtures.every((f: any) =>
                       f.finished === true ||
                       f.finished_provisional === true ||
+                      f.postponed === true ||
                       (f.kickoff_time && (Date.now() - new Date(f.kickoff_time).getTime()) > 135 * 60 * 1000)
                     );
                     if (allDone) isEventFinished = true;
@@ -755,11 +769,16 @@ export default function AdminCommandCenter() {
     if (eligibleResults.length >= 2) {
       const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
       const winner = sorted[0];
-      const runnerUp = sorted[1];
-      const leadMargin = Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0);
+      const runnerUp = sorted.find((r: any) => {
+        if (!r) return false;
+        if (winner.entry && r.entry && Number(r.entry) === Number(winner.entry)) return false;
+        if (norm(r.player_name) === norm(winner.player_name)) return false;
+        return true;
+      });
+      const leadMargin = runnerUp ? Number(winner?.event_total || 0) - Number(runnerUp?.event_total || 0) : 0;
       setGwWinner({
         ...winner,
-        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || '2nd Place',
+        runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || 'Challenger',
         leadMargin: Math.max(0, leadMargin),
       });
     } else if (eligibleResults.length === 1) {
@@ -3796,7 +3815,6 @@ burstFrame();
                 hour: '2-digit',
                 minute: '2-digit'
               }) : null;
-              const daysUntilDeadline = nextDeadlineTime ? Math.max(0, Math.floor((new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
 
               return (
                 <div
@@ -3815,27 +3833,31 @@ burstFrame();
                   <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-200/80 dark:border-white/10 relative z-10">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                        <span className={clsx("absolute inline-flex h-full w-full rounded-full opacity-75", isRoundConcluded ? "bg-amber-400" : "animate-ping bg-emerald-500")} />
+                        <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", isRoundConcluded ? "bg-amber-400" : "bg-emerald-500")} />
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-xs">
                         <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                         {isPreLeagueRound 
-                          ? `Matchday Pulse • Pre-Season · Kickoff at GW${effectiveStartGw}`
-                          : `Matchday Pulse • GW${currentGwNumber || effectiveStartGw || 5} ${isRoundConcluded ? "Finalized" : "Live"}`}
+                          ? `Pre-Season • Kickoff GW${effectiveStartGw}`
+                          : `GW${currentGwNumber || effectiveStartGw || 5} • ${isRoundConcluded ? "Finalized" : "Matches in Play"}`}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
-                        <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                        {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : isRoundConcluded ? `Next: GW${nextPlayableGw}` : "High Score Active"}
-                      </span>
+                      {!isRoundConcluded && fixtureStats && fixtureStats.total > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 dark:bg-white/10 dark:text-emerald-300 dark:border-emerald-500/25">
+                          ⚽ {fixtureStats.finished}/{fixtureStats.total} played · {fixtureStats.remaining > 0 ? `${fixtureStats.remaining} remaining` : 'Final whistle'}
+                          {fixtureStats.inPlay > 0 && <span className="text-amber-400 font-bold">({fixtureStats.inPlay} live)</span>}
+                        </span>
+                      )}
                       <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
                         {isPreLeagueRound
-                          ? `League officially begins with Gameweek ${effectiveStartGw}. Previous gameweek concluded prior to league activation.`
+                          ? `Competitive matchdays begin at GW${effectiveStartGw}.`
                           : isRoundConcluded 
                             ? (formattedDeadline 
-                                ? `GW${currentGwNumber || effectiveStartGw || 5} finalized. Next GW${nextPlayableGw} payment deadline: ${formattedDeadline} (${daysUntilDeadline !== null ? `${daysUntilDeadline}d left` : 'upcoming'}).`
-                                : `GW${currentGwNumber || effectiveStartGw || 5} finalized. Next Gameweek ${nextPlayableGw} approaching.`) 
-                            : "Scores updating in real-time as fixtures progress."}
+                                ? `GW${currentGwNumber || effectiveStartGw || 5} concluded. Next GW${(currentGwNumber || 1) + 1} deadline: ${formattedDeadline}.`
+                                : `GW${currentGwNumber || effectiveStartGw || 5} concluded.`)
+                            : (fixtureStats && fixtureStats.remaining > 0
+                                ? `${fixtureStats.remaining} match${fixtureStats.remaining > 1 ? 'es' : ''} left before round closes.`
+                                : "Scores updating live as fixtures progress.")}
                       </span>
                     </div>
 
@@ -3891,12 +3913,12 @@ burstFrame();
                                 {isCelebrationWindowActive ? (
                                   <>
                                     <Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" />
-                                    GW {currentGwNumber || effectiveStartGw || 5} Champion Crowned
+                                    GW{currentGwNumber || effectiveStartGw || 5} Champion
                                   </>
                                 ) : (
                                   <>
-                                    <Zap className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                                    GW {currentGwNumber || effectiveStartGw || 5} Live Leader
+                                    <Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                                    GW{currentGwNumber || effectiveStartGw || 5} Live Leader
                                   </>
                                 )}
                               </p>
@@ -3908,7 +3930,9 @@ burstFrame();
                                     : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
                                 )}
                               >
-                                {isRoundConcluded ? `GW${currentGwNumber || effectiveStartGw || 5} Final` : `GW${currentGwNumber || effectiveStartGw || 5} Live · In Play`}
+                                {isRoundConcluded 
+                                  ? "Official Result" 
+                                  : (fixtureStats && fixtureStats.remaining > 0 ? `${fixtureStats.remaining} games left` : "In Play")}
                               </span>
                             </div>
 
@@ -3923,19 +3947,19 @@ burstFrame();
                                     Clinched {calculatedPot === 0 ? '1st place' : 'the pot'} with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
                                     {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
                                     {calculatedPot === 0 ? (
-                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-black">100% Season Vault League</span> (Points Secured)</span>
+                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-bold">100% Season Vault League</span></span>
                                     ) : (
-                                      <span> · Payout Yielded: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span></span>
+                                      <span> · Payout: <span className="text-amber-600 dark:text-[#FBBF24] font-bold">KES {calculatedPot.toLocaleString()}</span></span>
                                     )}
                                   </>
                                 ) : (
                                   <>
-                                    Currently leading this round with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
+                                    Leading with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
                                     {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
                                     {calculatedPot === 0 ? (
-                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-black">100% Season Vault League</span> (Live Matches in Progress)</span>
+                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-bold">100% Season Vault League</span></span>
                                     ) : (
-                                      <span> · Projected Payout: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span> (Live Matches in Progress)</span>
+                                      <span> · Projected Pot: <span className="text-amber-600 dark:text-[#FBBF24] font-bold">KES {calculatedPot.toLocaleString()}</span></span>
                                     )}
                                   </>
                                 )}
@@ -4065,20 +4089,22 @@ burstFrame();
                         <>
                           <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-[#111822] border-slate-200 dark:border-white/10 shadow-xs">
                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
-                              {isSeasonPotOnly ? `GW${currentGwNumber || effectiveStartGw || 5} Winner` : isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`}
+                              {isSeasonPotOnly 
+                                ? (isRoundConcluded ? `GW${currentGwNumber || effectiveStartGw || 5} Final` : `GW${currentGwNumber || effectiveStartGw || 5} Status`) 
+                                : (isRoundConcluded ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`)}
                             </p>
                             <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
-                              {isSeasonPotOnly ? "Season Vault Focus 🏆" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
+                              {isSeasonPotOnly ? "100% Season Vault" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
                             </p>
                             <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
-                              {isSeasonPotOnly ? "100% Season Vault Accumulation" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
+                              {isSeasonPotOnly ? "Points count toward Season Jackpot" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
                             </p>
                           </div>
 
                           {formattedDeadline && (
                             <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold text-center">
                               <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                              <span>GW{nextPlayableGw} Deadline: {formattedDeadline}</span>
+                              <span>GW{(currentGwNumber || 1) + 1} Deadline: {formattedDeadline}</span>
                             </div>
                           )}
 
@@ -4089,24 +4115,29 @@ burstFrame();
                           ) : (
                             <>
                               <button
-                                id="tour-resolve-gw"
-                                onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
-                              >
-                                <Trophy className="w-3.5 h-3.5" />
-                                <span>Resolve GW{currentGwNumber || 5}</span>
-                              </button>
-                              <button
                                 type="button"
                                 onClick={() => {
                                   haptics.impact();
                                   setShowBanterSlipModal(true);
                                 }}
-                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                                 title="Generate 1-tap WhatsApp matchday digest for your Chama group"
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
                                 <span>Chama Banter Slip 📰</span>
+                              </button>
+                              <button
+                                id="tour-resolve-gw"
+                                onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                                className={clsx(
+                                  "w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
+                                  isRoundConcluded
+                                    ? "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
+                                    : "bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-[11px]"
+                                )}
+                              >
+                                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{isRoundConcluded ? `Resolve GW${currentGwNumber || 5}` : `Resolve GW${currentGwNumber || 5} (Whistle Pending)`}</span>
                               </button>
                             </>
                           )}
@@ -5902,7 +5933,7 @@ burstFrame();
                         <p className="text-xs font-black uppercase tracking-wider">Season Vault League • Honorary Gameweek Crown</p>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed">
-                        This league operates on Season Vault focus (0% weekly pot). Resolving will award the official Gameweek {currentGwNumber || ''} winner title and record the top-scoring manager on the official ledger.
+                        This league operates on 100% Season Vault (0% weekly pot). Resolving will award the official Gameweek {currentGwNumber || ''} winner title and record the top-scoring manager on the official ledger.
                       </p>
                     </div>
                   ) : (

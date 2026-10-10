@@ -73,6 +73,12 @@ export default function MemberDashboard() {
         nextDeadlineTime?: string;
         isPreparingForNextGw?: boolean;
     } | null>(null);
+    const [fixtureStats, setFixtureStats] = useState<{
+        finished: number;
+        total: number;
+        remaining: number;
+        inPlay: number;
+    } | null>(null);
 
     // Phase 30: panel toggles
     const [showFeedPanelMobile, setShowFeedPanelMobile] = useState(false);
@@ -530,6 +536,14 @@ export default function MemberDashboard() {
                         if (fixRes.ok) {
                             const fixtures = await fixRes.json();
                             if (Array.isArray(fixtures) && fixtures.length > 0) {
+                                const activeFixtures = fixtures.filter((f: any) => !f.postponed);
+                                const total = activeFixtures.length;
+                                const finished = activeFixtures.filter((f: any) => f.finished === true || f.finished_provisional === true).length;
+                                const inPlay = activeFixtures.filter((f: any) => !f.finished && !f.finished_provisional && (f.started === true || (f.kickoff_time && Date.now() >= new Date(f.kickoff_time).getTime() && (Date.now() - new Date(f.kickoff_time).getTime()) < 125 * 60 * 1000))).length;
+                                const remaining = Math.max(0, total - finished);
+
+                                setFixtureStats({ finished, total, remaining, inPlay });
+
                                 // Double gameweeks & postponed matches:
                                 // Postponed fixtures do not block gameweek completion
                                 const allDone = fixtures.every((f: any) =>
@@ -660,7 +674,12 @@ export default function MemberDashboard() {
             const tiedWinners = eligibleResults.filter(r => Number(r.event_total || 0) === topScore);
             const isTie = tiedWinners.length > 1;
             const winner = eligibleResults[0];
-            const runnerUp = eligibleResults.find(r => Number(r.event_total || 0) < topScore) || null;
+            const runnerUp = eligibleResults.find((r: any) => {
+                if (Number(r.event_total || 0) >= topScore) return false;
+                if (winner.entry && r.entry && Number(r.entry) === Number(winner.entry)) return false;
+                if (winner.player_name && r.player_name && r.player_name.trim().toLowerCase() === winner.player_name.trim().toLowerCase()) return false;
+                return true;
+            }) || null;
             const leadMargin = runnerUp ? topScore - Number(runnerUp?.event_total || 0) : 0;
             const tieNames = tiedWinners.map((w: any) => w.player_name?.split(' ')[0] || 'Winner').join(' & ');
 
@@ -2089,14 +2108,14 @@ export default function MemberDashboard() {
                                         <div className="flex items-center gap-2">
                                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FBBF24] flex items-center gap-1">
                                                 {isRoundFinished ? (
-                                                    <><Star className="w-3 h-3 fill-[#FBBF24]" /> GW {activeChampion.event || currentFplEvent?.id || ''} Champion Crowned</>
+                                                    <><Star className="w-3 h-3 fill-[#FBBF24]" /> GW{activeChampion.event || currentFplEvent?.id || ''} Champion</>
                                                 ) : (
-                                                    <><Zap className="w-3 h-3 text-emerald-400 fill-emerald-400" /> GW {activeChampion.event || currentFplEvent?.id || ''} Live Leader</>
+                                                    <><Zap className="w-3 h-3 text-emerald-400 fill-emerald-400 animate-pulse" /> GW{activeChampion.event || currentFplEvent?.id || ''} Live Leader</>
                                                 )}
                                             </span>
                                             {!isRoundFinished && (
-                                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 animate-pulse">
-                                                    Matches In Progress ⚡
+                                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                                                    {fixtureStats && fixtureStats.remaining > 0 ? `${fixtureStats.remaining} games left` : 'Matches in Play ⚡'}
                                                 </span>
                                             )}
                                         </div>
@@ -2107,13 +2126,13 @@ export default function MemberDashboard() {
                                             {isRoundFinished ? (
                                                 <>Clinched {Number(rules.weekly || 0) === 0 ? '1st place' : 'the pot'} with <span className="text-[#10B981] font-black">{activeChampion.event_total} pts</span></>
                                             ) : (
-                                                <>Currently leading this round with <span className="text-[#10B981] font-black">{activeChampion.event_total} pts</span></>
+                                                <>Leading this round with <span className="text-[#10B981] font-black">{activeChampion.event_total} pts</span></>
                                             )}
                                             {activeChampion.leadMargin ? ` (+${activeChampion.leadMargin} pts ahead)` : ''}
                                             {Number(rules.weekly || 0) === 0 ? (
-                                                <span> · <span className="text-[#FBBF24] font-black">100% Season Vault League</span> ({isRoundFinished ? 'Points Secured' : 'Live Lead'})</span>
+                                                <span> · <span className="text-[#FBBF24] font-bold">100% Season Vault League</span></span>
                                             ) : (
-                                                <span> · {isRoundFinished ? 'Payout Yielded:' : 'Projected Pot:'} <span className="text-[#FBBF24] font-black">KES {(activeChampion.amount || ((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))).toLocaleString()}</span></span>
+                                                <span> · {isRoundFinished ? 'Payout Yielded:' : 'Projected Pot:'} <span className="text-[#FBBF24] font-bold">KES {(activeChampion.amount || ((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))).toLocaleString()}</span></span>
                                             )}
                                         </p>
                                         {/* WhatsApp / iMessage Style Reaction Badges */}
