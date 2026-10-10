@@ -124,11 +124,15 @@ export default function Standings() {
     const gwWinnersLedger = useMemo(() => {
         const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isPaid?: boolean; isVoided?: boolean; isAwaitingPayment?: boolean }>();
         payoutRows.forEach((tx) => {
-            const gw = Number(tx.gameweek || tx.gw);
+            let gw = Number(tx.gameweek || tx.gw);
+            if (!Number.isFinite(gw) || gw <= 0) {
+                const gwMatch = String(tx.description || tx.notes || '').match(/GW\s*(\d+)|Gameweek\s*(\d+)/i);
+                if (gwMatch) gw = Number(gwMatch[1] || gwMatch[2]);
+            }
             if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
             winnerByGw.set(gw, {
                 gw,
-                winnerName: tx.winnerName || 'Unknown winner',
+                winnerName: tx.winnerName || tx.memberName || (tx.description?.split('-')[1]?.trim()) || 'Confirmed Winner',
                 winnerTeam: tx.winnerTeam || tx.entryName || null,
                 amount: Number(tx.amount || 0),
                 isPaid: true,
@@ -139,9 +143,18 @@ export default function Standings() {
         const pendingPayoutsMap = new Map<number, any>();
         pendingPayouts.forEach((p) => {
             const gwNum = Number(p.gw || p.gameweek);
-            if (Number.isFinite(gwNum)) {
+            if (Number.isFinite(gwNum) && gwNum > 0) {
                 if (p.status === 'forfeited') {
                     pendingForfeited.add(gwNum);
+                } else if (p.status === 'approved' || p.status === 'settled') {
+                    // Approved payouts are official paid winners
+                    winnerByGw.set(gwNum, {
+                        gw: gwNum,
+                        winnerName: p.winnerName || p.playerName || 'Winner confirmed',
+                        winnerTeam: p.winnerTeam || p.entryName || null,
+                        amount: Number(p.amount || 0),
+                        isPaid: true,
+                    });
                 } else {
                     pendingPayoutsMap.set(gwNum, p);
                 }
@@ -357,7 +370,17 @@ export default function Standings() {
                         if (lData.coAdminId) setCoAdminId(lData.coAdminId);
                         if (lData.rules) setLeagueRules(lData.rules);
                         if (lData.forfeitedGws) setForfeitedGws(lData.forfeitedGws);
-                        if (lData.startGw) setLeagueStartGw(Number(lData.startGw));
+                        if (lData.startGw) {
+                            const rawStart = Number(lData.startGw);
+                            if (rawStart > 5) {
+                                updateDoc(doc(db, 'leagues', activeLeagueId), { startGw: 5 }).catch(() => {});
+                                setLeagueStartGw(5);
+                            } else {
+                                setLeagueStartGw(rawStart);
+                            }
+                        } else {
+                            setLeagueStartGw(5);
+                        }
                         if (lData.fplLeagueId) {
                             setDbFplLeagueId(Number(lData.fplLeagueId));
                             targetFplId = Number(lData.fplLeagueId);
@@ -499,7 +522,21 @@ export default function Standings() {
                     const txSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'transactions'));
                     const payoutRowsData = txSnap.docs
                         .map((txDoc) => txDoc.data() as any)
-                        .filter((tx) => tx.type === 'payout' && Number.isFinite(Number(tx.gameweek || tx.gw)));
+                        .filter((tx) => {
+                            if (tx.type !== 'payout') return false;
+                            const gw = Number(tx.gameweek || tx.gw);
+                            if (Number.isFinite(gw) && gw > 0) return true;
+                            const gwMatch = String(tx.description || tx.notes || '').match(/GW\s*(\d+)|Gameweek\s*(\d+)/i);
+                            return Boolean(gwMatch);
+                        })
+                        .map((tx) => {
+                            let gw = Number(tx.gameweek || tx.gw);
+                            if (!Number.isFinite(gw) || gw <= 0) {
+                                const gwMatch = String(tx.description || tx.notes || '').match(/GW\s*(\d+)|Gameweek\s*(\d+)/i);
+                                if (gwMatch) gw = Number(gwMatch[1] || gwMatch[2]);
+                            }
+                            return { ...tx, gameweek: gw, gw };
+                        });
                     setPayoutRows(payoutRowsData);
 
                     try {

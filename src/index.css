@@ -2752,26 +2752,64 @@ textarea {
 }
 
 /* ══════════════════════════════════════════════
-   STEALTH THEME — Pitch Black OLED & Nothing-OS Android Aesthetic
-   Pure OLED blacks (#000000), ultra-clean matte card layers (#080808),
-   crisp 1px razor silver borders (rgba(255,255,255,0.12)),
-   minimalist monochrome typography, phosphor dot indicators,
-   and anti-glare tactical contrast.
+   DARK THEME (NEW) — Sleek Matte Obsidian & Deep Navy Night
+   Takes over previous stealth's clean matte dark aesthetic.
+   Deep space black (#070b10), rich graphite cards (#0d141e),
+   and razor slate borders (rgba(255,255,255,0.09)).
+══════════════════════════════════════════════ */
+[data-theme="dark"] body,
+html.dark:not(.stealth) body {
+  background-color: #070b10 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .fc-shell-default,
+[data-theme="dark"] .fc-shell-warroom,
+[data-theme="dark"] .fc-shell-standings,
+[data-theme="dark"] .fc-shell-finances,
+[data-theme="dark"] .fc-shell-profile,
+html.dark:not(.stealth) .fc-shell-default,
+html.dark:not(.stealth) .fc-shell-warroom,
+html.dark:not(.stealth) .fc-shell-standings,
+html.dark:not(.stealth) .fc-shell-finances,
+html.dark:not(.stealth) .fc-shell-profile {
+  background: #070b10 !important;
+  background-color: #070b10 !important;
+}
+
+[data-theme="dark"] .fc-card,
+[data-theme="dark"] .fc-highlight-card,
+[data-theme="dark"] .glass-panel,
+html.dark:not(.stealth) .fc-card,
+html.dark:not(.stealth) .fc-highlight-card,
+html.dark:not(.stealth) .glass-panel {
+  background: linear-gradient(180deg, #101722 0%, #0a0f16 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* ══════════════════════════════════════════════
+   STEALTH THEME (UPGRADED) — Tactical Abyss OLED
+   Darker, stealthier pure OLED abyss (#000000),
+   ultra-dark obsidian cards (#040404 to #010101),
+   hairline carbon borders (rgba(255,255,255,0.08)),
+   high-contrast phosphor yellow (#FBBF24) & mint (#10B981)
+   laser accents, and anti-glare tactical contrast.
 ══════════════════════════════════════════════ */
 [data-theme="stealth"] {
-  --fc-toast-bg: rgba(0, 0, 0, 0.98);
+  --fc-toast-bg: rgba(0, 0, 0, 0.99);
   --fc-toast-color: #ffffff;
-  --fc-toast-border: rgba(255, 255, 255, 0.2);
-  --fc-toast-shadow: 0 24px 60px rgba(0, 0, 0, 0.98);
-  --fc-card-bg: #080808;
-  --fc-card-border: rgba(255, 255, 255, 0.12);
+  --fc-toast-border: rgba(255, 255, 255, 0.16);
+  --fc-toast-shadow: 0 24px 60px rgba(0, 0, 0, 0.99);
+  --fc-card-bg: #030303;
+  --fc-card-border: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="stealth"] body,
 html.stealth body {
   background-color: #000000 !important;
-  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.035) 1px, transparent 0) !important;
-  background-size: 32px 32px !important;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.025) 1px, transparent 0) !important;
+  background-size: 28px 28px !important;
   color: #f1f5f9 !important;
 }
 
@@ -2789,22 +2827,22 @@ html.stealth .fc-shell-profile {
   background-color: #000000 !important;
 }
 
-/* OLED Tactical Cards */
+/* Abyss OLED Tactical Cards */
 [data-theme="stealth"] .fc-card,
 [data-theme="stealth"] .fc-highlight-card,
 [data-theme="stealth"] .glass-panel,
 html.stealth .fc-card,
 html.stealth .fc-highlight-card,
 html.stealth .glass-panel {
-  background: linear-gradient(180deg, #0b0b0b 0%, #030303 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  background: linear-gradient(180deg, #050505 0%, #010101 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.98), inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
 
 [data-theme="stealth"] .fc-card:hover,
 html.stealth .fc-card:hover {
-  border-color: rgba(255, 255, 255, 0.28) !important;
-  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.98), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 1), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
 /* Brushed Titanium / Silver Badges & Chips */
@@ -2901,8 +2939,8 @@ html.stealth .fc-meta-label {
 html.stealth input,
 html.stealth select,
 html.stealth textarea {
-  background-color: #060606 !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: #030303 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
   color: #ffffff !important;
 }
 
@@ -2919,21 +2957,46 @@ html.stealth textarea:focus {
 /* Tactical Header & Bottom Bar in Stealth */
 [data-theme="stealth"] header,
 html.stealth header {
-  background: rgba(0, 0, 0, 0.95) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0.98) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important;
 }
 
 [data-theme="stealth"] nav,
 html.stealth nav {
-  background: rgba(0, 0, 0, 0.97) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(0, 0, 0, 0.98) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.09) !important;
 }
 
-/* Universal Dialog & Modal Card Protection across all themes */
-[role="dialog"] h1, [role="dialog"] h2, [role="dialog"] h3, [role="dialog"] h4,
-[role="dialog"] .text-white, .fc-team-picks-modal h3, .fc-team-picks-modal .text-white {
+/* Universal Dialog & Modal Card Protection in Dark and Stealth Themes */
+[data-theme="dark"] [role="dialog"] h1,
+[data-theme="dark"] [role="dialog"] h2,
+[data-theme="dark"] [role="dialog"] h3,
+[data-theme="dark"] [role="dialog"] h4,
+[data-theme="stealth"] [role="dialog"] h1,
+[data-theme="stealth"] [role="dialog"] h2,
+[data-theme="stealth"] [role="dialog"] h3,
+[data-theme="stealth"] [role="dialog"] h4,
+html.dark [role="dialog"] h1,
+html.dark [role="dialog"] h2,
+html.dark [role="dialog"] h3,
+html.dark [role="dialog"] h4,
+.fc-team-picks-modal h3,
+.fc-team-picks-modal .text-white {
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Modal Title & Content in Light Theme */
+[data-theme="light"] [role="dialog"] h1,
+[data-theme="light"] [role="dialog"] h2,
+[data-theme="light"] [role="dialog"] h3,
+[data-theme="light"] [role="dialog"] h4,
+html:not(.dark) [role="dialog"] h1,
+html:not(.dark) [role="dialog"] h2,
+html:not(.dark) [role="dialog"] h3,
+html:not(.dark) [role="dialog"] h4 {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
 /* Master Invite Card & Command Board Stealth / Dark Protections */
@@ -2941,16 +3004,143 @@ html.stealth nav {
 [data-theme="stealth"] .fc-invite-card-body,
 html.stealth .fc-invite-card,
 html.stealth .fc-invite-card-body {
-  background: #06080b !important;
-  background-color: #06080b !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: #020305 !important;
+  background-color: #020305 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 [data-theme="dark"] .fc-invite-card,
 [data-theme="dark"] .fc-invite-card-body {
-  background: #0c1219 !important;
-  background-color: #0c1219 !important;
+  background: #0a0f16 !important;
+  background-color: #0a0f16 !important;
 }
 
+/* ══════════════════════════════════════════════
+   MASTER INVITE CODE — Guaranteed Electric Yellow (#FBBF24) in ALL themes
+   Never overridden by monochrome stealth heading resets.
+══════════════════════════════════════════════ */
+.fc-master-invite-code,
+.fc-invite-code-display,
+[data-theme="stealth"] .fc-master-invite-code,
+[data-theme="stealth"] .fc-invite-code-display,
+[data-theme="stealth"] div.fc-master-invite-code,
+[data-theme="stealth"] span.fc-master-invite-code,
+html.stealth .fc-master-invite-code,
+html.stealth .fc-invite-code-display,
+html.stealth div.fc-master-invite-code,
+html.stealth span.fc-master-invite-code,
+[data-theme="dark"] .fc-master-invite-code,
+[data-theme="dark"] .fc-invite-code-display,
+[data-theme="dark"] div.fc-master-invite-code,
+[data-theme="dark"] span.fc-master-invite-code {
+  color: #FBBF24 !important;
+  -webkit-text-fill-color: #FBBF24 !important;
+  text-shadow: 0 0 24px rgba(251, 191, 36, 0.45) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
 
+/* ══════════════════════════════════════════════
+   DOCS & MODAL THEMING — Light, Dark & Stealth
+   ══════════════════════════════════════════════ */
+[data-theme="light"] .fc-docs-modal {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+[data-theme="light"] .fc-docs-modal h1,
+[data-theme="light"] .fc-docs-modal h2,
+[data-theme="light"] .fc-docs-modal h3,
+[data-theme="light"] .fc-docs-modal h4 {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+[data-theme="light"] .fc-docs-modal p {
+  color: #475569 !important;
+}
 
+/* Standalone Doc Pages Light Theme */
+[data-theme="light"] .fc-doc-page {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .fc-doc-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08) !important;
+}
+[data-theme="light"] .fc-doc-header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+}
+[data-theme="light"] .fc-doc-card h1,
+[data-theme="light"] .fc-doc-card h2,
+[data-theme="light"] .fc-doc-card h3,
+[data-theme="light"] .fc-doc-card h4 {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+[data-theme="light"] .fc-doc-card p,
+[data-theme="light"] .fc-doc-card li {
+  color: #475569 !important;
+}
+[data-theme="light"] .fc-doc-card section {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+[data-theme="light"] .fc-doc-card strong {
+  color: #0f172a !important;
+}
+
+[data-theme="stealth"] .fc-docs-modal {
+  background-color: #000000 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="stealth"] .fc-docs-modal h1,
+[data-theme="stealth"] .fc-docs-modal h2,
+[data-theme="stealth"] .fc-docs-modal h3,
+[data-theme="stealth"] .fc-docs-modal h4 {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* Standalone Doc Pages Stealth Theme */
+[data-theme="stealth"] .fc-doc-page {
+  background-color: #000000 !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="stealth"] .fc-doc-card {
+  background-color: #070707 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="stealth"] .fc-doc-header {
+  background-color: rgba(7, 7, 7, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="stealth"] .fc-doc-card section {
+  background-color: #0d0d0d !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ══════════════════════════════════════════════
+   STEALTH MODE LANDING PAGE OVERRIDES
+   ══════════════════════════════════════════════ */
+[data-theme="stealth"] .fc-landing-shell {
+  background-color: #000000 !important;
+  color: #f1f5f9 !important;
+}
+[data-theme="stealth"] .fc-landing-nav {
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="stealth"] .fc-landing-card,
+[data-theme="stealth"] .fc-landing-panel {
+  background: #030407 !important;
+  background-color: #030407 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="stealth"] .fc-landing-footer {
+  background-color: #000000 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}

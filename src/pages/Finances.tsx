@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle } from 'lucide-react';
+import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
-import { collection, onSnapshot, query, orderBy, doc, getDoc, addDoc, updateDoc, serverTimestamp, where, increment } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, getDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, where, increment } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import clsx from 'clsx';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -123,6 +123,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [topUpCustomAmount, setTopUpCustomAmount] = useState('');
     const [copiedPochiPhone, setCopiedPochiPhone] = useState(false);
     const [isPushingTopUpMpesa, setIsPushingTopUpMpesa] = useState(false);
+    const [txToDelete, setTxToDelete] = useState<any | null>(null);
+    const [isDeletingTx, setIsDeletingTx] = useState(false);
 
     useEffect(() => {
         setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
@@ -423,9 +425,42 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const paidMembers = members.filter(isMemberFunded);
     const totalSecured = paidMembers.length * (gameweekStake || 0);
     
-    // Dynamic start gameweek: respect league settings if configured, fallback to 1
+    // Dynamic start gameweek: respect league settings if configured, auto-heal if GW5 was played
+    const earliestRecordedGw = useMemo(() => {
+        const gws = transactions
+            .map((t: any) => {
+                const desc = (t.description || '').toLowerCase();
+                const gwMatch = desc.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
+                const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw || t.gameweek || 0);
+                return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+            })
+            .filter((g: any): g is number => g !== null && g >= 5);
+        return gws.length > 0 ? Math.min(...gws) : null;
+    }, [transactions]);
+
+    const hasGw5Record = useMemo(() => {
+        return transactions.some((t: any) => {
+            const desc = (t.description || '').toLowerCase();
+            return (
+                Number(t.gw || t.gameweek) === 5 ||
+                desc.includes('gw 5') ||
+                desc.includes('gw5') ||
+                desc.includes('gameweek 5')
+            );
+        });
+    }, [transactions]);
+
     const rawStart = Number((leagueSettings as any)?.startGw || startGw || 1);
-    const leagueStartGw = Math.max(1, rawStart);
+    const leagueStartGw = Math.max(1, (rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) ? 5 : rawStart);
+
+    // Auto-heal league startGw in database if set to 6 while GW5 had activity
+    useEffect(() => {
+        if (activeLeagueId && rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) {
+            updateDoc(doc(db, "leagues", activeLeagueId), { startGw: 5 }).catch((err) => {
+                console.warn("Could not auto-heal league startGw to 5 in Finances:", err);
+            });
+        }
+    }, [activeLeagueId, rawStart, hasGw5Record, earliestRecordedGw, currentGwNumber]);
     
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     
@@ -708,7 +743,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             }
             // Filter out test payouts logged before official start gameweek
             const txGw = Number(t.gw || t.gameweek);
-            if (Number.isFinite(txGw) && txGw < Math.max(5, startGw || 5)) return false;
+            if (Number.isFinite(txGw) && txGw < leagueStartGw) return false;
             return true;
         })
         .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
@@ -817,17 +852,15 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
 
     const totalCompletedOrCurrentGws = useMemo(() => {
-        const rawStart = Math.max(1, Number(leagueSettings?.startGw || startGw || 1));
-        const currentGw = Number(currentGwNumber || rawStart);
-        const effectiveStart = rawStart;
-        return Math.max(0, currentGw - effectiveStart + 1);
-    }, [startGw, currentGwNumber, leagueSettings]);
+        const effectiveStart = leagueStartGw;
+        const currentGw = Number(currentGwNumber || effectiveStart);
+        return Math.max(1, currentGw - effectiveStart + 1);
+    }, [leagueStartGw, currentGwNumber]);
 
     const memberFundingSummary = useMemo(() => {
-        const rawStart = Math.max(1, Number(leagueSettings?.startGw || startGw || 1));
-        const currentGw = Number(currentGwNumber || rawStart);
-        const start = rawStart;
-        const totalCompleted = Math.max(0, currentGw - start + 1);
+        const start = leagueStartGw;
+        const currentGw = Number(currentGwNumber || start);
+        const totalCompleted = Math.max(1, currentGw - start + 1);
         const stake = Number(gameweekStake || 0);
 
         return members
@@ -896,7 +929,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 };
             })
             .sort((a, b) => b.gwsSkippedCount - a.gwsSkippedCount);
-    }, [members, transactions, startGw, currentGwNumber, gameweekStake]);
+    }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake]);
 
     const totalChamaArrears = useMemo(() => {
         return memberFundingSummary.reduce((acc, m) => acc + (m.totalOwedArrears || 0), 0);
@@ -1052,6 +1085,21 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         showActionMessage('success', 'Receipt ready for WhatsApp share.');
     };
 
+    const handleDeleteTransaction = async () => {
+        if (!activeLeagueId || !txToDelete?.id) return;
+        setIsDeletingTx(true);
+        try {
+            await deleteDoc(doc(db, 'leagues', activeLeagueId, 'transactions', txToDelete.id));
+            toast.success(`Transaction ${txToDelete.receiptId || ''} deleted from ledger.`);
+            setTxToDelete(null);
+        } catch (err: any) {
+            console.error('Error deleting transaction:', err);
+            toast.error(`Failed to delete transaction: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setIsDeletingTx(false);
+        }
+    };
+
     const handleSubmitCashTopUpRequest = async () => {
         if (!activeLeagueId || !currentUser || !activeUserId) return;
 
@@ -1127,7 +1175,7 @@ const handleApproveWalletTopUpRequest = async (requestItem: any) => {
                 hasPaid: true,
             });
 
-            const stampedGw = Math.max(Number(startGw || 1), Number(currentGwNumber || 1));
+            const stampedGw = Math.max(Number(leagueStartGw || 1), Number(currentGwNumber || 1));
             await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
                 type: 'wallet_funding',
                 amount,
@@ -1557,7 +1605,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0 sm:ml-auto">
                                                     {effectivePayoutMode === 'both' && (
                                                         <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
                                                             <button
@@ -1577,7 +1625,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         </div>
                                                     )}
                                                     {(effectivePayoutMode === 'season_only' || projectedCardIndex === 1) && (
-                                                        <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shadow-xs">
+                                                        <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shadow-xs sm:ml-2">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSeasonCardTab('collected')}
@@ -1601,11 +1649,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                 Projected
                                                             </button>
                                                         </div>
-                                                    )}
-                                                    {effectivePayoutMode === 'season_only' && (
-                                                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400">
-                                                            Season Only
-                                                        </span>
                                                     )}
                                                     {effectivePayoutMode === 'weekly_only' && (
                                                         <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
@@ -1906,7 +1949,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <h3 className="font-bold text-lg text-white">Gameweek Funding & Arrears Audit</h3>
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                        Since GW{Number(startGw || 5)}
+                                        Since GW{leagueStartGw}
                                     </span>
                                 </div>
                                 <p className="text-xs text-gray-400 mt-0.5">
@@ -1947,7 +1990,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-lg sm:text-xl font-black tabular-nums text-white mt-0.5">
                                 {totalCompletedOrCurrentGws} GW{totalCompletedOrCurrentGws !== 1 ? 's' : ''}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">GW{Number(startGw || 5)} → GW{Math.max(Number(startGw || 5), Number(currentGwNumber || startGw || 5))}</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">GW{leagueStartGw} → GW{Math.max(leagueStartGw, Number(currentGwNumber || leagueStartGw))}</p>
                         </div>
                         <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
                             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Fully Funded</p>
@@ -1968,7 +2011,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     {/* Weekly Pot Balancing Indicator */}
                     <div className="px-4 py-3 md:px-6 bg-emerald-500/[0.04] border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-gray-300">GW{currentGwNumber || startGw || 1} Weekly Pot:</span>
+                            <span className="font-bold text-gray-300">GW{currentGwNumber || leagueStartGw || 1} Weekly Pot:</span>
                             <span className="font-black text-white tabular-nums">KES {currentGwCollectedWeekly.toLocaleString()}</span>
                             <span className="text-gray-400">collected of</span>
                             <span className="font-black text-emerald-400 tabular-nums">KES {currentGwExpectedWeekly.toLocaleString()}</span>
@@ -1978,7 +2021,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             {isWeeklyPotBalanced ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[11px]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                    Pot Balanced for GW{currentGwNumber || startGw || 1}
+                                    Pot Balanced for GW{currentGwNumber || leagueStartGw || 1}
                                 </span>
                             ) : (
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -2256,18 +2299,16 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         ? 'Inflow'
                                         : 'Outflow';
                             const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                            const minStartGw = Number(startGw || (leagueSettings as any)?.startGw || 5);
-                            const targetTxGw = rawTxGw > 0 ? Math.max(minStartGw, rawTxGw) : minStartGw;
+                            const targetTxGw = rawTxGw > 0 ? rawTxGw : leagueStartGw;
                             const gwTag = `GW${targetTxGw}`;
-                            const rawNote = String(tx.note || '');
-                            const sanitizedNote = rawNote.replace(/\bGW[1-4]\b/g, `GW${minStartGw}`);
+                            const rawNote = String(tx.note || '').trim();
                             const activityLabel = isReversal
-                                ? (sanitizedNote || `Reversal • ${memberName}`)
+                                ? (rawNote || `Reversal • ${memberName}`)
                                 : tx.type === 'payout'
                                     ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                     : isWalletFunding
-                                        ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                        : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                        ? (rawNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
+                                        : (rawNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -2300,7 +2341,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-white/5">
                                         <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5">
                                             {tx.type === 'payout' && (() => {
                                                 const isWinnerOfTx = Boolean(
                                                     currentUser && (
@@ -2342,6 +2383,16 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             >
                                                 Share
                                             </button>
+                                            {isAdmin && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTxToDelete(tx)}
+                                                    className="px-1.5 py-1 rounded-md border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                                    title="Delete this transaction (Chairman)"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -2394,11 +2445,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                         const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                                        const minStartGw = Number(startGw || (leagueSettings as any)?.startGw || 5);
-                                        const targetTxGw = rawTxGw > 0 ? Math.max(minStartGw, rawTxGw) : minStartGw;
+                                        const targetTxGw = rawTxGw > 0 ? rawTxGw : leagueStartGw;
                                         const gwTag = `GW${targetTxGw}`;
-                                        const rawNote = String(tx.note || '');
-                                        const sanitizedNote = rawNote.replace(/\bGW[1-4]\b/g, `GW${minStartGw}`);
+                                        const rawNote = String(tx.note || '').trim();
                                         const statusLabel = isReversal
                                             ? 'Reversal'
                                             : isWalletFunding
@@ -2407,12 +2456,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     ? 'Inflow'
                                                     : 'Outflow';
                                         const activityLabel = isReversal
-                                            ? (sanitizedNote || `Reversal • ${memberName}`)
+                                            ? (rawNote || `Reversal • ${memberName}`)
                                             : tx.type === 'payout'
                                                 ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                                 : isWalletFunding
-                                                    ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                                    : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                                    ? (rawNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
+                                                    : (rawNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
@@ -2506,6 +2555,16 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         >
                                                             Share
                                                         </button>
+                                                        {isAdmin && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setTxToDelete(tx)}
+                                                                className="px-2 py-2 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                                                title="Delete this transaction (Chairman)"
+                                                            >
+                                                                <X className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -2660,17 +2719,17 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                                     const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                                     const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                                                    const targetTxGw = rawTxGw > 0 ? rawTxGw : (effectiveLeagueStartGw || 5);
+                                                    const targetTxGw = rawTxGw > 0 ? rawTxGw : leagueStartGw;
                                                     const gwTag = `GW${targetTxGw}`;
-                                                    const sanitizedNote = String(tx.note || '');
+                                                    const rawNote = String(tx.note || '').trim();
                                                     const statusLabel = isReversal ? 'Reversal' : isWalletFunding ? 'Wallet Credit' : ledgerDirection === '+' ? 'Inflow' : 'Outflow';
                                                     const activityLabel = isReversal
-                                                        ? (sanitizedNote || `Reversal • ${memberName}`)
+                                                        ? (rawNote || `Reversal • ${memberName}`)
                                                         : tx.type === 'payout'
                                                             ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                                             : isWalletFunding
-                                                                ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                                                : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                                                ? (rawNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
+                                                                : (rawNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
 
                                                     return (
                                                         <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
@@ -2768,6 +2827,16 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                     >
                                                                         Share
                                                                     </button>
+                                                                    {isAdmin && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setTxToDelete(tx)}
+                                                                            className="px-2 py-1 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                                                            title="Delete this transaction (Chairman)"
+                                                                        >
+                                                                            <X className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -2890,6 +2959,16 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                     </button>
                                                                 );
                                                             })()}
+                                                            {isAdmin && (
+                                                                <button
+                                                                    onClick={() => setTxToDelete(tx)}
+                                                                    className="px-2 py-1 rounded-md border border-rose-500/30 bg-rose-500/10 text-[9px] font-black uppercase tracking-wider text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer flex items-center gap-1"
+                                                                    title="Delete ledger entry"
+                                                                >
+                                                                    <Trash2 className="w-2.5 h-2.5" />
+                                                                    Delete
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 onClick={() => shareTransactionReceipt(tx)}
                                                                 className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-wider text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -3075,9 +3154,8 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* ── Season Vault Trajectory Graph ──────────────────────────── */}
                 {(() => {
-                    const rawLeagueStart = Math.max(1, Number(startGw || (leagueSettings as any)?.startGw || 1));
-                    const effectiveGw = Number(currentGwNumber || rawLeagueStart);
-                    const effectiveLeagueStart = rawLeagueStart;
+                    const effectiveLeagueStart = leagueStartGw;
+                    const effectiveGw = Number(currentGwNumber || effectiveLeagueStart);
                     const totalSeasonGWs = Math.max(1, 38 - effectiveLeagueStart + 1);
                     const vaultRatePerGW = totalSecured > 0
                         ? totalSecured * (Number(rules.vault || 30) / 100)
@@ -3204,6 +3282,70 @@ const handleRejectPendingPayout = async (payout: any) => {
                     />
                 );
             })()}
+
+            {/* Chairman Delete Confirmation Modal */}
+            {txToDelete && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+                    <div className="relative w-full max-w-md bg-[#0F172A] border border-rose-500/30 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-white">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                                <Trash2 className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black tracking-tight text-white">Delete Ledger Entry?</h3>
+                                <p className="text-xs text-gray-400 font-medium">This will permanently remove this transaction from the league ledger.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-black/40 border border-white/5 flex flex-col gap-2 text-xs">
+                            <div className="flex justify-between items-center text-gray-400">
+                                <span>Receipt No:</span>
+                                <span className="font-mono font-bold text-white">{txToDelete.receiptId || txToDelete.id}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-gray-400">
+                                <span>Member:</span>
+                                <span className="font-bold text-white">{txToDelete.memberName || txToDelete.winnerName || 'Member'}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-gray-400">
+                                <span>Amount:</span>
+                                <span className="font-bold text-emerald-400">KES {Math.abs(Number(txToDelete.amount || 0)).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-gray-400">
+                                <span>Gameweek:</span>
+                                <span className="font-bold text-amber-400">GW{txToDelete.gameweek || txToDelete.gw || 'N/A'}</span>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-rose-300/80 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2.5">
+                            Are you sure you want to delete this ledger entry? Vault calculations and member statements will be recalculated automatically.
+                        </p>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setTxToDelete(null)}
+                                disabled={isDeletingTx}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteTransaction}
+                                disabled={isDeletingTx}
+                                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                                {isDeletingTx ? (
+                                    <>Deleting...</>
+                                ) : (
+                                    <>
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Delete Entry
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );

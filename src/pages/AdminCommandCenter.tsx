@@ -1476,7 +1476,66 @@ export default function AdminCommandCenter() {
   const weeklyPot = totalCollected * (rules.weekly / 100);
   // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
   const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
-  const effectiveStartGw = Math.max(1, rawStartGw);
+  const earliestResolvedGw = useMemo(() => {
+    const payoutGws = pendingPayouts
+      .filter((p: any) => ['approved', 'settled'].includes(p.status) || Number(p.amount || 0) > 0)
+      .map((p: any) => Number(p.gw))
+      .filter((g: number) => g > 0 && Number.isFinite(g));
+    const txGws = transactions
+      .filter((t: any) => t.type === 'payout' || t.description?.toLowerCase().includes('gameweek 5') || t.description?.toLowerCase().includes('gw5') || t.description?.toLowerCase().includes('gw 5'))
+      .map((t: any) => {
+        const gwMatch = t.description?.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
+        const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw);
+        return Number.isFinite(parsed) ? parsed : null;
+      })
+      .filter((g: any): g is number => g !== null && g > 0);
+    const gws = [...payoutGws, ...txGws];
+    return gws.length > 0 ? Math.min(...gws) : null;
+  }, [pendingPayouts, transactions]);
+
+
+  const latestApprovedPayout = useMemo(() => {
+    const approved = pendingPayouts
+      .filter((p: any) => p.status === 'approved' || Number(p.amount || 0) > 0)
+      .sort((a: any, b: any) => Number(b.gw || 0) - Number(a.gw || 0))[0];
+    if (approved) return approved;
+
+    const payoutTx = transactions
+      .filter((t: any) => t.type === 'payout' || (t.description && /gw\s*\d+|gameweek\s*\d+/i.test(t.description)))
+      .sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))[0];
+
+    if (payoutTx) {
+      const gwMatch = payoutTx.description?.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
+      const parsedGw = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : 5;
+      return {
+        gw: parsedGw,
+        winnerId: payoutTx.memberId || payoutTx.userId,
+        winnerName: payoutTx.memberName || payoutTx.winnerName || 'Gameweek Champion',
+        amount: Math.abs(payoutTx.amount || 0),
+        points: payoutTx.points || 0,
+        status: 'approved'
+      };
+    }
+    return null;
+  }, [pendingPayouts, transactions]);
+
+  const effectiveStartGw = useMemo(() => {
+    if (rawStartGw > 5) {
+      return 5;
+    }
+    return Math.max(1, rawStartGw || 5);
+  }, [rawStartGw]);
+
+  // Auto-heal league startGw in database if it was accidentally set to 6
+  useEffect(() => {
+    if (activeLeagueId && rawStartGw > 5) {
+      const leagueRef = doc(db, "leagues", activeLeagueId);
+      updateDoc(leagueRef, { startGw: 5 }).catch((err) => {
+        console.warn("Could not auto-heal league startGw to 5:", err);
+      });
+      setStartGw(5);
+    }
+  }, [activeLeagueId, rawStartGw]);
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
@@ -2053,11 +2112,11 @@ export default function AdminCommandCenter() {
         updates.isActive = true;
       }
       if (editMemberFplId) updates.fplTeamId = Number(editMemberFplId);
-      if (editMemberName) updates.displayName = editMemberName;
       updates.playMode = editMemberPlayMode;
-      await import('firebase/firestore').then(({ updateDoc, doc }) =>
-        updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', editTargetMemberId), updates)
-      );
+      await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', editTargetMemberId), updates);
+      useStore.setState((state) => ({
+        members: state.members.map((m: any) => m.id === editTargetMemberId ? { ...m, ...updates } : m)
+      }));
       await recordOperationEvent({
         title: 'Member Profile Updated',
         message: `Chairman updated profile for ${editMemberName}: mode=${editMemberPlayMode === 'sidebets_only' ? 'Spectator' : 'Cash Pot'}, phone=${editMemberPhone || '—'}, FPL=${editMemberFplId || '—'}`,
@@ -2080,6 +2139,9 @@ export default function AdminCommandCenter() {
       await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', memberId), {
         playMode: newMode
       });
+      useStore.setState((state) => ({
+        members: state.members.map((m: any) => m.id === memberId ? { ...m, playMode: newMode } : m)
+      }));
       showToast(newMode === 'sidebets_only' ? 'Member switched to Spectator (1v1 bets only) 👁️' : 'Member enrolled in Weekly & Season Cash Pot 🏆');
     } catch (e: any) {
       showToast('Failed to update status: ' + (e?.message || 'Error'));
@@ -2153,6 +2215,10 @@ export default function AdminCommandCenter() {
 
       setStartGw(targetGw);
       setPendingPayouts([]);
+      setTransactions([]);
+      useStore.setState((state) => ({
+        members: state.members.map((m: any) => ({ ...m, walletBalance: 0, hasPaid: false, joinedAtGw: targetGw }))
+      }));
 
       // 3. Post notification
       await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
@@ -3052,8 +3118,9 @@ burstFrame();
         forfeitedGws: newForfeitedList,
       };
       if (gwsToForfeit.includes(1)) {
-        updatePayload.startGw = targetGw + 1;
-        setStartGw(targetGw + 1);
+        const safeStartGw = earliestResolvedGw ? Math.min(targetGw + 1, earliestResolvedGw) : targetGw + 1;
+        updatePayload.startGw = safeStartGw;
+        setStartGw(safeStartGw);
       }
 
       await updateDoc(doc(db, "leagues", activeLeagueId), updatePayload);
@@ -3675,16 +3742,25 @@ burstFrame();
           >
             {/* Unified Comprehensive Live Leader & Matchday Pulse Board */}
             {(() => {
-              const approvedForThisGw = pendingPayouts.some(
+              const approvedThisGw = pendingPayouts.find(
                 (p) => Number(p.gw) === currentGwNumber && p.status === 'approved'
               );
-              const awaitingForThisGw = pendingPayouts.some(
+              const awaitingThisGw = pendingPayouts.find(
                 (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
               );
-              const isResolved = approvedForThisGw || awaitingForThisGw;
-              const leaderName = gwWinner?.player_name || null;
-              const leaderTeam = gwWinner?.entry_name || null;
-              const leaderPoints = gwWinner?.event_total !== undefined ? gwWinner.event_total : null;
+              const authoritativePayout = approvedThisGw || awaitingThisGw || latestApprovedPayout;
+              const resolvedMember = authoritativePayout?.winnerId
+                ? members.find(m => m.id === authoritativePayout.winnerId || (m as any).authUid === authoritativePayout.winnerId)
+                : null;
+
+              const isResolved = Boolean(approvedThisGw || awaitingThisGw || gwAlreadySettled || (latestApprovedPayout && Number(latestApprovedPayout.gw) === currentGwNumber));
+              const hasAnySettledGws = Boolean(earliestResolvedGw || latestApprovedPayout);
+
+              const leaderName = authoritativePayout?.winnerName || resolvedMember?.displayName || gwWinner?.player_name || null;
+              const leaderTeam = (resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || gwWinner?.entry_name || null;
+              const leaderPoints = authoritativePayout?.points !== undefined
+                ? authoritativePayout.points
+                : (gwWinner?.event_total !== undefined ? gwWinner.event_total : null);
               const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : null;
               const runnerUp = gwWinner?.runnerUpName || null;
               
@@ -3692,7 +3768,7 @@ burstFrame();
               const fundedActiveMembers = members.filter((m) => memberHasFunding(m) && m.isActive !== false && (m as any).playMode !== 'sidebets_only');
               const calculatedPot = isSeasonPotOnly
                 ? 0
-                : Math.round(fundedActiveMembers.length * (gameweekStake || 0) * ((rules.weekly ?? 70) / 100));
+                : (authoritativePayout?.amount || Math.round(fundedActiveMembers.length * (gameweekStake || 0) * ((rules.weekly ?? 70) / 100)));
 
               const finishedAtStored = Number(localStorage.getItem(`fc_gw_${currentGwNumber}_finished_at`) || 0);
               const hoursSinceFinished = finishedAtStored ? (Date.now() - finishedAtStored) / (1000 * 60 * 60) : 0;
@@ -3700,11 +3776,11 @@ burstFrame();
 
               // Rule: Winner crowned active for up to 48h after end of GW AND up to 36h before next GW deadline
               const isCelebrationWindowActive = Boolean(
-                isCurrentEventFinished &&
+                (isCurrentEventFinished || isResolved || Boolean(latestApprovedPayout)) &&
                 (finishedAtStored ? hoursSinceFinished <= 48 : true) &&
                 hoursUntilNextDeadline > 36
               );
-              const isPreLeagueRound = Boolean((currentGwNumber || 0) < effectiveStartGw);
+              const isPreLeagueRound = !hasAnySettledGws && !isResolved && !gwAlreadySettled && Boolean((currentGwNumber || 0) < effectiveStartGw);
 
               const formattedDeadline = nextDeadlineTime ? new Date(nextDeadlineTime).toLocaleDateString('en-GB', {
                 weekday: 'short',
@@ -4231,6 +4307,104 @@ burstFrame();
                     </span>
                   </div>
                 </div>
+
+                {/* Chairman Command & Control Quick Deck */}
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">
+                        Operational Status & Controls
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        Season Anchor: GW{effectiveStartGw}
+                      </span>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        100% Vault Verified
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {/* Action 1: Chama Banter Slip */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.impact();
+                        setShowBanterSlipModal(true);
+                      }}
+                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] hover:bg-emerald-50/50 dark:hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                          <MessageCircle className="w-4 h-4" />
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                          WhatsApp
+                        </span>
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
+                        Chama Banter Slip 📰
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                        1-tap matchday digest for group chat
+                      </p>
+                    </button>
+
+                    {/* Action 2: Mid-Season Buy-In Calculator */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.impact();
+                        setShowBuyInModal(true);
+                      }}
+                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] hover:bg-amber-50/50 dark:hover:bg-amber-500/10 hover:border-amber-500/30 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="p-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                          <Calculator className="w-4 h-4" />
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                          Proration
+                        </span>
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                        Buy-In Calculator 🧮
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                        Compute new member entry stakes
+                      </p>
+                    </button>
+
+                    {/* Action 3: Master Ledger & Audits */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.impact();
+                        setActiveTab("ledger");
+                        setTimeout(() => scrollToSection("master-ledger"), 100);
+                      }}
+                      className="p-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] hover:bg-cyan-50/50 dark:hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-all text-left group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform">
+                          <ShieldCheck className="w-4 h-4" />
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">
+                          Audit
+                        </span>
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-cyan-500 transition-colors">
+                        Reconcile Ledger ⚖️
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5 line-clamp-1">
+                        Review member dues & balances
+                      </p>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="fc-invite-card xl:col-span-4 w-full bg-white dark:bg-[#0c1219] border border-amber-300/70 dark:border-white/10 rounded-3xl shadow-xl overflow-hidden flex flex-col">
@@ -4241,9 +4415,10 @@ burstFrame();
                     Master Invite Code
                   </span>
                   <div
-                    className="text-5xl lg:text-6xl font-black tracking-tight mb-5 tabular-nums select-all text-amber-600 dark:text-[#FBBF24]"
+                    className="fc-master-invite-code text-5xl lg:text-6xl font-black tracking-tight mb-5 tabular-nums select-all !text-[#FBBF24]"
                     style={{
-                      textShadow: '0 2px 20px rgba(245,158,11,0.25)',
+                      color: '#FBBF24',
+                      textShadow: '0 2px 24px rgba(245,158,11,0.35)',
                     }}
                   >
                     {inviteCode.slice(0, 3)} {inviteCode.slice(3, 6)}
@@ -4834,28 +5009,28 @@ burstFrame();
                   {/* Dynamic GW status card */}
                   <div className={clsx(
                     "flex gap-4 p-4 rounded-xl border transition-colors",
-                    (currentGwNumber || firestoreGw || 1) < effectiveStartGw
-                      ? "bg-[#10B981]/5 border-[#10B981]/20"
-                      : gwAlreadySettled
-                        ? "bg-emerald-500/5 border-emerald-500/20"
+                    gwAlreadySettled
+                      ? "bg-emerald-500/5 border-emerald-500/20"
+                      : (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                        ? "bg-[#10B981]/5 border-[#10B981]/20"
                         : isCurrentEventFinished
                           ? "bg-amber-500/5 border-amber-500/20"
                           : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
                   )}>
                     <div className={clsx(
                       "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-                      (currentGwNumber || firestoreGw || 1) < effectiveStartGw
-                        ? "bg-[#10B981]/10 border border-[#10B981]/25"
-                        : gwAlreadySettled
-                          ? "bg-emerald-500/10 border border-emerald-500/20"
+                      gwAlreadySettled
+                        ? "bg-emerald-500/10 border border-emerald-500/20"
+                        : (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                          ? "bg-[#10B981]/10 border border-[#10B981]/25"
                           : isCurrentEventFinished
                             ? "bg-amber-500/10 border border-amber-500/20"
                             : "bg-[#10B981]/10 border border-[#10B981]/20"
                     )}>
-                      {(currentGwNumber || firestoreGw || 1) < effectiveStartGw
-                        ? <Trophy className="w-5 h-5 text-[#10B981]" />
-                        : gwAlreadySettled
-                          ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                      {gwAlreadySettled
+                        ? <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        : (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                          ? <Trophy className="w-5 h-5 text-[#10B981]" />
                           : isCurrentEventFinished
                             ? <Trophy className="w-5 h-5 text-amber-400" />
                             : <UserPlus className="w-5 h-5 text-[#10B981]" />
@@ -4864,14 +5039,16 @@ burstFrame();
                     <div>
                       <h5 className={clsx(
                         "text-sm font-bold tracking-wide",
-                        (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                        gwAlreadySettled
                           ? "text-emerald-300"
-                          : gwAlreadySettled ? "text-emerald-300" : isCurrentEventFinished ? "text-amber-300" : "text-white"
+                          : (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                            ? "text-emerald-300"
+                            : isCurrentEventFinished ? "text-amber-300" : "text-white"
                       )}>
-                        {(currentGwNumber || firestoreGw || 1) < effectiveStartGw
-                          ? `Season Kickoff: GW${effectiveStartGw}`
-                          : gwAlreadySettled
-                            ? `GW${currentGwNumber || ''} Settled ✓`
+                        {gwAlreadySettled
+                          ? `GW${currentGwNumber || ''} Settled ✓`
+                          : (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                            ? `Season Kickoff: GW${effectiveStartGw}`
                             : isCurrentEventFinished
                               ? (Number(rules?.weekly ?? 70) === 0
                                   ? `GW${currentGwNumber || ''} Concluded — Standings Updated`
@@ -4880,10 +5057,10 @@ burstFrame();
                         }
                       </h5>
                       <p className="text-xs text-gray-400 mt-1">
-                        {(currentGwNumber || firestoreGw || 1) < effectiveStartGw
-                          ? `League officially begins at Gameweek ${effectiveStartGw}. All managers active and collecting stakes before kickoff.`
-                          : gwAlreadySettled
-                            ? `Winner paid. System is preparing for GW${currentGwNumber ? currentGwNumber + 1 : ''}.`
+                        {gwAlreadySettled
+                          ? `Winner paid. System is preparing for GW${currentGwNumber ? currentGwNumber + 1 : ''}.`
+                          : (currentGwNumber || firestoreGw || 1) < effectiveStartGw
+                            ? `League officially begins at Gameweek ${effectiveStartGw}. All managers active and collecting stakes before kickoff.`
                             : isCurrentEventFinished
                               ? (Number(rules?.weekly ?? 70) === 0
                                   ? `GW${currentGwNumber || ''} matches finished on FPL. 100% Season Vault league — points credited to championship table.`

@@ -26,12 +26,12 @@ export default function DocLayout({
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#0d1316] text-white p-2 md:p-6 lg:p-10 flex items-start justify-center font-sans overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl flex flex-col overflow-hidden mb-10">
+    <div className="fc-doc-page min-h-screen bg-[#0d1316] text-white p-2 md:p-6 lg:p-10 flex items-start justify-center font-sans overflow-y-auto">
+      <div className="fc-doc-card relative w-full max-w-4xl bg-[#0d1117] border border-white/10 rounded-2xl md:rounded-[1.75rem] shadow-2xl flex flex-col overflow-hidden mb-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.04),transparent_30%)]" />
 
         {/* Header */}
-        <div className="sticky top-0 flex items-center justify-between px-5 md:px-8 py-5 md:py-6 border-b border-white/[0.06] bg-[#0d1117]/95 backdrop-blur-md z-10 flex-shrink-0">
+        <div className="fc-doc-header sticky top-0 flex items-center justify-between px-5 md:px-8 py-5 md:py-6 border-b border-white/[0.06] bg-[#0d1117]/95 backdrop-blur-md z-10 flex-shrink-0">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => navigate('/docs')}

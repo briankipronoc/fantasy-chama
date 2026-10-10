@@ -1001,7 +1001,7 @@ export default function Profile() {
                 document.body
             )}
 
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-2">
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2.5 sm:gap-3">
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
@@ -1018,25 +1018,36 @@ export default function Profile() {
                         && !isChairman
                         && isActive
                         && (member.role === 'co-chair' || member.role === 'admin');
+                    const rawName = String(member.displayName || 'Member').trim();
+                    const formattedName = rawName.length > 15 ? `${rawName.slice(0, 15)}...` : rawName;
+
                     return (
-                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[76px] h-auto rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f151a] p-1.5 flex flex-col items-center justify-center gap-1 shadow-xs hover:border-emerald-500/40 dark:hover:border-white/20 transition-all">
+                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[86px] sm:min-h-[90px] h-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f151a] p-2 flex flex-col items-center justify-center gap-1.5 shadow-xs hover:border-emerald-500/40 dark:hover:border-white/20 transition-all">
                             <UserAvatar name={member.displayName} size="xs" />
-                            <div className="text-center flex flex-col items-center gap-0.5 w-full">
-                                <span className={clsx("text-[9.5px] font-bold block w-full px-0.5 overflow-hidden text-ellipsis whitespace-nowrap", !isActive ? "text-gray-400 line-through" : "text-slate-800 dark:text-white")}>{member.displayName}</span>
+                            <div className="text-center flex flex-col items-center gap-0.5 w-full min-w-0">
+                                <span
+                                    title={rawName}
+                                    className={clsx(
+                                        "text-[10.5px] sm:text-[11px] font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap text-center",
+                                        !isActive ? "text-gray-400 line-through" : "text-slate-800 dark:text-white"
+                                    )}
+                                >
+                                    {formattedName}
+                                </span>
                                 <div className="flex flex-col items-center justify-center">
                                     {isChairman && (
-                                        <span className="bg-[#FBBF24]/10 text-amber-600 dark:text-[#FBBF24] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
+                                        <span className="bg-[#FBBF24]/10 text-amber-600 dark:text-[#FBBF24] text-[7.5px] px-1.5 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
                                             <ShieldAlert className="w-2 h-2" /> Chairman
                                         </span>
                                     )}
                                     {isValidCoChair && (
-                                        <span className="bg-[#3B82F6]/10 text-blue-600 dark:text-[#3B82F6] text-[7px] px-1 py-0.2 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
+                                        <span className="bg-[#3B82F6]/10 text-blue-600 dark:text-[#3B82F6] text-[7.5px] px-1.5 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
                                             <ShieldCheck className="w-2 h-2" /> Co-Chair
                                         </span>
                                     )}
                                     {!isChairman && !isValidCoChair && (
-                                        <span className={clsx("text-[7.5px] font-black uppercase tracking-wider block",
-                                            !isActive ? "text-gray-400 dark:text-gray-600" : (member.hasPaid ? "text-emerald-600 dark:text-[#10B981]" : "text-red-500")
+                                        <span className={clsx("text-[8px] font-black uppercase tracking-wider block px-1.5 py-0.5 rounded-md",
+                                            !isActive ? "text-gray-400 dark:text-gray-600 bg-gray-500/10" : (member.hasPaid ? "text-emerald-600 dark:text-[#10B981] bg-emerald-500/10 border border-emerald-500/20" : "text-red-500 bg-red-500/10 border border-red-500/20")
                                         )}>
                                             {!isActive ? "Inactive" : (member.hasPaid ? "Funded" : "Red Zone")}
                                         </span>
@@ -1097,12 +1108,10 @@ export default function Profile() {
                 </div>
                 <div className="text-center mb-3">
                     <span
-                        className="text-4xl font-black tracking-widest block mb-1 select-all text-amber-600 dark:text-amber-400"
+                        className="fc-master-invite-code text-4xl font-black tracking-widest block mb-1 select-all !text-[#FBBF24]"
                         style={{
-                            background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 50%, #B45309 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            filter: 'drop-shadow(0 2px 14px rgba(245,158,11,0.3))',
+                            color: '#FBBF24',
+                            textShadow: '0 2px 20px rgba(251,191,36,0.4)',
                         }}
                     >
                         {inviteCode || '------'}
@@ -1805,8 +1814,8 @@ export default function Profile() {
                         {/* Interactive Theme Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3.5">
                             {[
-                                { key: 'dark', label: 'Dark Mode', desc: 'Sleek navy slate', icon: '🌙', accent: 'border-indigo-500/40' },
-                                { key: 'stealth', label: 'Stealth OLED', desc: 'Pitch black #000', icon: '🛡️', accent: 'border-emerald-500/40' },
+                                { key: 'dark', label: 'Dark Mode', desc: 'Matte obsidian night', icon: '🌙', accent: 'border-slate-500/40' },
+                                { key: 'stealth', label: 'Stealth Mode', desc: 'Tactical abyss OLED #000', icon: '🛡️', accent: 'border-amber-500/40' },
                                 { key: 'system', label: 'System Auto', desc: 'Matches device', icon: '💻', accent: 'border-blue-500/40' },
                                 { key: 'light', label: 'Light Mode', desc: 'Crisp bright view', icon: '☀️', accent: 'border-amber-500/40' },
                             ].map((t) => {

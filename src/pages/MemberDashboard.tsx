@@ -82,7 +82,12 @@ export default function MemberDashboard() {
 
     // Phase 31: Real FPL Performance Trajectory
     const [performanceData, setPerformanceData] = useState<any[]>([]);
-    const [leagueStartGw, setLeagueStartGw] = useState<number>(() => Number((useStore.getState().league as any)?.startGw || 1));
+    const [leagueStartGw, setLeagueStartGw] = useState<number>(() => {
+        const raw = Number((useStore.getState().league as any)?.startGw || 5);
+        return raw > 5 ? 5 : (raw || 5);
+    });
+    const [leagueInviteCode, setLeagueInviteCode] = useState<string>(() => (useStore.getState().league as any)?.inviteCode || '');
+    const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     // Co-Admin State
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
@@ -205,7 +210,11 @@ export default function MemberDashboard() {
                 setCoAdminId(data.coAdminId || null);
                 setChairmanPhone(data.chairmanPhone || null);
                 if (data.startGw || data.startGameweek || data.rules?.startGw) {
-                    setLeagueStartGw(Number(data.startGw || data.startGameweek || data.rules?.startGw || 1));
+                    const raw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 5);
+                    setLeagueStartGw(raw > 5 ? 5 : (raw || 5));
+                }
+                if (data.inviteCode) {
+                    setLeagueInviteCode(String(data.inviteCode));
                 }
 
                 // Phase 29: Fetch FPL GW Winner continuously with caching and 503 resilience
@@ -750,12 +759,13 @@ export default function MemberDashboard() {
         };
     }, [activeLeagueId, role, currentFplEvent?.id]);
 
-    // Co-Chair: Listen for Pending Payouts
+    // Listen for all payouts (pending + approved) for real-time UI state
     useEffect(() => {
-        if (!activeLeagueId || currentUser?.id !== coAdminId) return;
+        if (!activeLeagueId) return;
+        const pendingRef = collection(db, 'leagues', activeLeagueId, 'pending_payouts');
         const q = query(
-            collection(db, 'leagues', activeLeagueId, 'pending_payouts'),
-            where('status', '==', 'awaiting_approval')
+            pendingRef,
+            where('status', 'in', ['awaiting_approval', 'approved', 'settled', 'forfeited'])
         );
         const unsub = onSnapshot(q, snap => {
             setPendingPayouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -769,7 +779,7 @@ export default function MemberDashboard() {
                 console.warn('[member-dashboard] pending payouts unsubscribe failed:', error?.message || error);
             }
         };
-    }, [activeLeagueId, currentUser?.id, coAdminId]);
+    }, [activeLeagueId]);
 
     useEffect(() => {
         if (!memberPhone) return;
@@ -1075,7 +1085,8 @@ export default function MemberDashboard() {
     };
 
     const handleSendReaction = async (emoji: string) => {
-        if (!activeLeagueId || !gwWinner) return;
+        const targetWinner = activeChampion || gwWinner;
+        if (!activeLeagueId || !targetWinner) return;
 
         // Check if user has already sent 2 distinct emojis
         if (mySentEmojis.length >= 2 && !mySentEmojis.includes(emoji)) {
@@ -1100,7 +1111,7 @@ export default function MemberDashboard() {
             setActiveReactionAnim(null);
         }, 2200);
 
-        const winnerFirstName = (gwWinner.player_name || 'Champion').split(' ')[0];
+        const winnerFirstName = (targetWinner.player_name || 'Champion').split(' ')[0];
         const senderName = currentUser?.displayName || 'Member';
 
         try {
@@ -1108,12 +1119,12 @@ export default function MemberDashboard() {
             await addDoc(notifRef, {
                 type: 'champion_reaction',
                 emoji,
-                message: `${senderName} sent ${emoji} props to ${winnerFirstName} for GW${currentFplEvent?.id || ''}!`,
+                message: `${senderName} sent ${emoji} props to ${winnerFirstName} for GW${targetWinner.event || currentFplEvent?.id || ''}!`,
                 fromName: senderName,
                 fromId: activeUserId,
-                toWinner: gwWinner.player_name,
-                winnerId: gwWinner.id || null,
-                gw: currentFplEvent?.id || null,
+                toWinner: targetWinner.player_name,
+                winnerId: targetWinner.id || null,
+                gw: targetWinner.event || currentFplEvent?.id || null,
                 timestamp: serverTimestamp(),
                 readBy: [activeUserId],
             });
@@ -1126,8 +1137,8 @@ export default function MemberDashboard() {
                     emoji,
                     message: `${senderName} reacted with ${emoji} to ${winnerFirstName}`,
                     actor: senderName,
-                    toWinner: gwWinner.player_name,
-                    gw: currentFplEvent?.id || null,
+                    toWinner: targetWinner.player_name,
+                    gw: targetWinner.event || currentFplEvent?.id || null,
                     timestamp: serverTimestamp(),
                 }).catch(() => {});
             }
@@ -1231,10 +1242,28 @@ export default function MemberDashboard() {
     // Count-up animated values for wallet
     const animatedWalletBalance = useCountUp(walletBalance, 700);
 
-    // Dynamic start gameweek: respect configured startGw or leagueStartGw, default 1
-    const rawStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 1);
-    const effectiveMdStartGw = Math.max(1, rawStart);
-    const isPreLeagueGw = Boolean(currentFplEvent?.id && effectiveMdStartGw > 1 && currentFplEvent.id < effectiveMdStartGw);
+
+    const rawStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 5);
+    const effectiveMdStartGw = Math.max(1, rawStart > 5 ? 5 : (rawStart || 5));
+    const hasAnySettledGws = (pendingPayouts || []).some((p: any) => p.status === 'approved' || p.status === 'settled') ||
+        (transactions || []).some((t: any) => t.type === 'payout');
+
+    // Auto-heal startGw to 5 in Firestore if it was erroneously set to 6
+    useEffect(() => {
+        if (activeLeagueId && rawStart > 5) {
+            updateDoc(doc(db, "leagues", activeLeagueId), { startGw: 5 }).catch((err) => {
+                console.warn("[member-dashboard] Failed to auto-heal startGw in Firestore:", err);
+            });
+            setLeagueStartGw(5);
+        }
+    }, [activeLeagueId, rawStart]);
+
+    const isPreLeagueGw = Boolean(
+        !hasAnySettledGws &&
+        currentFplEvent?.id &&
+        effectiveMdStartGw > 1 &&
+        currentFplEvent.id < effectiveMdStartGw
+    );
 
     // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
     const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);
@@ -1333,25 +1362,272 @@ export default function MemberDashboard() {
         setShowLeagueGuide(false);
     };
 
+    // Find the latest approved/settled payout from pending_payouts or transactions
+    const latestApprovedPayout = useMemo(() => {
+        const approvedFromPending = (pendingPayouts || [])
+            .filter((p: any) => (p.status === 'approved' || p.status === 'settled') && Number(p.gw || p.gameweek || 0) > 0)
+            .map((p: any) => ({
+                ...p,
+                gw: Number(p.gw || p.gameweek || 0),
+            }))
+            .sort((a: any, b: any) => Number(b.gw || 0) - Number(a.gw || 0));
+        if (approvedFromPending.length > 0) return approvedFromPending[0];
+
+        const payoutTx = (transactions || [])
+            .filter((t: any) => {
+                if (t.type !== 'payout') return false;
+                let gw = Number(t.gameweek || t.gw || 0);
+                if (!gw || !Number.isFinite(gw)) {
+                    const match = String(t.description || t.notes || '').match(/GW\s*(\d+)|Gameweek\s*(\d+)/i);
+                    if (match) gw = Number(match[1] || match[2]);
+                }
+                return gw > 0;
+            })
+            .map((t: any) => {
+                let gw = Number(t.gameweek || t.gw || 0);
+                if (!gw || !Number.isFinite(gw)) {
+                    const match = String(t.description || t.notes || '').match(/GW\s*(\d+)|Gameweek\s*(\d+)/i);
+                    if (match) gw = Number(match[1] || match[2]);
+                }
+                return {
+                    winnerName: t.winnerName || t.memberName || (t.description?.split('-')[1]?.trim()) || 'Gameweek Champion',
+                    winnerId: t.winnerId || t.memberId || t.userId,
+                    points: t.points || 0,
+                    amount: Math.abs(Number(t.amount || 0)),
+                    gw,
+                    status: 'approved',
+                };
+            })
+            .sort((a: any, b: any) => Number(b.gw || 0) - Number(a.gw || 0));
+        if (payoutTx.length > 0) {
+            return payoutTx[0];
+        }
+        return null;
+    }, [pendingPayouts, transactions]);
+
+    const handleShareInviteCode = () => {
+        const code = leagueInviteCode || (leagueSettings as any)?.inviteCode || '';
+        if (!code) return;
+        const appUrl = window.location.origin;
+        const link = `${appUrl}/login?code=${code}`;
+        const host = currentUser?.displayName || 'The Chairman';
+        const lName = leagueName || 'our FPL Chama';
+        const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${code}*`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        haptics.success();
+    };
+
+    const handleCopyInviteCode = () => {
+        const code = leagueInviteCode || (leagueSettings as any)?.inviteCode || '';
+        if (!code) return;
+        navigator.clipboard.writeText(code);
+        showToast(`Copied Master Invite Code: ${code}`, 'success');
+        haptics.success();
+    };
+
+    const gwWinnersLedger = useMemo(() => {
+        const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isPaid?: boolean; isVoided?: boolean; isAwaitingPayment?: boolean }>();
+        (transactions || []).forEach((tx: any) => {
+            if (tx.type !== 'payout') return;
+            let gw = Number(tx.gameweek || tx.gw);
+            if (!Number.isFinite(gw) || gw <= 0) {
+                const gwMatch = String(tx.description || tx.notes || '').match(/GW\s*(\d+)|Gameweek\s*(\d+)/i);
+                if (gwMatch) gw = Number(gwMatch[1] || gwMatch[2]);
+            }
+            if (!Number.isFinite(gw) || gw <= 0 || gw > 38 || winnerByGw.has(gw)) return;
+            winnerByGw.set(gw, {
+                gw,
+                winnerName: tx.winnerName || tx.memberName || (tx.description?.split('-')[1]?.trim()) || 'Confirmed Winner',
+                winnerTeam: tx.winnerTeam || tx.entryName || null,
+                amount: Number(tx.amount || 0),
+                isPaid: true,
+            });
+        });
+
+        const pendingForfeited = new Set<number>();
+        const pendingPayoutsMap = new Map<number, any>();
+        (pendingPayouts || []).forEach((p: any) => {
+            const gwNum = Number(p.gw || p.gameweek);
+            if (Number.isFinite(gwNum) && gwNum > 0) {
+                if (p.status === 'forfeited') {
+                    pendingForfeited.add(gwNum);
+                } else if (p.status === 'approved' || p.status === 'settled') {
+                    winnerByGw.set(gwNum, {
+                        gw: gwNum,
+                        winnerName: p.winnerName || p.playerName || 'Winner confirmed',
+                        winnerTeam: p.winnerTeam || p.entryName || null,
+                        amount: Number(p.amount || 0),
+                        isPaid: true,
+                    });
+                } else {
+                    pendingPayoutsMap.set(gwNum, p);
+                }
+            }
+        });
+
+        const isSeasonOnlyLeague = Number(rules.vault ?? 0) === 100 || Number(rules.weekly ?? 0) === 0 || (rules as any).payoutMode === 'season_only';
+        const weeklyPercent = isSeasonOnlyLeague ? 0 : (Number(rules.weekly || 70) / 100);
+        const stakeVal = Number(gameweekStake || 50);
+
+        const activeCount = members.filter(m => m.isActive !== false && !(m as any)?.isEliminated && (m as any)?.playMode !== 'sidebets_only' && (m.hasPaid || (stakeVal > 0 && (Number(m.walletBalance || 0)) >= stakeVal))).length || 1;
+        const estimatedPot = isSeasonOnlyLeague ? 0 : Math.round(activeCount * stakeVal * weeklyPercent);
+
+        const effectiveForfeited = new Set<number>([
+            ...((leagueSettings as any)?.forfeitedGws || []),
+            ...Array.from(pendingForfeited),
+        ]);
+
+        const currentEventId = currentFplEvent?.id || 5;
+        const isFinished = Boolean(currentFplEvent?.finished);
+        const effectiveTargetGw = isFinished ? currentEventId + 1 : currentEventId;
+
+        return Array.from({ length: 38 }, (_, index) => {
+            const gw = index + 1;
+            if (winnerByGw.has(gw)) {
+                return winnerByGw.get(gw)!;
+            }
+            if (effectiveForfeited.has(gw)) {
+                return {
+                    gw,
+                    winnerName: 'Voided',
+                    winnerTeam: 'Round Unplayed',
+                    isVoided: true,
+                };
+            }
+            if (pendingPayoutsMap.has(gw) && !isSeasonOnlyLeague) {
+                const p = pendingPayoutsMap.get(gw);
+                return {
+                    gw,
+                    winnerName: p.winnerName || p.playerName || 'Winner identified',
+                    winnerTeam: p.winnerTeam || p.entryName || 'Awaiting Payment',
+                    amount: Number(p.amount || estimatedPot),
+                    isAwaitingPayment: true,
+                };
+            }
+            const effectiveStart = effectiveMdStartGw;
+            if (effectiveStart > 1 && gw < effectiveStart) {
+                return {
+                    gw,
+                    winnerName: 'Voided',
+                    winnerTeam: 'Pre-League · No fees',
+                    isVoided: true,
+                    isPreLeague: true,
+                };
+            }
+            if (gw === currentEventId && !isFinished) {
+                if (gwWinner && Number(gwWinner.event_total) > 0) {
+                    return {
+                        gw,
+                        winnerName: gwWinner.player_name,
+                        winnerTeam: `${gwWinner.entry_name || 'Team'} · Live Leader`,
+                        amount: isSeasonOnlyLeague ? null : estimatedPot,
+                        isCurrentLive: true,
+                        isPaid: false,
+                        isSeasonOnly: isSeasonOnlyLeague,
+                    };
+                }
+                return {
+                    gw,
+                    winnerName: 'In Progress',
+                    winnerTeam: 'Live Gameweek · Pending Whistle',
+                    isCurrentLive: true,
+                    isPaid: false,
+                    isSeasonOnly: isSeasonOnlyLeague,
+                };
+            }
+            if (isFinished ? gw <= currentEventId : gw < currentEventId) {
+                if (gw >= effectiveStart && gwWinner && Number(gwWinner.event_total) > 0) {
+                    return {
+                        gw,
+                        winnerName: gwWinner.player_name,
+                        winnerTeam: `${gwWinner.entry_name || 'Team'} · Pending Payout`,
+                        amount: isSeasonOnlyLeague ? null : estimatedPot,
+                        isAwaitingPayment: !isSeasonOnlyLeague,
+                        isSeasonOnly: isSeasonOnlyLeague,
+                    };
+                }
+                return {
+                    gw,
+                    winnerName: gw < effectiveStart ? 'Voided' : 'Unresolved',
+                    winnerTeam: gw < effectiveStart ? 'Pre-League · No fees' : 'Awaiting Resolution',
+                    isVoided: gw < effectiveStart,
+                    isPreLeague: gw < effectiveStart,
+                    isSeasonOnly: isSeasonOnlyLeague,
+                };
+            }
+            if (gw === effectiveTargetGw) {
+                return {
+                    gw,
+                    winnerName: 'Upcoming',
+                    winnerTeam: isFinished ? 'Next Round Kickoff' : 'Pending kickoff',
+                    isUpcoming: true,
+                    isTargetActiveGw: true,
+                };
+            }
+            return {
+                gw,
+                winnerName: 'Upcoming',
+                winnerTeam: 'Upcoming Round',
+                isUpcoming: true,
+            };
+        });
+    }, [transactions, pendingPayouts, rules, gameweekStake, members, leagueSettings, currentFplEvent, effectiveMdStartGw, gwWinner]);
+
+    // Active Champion to display: prioritize official approved payout for completed rounds, fallback to live gwWinner
+    const activeChampion = useMemo(() => {
+        const targetGw = currentFplEvent?.id || effectiveMdStartGw;
+        const isTargetGwApproved = latestApprovedPayout && Number(latestApprovedPayout.gw) === Number(targetGw);
+        const shouldUseLatestApproved = Boolean(
+            latestApprovedPayout && (
+                isTargetGwApproved || 
+                currentFplEvent?.finished || 
+                currentFplEvent?.isPreparingForNextGw || 
+                !gwWinner || 
+                Number(gwWinner?.event_total || 0) === 0
+            )
+        );
+
+        if (shouldUseLatestApproved && latestApprovedPayout) {
+            const resolvedMember = members.find((m: any) =>
+                m.id === latestApprovedPayout.winnerId ||
+                m.displayName?.toLowerCase() === latestApprovedPayout.winnerName?.toLowerCase()
+            );
+            return {
+                player_name: latestApprovedPayout.winnerName,
+                entry_name: (resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || 'Gameweek Champion',
+                event_total: latestApprovedPayout.points || (resolvedMember as any)?.gwPoints || gwWinner?.event_total || 0,
+                leadMargin: gwWinner?.leadMargin || 0,
+                amount: latestApprovedPayout.amount,
+                event: latestApprovedPayout.gw,
+                id: latestApprovedPayout.winnerId || resolvedMember?.id,
+                entry: resolvedMember?.fplTeamId || null,
+                isApprovedPayout: true,
+            };
+        }
+
+        return gwWinner;
+    }, [latestApprovedPayout, currentFplEvent, effectiveMdStartGw, gwWinner, members]);
+
     // Phase 30: Is the logged-in user the current GW Winner?
     const isCurrentUserGwWinner = Boolean(
         !isCurrentGwVoided &&
-        gwWinner &&
-        Number(gwWinner.event_total) > 0 &&
+        activeChampion &&
+        Number(activeChampion.event_total) > 0 &&
         currentUser && (
-            (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
-            (currentUser.secondFplTeamId && Number(currentUser.secondFplTeamId) === Number(gwWinner.entry)) ||
-            currentUser.displayName?.toLowerCase().includes(gwWinner.player_name?.toLowerCase()) ||
-            gwWinner.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase())
+            (currentUser.fplTeamId && Number(currentUser.fplTeamId) === Number(activeChampion.entry)) ||
+            (currentUser.secondFplTeamId && Number(currentUser.secondFplTeamId) === Number(activeChampion.entry)) ||
+            currentUser.displayName?.toLowerCase().includes(activeChampion.player_name?.toLowerCase()) ||
+            activeChampion.player_name?.toLowerCase().includes(currentUser.displayName?.toLowerCase()) ||
+            (activeChampion.id && (currentUser.id === activeChampion.id || currentUser.authUid === activeChampion.id))
         )
     );
     const hasFinalGwChampion = Boolean(
         !isPreLeagueGw &&
         !isCurrentGwVoided &&
-        !currentFplEvent?.isPreparingForNextGw &&
-        currentFplEvent?.finished &&
-        gwWinner &&
-        Number(gwWinner.event_total) > 0
+        (
+            Boolean(latestApprovedPayout && (currentFplEvent?.finished || currentFplEvent?.isPreparingForNextGw || !gwWinner)) ||
+            Boolean(!currentFplEvent?.isPreparingForNextGw && currentFplEvent?.finished && activeChampion && Number(activeChampion.event_total) > 0)
+        )
     );
     const isRecentWinner = isCurrentUserGwWinner && hasFinalGwChampion;
 
@@ -1453,8 +1729,8 @@ export default function MemberDashboard() {
         ? (currentFplEvent.finished
             ? `GW ${currentFplEvent.id} Complete`
             : `GW ${currentFplEvent.id} Live`)
-        : gwWinner?.event
-            ? `GW ${gwWinner.event} Active`
+        : (activeChampion?.event || gwWinner?.event)
+            ? `GW ${activeChampion?.event || gwWinner.event} Active`
             : 'GW Active';
     /* const ledgerMembers = [...members].sort((a, b) => {
         if (!!a.hasPaid !== !!b.hasPaid) return a.hasPaid ? 1 : -1; // Red Zone first
@@ -1502,11 +1778,11 @@ export default function MemberDashboard() {
             <ChampionFlexCardModal
                 isOpen={showFlexModal}
                 onClose={() => setShowFlexModal(false)}
-                winnerName={gwWinner?.player_name || currentUser?.displayName || firstName || 'Champion'}
-                teamName={gwWinner?.entry_name || (currentUser?.fplTeamId ? `Team ${currentUser.fplTeamId}` : undefined)}
-                points={gwWinner?.event_total || 0}
-                gameweek={gwWinner?.event || currentFplEvent?.id || ''}
-                amountWon={Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
+                winnerName={activeChampion?.player_name || gwWinner?.player_name || currentUser?.displayName || firstName || 'Champion'}
+                teamName={activeChampion?.entry_name || gwWinner?.entry_name || (currentUser?.fplTeamId ? `Team ${currentUser.fplTeamId}` : undefined)}
+                points={activeChampion?.event_total || gwWinner?.event_total || 0}
+                gameweek={activeChampion?.event || gwWinner?.event || currentFplEvent?.id || ''}
+                amountWon={activeChampion?.amount || Math.round((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))}
                 leagueName={leagueName}
                 leagueCode={(leagueSettings as any)?.code || ''}
                 sharedBy={isAdmin && !isCurrentUserGwWinner ? 'chairman' : 'winner'}
@@ -1717,7 +1993,7 @@ export default function MemberDashboard() {
                 </section>
 
                 {/* Phase 30: GW Champion Crowned Celebration (Right after Greeting) */}
-                {hasFinalGwChampion && gwWinner ? (
+                {hasFinalGwChampion && activeChampion ? (
                     isCurrentUserGwWinner ? (
                         <div className="w-full rounded-[2rem] border-2 border-[#FBBF24]/50 bg-gradient-to-r from-[#FBBF24]/15 via-[#F59E0B]/10 to-[#FBBF24]/15 px-6 py-5 flex flex-col sm:flex-row items-center gap-5 animate-in zoom-in-95 duration-700 shadow-[0_0_40px_rgba(251,191,36,0.15)] relative overflow-hidden mb-3">
                             <div className="absolute top-0 right-0 w-80 h-80 bg-[#FBBF24] blur-[120px] opacity-10 pointer-events-none"></div>
@@ -1735,7 +2011,7 @@ export default function MemberDashboard() {
                                     Congratulations, {firstName}!
                                 </h3>
                                 <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
-                                    You scored <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span> — the highest in the league this week.
+                                    You scored <span className="text-[#10B981] font-black">{activeChampion.event_total} pts</span> — the highest in the league this week.
                                 </p>
                                 {/* WhatsApp/iMessage Received Reaction Badges for Winner */}
                                 {gwChampionReactions.length > 0 && (
@@ -1759,7 +2035,7 @@ export default function MemberDashboard() {
                                     {Number(rules.weekly || 0) === 0 ? 'Vault Round' : 'Your Payout'}
                                 </p>
                                 <p className="text-xl sm:text-2xl font-black text-[#FBBF24] tabular-nums">
-                                    {Number(rules.weekly || 0) === 0 ? '100% Vaulted' : `KES ${((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}`}
+                                    {Number(rules.weekly || 0) === 0 ? '100% Vaulted' : (activeChampion.amount ? `KES ${activeChampion.amount.toLocaleString()}` : `KES ${((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}`)}
                                 </p>
                             </div>
                             {/* Phase 8: Flex on WhatsApp */}
@@ -1797,19 +2073,19 @@ export default function MemberDashboard() {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FBBF24] flex items-center gap-1">
-                                                <Star className="w-3 h-3 fill-[#FBBF24]" /> GW {currentFplEvent?.id || ''} Champion Crowned
+                                                <Star className="w-3 h-3 fill-[#FBBF24]" /> GW {activeChampion.event || currentFplEvent?.id || ''} Champion Crowned
                                             </span>
                                         </div>
                                         <h3 className="text-xl md:text-2xl font-black text-white leading-tight mt-0.5">
-                                            {gwWinner.player_name} <span className="text-sm font-bold text-gray-400">({gwWinner.entry_name || 'Champion'})</span>
+                                            {activeChampion.player_name} <span className="text-sm font-bold text-gray-400">({activeChampion.entry_name || 'Champion'})</span>
                                         </h3>
                                         <p className="text-xs text-slate-300 mt-1">
-                                            Clinched {Number(rules.weekly || 0) === 0 ? '1st place' : 'the pot'} with <span className="text-[#10B981] font-black">{gwWinner.event_total} pts</span>
-                                            {gwWinner.leadMargin ? ` (+${gwWinner.leadMargin} pts ahead)` : ''}
+                                            Clinched {Number(rules.weekly || 0) === 0 ? '1st place' : 'the pot'} with <span className="text-[#10B981] font-black">{activeChampion.event_total} pts</span>
+                                            {activeChampion.leadMargin ? ` (+${activeChampion.leadMargin} pts ahead)` : ''}
                                             {Number(rules.weekly || 0) === 0 ? (
                                                 <span> · <span className="text-[#FBBF24] font-black">100% Season Vault League</span> (Points Secured)</span>
                                             ) : (
-                                                <span> · Payout Yielded: <span className="text-[#FBBF24] font-black">KES {((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}</span></span>
+                                                <span> · Payout Yielded: <span className="text-[#FBBF24] font-black">KES {(activeChampion.amount || ((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))).toLocaleString()}</span></span>
                                             )}
                                         </p>
                                         {/* WhatsApp / iMessage Style Reaction Badges */}
@@ -1837,18 +2113,19 @@ export default function MemberDashboard() {
 
                                 {/* Quick Emoji Reactions to the Champion */}
                                 {(() => {
-                                    const isCurrentUserGwWinner = Boolean(
-                                        (currentUser?.displayName && gwWinner?.player_name && currentUser.displayName.toLowerCase() === gwWinner.player_name.toLowerCase()) ||
-                                        (((currentUser as any)?.fplTeamName || currentUser?.teamName) && gwWinner?.entry_name && ((currentUser as any)?.fplTeamName || currentUser?.teamName).toLowerCase() === gwWinner.entry_name.toLowerCase()) ||
-                                        (currentUser?.fplTeamId && gwWinner?.entry && Number(currentUser.fplTeamId) === Number(gwWinner.entry)) ||
-                                        (currentUser?.id && (gwWinner as any)?.memberId && currentUser.id === (gwWinner as any).memberId)
+                                    const isUserWinner = Boolean(
+                                        (currentUser?.displayName && activeChampion?.player_name && currentUser.displayName.toLowerCase() === activeChampion.player_name.toLowerCase()) ||
+                                        (((currentUser as any)?.fplTeamName || currentUser?.teamName) && activeChampion?.entry_name && ((currentUser as any)?.fplTeamName || currentUser?.teamName).toLowerCase() === activeChampion.entry_name.toLowerCase()) ||
+                                        (currentUser?.fplTeamId && activeChampion?.entry && Number(currentUser.fplTeamId) === Number(activeChampion.entry)) ||
+                                        (currentUser?.id && (activeChampion as any)?.memberId && currentUser.id === (activeChampion as any).memberId) ||
+                                        (activeChampion.id && (currentUser?.id === activeChampion.id || currentUser?.authUid === activeChampion.id))
                                     );
 
-                                    if (isCurrentUserGwWinner) {
+                                    if (isUserWinner) {
                                         return (
                                             <div className="w-full lg:w-auto bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex flex-col items-center justify-center gap-1 flex-shrink-0">
                                                 <p className="text-[11px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
-                                                    👑 You are the GW {currentFplEvent?.id || ''} Champion!
+                                                    👑 You are the GW {activeChampion.event || currentFplEvent?.id || ''} Champion!
                                                 </p>
                                                 <p className="text-[10px] text-gray-300 font-medium">Bask in the victory — pot secured & brag recorded.</p>
                                             </div>
@@ -1859,7 +2136,7 @@ export default function MemberDashboard() {
                                         <div className="w-full lg:w-auto bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col gap-2 flex-shrink-0">
                                             <div className="flex items-center justify-between gap-2">
                                                 <p className="text-[9px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-1">
-                                                    Send Props to {gwWinner.player_name.split(' ')[0]} 💬
+                                                    Send Props to {(activeChampion.player_name || 'Champion').split(' ')[0]} 💬
                                                 </p>
                                                 <span className="text-[9px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30 tabular-nums">
                                                     {mySentEmojis.length}/2 sent
@@ -1971,9 +2248,9 @@ export default function MemberDashboard() {
                                 <h4 className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Rank
                                 </h4>
-                                {gwWinner && (
+                                {(activeChampion || gwWinner) && (
                                     <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                                        {currentFplEvent?.finished ? 'Final' : 'Live'}
+                                        {(currentFplEvent?.finished || latestApprovedPayout) ? 'Final' : 'Live'}
                                     </span>
                                 )}
                             </div>
@@ -1992,15 +2269,15 @@ export default function MemberDashboard() {
                                     <span className="text-[9px] text-gray-400 uppercase block font-bold">GW Pts</span>
                                 </div>
                             </div>
-                            {gwWinner && currentFplEvent?.finished && (
+                            {(activeChampion || gwWinner) && (currentFplEvent?.finished || latestApprovedPayout) && (
                                 <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs mt-3">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">GW{currentFplEvent?.id || 5} Pot Winner</span>
+                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">GW{activeChampion?.event || currentFplEvent?.id || 5} Pot Winner</span>
                                         <span className="text-amber-300 font-bold flex items-center gap-1 text-xs">
-                                            🥇 {gwWinner.player_name?.split(' ')[0] || 'Winner'}
+                                            🥇 {(activeChampion || gwWinner).player_name?.split(' ')[0] || 'Winner'}
                                         </span>
                                     </div>
-                                    <span className="text-xs font-black text-white">{gwWinner.event_total} pts</span>
+                                    <span className="text-xs font-black text-white">{(activeChampion || gwWinner).event_total} pts</span>
                                 </div>
                             )}
                             <button
@@ -2013,6 +2290,148 @@ export default function MemberDashboard() {
                         </div>
                     );
                 })()}
+
+                {/* ── Gameweek Winners Ledger (Synced with Standings) ── */}
+                {gwWinnersLedger && gwWinnersLedger.length > 0 && (
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 mb-3 shadow-xl">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h3 className="text-xs md:text-sm font-black text-white tracking-tight flex items-center gap-2">
+                                    <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
+                                </h3>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">Historical payouts and scheduled rounds</p>
+                            </div>
+                            <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                                Kickoff GW{effectiveMdStartGw}
+                            </span>
+                        </div>
+                        <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory" style={{ scrollbarWidth: 'thin' }}>
+                            {gwWinnersLedger.map((item: any) => {
+                                const isVoided = Boolean(item.isVoided);
+                                const isPreLeague = Boolean(item.isPreLeague);
+                                const isAwaitingPayment = Boolean(item.isAwaitingPayment);
+                                const isApprovedPaid = Boolean(item.isPaid);
+                                const isCurrentGw = currentFplEvent?.id === item.gw;
+                                const isCurrentLive = !currentFplEvent?.finished && (Boolean(item.isCurrentLive) || isCurrentGw);
+                                const isResolved = isApprovedPaid || (!isCurrentLive && !item.isUpcoming && !isVoided && !isPreLeague && item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved');
+
+                                return (
+                                    <div
+                                        key={item.gw}
+                                        data-gw-card={item.gw}
+                                        className={clsx(
+                                            'fc-gw-ledger-card snap-start shrink-0 w-48 sm:w-52 rounded-xl border p-3 transition-all shadow-sm',
+                                            isApprovedPaid || isResolved
+                                                ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
+                                                : isCurrentLive
+                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
+                                                : isAwaitingPayment
+                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
+                                                : isPreLeague
+                                                ? 'border-slate-300 dark:border-slate-500/25 bg-slate-100/90 dark:bg-slate-500/8 text-slate-700 dark:text-slate-300'
+                                                : isVoided
+                                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                                                : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                            <p className="text-[9px] uppercase tracking-widest font-black text-slate-500 dark:text-gray-400">GW {item.gw}</p>
+                                            {isPreLeague ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-500/30">
+                                                    Pre-Chama
+                                                </span>
+                                            ) : isCurrentLive ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40 animate-pulse">
+                                                    Live
+                                                </span>
+                                            ) : isApprovedPaid ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                    Paid ✓
+                                                </span>
+                                            ) : isResolved ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                    Resolved ✓
+                                                </span>
+                                            ) : isAwaitingPayment ? (
+                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40">
+                                                    Pending
+                                                </span>
+                                            ) : (
+                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
+                                                    Upcoming
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className={clsx(
+                                            'text-xs font-black truncate',
+                                            isApprovedPaid || isResolved ? 'text-slate-900 dark:text-white' : isCurrentLive ? 'text-amber-400 dark:text-[#FBBF24]' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-gray-500'
+                                        )}>
+                                            {isCurrentLive && item.winnerName !== 'In Progress' ? `Live: ${item.winnerName}` : item.winnerName}
+                                        </p>
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
+                                            {isPreLeague
+                                                ? 'Pre-League · No fees'
+                                                : isCurrentLive
+                                                ? 'Matches in progress'
+                                                : item.winnerTeam || (item.isPaid ? 'Payout Dispatched' : 'Scheduled')}
+                                        </p>
+                                        <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px]">
+                                            <span className="font-bold text-slate-500 dark:text-gray-400">Prize</span>
+                                            <span className={clsx(
+                                                'font-mono font-black tabular-nums',
+                                                isApprovedPaid ? 'text-emerald-600 dark:text-emerald-400' : isCurrentLive ? 'text-amber-500 dark:text-[#FBBF24]' : 'text-slate-600 dark:text-gray-400'
+                                            )}>
+                                                {item.amount && item.amount > 0 ? `KES ${Number(item.amount).toLocaleString()}` : isPreLeague ? '—' : 'Weekly Pot'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Master Invite Code Display Card (Electric Yellow in Dark & Stealth Mode) ── */}
+                {Boolean(leagueInviteCode || (leagueSettings as any)?.inviteCode) && (
+                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 mb-3 shadow-xl relative overflow-hidden">
+                        <div className="flex items-center justify-between gap-3 mb-3 relative z-10">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">🔑</span>
+                                <div>
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-amber-500 dark:text-[#FBBF24]">Master Invite Code</h4>
+                                    <p className="text-[10px] text-gray-400 font-medium">Invite new members directly to {leagueName}</p>
+                                </div>
+                            </div>
+                            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] uppercase font-bold tracking-widest rounded border border-amber-500/20">Active</span>
+                        </div>
+                        <div className="text-center py-2.5 bg-black/40 rounded-xl border border-white/5 mb-3 relative z-10">
+                            <span
+                                className="fc-master-invite-code text-3xl sm:text-4xl font-black tracking-widest block select-all !text-[#FBBF24]"
+                                style={{
+                                    color: '#FBBF24',
+                                    WebkitTextFillColor: '#FBBF24',
+                                    textShadow: '0 2px 20px rgba(251,191,36,0.45)',
+                                }}
+                            >
+                                {leagueInviteCode || (leagueSettings as any)?.inviteCode}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5 relative z-10">
+                            <button
+                                onClick={handleCopyInviteCode}
+                                className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 text-xs transition-colors cursor-pointer active:scale-95"
+                            >
+                                <Copy className="w-3.5 h-3.5 text-gray-400" /> Copy Code
+                            </button>
+                            <button
+                                onClick={handleShareInviteCode}
+                                className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.25)] text-xs transition-colors cursor-pointer active:scale-95"
+                            >
+                                <Share2 className="w-3.5 h-3.5" /> Share WhatsApp
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {showLeagueGuide && (
                     <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300 mb-3">
@@ -2223,7 +2642,7 @@ export default function MemberDashboard() {
 
 
 
-                        {!currentFplEvent?.isPreparingForNextGw && !gwWinner && members.length > 0 && (
+                        {!currentFplEvent?.isPreparingForNextGw && !activeChampion && !gwWinner && members.length > 0 && (
                             <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 mb-2">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0">
