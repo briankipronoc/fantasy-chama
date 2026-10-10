@@ -418,6 +418,7 @@ export default function AdminCommandCenter() {
   const [editMemberFplId, setEditMemberFplId] = useState('');
   const [editMemberName, setEditMemberName] = useState('');
   const [editMemberPlayMode, setEditMemberPlayMode] = useState<'pot' | 'sidebets_only'>('pot');
+  const [editMemberWallet, setEditMemberWallet] = useState('');
   const [isSavingMemberEdit, setIsSavingMemberEdit] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingMember, setIsDeletingMember] = useState(false);
@@ -976,6 +977,22 @@ export default function AdminCommandCenter() {
           walletBalance: increment(dispute.amount),
         },
       );
+
+      // Write deposit record to ledger
+      await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
+        type: "wallet_funding",
+        source: "dispute_approval",
+        amount: Number(dispute.amount || 0),
+        memberId: dispute.memberId,
+        userId: dispute.memberId,
+        memberName: dispute.memberName || "Member",
+        winnerName: dispute.memberName || "Member",
+        phoneNumber: dispute.phone || dispute.phoneNumber || "",
+        receiptId: dispute.receiptCode || `DISP_${Date.now().toString().slice(-6)}`,
+        note: `Approved payment dispute: ${dispute.receiptCode || dispute.amount}`,
+        timestamp: serverTimestamp(),
+      });
+
       await updateDoc(
         doc(db, "leagues", activeLeagueId, "disputes", dispute.id),
         { status: "approved" },
@@ -1037,11 +1054,27 @@ export default function AdminCommandCenter() {
         walletBalance: increment(req.amount),
         hasPaid: true, // simplified logic for now
       });
-      // 2. Mark request as approved
+
+      // 2. Write deposit record to ledger
+      await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
+        type: "wallet_funding",
+        source: "pochi_approval",
+        amount: Number(req.amount || 0),
+        memberId: req.memberId,
+        userId: req.memberId,
+        memberName: req.memberName || "Member",
+        winnerName: req.memberName || "Member",
+        phoneNumber: req.phoneNumber || req.phone || "",
+        receiptId: req.receiptId || req.transactionCode || `POCHI_${Date.now().toString().slice(-6)}`,
+        note: `Approved Pochi deposit: KES ${Number(req.amount || 0).toLocaleString()}`,
+        timestamp: serverTimestamp(),
+      });
+
+      // 3. Mark request as approved
       await updateDoc(doc(db, "leagues", activeLeagueId, "wallet_requests", req.id), {
         status: "approved"
       });
-      // 3. Notify member
+      // 4. Notify member
       await addDoc(collection(db, "leagues", activeLeagueId, "notifications"), {
         type: "success",
         message: `✅ Your Pochi deposit of KES ${req.amount?.toLocaleString()} has been approved. Your wallet is funded!`,
@@ -1427,7 +1460,8 @@ export default function AdminCommandCenter() {
 
     return (
       (gameweekStake > 0 && effectiveWallet >= gameweekStake) ||
-      (member.hasPaid === true && (refundTotal === 0 || netDeposited >= gameweekStake))
+      (netDeposited >= gameweekStake) ||
+      (member.hasPaid === true && (inflowTotal > 0 || gameweekStake === 0))
     );
   };
 
@@ -1572,16 +1606,19 @@ export default function AdminCommandCenter() {
     ...actualForfeitedGws,
     ...pendingPayouts.filter((p: any) => p.status === 'forfeited' && Number(p.gw) >= effectiveStartGw).map((p: any) => Number(p.gw))
   ]));
-  const totalGwsThroughNow = (currentGwNumber || firestoreGw) ? Math.max(0, (currentGwNumber || firestoreGw || 1) - effectiveStartGw + (isCurrentEventFinished ? 1 : 0)) : 0;
-  const gwPlayed = Math.max(0, totalGwsThroughNow - forfeitedGws.filter(g => g >= effectiveStartGw && g <= (currentGwNumber || firestoreGw || 38)).length);
-  const vaultPerGw = totalCollected * (rules.vault / 100);
-  // Season vault: Includes past played GWs vault + current GW secured vault allocation (40% of current GW collections immediately allocated even before release)
-  const currentGwVaultSecured = totalCollected * (rules.vault / 100);
-  const pastGwsVaultSecured = vaultPerGw * gwPlayed;
-  const seasonVault = pastGwsVaultSecured + currentGwVaultSecured;
+  const grossInflowsAllTime = transactions
+    .filter(isTxValidInflow)
+    .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
+  const totalRefundsAllTime = transactions
+    .filter(isTxRefundOrReversal)
+    .reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+  const netInflowsFromLedger = Math.max(0, grossInflowsAllTime - totalRefundsAllTime);
+
+  // Season vault: Strict ledger-verified accumulated vault to date (prevents phantom inflation when no transactions entered)
+  const seasonVault = Math.round(netInflowsFromLedger * (rules.vault / 100));
   const projectedRemainingGws = Math.max(0, 38 - (currentGwNumber || firestoreGw || 1));
   const projectedRemainingGross = projectedRemainingGws * Math.max(1, activeMembersCount) * (gameweekStake || 0);
-  const projectedSeasonVault = Math.round((totalCollected + projectedRemainingGross) * (rules.vault / 100));
+  const projectedSeasonVault = Math.round((seasonVault + (projectedRemainingGross * (rules.vault / 100))));
 
   const banterSlipData: BanterSlipData = useMemo(() => {
     const activeContenders = members.filter(
@@ -2125,6 +2162,7 @@ export default function AdminCommandCenter() {
     setEditMemberPhone(member.phone || '');
     setEditMemberFplId(String(member.fplTeamId || ''));
     setEditMemberPlayMode((member as any).playMode || 'pot');
+    setEditMemberWallet(String(member.walletBalance ?? 0));
     setIsSavingMemberEdit(false);
     setShowEditMemberModal(true);
   };
@@ -2142,13 +2180,18 @@ export default function AdminCommandCenter() {
       }
       if (editMemberFplId) updates.fplTeamId = Number(editMemberFplId);
       updates.playMode = editMemberPlayMode;
+      if (editMemberWallet !== '') {
+        const parsedWallet = Math.max(0, Number(editMemberWallet) || 0);
+        updates.walletBalance = parsedWallet;
+        updates.hasPaid = gameweekStake > 0 ? parsedWallet >= gameweekStake : parsedWallet > 0;
+      }
       await updateDoc(doc(db, 'leagues', activeLeagueId, 'memberships', editTargetMemberId), updates);
       useStore.setState((state) => ({
         members: state.members.map((m: any) => m.id === editTargetMemberId ? { ...m, ...updates } : m)
       }));
       await recordOperationEvent({
         title: 'Member Profile Updated',
-        message: `Chairman updated profile for ${editMemberName}: mode=${editMemberPlayMode === 'sidebets_only' ? 'Spectator' : 'Cash Pot'}, phone=${editMemberPhone || '—'}, FPL=${editMemberFplId || '—'}`,
+        message: `Chairman updated profile for ${editMemberName}: mode=${editMemberPlayMode === 'sidebets_only' ? 'Spectator' : 'Cash Pot'}, phone=${editMemberPhone || '—'}, FPL=${editMemberFplId || '—'}, wallet=KES ${updates.walletBalance !== undefined ? updates.walletBalance.toLocaleString() : 'unchanged'}`,
         targetMemberId: editTargetMemberId,
         type: 'info',
       });
@@ -4622,6 +4665,29 @@ burstFrame();
                       {forfeitedGws.length} Voided
                     </span>
                   )}
+                  {(() => {
+                    const unplayedGws = Array.from({ length: 38 - Math.max(1, effectiveStartGw) + 1 }, (_, i) => i + Math.max(1, effectiveStartGw))
+                      .filter((gw) => {
+                        const approvedPayout = pendingPayouts.find((p) => Number(p.gw) === gw && p.status === 'approved');
+                        const pendingPayout = pendingPayouts.find((p) => Number(p.gw) === gw && p.status === 'awaiting_approval');
+                        const isForfeited = (leagueSettings?.forfeitedGws || []).includes(gw) || pendingPayouts.some((p) => Number(p.gw) === gw && p.status === 'forfeited');
+                        const isCurrent = gw === (currentGwNumber || firestoreGw);
+                        const isNextPending = isCurrentEventFinished && gw === nextPlayableGw;
+                        return !approvedPayout && !pendingPayout && !isForfeited && !isCurrent && !isNextPending && gw < (currentGwNumber || firestoreGw || 99);
+                      });
+                    if (unplayedGws.length === 0) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => handleForfeitGw(Math.max(...unplayedGws), true)}
+                        disabled={isForfeiting}
+                        className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-600 dark:text-amber-300 hover:bg-amber-500/25 transition-all cursor-pointer shadow-xs active:scale-95"
+                        title="League started late? Tap to forfeit all unplayed past GWs and remove phantom dues"
+                      >
+                        ⚡ Forfeit {unplayedGws.length} Unplayed (Zero Dues)
+                      </button>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">
@@ -5447,10 +5513,15 @@ burstFrame();
                   const isRowSpectator = (row as any).playMode === "sidebets_only";
                   const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
                   const currentGw = Number(currentGwNumber || start);
-                  const totalCompletedOrCurrent = Math.max(0, currentGw - start + 1);
+                  // Only count non-forfeited active rounds
+                  const playableRounds: number[] = [];
+                  for (let g = start; g <= currentGw; g++) {
+                    if (!forfeitedGws.includes(g)) playableRounds.push(g);
+                  }
+                  const totalCompletedOrCurrent = playableRounds.length;
                   const rowHasPaidCurrent = memberHasFunding(row);
                   const rowFundedCount = rowHasPaidCurrent ? Math.max(1, gwsLeft) : gwsLeft;
-                  const rowSkippedGws = isRowSpectator ? 0 : Math.max(0, totalCompletedOrCurrent - rowFundedCount);
+                  const rowSkippedGws = (isRowSpectator || totalCompletedOrCurrent === 0) ? 0 : Math.max(0, totalCompletedOrCurrent - rowFundedCount);
                   const rowOwedArrears = rowSkippedGws * gwCost;
                   const walletColor =
                     wallet <= 0
@@ -6598,6 +6669,23 @@ burstFrame();
                       className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-[#FBBF24]/50 outline-none"
                       placeholder="e.g. 1234567"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest flex items-center justify-between">
+                      <span>Chama Wallet Balance (KES)</span>
+                      <span className="text-[9px] text-amber-400 font-normal">Reconcile / fix desynced balance</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={editMemberWallet}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setEditMemberWallet(e.target.value.replace(/[^0-9]/g, ''))}
+                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-[#FBBF24]/50 outline-none"
+                      placeholder="0"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Set to 0 if no deposit was received or recorded on the ledger.</p>
                   </div>
 
                   <div>

@@ -288,27 +288,27 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
 
     useEffect(() => {
-        if (!activeLeagueId || role !== 'admin') {
+        if (!activeLeagueId) {
             setPendingApprovals([]);
             return;
         }
 
         const pendingRef = collection(db, 'leagues', activeLeagueId, 'pending_payouts');
-        const pendingQuery = query(pendingRef, where('status', '==', 'awaiting_approval'));
+        const pendingQuery = query(pendingRef, where('status', 'in', ['awaiting_approval', 'forfeited', 'approved', 'settled']));
         const unsubscribePending = onSnapshot(pendingQuery, (snapshot) => {
             const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
             setPendingApprovals(items);
         }, (err) => {
-            console.warn('[finances] pending approvals listener failed:', err?.message || err);
+            console.warn('[finances] pending payouts listener failed:', err?.message || err);
             setPendingApprovals([]);
         });
 
         return () => {
             try { unsubscribePending(); } catch (err) {
-                console.warn('[finances] pending approvals listener cleanup failed:', err);
+                console.warn('[finances] pending payouts listener cleanup failed:', err);
             }
         };
-    }, [activeLeagueId, role]);
+    }, [activeLeagueId]);
 
     useEffect(() => {
         if (!activeLeagueId) {
@@ -419,7 +419,11 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             return false;
         }
 
-        return Boolean((m.hasPaid && (refundTotal === 0 || netDeposited >= (gameweekStake || 0))) || ((gameweekStake || 0) > 0 && effectiveWallet >= (gameweekStake || 0)));
+        return Boolean(
+            ((gameweekStake || 0) > 0 && effectiveWallet >= (gameweekStake || 0)) ||
+            (netDeposited >= (gameweekStake || 0)) ||
+            (m.hasPaid && (memberInflows > 0 || (gameweekStake || 0) === 0))
+        );
     };
 
     const paidMembers = members.filter(isMemberFunded);
@@ -519,22 +523,42 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .filter(isTxRefundOrReversal)
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
+    const forfeitedGws: number[] = useMemo(() => {
+        const fromSettings = (leagueSettings as any)?.forfeitedGws || [];
+        const fromPayouts = (pendingApprovals || [])
+            .filter((p: any) => p.status === 'forfeited')
+            .map((p: any) => Number(p.gw));
+        return Array.from(new Set([...fromSettings, ...fromPayouts])).map(Number);
+    }, [leagueSettings, pendingApprovals]);
+
     const effectiveLeagueStartGw = leagueStartGw;
-    const completedGwsCount = currentGwNumber && currentGwNumber >= effectiveLeagueStartGw
-        ? Math.max(0, (isCurrentEventFinished ? currentGwNumber : currentGwNumber - 1) - effectiveLeagueStartGw + 1)
-        : 0;
+    // Count only playable completed rounds (excludes unplayed / forfeited rounds)
+    const playedCompletedGws = useMemo(() => {
+        if (!currentGwNumber || currentGwNumber < effectiveLeagueStartGw) return [];
+        const maxPastGw = isCurrentEventFinished ? currentGwNumber : currentGwNumber - 1;
+        const list: number[] = [];
+        for (let g = effectiveLeagueStartGw; g <= maxPastGw; g++) {
+            if (!forfeitedGws.includes(g)) {
+                list.push(g);
+            }
+        }
+        return list;
+    }, [currentGwNumber, effectiveLeagueStartGw, isCurrentEventFinished, forfeitedGws]);
+
+    const completedGwsCount = playedCompletedGws.length;
 
     const cappedMemberContributionsSum = activeMembers.reduce((sum, member: any) => {
         const netContributed = Number(contributionByMemberId[String(member.id)] || 0);
-        const memberMaxForCompleted = completedGwsCount > 0 ? completedGwsCount * (gameweekStake || 0) : (gameweekStake || 0);
-        const memberActualForCompleted = Math.min(memberMaxForCompleted, Math.max(0, netContributed > 0 ? netContributed : (member.hasPaid ? memberMaxForCompleted : 0)));
+        const memberMaxForCompleted = completedGwsCount > 0 ? completedGwsCount * (gameweekStake || 0) : 0;
+        const memberActualForCompleted = Math.min(memberMaxForCompleted, Math.max(0, netContributed));
         return sum + memberActualForCompleted;
     }, 0);
 
     const vaultPercent = Number(rules.vault ?? 30);
+    // Strict ledger verification: Only actual verified contributions count towards vault
     const seasonCollectedSoFarGross = completedGwsCount > 0
         ? cappedMemberContributionsSum
-        : Math.min(paidMembers.length * (gameweekStake || 0), Math.max(0, grossInflows - totalRefundsAllTime));
+        : Math.max(0, grossInflows - totalRefundsAllTime);
     const seasonVaultCollectedSoFar = Math.round(seasonCollectedSoFarGross * (vaultPercent / 100));
 
     const projectedRemainingCollectionsGross = members
@@ -543,7 +567,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             const joinedMs = member?.joinedAt?.toDate ? member.joinedAt.toDate().getTime() : leagueCreatedAtMs;
             const joinedGw = toJoinedGw(joinedMs);
             const effectiveMemberGw = Math.max(leagueStartGw, joinedGw);
-            const memberSeasonCap = Math.max(0, (38 - effectiveMemberGw + 1) * (gameweekStake || 0));
+            const playableFutureGws = Math.max(0, (38 - effectiveMemberGw + 1) - forfeitedGws.filter(g => g >= effectiveMemberGw).length);
+            const memberSeasonCap = playableFutureGws * (gameweekStake || 0);
             const collectedForMember = Number(contributionByMemberId[String(member.id)] || 0);
             const remainingForMember = Math.max(0, memberSeasonCap - collectedForMember);
             return sum + remainingForMember;
@@ -854,13 +879,21 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const totalCompletedOrCurrentGws = useMemo(() => {
         const effectiveStart = leagueStartGw;
         const currentGw = Number(currentGwNumber || effectiveStart);
-        return Math.max(1, currentGw - effectiveStart + 1);
-    }, [leagueStartGw, currentGwNumber]);
+        const playable: number[] = [];
+        for (let g = effectiveStart; g <= currentGw; g++) {
+            if (!forfeitedGws.includes(g)) playable.push(g);
+        }
+        return Math.max(0, playable.length);
+    }, [leagueStartGw, currentGwNumber, forfeitedGws]);
 
     const memberFundingSummary = useMemo(() => {
         const start = leagueStartGw;
         const currentGw = Number(currentGwNumber || start);
-        const totalCompleted = Math.max(1, currentGw - start + 1);
+        const playable: number[] = [];
+        for (let g = start; g <= currentGw; g++) {
+            if (!forfeitedGws.includes(g)) playable.push(g);
+        }
+        const totalCompleted = playable.length;
         const stake = Number(gameweekStake || 0);
 
         return members
@@ -894,15 +927,16 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
                 const effectiveMemberBalance = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
                 const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
-                    (Boolean(m.hasPaid) && (refundTotal === 0 || totalDeposited >= stake)) ||
-                    (stake > 0 && effectiveMemberBalance >= stake)
+                    (stake > 0 && effectiveMemberBalance >= stake) ||
+                    (totalDeposited >= stake) ||
+                    (Boolean(m.hasPaid) && (grossDeposited > 0 || stake === 0))
                 );
 
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
                 const rawFundedCount = stake > 0 ? Math.floor(totalDeposited / stake) : totalCompleted;
                 const gwsFundedCount = hasPaidCurrent ? Math.max(1, rawFundedCount) : rawFundedCount;
-                const gwsSkippedCount = (isMemberSpectator || isPendingOnboarding) ? 0 : Math.max(0, totalCompleted - gwsFundedCount);
-                const totalOwedArrears = (isMemberSpectator || isPendingOnboarding) ? 0 : gwsSkippedCount * stake;
+                const gwsSkippedCount = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0) ? 0 : Math.max(0, totalCompleted - gwsFundedCount);
+                const totalOwedArrears = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0) ? 0 : gwsSkippedCount * stake;
 
                 const taggedGws = Array.from(
                     new Set(
@@ -929,7 +963,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 };
             })
             .sort((a, b) => b.gwsSkippedCount - a.gwsSkippedCount);
-    }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake]);
+    }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake, forfeitedGws]);
 
     const totalChamaArrears = useMemo(() => {
         return memberFundingSummary.reduce((acc, m) => acc + (m.totalOwedArrears || 0), 0);
@@ -3155,28 +3189,28 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {/* ── Season Vault Trajectory Graph ──────────────────────────── */}
                 {(() => {
                     const effectiveLeagueStart = leagueStartGw;
-                    const effectiveGw = Number(currentGwNumber || effectiveLeagueStart);
                     const totalSeasonGWs = Math.max(1, 38 - effectiveLeagueStart + 1);
                     const vaultRatePerGW = totalSecured > 0
                         ? totalSecured * (Number(rules.vault || 30) / 100)
                         : (Number(rules.vault || 30) / 100) * paidMembers.length * (gameweekStake || 0);
-                    const completedSeasonGws = effectiveGw >= effectiveLeagueStart
-                        ? Math.max(0, effectiveGw - effectiveLeagueStart + (isCurrentEventFinished ? 1 : 0))
-                        : 0;
+                    const completedSeasonGws = playedCompletedGws.length;
 
                     const chartData = Array.from({ length: totalSeasonGWs }, (_, i) => {
                         const roundGw = effectiveLeagueStart + i;
+                        const isForfeitedRound = forfeitedGws.includes(roundGw);
                         return {
                             gw: `GW${roundGw}`,
-                            vault: Math.round(vaultRatePerGW * (i + 1)),
-                            active: (i + 1) <= completedSeasonGws
+                            vault: isForfeitedRound ? 0 : Math.round(vaultRatePerGW * (i + 1)),
+                            active: (i + 1) <= completedSeasonGws && !isForfeitedRound
                         };
                     });
+                    // Strict ledger verified: If seasonVaultCollectedSoFar <= 0, accumulated vault is STRICTLY 0 KES!
                     const currentVault = completedSeasonGws > 0 
-                        ? (seasonVaultCollectedSoFar > 0 ? Math.min(completedSeasonGws * vaultRatePerGW, seasonVaultCollectedSoFar) : completedSeasonGws * vaultRatePerGW)
-                        : (seasonVaultCollectedSoFar > 0 ? seasonVaultCollectedSoFar : 0);
-                    const projectedFinal = vaultRatePerGW * totalSeasonGWs;
-                    const remainingLeagueGws = Math.max(0, totalSeasonGWs - completedSeasonGws);
+                        ? (seasonVaultCollectedSoFar > 0 ? Math.min(completedSeasonGws * vaultRatePerGW, seasonVaultCollectedSoFar) : 0)
+                        : 0;
+                    const nonForfeitedRemaining = Math.max(0, (38 - effectiveLeagueStart + 1) - forfeitedGws.filter(g => g >= effectiveLeagueStart).length);
+                    const projectedFinal = vaultRatePerGW * nonForfeitedRemaining;
+                    const remainingLeagueGws = Math.max(0, nonForfeitedRemaining - completedSeasonGws);
 
                     return (
                         <div className="fc-card mt-8 bg-[#0b1014] border border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden">

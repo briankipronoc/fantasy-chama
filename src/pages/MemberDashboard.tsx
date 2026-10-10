@@ -1256,7 +1256,11 @@ export default function MemberDashboard() {
             return false;
         }
 
-        return Boolean((m.hasPaid && (refundTotal === 0 || netDeposited >= gameweekStake)) || (gameweekStake > 0 && effectiveWallet >= gameweekStake));
+        return Boolean(
+            (gameweekStake > 0 && effectiveWallet >= gameweekStake) ||
+            (netDeposited >= gameweekStake) ||
+            (m.hasPaid && (memberInflows > 0 || gameweekStake === 0))
+        );
     };
 
     const paidMembersCount = members.filter(isMemberFunded).length;
@@ -1289,8 +1293,14 @@ export default function MemberDashboard() {
         currentFplEvent.id < effectiveMdStartGw
     );
 
-    // Season vault: use actual GWs remaining since league start (GW38 - effectiveStart + 1)
-    const totalLeagueGws = Math.max(1, 38 - effectiveMdStartGw + 1);
+    const forfeitedList: number[] = Array.from(new Set([
+        ...((leagueSettings as any)?.forfeitedGws || []),
+        ...(pendingPayouts || []).filter((p: any) => p.status === 'forfeited').map((p: any) => Number(p.gw))
+    ]));
+
+    // Season vault: use actual playable GWs remaining since league start (excludes forfeited GWs)
+    const playableSeasonCount = Math.max(1, (38 - effectiveMdStartGw + 1) - forfeitedList.filter(g => g >= effectiveMdStartGw).length);
+    const totalLeagueGws = playableSeasonCount;
     const vaultPercent = Number(rules.vault ?? (100 - rules.weekly));
     const vaultMultiplier = (vaultPercent > 0 ? vaultPercent : 30) / 100;
     const activeContendersCount = members.filter(m => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending).length;
@@ -1305,14 +1315,19 @@ export default function MemberDashboard() {
     const netCollectedSoFar = Math.max(0, grossInflows - totalRefunds);
     const seasonVaultFromTxs = Math.round(netCollectedSoFar * vaultMultiplier);
 
-    const completedRounds = currentFplEvent?.id 
-        ? Math.max(0, (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) - effectiveMdStartGw + 1)
-        : 0;
+    const maxPastGw = currentFplEvent?.id ? (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) : 0;
+    const playedPastGws: number[] = [];
+    for (let g = effectiveMdStartGw; g <= maxPastGw; g++) {
+        if (!forfeitedList.includes(g)) {
+            playedPastGws.push(g);
+        }
+    }
+    const completedRounds = playedPastGws.length;
     const maxVaultForCompleted = completedRounds * paidMembersCount * gameweekStake * vaultMultiplier;
-    const fallbackVaultAccumulated = maxVaultForCompleted;
-    const seasonVaultAccumulated = completedRounds > 0
-        ? (seasonVaultFromTxs > 0 ? Math.min(maxVaultForCompleted, seasonVaultFromTxs) : fallbackVaultAccumulated)
-        : (seasonVaultFromTxs > 0 ? Math.min(paidMembersCount * gameweekStake * vaultMultiplier, seasonVaultFromTxs) : fallbackVaultAccumulated);
+    // Strict ledger verified: If seasonVaultFromTxs <= 0, accumulated vault is STRICTLY 0 KES!
+    const seasonVaultAccumulated = seasonVaultFromTxs > 0
+        ? (completedRounds > 0 ? Math.min(maxVaultForCompleted, seasonVaultFromTxs) : seasonVaultFromTxs)
+        : 0;
 
     // Upcoming GW Funding Status (Red Zone)
     const isTargetGwUpcoming = Boolean(currentFplEvent?.finished || currentFplEvent?.isPreparingForNextGw);
