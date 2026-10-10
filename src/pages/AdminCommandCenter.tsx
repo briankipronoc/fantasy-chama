@@ -40,6 +40,7 @@ import {
   Calculator,
   MessageCircle,
   Zap,
+  Lock,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
@@ -735,39 +736,54 @@ export default function AdminCommandCenter() {
     return () => unsubscribeLeague();
   }, [activeLeagueId, navigate, listenToLeagueMembers, tutorialSeenKey]);
 
-  // Reactive calculation of live GW Winner — rigorously filters for funded, active, non-spectator members
+  // Reactive calculation of live GW Winner — rigorously pulls real-time standings with support for 100% Season Vault and active play
   useEffect(() => {
-    if (!rawFplStandings || rawFplStandings.length === 0 || members.length === 0) {
-      if (rawFplStandings.length > 0 && members.length === 0) {
-        // Members are still hydrating from Firestore, keep gwWinner pending without flashing fallbacks
-        return;
-      }
+    if (!rawFplStandings || rawFplStandings.length === 0) {
       setGwWinner(null);
       return;
     }
 
     const norm = (s: string) => String(s || "").toLowerCase().trim();
     const stake = gameweekStake || 0;
+    const isSeasonPotOnly = Number(rules?.weekly || 0) === 0;
 
-    const eligibleResults = rawFplStandings.filter((r: any) => {
+    // 1. Identify matched Chama members from standings
+    const chamaResults = rawFplStandings
+      .map((r: any) => {
+        const dbMember = members.find((m: any) => {
+          if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
+          if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
+          const db = norm(m.displayName);
+          return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || "").includes(db);
+        });
+        return { entry: r, member: dbMember };
+      })
+      .filter(({ member }) => !member || (member.isActive !== false && (member as any).playMode !== 'sidebets_only'))
+      .map(({ entry }) => entry);
+
+    // 2. Identify funded members (if applicable and configured)
+    const fundedResults = chamaResults.filter((r: any) => {
       const dbMember = members.find((m: any) => {
         if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
         if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
         const db = norm(m.displayName);
-        return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name).includes(db);
+        return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || "").includes(db);
       });
       if (!dbMember) return false;
-      if (dbMember.isActive === false) return false;
-      // Spectators are excluded from cash pot contention
-      if ((dbMember as any).playMode === 'sidebets_only') return false;
-
-      // Must be funded (paid dues or sufficient wallet balance)
-      const isFunded = dbMember.hasPaid === true || (stake > 0 && (Number(dbMember.walletBalance || 0)) >= stake);
+      if (dbMember.isActive === false || (dbMember as any).isEliminated === true) return false;
+      const isFunded = dbMember.hasPaid === true || (stake > 0 && Number(dbMember.walletBalance || 0) >= stake);
       return isFunded;
     });
 
-    if (eligibleResults.length >= 2) {
-      const sorted = [...eligibleResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
+    // 3. Determine candidate pool:
+    // If it's a 100% Season Vault league, all Chama members count;
+    // If weekly pot league, prioritize funded members, but fallback to Chama members (or raw standings) so live leader is NEVER missing!
+    const candidatePool = isSeasonPotOnly
+      ? (chamaResults.length > 0 ? chamaResults : rawFplStandings)
+      : (fundedResults.length > 0 ? fundedResults : (chamaResults.length > 0 ? chamaResults : rawFplStandings));
+
+    if (candidatePool.length >= 1) {
+      const sorted = [...candidatePool].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
       const winner = sorted[0];
       const runnerUp = sorted.find((r: any) => {
         if (!r) return false;
@@ -781,17 +797,10 @@ export default function AdminCommandCenter() {
         runnerUpName: runnerUp?.player_name || runnerUp?.entry_name || 'Challenger',
         leadMargin: Math.max(0, leadMargin),
       });
-    } else if (eligibleResults.length === 1) {
-      const winner = eligibleResults[0];
-      setGwWinner({
-        ...winner,
-        runnerUpName: 'Awaiting Contender',
-        leadMargin: 0,
-      });
     } else {
       setGwWinner(null);
     }
-  }, [rawFplStandings, members, gameweekStake]);
+  }, [rawFplStandings, members, gameweekStake, rules?.weekly]);
 
   // Auto-cleanup duplicate member docs in Firestore (e.g. chairman registered both as admin and member)
   useEffect(() => {
@@ -3760,7 +3769,7 @@ burstFrame();
                 : "hidden"
             }
           >
-            {/* Unified Comprehensive Live Leader & Matchday Pulse Board */}
+            {/* Unified Comprehensive Matchday Pulse Mini Dash */}
             {(() => {
               const approvedThisGw = pendingPayouts.find(
                 (p) => Number(p.gw) === currentGwNumber && p.status === 'approved'
@@ -3768,22 +3777,20 @@ burstFrame();
               const awaitingThisGw = pendingPayouts.find(
                 (p) => Number(p.gw) === currentGwNumber && p.status === 'awaiting_approval'
               );
-              const authoritativePayout = approvedThisGw || awaitingThisGw || latestApprovedPayout;
+              // Authoritative payout strictly scoped to currentGwNumber to prevent past rounds bleeding in
+              const authoritativePayout = approvedThisGw || awaitingThisGw;
               const resolvedMember = authoritativePayout?.winnerId
                 ? members.find(m => m.id === authoritativePayout.winnerId || (m as any).authUid === authoritativePayout.winnerId)
                 : null;
 
-              const isResolved = Boolean(approvedThisGw || awaitingThisGw || gwAlreadySettled || (latestApprovedPayout && Number(latestApprovedPayout.gw) === currentGwNumber));
+              const isResolved = Boolean(
+                approvedThisGw ||
+                awaitingThisGw ||
+                gwAlreadySettled ||
+                (latestApprovedPayout && Number(latestApprovedPayout.gw) === currentGwNumber)
+              );
               const hasAnySettledGws = Boolean(earliestResolvedGw || latestApprovedPayout);
 
-              const leaderName = authoritativePayout?.winnerName || resolvedMember?.displayName || gwWinner?.player_name || null;
-              const leaderTeam = (resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || gwWinner?.entry_name || null;
-              const leaderPoints = authoritativePayout?.points !== undefined
-                ? authoritativePayout.points
-                : (gwWinner?.event_total !== undefined ? gwWinner.event_total : null);
-              const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : null;
-              const runnerUp = gwWinner?.runnerUpName || null;
-              
               const isSeasonPotOnly = Number(rules.weekly || 0) === 0;
               const fundedActiveMembers = members.filter((m) => memberHasFunding(m) && m.isActive !== false && (m as any).playMode !== 'sidebets_only');
               const calculatedPot = isSeasonPotOnly
@@ -3794,12 +3801,12 @@ burstFrame();
               const hoursSinceFinished = finishedAtStored ? (Date.now() - finishedAtStored) / (1000 * 60 * 60) : 0;
               const hoursUntilNextDeadline = nextDeadlineTime ? (new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60) : Infinity;
 
-              // Rule: Winner crowned active for up to 48h after end of GW AND up to 36h before next GW deadline
+              // Rule: Round is concluded ONLY if FPL confirms event finished, current GW is settled, or all fixtures played
               const isRoundConcluded = Boolean(
                 isCurrentEventFinished || 
                 isResolved || 
-                gwAlreadySettled || 
-                (latestApprovedPayout && Number(latestApprovedPayout.gw) === Number(currentGwNumber))
+                (latestApprovedPayout && Number(latestApprovedPayout.gw) === Number(currentGwNumber)) ||
+                (fixtureStats && fixtureStats.total > 0 && fixtureStats.remaining === 0)
               );
               const isCelebrationWindowActive = Boolean(
                 isRoundConcluded &&
@@ -3807,6 +3814,22 @@ burstFrame();
                 hoursUntilNextDeadline > 36
               );
               const isPreLeagueRound = !hasAnySettledGws && !isResolved && !gwAlreadySettled && Boolean((currentGwNumber || 0) < effectiveStartGw);
+
+              // Live leader: during live in-play matches (!isRoundConcluded), gwWinner from live standings is strictly authoritative!
+              const leaderName = (!isRoundConcluded || !authoritativePayout)
+                ? (gwWinner?.player_name || authoritativePayout?.winnerName || resolvedMember?.displayName || null)
+                : (authoritativePayout?.winnerName || resolvedMember?.displayName || gwWinner?.player_name || null);
+
+              const leaderTeam = (!isRoundConcluded || !authoritativePayout)
+                ? (gwWinner?.entry_name || (resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || null)
+                : ((resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || gwWinner?.entry_name || null);
+
+              const leaderPoints = (!isRoundConcluded || !authoritativePayout)
+                ? (gwWinner?.event_total !== undefined ? gwWinner.event_total : (authoritativePayout?.points ?? null))
+                : (authoritativePayout?.points !== undefined ? authoritativePayout.points : (gwWinner?.event_total !== undefined ? gwWinner.event_total : null));
+
+              const leadMargin = gwWinner?.leadMargin !== undefined ? gwWinner.leadMargin : null;
+              const runnerUp = gwWinner?.runnerUpName || null;
 
               const formattedDeadline = nextDeadlineTime ? new Date(nextDeadlineTime).toLocaleDateString('en-GB', {
                 weekday: 'short',
@@ -3816,208 +3839,140 @@ burstFrame();
                 minute: '2-digit'
               }) : null;
 
+              const fixturePct = fixtureStats && fixtureStats.total > 0 ? Math.round((fixtureStats.finished / fixtureStats.total) * 100) : 0;
+
               return (
                 <div
                   className={clsx(
-                    "fc-card relative overflow-hidden rounded-3xl sm:rounded-[2rem] border transition-all shadow-xl p-5 sm:p-6 mb-2",
+                    "fc-card relative overflow-hidden rounded-3xl sm:rounded-[2rem] border transition-all shadow-xl p-4 sm:p-6 mb-4",
                     "bg-white dark:bg-gradient-to-r dark:from-[#181409] dark:via-[#161d24] dark:to-[#0f141a]",
                     "border-amber-400/40 dark:border-[#FBBF24]/30",
                     resolutionPulse && "fc-burst-success"
                   )}
                 >
-                  {/* Subtle ambient glows for visual depth */}
+                  {/* Ambient background glows */}
                   <div className="absolute top-0 right-0 w-80 h-32 bg-amber-500/10 dark:bg-[#FBBF24]/10 blur-[80px] pointer-events-none" />
                   <div className="absolute bottom-0 left-0 w-64 h-32 bg-emerald-500/10 blur-[80px] pointer-events-none" />
 
                   {/* Top Header Row: Matchday Pulse + Live Status + Live Standings Link */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-200/80 dark:border-white/10 relative z-10">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-200/80 dark:border-white/10 relative z-10">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="relative flex h-2.5 w-2.5">
                         <span className={clsx("absolute inline-flex h-full w-full rounded-full opacity-75", isRoundConcluded ? "bg-amber-400" : "animate-ping bg-emerald-500")} />
                         <span className={clsx("relative inline-flex rounded-full h-2.5 w-2.5", isRoundConcluded ? "bg-amber-400" : "bg-emerald-500")} />
                       </span>
-                      <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 shadow-xs">
-                        <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                      <span className={clsx(
+                        "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 shadow-xs border",
+                        isRoundConcluded
+                          ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30"
+                          : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30"
+                      )}>
+                        {isRoundConcluded ? <Trophy className="w-3 h-3 text-amber-500" /> : <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />}
                         {isPreLeagueRound 
                           ? `Pre-Season • Kickoff GW${effectiveStartGw}`
-                          : `GW${currentGwNumber || effectiveStartGw || 5} • ${isRoundConcluded ? "Finalized" : "Matches in Play"}`}
+                          : `GW${currentGwNumber || effectiveStartGw || 5} • ${isRoundConcluded ? "Round Concluded" : "Matches in Play"}`}
                       </span>
-                      {!isRoundConcluded && fixtureStats && fixtureStats.total > 0 && (
+
+                      {fixtureStats && fixtureStats.total > 0 && (
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300 dark:bg-white/10 dark:text-emerald-300 dark:border-emerald-500/25">
-                          ⚽ {fixtureStats.finished}/{fixtureStats.total} played · {fixtureStats.remaining > 0 ? `${fixtureStats.remaining} remaining` : 'Final whistle'}
-                          {fixtureStats.inPlay > 0 && <span className="text-amber-400 font-bold">({fixtureStats.inPlay} live)</span>}
+                          ⚽ {fixtureStats.finished}/{fixtureStats.total} played
+                          {fixtureStats.inPlay > 0 && <span className="text-amber-500 dark:text-amber-400 font-bold">· {fixtureStats.inPlay} live</span>}
+                          {fixtureStats.remaining > 0 ? ` · ${fixtureStats.remaining} left` : ' · Final whistle'}
                         </span>
                       )}
-                      <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
-                        {isPreLeagueRound
-                          ? `Competitive matchdays begin at GW${effectiveStartGw}.`
-                          : isRoundConcluded 
-                            ? (formattedDeadline 
-                                ? `GW${currentGwNumber || effectiveStartGw || 5} concluded. Next GW${(currentGwNumber || 1) + 1} deadline: ${formattedDeadline}.`
-                                : `GW${currentGwNumber || effectiveStartGw || 5} concluded.`)
-                            : (fixtureStats && fixtureStats.remaining > 0
-                                ? `${fixtureStats.remaining} match${fixtureStats.remaining > 1 ? 'es' : ''} left before round closes.`
-                                : "Scores updating live as fixtures progress.")}
-                      </span>
+
+                      {fplLastUpdated && (
+                        <span className="text-[10px] text-slate-500 dark:text-gray-400 font-medium hidden sm:inline-flex items-center gap-1">
+                          <RefreshCw className="w-2.5 h-2.5" /> Synced {fplLastUpdated}
+                        </span>
+                      )}
                     </div>
 
-                    <Link
-                      to="/standings"
-                      onClick={() => haptics.selection()}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:text-white dark:border-white/10 text-xs font-bold transition-all active:scale-95 shadow-xs"
-                      title="View complete live mini-league table"
-                    >
-                      <Trophy className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Live Standings</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400" />
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to="/standings"
+                        onClick={() => haptics.selection()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:text-white dark:border-white/10 text-xs font-bold transition-all active:scale-95 shadow-xs"
+                        title="View complete live mini-league table"
+                      >
+                        <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Live Standings</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.impact();
+                          setShowBanterSlipModal(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all active:scale-95 shadow-xs cursor-pointer"
+                        title="1-tap WhatsApp matchday digest for your Chama group"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Banter Slip 📰</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Main Leader & Pot Row — responsive lg:flex-row to prevent half-screen compression */}
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                    {/* Left: Leader Profile & Margins */}
-                    <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
-                      {isPreLeagueRound ? (
-                        <div className="flex items-center gap-3.5 py-2">
-                          <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border bg-emerald-500/10 border-emerald-500/25 text-emerald-400 shadow-xs">
-                            <Trophy className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                                Official League Kickoff: GW{effectiveStartGw}
-                              </p>
-                            </div>
-                            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                              First Competitive Matchday: Gameweek {effectiveStartGw}
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                              League officially begins at GW{effectiveStartGw}. Fund accounts ahead of the GW{effectiveStartGw} deadline to qualify for the first cash pot!
-                            </p>
-                          </div>
+                  {/* 3-Tile Matchday Mini Dash Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+                    {/* TILE 1: Live Leader & Race Margin */}
+                    <div className="rounded-2xl p-4 bg-slate-50/80 dark:bg-black/30 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-600 dark:text-[#FBBF24]">
+                            {isCelebrationWindowActive ? (
+                              <><Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" /> GW{currentGwNumber || effectiveStartGw || 5} Champion</>
+                            ) : (
+                              <><Zap className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" /> {isRoundConcluded ? `GW${currentGwNumber || 5} Final Leader` : `GW${currentGwNumber || 5} Live Leader`}</>
+                            )}
+                          </p>
+                          <span
+                            className={clsx(
+                              "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                              isRoundConcluded
+                                ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
+                                : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
+                            )}
+                          >
+                            {isRoundConcluded ? "Final" : (fixtureStats && fixtureStats.remaining > 0 ? `${fixtureStats.remaining} left` : "In Play")}
+                          </span>
                         </div>
-                      ) : leaderName ? (
-                        <>
-                          <div className="relative shrink-0 mt-1 sm:mt-0">
-                            <div className="absolute inset-0 rounded-full bg-amber-500/20 dark:bg-[#FBBF24]/20 animate-ping" />
-                            <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl sm:rounded-full bg-gradient-to-br from-amber-400 to-amber-600 p-[2px] shadow-[0_0_25px_rgba(251,191,36,0.35)] flex items-center justify-center">
-                              <div className="w-full h-full bg-slate-900 rounded-2xl sm:rounded-full flex items-center justify-center">
-                                <Trophy className="w-6 h-6 text-amber-400" />
+
+                        {leaderName ? (
+                          <>
+                            <div className="flex items-center gap-3 my-1.5">
+                              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
+                                <Trophy className="w-5 h-5 text-amber-500 dark:text-[#FBBF24]" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                  {leaderName}
+                                </h4>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 truncate">
+                                  {leaderTeam || "FPL Team"}
+                                </p>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-500 dark:text-[#FBBF24]">
-                                {isCelebrationWindowActive ? (
-                                  <>
-                                    <Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" />
-                                    GW{currentGwNumber || effectiveStartGw || 5} Champion
-                                  </>
-                                ) : (
-                                  <>
-                                    <Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                                    GW{currentGwNumber || effectiveStartGw || 5} Live Leader
-                                  </>
-                                )}
-                              </p>
-                              <span
-                                className={clsx(
-                                  "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                                  isRoundConcluded
-                                    ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
-                                    : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                )}
-                              >
-                                {isRoundConcluded 
-                                  ? "Official Result" 
-                                  : (fixtureStats && fixtureStats.remaining > 0 ? `${fixtureStats.remaining} games left` : "In Play")}
+                            <div className="flex items-baseline gap-2 mt-2">
+                              <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+                                {leaderPoints ?? 0}
+                              </span>
+                              <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-[#10B981]">
+                                Live PTS
                               </span>
                             </div>
 
-                            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-                              {leaderName} {leaderTeam && <span className="text-sm font-bold text-gray-500 dark:text-gray-400">({leaderTeam})</span>}
-                            </h3>
-
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <p className="text-xs text-slate-600 dark:text-slate-300">
-                                {isRoundConcluded ? (
-                                  <>
-                                    Clinched {calculatedPot === 0 ? '1st place' : 'the pot'} with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
-                                    {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
-                                    {calculatedPot === 0 ? (
-                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-bold">100% Season Vault League</span></span>
-                                    ) : (
-                                      <span> · Payout: <span className="text-amber-600 dark:text-[#FBBF24] font-bold">KES {calculatedPot.toLocaleString()}</span></span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    Leading with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
-                                    {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
-                                    {calculatedPot === 0 ? (
-                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-bold">100% Season Vault League</span></span>
-                                    ) : (
-                                      <span> · Projected Pot: <span className="text-amber-600 dark:text-[#FBBF24] font-bold">KES {calculatedPot.toLocaleString()}</span></span>
-                                    )}
-                                  </>
-                                )}
-                              </p>
-                            </div>
-
-                            {/* Quick Emoji Reactions from Chairman — well-grouped to prevent awkward wrapping */}
-                            {(() => {
-                              const isMeLeader = Boolean(
-                                (leaderName && (
-                                  leaderName.toLowerCase() === (currentMember?.displayName || '').toLowerCase() ||
-                                  leaderName.toLowerCase() === (chairmanName || '').toLowerCase() ||
-                                  (auth.currentUser?.displayName && leaderName.toLowerCase() === auth.currentUser.displayName.toLowerCase())
-                                )) ||
-                                ((((currentMember as any)?.fplTeamName || currentMember?.teamName) && leaderTeam && (((currentMember as any)?.fplTeamName || currentMember?.teamName)).toLowerCase() === leaderTeam.toLowerCase()))
-                              );
-
-                              if (isMeLeader) {
-                                return (
-                                  <div className="mt-3 flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1.5">
-                                      👑 You are leading this round!
-                                    </span>
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 shrink-0">
-                                    Send Props to {leaderName.split(' ')[0]} 💬
-                                  </span>
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
-                                      <button
-                                        key={emoji}
-                                        type="button"
-                                        onClick={() => handleSendReaction(emoji)}
-                                        className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-slate-100/80 dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-sm transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs shrink-0"
-                                        title={`Send ${emoji} to ${leaderName}`}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {!isCurrentEventFinished && leadMargin !== null && leadMargin !== undefined && (
-                              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                            {leadMargin !== null && leadMargin !== undefined && (
+                              <div className="mt-2 flex items-center gap-2 flex-wrap">
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  +{leadMargin} pts ahead of {runnerUp || 'Challenger'}
+                                  +{leadMargin} pts vs {runnerUp || 'Challenger'}
                                 </span>
                                 <span
                                   className={clsx(
-                                    "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border",
+                                    "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border",
                                     leadMargin >= 15
                                       ? "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300"
                                       : leadMargin >= 5
@@ -4025,124 +3980,215 @@ burstFrame();
                                       : "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:border-red-500/30 dark:text-red-300 animate-pulse"
                                   )}
                                 >
-                                  {leadMargin >= 15 ? "Dominant Lead" : leadMargin >= 5 ? "Contested Lead ⚔️" : "Nail-Biter 🔥"}
+                                  {leadMargin >= 15 ? "Dominant 🚀" : leadMargin >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
                                 </span>
                               </div>
                             )}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-3.5 py-2">
-                          <div className={clsx(
-                            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border",
-                            isFplStandingsLoading
-                              ? "bg-amber-500/10 border-amber-500/25 animate-pulse text-amber-400"
-                              : "bg-slate-500/10 border-slate-500/20 text-slate-400"
-                          )}>
-                            <Trophy className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              {isFplStandingsLoading && <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />}
-                              <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-[#FBBF24]">
-                                {isFplStandingsLoading ? "Syncing FPL Matchday" : "Funded Pot Contenders"}
-                              </p>
-                            </div>
-                            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                              {isFplStandingsLoading
-                                ? `Syncing GW${currentGwNumber || ''} Standings...`
-                                : "Awaiting Funded Pot Contenders"}
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                              {isFplStandingsLoading
-                                ? "Matching official FPL points with funded member wallets."
-                                : "Members must fund their wallet to qualify for the weekly cash pot."}
+                          </>
+                        ) : (
+                          <div className="py-4 text-center">
+                            <p className="text-xs font-bold text-slate-500 dark:text-gray-400">
+                              {isFplStandingsLoading ? "Syncing live matchday standings..." : "Awaiting Gameweek Leader..."}
                             </p>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
+                      {/* Interactive Reactions */}
+                      {leaderName && (() => {
+                        const isMeLeader = Boolean(
+                          (leaderName && (
+                            leaderName.toLowerCase() === (currentMember?.displayName || '').toLowerCase() ||
+                            leaderName.toLowerCase() === (chairmanName || '').toLowerCase() ||
+                            (auth.currentUser?.displayName && leaderName.toLowerCase() === auth.currentUser.displayName.toLowerCase())
+                          )) ||
+                          ((((currentMember as any)?.fplTeamName || currentMember?.teamName) && leaderTeam && (((currentMember as any)?.fplTeamName || currentMember?.teamName)).toLowerCase() === leaderTeam.toLowerCase()))
+                        );
+
+                        if (isMeLeader) {
+                          return (
+                            <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                              👑 You are leading this round!
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-1 flex-wrap">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400">
+                              Props:
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {['👏', '🐐', '🔥', '🥩', '🧂', '🫡'].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => handleSendReaction(emoji)}
+                                  className="w-7 h-7 rounded-lg border border-slate-200 dark:border-white/10 hover:border-amber-400/50 bg-white dark:bg-white/5 hover:bg-amber-500/20 flex items-center justify-center text-xs transition-all hover:scale-110 active:scale-90 cursor-pointer shadow-xs"
+                                  title={`Send ${emoji} to ${leaderName}`}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
-                    {/* Right: Projected Pot + Action Buttons / Resolved status */}
-                    <div className="flex flex-col gap-2.5 w-full lg:w-60 xl:w-64 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-6 border-slate-200/80 dark:border-white/10 shrink-0 justify-center">
-                      {isResolved ? (
-                        <div className="flex flex-col items-center justify-center gap-2.5 py-1">
-                          <div className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-xs font-black tracking-wide rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 shadow-xs">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span>Resolved ✓</span>
-                          </div>
-                          {leaderName && (
-                            <button
-                              onClick={() => {
-                                haptics.celebrate();
-                                setShowChairmanFlexModal(true);
-                              }}
-                              className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/35 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 dark:border-emerald-500/30 text-xs font-bold tracking-wide transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
-                              title="Generate Champion Victory Card for WhatsApp"
-                            >
-                              <Share2 className="w-3.5 h-3.5" />
-                              <span>Victory Card</span>
-                            </button>
+                    {/* TILE 2: Matchday Clock & Fixtures */}
+                    <div className="rounded-2xl p-4 bg-slate-50/80 dark:bg-black/30 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-slate-500 dark:text-gray-400">
+                            <Clock className="w-3.5 h-3.5 text-amber-500" /> Fixtures & Schedule
+                          </p>
+                          <span className="text-[9px] font-black text-slate-600 dark:text-gray-300 tabular-nums">
+                            {fixtureStats ? `${fixtureStats.finished}/${fixtureStats.total} Played` : 'FPL Live'}
+                          </span>
+                        </div>
+
+                        {/* Visual Progress Bar */}
+                        <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full overflow-hidden my-2.5">
+                          <div
+                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${fixturePct}%` }}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 mt-2">
+                          <p className="text-xs font-bold text-slate-800 dark:text-gray-200 flex items-center justify-between">
+                            <span>Matches Status:</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                              {fixtureStats?.remaining === 0 ? "All 10 Concluded" : `${fixtureStats?.remaining ?? 0} games remaining`}
+                            </span>
+                          </p>
+                          {fixtureStats && fixtureStats.inPlay > 0 && (
+                            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center justify-between">
+                              <span>Active Right Now:</span>
+                              <span className="font-black animate-pulse">{fixtureStats.inPlay} live in play</span>
+                            </p>
                           )}
                         </div>
-                      ) : (
-                        <>
-                          <div className="w-full rounded-2xl px-4 sm:px-5 py-3 border text-center flex flex-col items-center justify-center bg-slate-50 dark:bg-[#111822] border-slate-200 dark:border-white/10 shadow-xs">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-0.5 text-center">
-                              {isSeasonPotOnly 
-                                ? (isRoundConcluded ? `GW${currentGwNumber || effectiveStartGw || 5} Final` : `GW${currentGwNumber || effectiveStartGw || 5} Status`) 
-                                : (isRoundConcluded ? `GW${currentGwNumber || effectiveStartGw || 5} Cash Pot` : `Projected Cash Pot`)}
-                            </p>
-                            <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight text-center">
-                              {isSeasonPotOnly ? "100% Season Vault" : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
-                            </p>
-                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 text-center">
-                              {isSeasonPotOnly ? "Points count toward Season Jackpot" : `${fundedActiveMembers.length} active contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
-                            </p>
+
+                        {formattedDeadline && (
+                          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Next GW Deadline</p>
+                            <p className="font-bold text-xs mt-0.5">{formattedDeadline}</p>
                           </div>
+                        )}
+                      </div>
 
-                          {formattedDeadline && (
-                            <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold text-center">
-                              <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                              <span>GW{(currentGwNumber || 1) + 1} Deadline: {formattedDeadline}</span>
+                      <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/5">
+                        {isRoundConcluded
+                          ? "Official FPL points and rankings finalized."
+                          : "Bonus points & auto-subs lock after the final whistle."}
+                      </p>
+                    </div>
+
+                    {/* TILE 3: Pot / Vault & Chairman Governance */}
+                    <div className="rounded-2xl p-4 bg-slate-50/80 dark:bg-black/30 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-slate-500 dark:text-gray-400">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                            {isSeasonPotOnly ? "Season Vault Stakes" : "Gameweek Cash Pot"}
+                          </p>
+                          <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                            {isSeasonPotOnly ? "100% Vault" : "Weekly Pot"}
+                          </span>
+                        </div>
+
+                        <div className="my-1.5">
+                          <p className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
+                            {isSeasonPotOnly
+                              ? `KES ${isStealthMode ? "****" : Math.round(seasonVault || 0).toLocaleString()}`
+                              : `KES ${isStealthMode ? "****" : calculatedPot.toLocaleString()}`}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                            {isSeasonPotOnly
+                              ? "Total Season Jackpot • No weekly cash disbursement"
+                              : `${fundedActiveMembers.length} active funded contribution${fundedActiveMembers.length === 1 ? '' : 's'}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Chairman Action Area */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-white/5">
+                        {isResolved ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-black shadow-xs">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Resolved ✓</span>
                             </div>
-                          )}
-
-                          {isPreLeagueRound ? (
-                            <div className="w-full text-center px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shadow-xs">
-                              Kickoff GW{effectiveStartGw} Active
+                            {leaderName && (
+                              <button
+                                onClick={() => {
+                                  haptics.celebrate();
+                                  setShowChairmanFlexModal(true);
+                                }}
+                                className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap"
+                                title="Generate Victory Card for WhatsApp"
+                              >
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>Victory Card</span>
+                              </button>
+                            )}
+                          </div>
+                        ) : isPreLeagueRound ? (
+                          <div className="w-full text-center px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider shadow-xs">
+                            Kickoff GW{effectiveStartGw} Active
+                          </div>
+                        ) : isSeasonPotOnly ? (
+                          !isRoundConcluded ? (
+                            <div className="space-y-1">
+                              <div
+                                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-200/70 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-gray-400 text-xs font-bold select-none cursor-not-allowed"
+                                title="Gameweek fixtures are currently in progress"
+                              >
+                                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Fixtures In Play (Auto-Vaults on Whistle)</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 dark:text-gray-500 text-center">
+                                No weekly cash payout needed. Round points automatically lock to Season Vault after matches end.
+                              </p>
                             </div>
                           ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  haptics.impact();
-                                  setShowBanterSlipModal(true);
-                                }}
-                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black tracking-wide rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                                title="Generate 1-tap WhatsApp matchday digest for your Chama group"
+                            <button
+                              id="tour-resolve-gw"
+                              onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md active:scale-95 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Archive GW{currentGwNumber} Points to Vault</span>
+                            </button>
+                          )
+                        ) : (
+                          !isRoundConcluded ? (
+                            <div className="space-y-1">
+                              <div
+                                className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-200/70 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-500 dark:text-gray-400 text-xs font-bold select-none cursor-not-allowed"
+                                title="Final whistle pending: official FPL bonus points and auto-subs only finalize after all fixtures conclude"
                               >
-                                <MessageCircle className="w-3.5 h-3.5" />
-                                <span>Chama Banter Slip 📰</span>
-                              </button>
-                              <button
-                                id="tour-resolve-gw"
-                                onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
-                                className={clsx(
-                                  "w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-xs whitespace-nowrap",
-                                  isRoundConcluded
-                                    ? "bg-[#FBBF24] hover:bg-amber-400 text-slate-950 font-black border border-amber-300 shadow-[0_2px_12px_rgba(251,191,36,0.25)]"
-                                    : "bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 text-[11px]"
-                                )}
-                              >
-                                <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                                <span>{isRoundConcluded ? `Resolve GW${currentGwNumber || 5}` : `Resolve GW${currentGwNumber || 5} (Whistle Pending)`}</span>
-                              </button>
-                            </>
-                          )}
-                        </>
-                      )}
+                                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Resolve GW{currentGwNumber} (Whistle Pending)</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400 dark:text-gray-500 text-center">
+                                Resolution unlocks after the final whistle to protect point and payout accuracy.
+                              </p>
+                            </div>
+                          ) : (
+                            <button
+                              id="tour-resolve-gw"
+                              onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl bg-[#FBBF24] hover:bg-amber-400 text-slate-950 transition-all shadow-md active:scale-95 cursor-pointer"
+                            >
+                              <Trophy className="w-3.5 h-3.5 text-slate-950" />
+                              <span>Resolve GW{currentGwNumber} & Disburse Pot</span>
+                            </button>
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
