@@ -1631,6 +1631,7 @@ export default function Standings() {
                                 const isCurrentLive = !isCurrentEventFinished && (Boolean(item.isCurrentLive) || isCurrentGw);
                                 const isResolved = isApprovedPaid || (!isCurrentLive && !item.isUpcoming && !isVoided && !isPreLeague && !isSkipped && item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved');
                                 const isNextUpcoming = item.gw === ((isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1) + 1);
+                                const isSeasonOnlyLeague = Number(leagueRules?.weekly ?? (league as any)?.rules?.weekly ?? 70) === 0 || item.amount === 0;
 
                                 return (
                                     <div
@@ -1669,7 +1670,7 @@ export default function Standings() {
                                                 </span>
                                             ) : isApprovedPaid ? (
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Paid ✓
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {isSeasonOnlyLeague || item.amount === 0 ? 'Resolved ✓' : 'Paid ✓'}
                                                 </span>
                                             ) : isResolved ? (
                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
@@ -1700,10 +1701,13 @@ export default function Standings() {
                                                 ? (item.winnerTeam || 'Not resolved / Unplayed')
                                                 : isAwaitingPayment
                                                 ? `${item.winnerTeam || 'Awaiting Payment'}`
-                                                : item.winnerTeam || (isApprovedPaid ? 'Payout recorded' : isResolved ? 'Winner crowned' : 'Pending kickoff')}
+                                                : item.winnerTeam || (isApprovedPaid ? (isSeasonOnlyLeague || item.amount === 0 ? 'Season Vault · Points Secured' : 'Payout recorded') : isResolved ? 'Winner crowned' : 'Pending kickoff')}
                                         </p>
-                                        {(isApprovedPaid || isAwaitingPayment || isResolved) && typeof item.amount === 'number' && item.amount > 0 && (
+                                        {(isApprovedPaid || isAwaitingPayment || isResolved) && typeof item.amount === 'number' && item.amount > 0 && !isSeasonOnlyLeague && (
                                             <p className="text-[10px] font-black text-[#FBBF24] mt-1">KES {item.amount.toLocaleString()}</p>
+                                        )}
+                                        {isSeasonOnlyLeague && (isApprovedPaid || isResolved) && (
+                                            <p className="text-[10px] font-black text-amber-400 mt-1">100% Season Vault</p>
                                         )}
                                         {isCurrentLive && typeof item.amount === 'number' && item.amount > 0 && (
                                             <p className="text-[10px] font-bold text-amber-300/80 mt-1">Est. Pot: KES {item.amount.toLocaleString()}</p>

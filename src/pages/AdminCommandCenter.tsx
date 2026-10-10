@@ -40,6 +40,7 @@ import {
   X,
   Calculator,
   MessageCircle,
+  Zap,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
@@ -3775,8 +3776,14 @@ burstFrame();
               const hoursUntilNextDeadline = nextDeadlineTime ? (new Date(nextDeadlineTime).getTime() - Date.now()) / (1000 * 60 * 60) : Infinity;
 
               // Rule: Winner crowned active for up to 48h after end of GW AND up to 36h before next GW deadline
+              const isRoundConcluded = Boolean(
+                isCurrentEventFinished || 
+                isResolved || 
+                gwAlreadySettled || 
+                (latestApprovedPayout && Number(latestApprovedPayout.gw) === Number(currentGwNumber))
+              );
               const isCelebrationWindowActive = Boolean(
-                (isCurrentEventFinished || isResolved || Boolean(latestApprovedPayout)) &&
+                isRoundConcluded &&
                 (finishedAtStored ? hoursSinceFinished <= 48 : true) &&
                 hoursUntilNextDeadline > 36
               );
@@ -3815,16 +3822,16 @@ burstFrame();
                         <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                         {isPreLeagueRound 
                           ? `Matchday Pulse • Pre-Season · Kickoff at GW${effectiveStartGw}`
-                          : `Matchday Pulse • GW${currentGwNumber || effectiveStartGw || 5} ${isCurrentEventFinished ? "Finalized" : "Live"}`}
+                          : `Matchday Pulse • GW${currentGwNumber || effectiveStartGw || 5} ${isRoundConcluded ? "Finalized" : "Live"}`}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
                         <Flame className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                        {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : isCurrentEventFinished ? `Next: GW${nextPlayableGw}` : "High Score Active"}
+                        {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : isRoundConcluded ? `Next: GW${nextPlayableGw}` : "High Score Active"}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-gray-400 font-medium hidden lg:inline ml-1">
                         {isPreLeagueRound
                           ? `League officially begins with Gameweek ${effectiveStartGw}. Previous gameweek concluded prior to league activation.`
-                          : isCurrentEventFinished 
+                          : isRoundConcluded 
                             ? (formattedDeadline 
                                 ? `GW${currentGwNumber || effectiveStartGw || 5} finalized. Next GW${nextPlayableGw} payment deadline: ${formattedDeadline} (${daysUntilDeadline !== null ? `${daysUntilDeadline}d left` : 'upcoming'}).`
                                 : `GW${currentGwNumber || effectiveStartGw || 5} finalized. Next Gameweek ${nextPlayableGw} approaching.`) 
@@ -3888,20 +3895,20 @@ burstFrame();
                                   </>
                                 ) : (
                                   <>
-                                    <ShieldCheck className="w-3.5 h-3.5 fill-current" />
-                                    POT LEADER
+                                    <Zap className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                                    GW {currentGwNumber || effectiveStartGw || 5} Live Leader
                                   </>
                                 )}
                               </p>
                               <span
                                 className={clsx(
                                   "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                                  isCurrentEventFinished
+                                  isRoundConcluded
                                     ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
                                     : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
                                 )}
                               >
-                                {isCurrentEventFinished ? `GW${currentGwNumber || effectiveStartGw || 5} Final` : `GW${currentGwNumber || effectiveStartGw || 5} Live`}
+                                {isRoundConcluded ? `GW${currentGwNumber || effectiveStartGw || 5} Final` : `GW${currentGwNumber || effectiveStartGw || 5} Live · In Play`}
                               </span>
                             </div>
 
@@ -3911,12 +3918,26 @@ burstFrame();
 
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <p className="text-xs text-slate-600 dark:text-slate-300">
-                                Clinched {calculatedPot === 0 ? '1st place' : 'the pot'} with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
-                                {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
-                                {calculatedPot === 0 ? (
-                                  <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-black">100% Season Vault League</span> (Points Secured)</span>
+                                {isRoundConcluded ? (
+                                  <>
+                                    Clinched {calculatedPot === 0 ? '1st place' : 'the pot'} with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
+                                    {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
+                                    {calculatedPot === 0 ? (
+                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-black">100% Season Vault League</span> (Points Secured)</span>
+                                    ) : (
+                                      <span> · Payout Yielded: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span></span>
+                                    )}
+                                  </>
                                 ) : (
-                                  <span> · Payout Yielded: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span></span>
+                                  <>
+                                    Currently leading this round with <span className="text-emerald-600 dark:text-[#10B981] font-black">{leaderPoints} pts</span>
+                                    {leadMargin ? ` (+${leadMargin} pts ahead)` : ''}
+                                    {calculatedPot === 0 ? (
+                                      <span> · <span className="text-amber-600 dark:text-[#FBBF24] font-black">100% Season Vault League</span> (Live Matches in Progress)</span>
+                                    ) : (
+                                      <span> · Projected Payout: <span className="text-amber-600 dark:text-[#FBBF24] font-black">KES {calculatedPot.toLocaleString()}</span> (Live Matches in Progress)</span>
+                                    )}
+                                  </>
                                 )}
                               </p>
                             </div>
@@ -5386,12 +5407,25 @@ burstFrame();
                             </span>
                           )}
                           {rowSkippedGws > 0 && !isRowSpectator && (
-                            <span 
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                              title={`Skipped ${rowSkippedGws} GWs — KES ${rowOwedArrears.toLocaleString()} in arrears`}
-                            >
-                              ⚠️ {rowSkippedGws} GW{rowSkippedGws > 1 ? 's' : ''} Skipped · KES {rowOwedArrears.toLocaleString()} Dues
-                            </span>
+                            <div className="inline-flex items-center gap-1.5 flex-wrap">
+                              <span 
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                                title={`Skipped ${rowSkippedGws} GWs — KES ${rowOwedArrears.toLocaleString()} in arrears`}
+                              >
+                                ⚠️ {rowSkippedGws} GW{rowSkippedGws > 1 ? 's' : ''} Skipped · KES {rowOwedArrears.toLocaleString()} Dues
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openWalletFundModal(row.id);
+                                  setFundAmount(String(rowOwedArrears || gwCost || 50));
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all cursor-pointer shadow-xs active:scale-95"
+                                title={`Record late payment of KES ${rowOwedArrears.toLocaleString()} to clear skipped round and restore Green Zone`}
+                              >
+                                + Top Up (Clear Dues)
+                              </button>
+                            </div>
                           )}
                         </div>
                         <div className="text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
@@ -5406,6 +5440,18 @@ burstFrame();
                             </>
                           )}
                           <button onClick={() => openEditMemberModal(row)} className="hover:text-[#FBBF24] transition-colors">✏️ Edit</button>
+                          <span className="text-white/20">•</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              openWalletFundModal(row.id);
+                              if (rowOwedArrears > 0) setFundAmount(String(rowOwedArrears));
+                            }}
+                            className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+                            title="Credit member wallet (Cash or M-Pesa receipt)"
+                          >
+                            💰 Top Up
+                          </button>
                           <span className="text-white/20">•</span>
                           <button
                             onClick={() => handleToggleSpectator(row.id, (row as any).playMode)}

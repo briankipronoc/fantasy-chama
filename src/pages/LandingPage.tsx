@@ -1,8 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { useEffect, useState, useRef } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Sun, Moon, Laptop, ChevronDown, Flame, MessageSquare, Calculator, Copy, Check } from 'lucide-react';
-import { useTheme } from '../hooks/useTheme';
+import { useEffect, useState } from 'react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Flame, MessageSquare, Calculator, Copy } from 'lucide-react';
 
 // ─── Crisp, Zero-Scroll Animated Ledger Demo ────────────────────────────────
 interface DemoMember {
@@ -567,76 +566,6 @@ function TrustSlider() {
     );
 }
 
-// ─── Theme Switcher (System / Light / Dark / Stealth) ──────────────────────────
-function ExpandingThemeSwitcher() {
-    const { theme, setTheme } = useTheme();
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setIsOpen(false);
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const modes = [
-        { key: 'system', label: 'System', icon: <Laptop className="w-3.5 h-3.5 text-emerald-500" />, desc: 'Follow Device' },
-        { key: 'light', label: 'Light', icon: <Sun className="w-3.5 h-3.5 text-amber-500" />, desc: 'Crisp White & Green' },
-        { key: 'dark', label: 'Dark', icon: <Moon className="w-3.5 h-3.5 text-indigo-400" />, desc: 'Deep Charcoal' },
-        { key: 'stealth', label: 'Stealth', icon: <Shield className="w-3.5 h-3.5 text-amber-400" />, desc: 'Pitch Black OLED' },
-    ] as const;
-
-    const currentMode = modes.find(m => m.key === theme) || modes[0];
-
-    return (
-        <div ref={containerRef} className="relative z-50">
-            <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 text-slate-700 dark:text-gray-200 transition-all cursor-pointer active:scale-95 shadow-xs"
-                aria-label={`Current theme: ${theme}. Tap to change theme`}
-            >
-                {currentMode.icon}
-                <span className="text-[10px] font-black uppercase tracking-wider">{currentMode.label}</span>
-                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 p-1.5 rounded-2xl bg-white/95 dark:bg-[#111822]/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1">
-                    {modes.map((m) => (
-                        <button
-                            key={m.key}
-                            type="button"
-                            onClick={() => {
-                                setTheme(m.key);
-                                setIsOpen(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-all cursor-pointer ${
-                                theme === m.key
-                                    ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30'
-                                    : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2.5">
-                                {m.icon}
-                                <div>
-                                    <p className="text-[11px] font-black uppercase tracking-wider leading-none">{m.label}</p>
-                                    <p className="text-[9px] text-slate-500 dark:text-gray-400 font-medium mt-0.5">{m.desc}</p>
-                                </div>
-                            </div>
-                            {theme === m.key && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
 export default function LandingPage() {
     const navigate = useNavigate();
     const role = useStore(state => state.role);
@@ -670,9 +599,6 @@ export default function LandingPage() {
                         <Link to="/terms" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Terms</Link>
                     </div>
                     <div className="flex items-center gap-3">
-                        {/* Expanding & Contracting Theme Switcher */}
-                        <ExpandingThemeSwitcher />
-
                         <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-extrabold text-slate-700 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 shadow-sm">
                             Sign In
                         </button>

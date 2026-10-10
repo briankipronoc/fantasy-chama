@@ -363,27 +363,23 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
 
                     {/* Theme Toggle — 3-way pill: Dark | OS / System | Light (Desktop/Tablet only; on mobile, switched via Profile module) */}
                     <div className="fc-theme-toggle-shell hidden md:flex items-center rounded-xl p-0.5 gap-0.5 bg-slate-100/90 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 shadow-sm">
-                        {(['stealth', 'dark', 'system', 'light'] as const).map((mode) => (
+                        {(['dark', 'system', 'light'] as const).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setTheme(mode)}
                                 className={`fc-theme-toggle-btn flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                     currentTheme === mode
-                                        ? mode === 'stealth'
-                                            ? 'bg-black text-[#FBBF24] border border-amber-500/30 shadow-sm'
-                                            : mode === 'dark' 
-                                                ? 'bg-slate-800 text-white shadow-sm'
-                                                : mode === 'light' 
-                                                    ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
-                                                    : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                                        ? mode === 'dark' 
+                                            ? 'bg-slate-800 text-white shadow-sm'
+                                            : mode === 'light' 
+                                                ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
+                                                : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
                                 }`}
-                                title={mode === 'stealth' ? 'Tactical Stealth Mode' : mode === 'dark' ? 'Matte Dark Mode' : mode === 'light' ? 'Light Theme' : 'Default OS'}
+                                title={mode === 'dark' ? 'Matte Dark Mode' : mode === 'light' ? 'Light Theme' : 'Default OS'}
                                 aria-label={`Set theme to ${mode}`}
                             >
-                                {mode === 'stealth' ? (
-                                    <Shield className="w-3 h-3 text-[#FBBF24]" />
-                                ) : mode === 'dark' ? (
+                                {mode === 'dark' ? (
                                     <Moon className="w-3 h-3 text-slate-300" />
                                 ) : mode === 'light' ? (
                                     <Sun className="w-3 h-3 text-amber-500" />
