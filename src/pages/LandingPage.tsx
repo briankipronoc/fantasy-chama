@@ -1,7 +1,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useEffect, useState } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Flame, MessageSquare, Calculator, Copy } from 'lucide-react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Flame, MessageSquare, Calculator, Copy, Shirt, Swords, Sparkles } from 'lucide-react';
 
 // ─── Crisp, Zero-Scroll Animated Ledger Demo ────────────────────────────────
 interface DemoMember {
@@ -13,16 +13,36 @@ interface DemoMember {
 }
 
 const initialDemoMembers: DemoMember[] = [
-    { id: '1', name: 'Joel Sifuna', team: 'Sifuna Stars', pts: 78, status: 'funded' },
+    { id: '1', name: 'Joel Sifuna', team: 'Sifuna Stars', pts: 85, status: 'funded' },
     { id: '2', name: 'Kevin Otieno', team: 'Nairobi Kings', pts: 72, status: 'funded' },
     { id: '3', name: 'Brian Mwangi', team: 'Safari Boys', pts: 65, status: 'funded' },
     { id: '4', name: 'Faith Cherono', team: 'Rift Valley FC', pts: 61, status: 'spectator' },
 ];
 
+const demoPitchStarters = [
+    { name: 'Raya', team: 'ARS', pos: 'GKP', pts: 6 },
+    { name: 'Gabriel', team: 'ARS', pos: 'DEF', pts: 7 },
+    { name: 'Saliba', team: 'ARS', pos: 'DEF', pts: 6 },
+    { name: 'Gvardiol', team: 'MCI', pos: 'DEF', pts: 6 },
+    { name: 'Palmer', team: 'CHE', pos: 'MID', pts: 10 },
+    { name: 'Saka', team: 'ARS', pos: 'MID', pts: 8, isVice: true },
+    { name: 'Mbeumo', team: 'BRE', pos: 'MID', pts: 9 },
+    { name: 'L. Díaz', team: 'LIV', pos: 'MID', pts: 7 },
+    { name: 'Haaland', team: 'MCI', pos: 'FWD', pts: 18, isCaptain: true },
+    { name: 'Watkins', team: 'AVL', pos: 'FWD', pts: 8 },
+];
+
+const demoBench = [
+    { name: 'Verbruggen', team: 'BHA', pts: 3 },
+    { name: 'Robinson', team: 'FUL', pts: 2 },
+    { name: 'Rogers', team: 'AVL', pts: 5 },
+    { name: 'Smith Rowe', team: 'FUL', pts: 6 },
+];
+
 function LedgerDemo() {
     const [members, setMembers] = useState(initialDemoMembers);
     const [highlightId, setHighlightId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'standings' | 'banter' | 'victory'>('standings');
+    const [activeTab, setActiveTab] = useState<'lineup' | 'standings' | 'banter' | 'victory'>('lineup');
     const [copiedBanter, setCopiedBanter] = useState(false);
 
     useEffect(() => {
@@ -58,11 +78,22 @@ function LedgerDemo() {
 
             {/* Interactive Mode Tabs */}
             <div className="p-2 bg-slate-50/90 dark:bg-[#0e151c]/90 border-b border-slate-200/80 dark:border-white/5 relative z-10">
-                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-200/70 dark:bg-black/40 border border-slate-300/70 dark:border-white/10 rounded-xl backdrop-blur-md w-full">
+                <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/70 dark:bg-black/40 border border-slate-300/70 dark:border-white/10 rounded-xl backdrop-blur-md w-full">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('lineup')}
+                        className={`w-full text-center py-1.5 px-1 sm:px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                            activeTab === 'lineup'
+                                ? 'bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 shadow-xs'
+                                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
+                        }`}
+                    >
+                        ⚽ Lineup
+                    </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('standings')}
-                        className={`w-full text-center py-1.5 px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`w-full text-center py-1.5 px-1 sm:px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                             activeTab === 'standings'
                                 ? 'bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 shadow-xs'
                                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
@@ -73,27 +104,180 @@ function LedgerDemo() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('banter')}
-                        className={`w-full text-center py-1.5 px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`w-full text-center py-1.5 px-1 sm:px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                             activeTab === 'banter'
                                 ? 'bg-emerald-600/15 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/35 shadow-xs'
                                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
                         }`}
                     >
-                        🔥 Banter Slip
+                        🔥 Banter
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('victory')}
-                        className={`w-full text-center py-1.5 px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`w-full text-center py-1.5 px-1 sm:px-2 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                             activeTab === 'victory'
                                 ? 'bg-amber-600/15 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/35 shadow-xs'
                                 : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/40 dark:hover:bg-white/5'
                         }`}
                     >
-                        🏆 Victory Card
+                        🏆 Flex
                     </button>
                 </div>
             </div>
+
+            {/* TAB 0: Real FPL Lineup & Matchday Pitch */}
+            {activeTab === 'lineup' && (
+                <div className="w-full flex flex-col justify-between animate-in fade-in duration-200">
+                    {/* Header */}
+                    <div className="px-4 py-3 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider shadow-xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                GW5 LIVE LINEUP
+                            </div>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Official FPL Sync
+                            </span>
+                        </div>
+
+                        <div className="flex items-baseline justify-between pt-0.5">
+                            <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Joel Sifuna · Sifuna Stars</p>
+                                <p className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight flex items-center gap-2">
+                                    85 <span className="text-xs font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">LIVE PTS 🔥</span>
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <span className="inline-block px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[9px] font-black uppercase tracking-wider border border-amber-500/30">
+                                    Rank #1 (+13 pts)
+                                </span>
+                                <p className="text-[10px] text-slate-600 dark:text-gray-300 font-semibold mt-0.5">
+                                    Triple Captain: Haaland (36 pts)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Realistic FPL Pitch */}
+                    <div className="p-3 bg-slate-50/40 dark:bg-[#0c1218]/70">
+                        <div className="w-full rounded-2xl bg-gradient-to-b from-[#0a4524] via-[#08391d] to-[#062c16] border border-emerald-500/40 p-2.5 sm:p-3 relative overflow-hidden shadow-inner space-y-2">
+                            {/* Faint Pitch Markings */}
+                            <div className="absolute inset-0 pointer-events-none opacity-20">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-14 border border-white rounded-b-xl" />
+                                <div className="absolute top-1/2 left-0 right-0 h-px bg-white" />
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border border-white rounded-full" />
+                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-14 border border-white rounded-t-xl" />
+                            </div>
+
+                            {/* GKP */}
+                            <div className="flex justify-center relative z-10">
+                                {demoPitchStarters.filter(p => p.pos === 'GKP').map(p => (
+                                    <div key={p.name} className="flex flex-col items-center">
+                                        <div className="relative">
+                                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/90 border border-white/30 flex items-center justify-center text-slate-950 shadow-md">
+                                                <Shirt className="w-4 h-4 text-slate-950" />
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-950/90 border border-white/10 rounded px-1.5 py-0.5 mt-0.5 text-center min-w-[50px] shadow-xs">
+                                            <p className="text-[9px] font-black text-white truncate leading-tight">{p.name}</p>
+                                            <p className="text-[8.5px] font-black text-emerald-400 leading-none">{p.pts} pts</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* DEF */}
+                            <div className="flex justify-center gap-2 sm:gap-4 relative z-10">
+                                {demoPitchStarters.filter(p => p.pos === 'DEF').map(p => (
+                                    <div key={p.name} className="flex flex-col items-center">
+                                        <div className="relative">
+                                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 border border-white/20 flex items-center justify-center text-white shadow-md">
+                                                <Shirt className="w-4 h-4 text-white" />
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-950/90 border border-white/10 rounded px-1.5 py-0.5 mt-0.5 text-center min-w-[48px] shadow-xs">
+                                            <p className="text-[9px] font-black text-white truncate leading-tight">{p.name}</p>
+                                            <p className="text-[8.5px] font-black text-emerald-400 leading-none">{p.pts} pts</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* MID */}
+                            <div className="flex justify-center gap-1.5 sm:gap-3 relative z-10">
+                                {demoPitchStarters.filter(p => p.pos === 'MID').map(p => (
+                                    <div key={p.name} className="flex flex-col items-center">
+                                        <div className="relative">
+                                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-600 border border-white/20 flex items-center justify-center text-white shadow-md">
+                                                <Shirt className="w-4 h-4 text-white" />
+                                            </div>
+                                            {p.isVice && (
+                                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-black text-white border border-white/40 font-black text-[8px] flex items-center justify-center">
+                                                    V
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="bg-slate-950/90 border border-white/10 rounded px-1.5 py-0.5 mt-0.5 text-center min-w-[48px] shadow-xs">
+                                            <p className="text-[9px] font-black text-white truncate leading-tight">{p.name}</p>
+                                            <p className="text-[8.5px] font-black text-emerald-400 leading-none">{p.pts} pts</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* FWD */}
+                            <div className="flex justify-center gap-3 sm:gap-6 relative z-10">
+                                {demoPitchStarters.filter(p => p.pos === 'FWD').map(p => (
+                                    <div key={p.name} className="flex flex-col items-center">
+                                        <div className="relative">
+                                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-rose-600 border border-white/20 flex items-center justify-center text-white shadow-md">
+                                                <Shirt className="w-4 h-4 text-white" />
+                                            </div>
+                                            {p.isCaptain && (
+                                                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-slate-950 font-black text-[8.5px] flex items-center justify-center shadow-xs ring-1 ring-amber-300">
+                                                    C
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="bg-slate-950/90 border border-white/10 rounded px-1.5 py-0.5 mt-0.5 text-center min-w-[52px] shadow-xs">
+                                            <p className="text-[9px] font-black text-white truncate leading-tight">{p.name}</p>
+                                            <p className="text-[8.5px] font-black text-emerald-400 leading-none">{p.pts} pts</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Substitutes Bench Bar */}
+                        <div className="mt-2 p-2 rounded-xl bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px]">
+                            <span className="font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider text-[9px] flex items-center gap-1">
+                                <Shirt className="w-3 h-3 text-slate-400" /> Bench (16 pts):
+                            </span>
+                            <div className="flex items-center gap-2 font-mono">
+                                {demoBench.map(b => (
+                                    <span key={b.name} className="text-slate-700 dark:text-gray-300">
+                                        {b.name} <strong className="text-emerald-600 dark:text-emerald-400">{b.pts}p</strong>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-2.5 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
+                        <span className="flex items-center gap-1 font-semibold text-slate-700 dark:text-gray-300 text-[11px]">
+                            <Trophy className="w-3 h-3 text-amber-500" />
+                            Projected Prize: KES 1,960 M-Pesa Payout
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Live FPL API Scoring
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* TAB 1: Live Interactive Standings */}
             {activeTab === 'standings' && (
@@ -462,51 +646,38 @@ function TrustSlider() {
                             </div>
                         </div>
 
-                        {/* Split Bar Track Visual */}
-                        <div className="space-y-2">
+                        {/* Split Bar Track Visual - Single Interactive Dual-Fill Bar */}
+                        <div className="space-y-2.5">
                             <div className="flex justify-between items-center text-xs font-black">
-                                <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                                     <Trophy className="w-3.5 h-3.5" /> Weekly Winner: {splitWeekly}%
                                 </span>
-                                <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                <span className="text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                                     <Lock className="w-3.5 h-3.5" /> Season Vault: {splitVault}%
                                 </span>
                             </div>
 
-                            {/* Visual Dual-Colored Split Segment Bar */}
-                            <div className="w-full h-4 sm:h-5 rounded-full overflow-hidden flex border-2 border-slate-300 dark:border-white/20 shadow-inner bg-slate-200 dark:bg-black/60 p-0.5">
-                                <div 
-                                    style={{ width: `${splitWeekly}%` }}
-                                    className="h-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-400 rounded-l-full transition-all duration-200 flex items-center justify-end pr-1 text-[9px] font-black text-white shadow-sm"
-                                >
-                                    {splitWeekly >= 20 && <span className="drop-shadow-xs">{splitWeekly}%</span>}
-                                </div>
-                                <div 
-                                    style={{ width: `${splitVault}%` }}
-                                    className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 rounded-r-full transition-all duration-200 flex items-center justify-start pl-1 text-[9px] font-black text-slate-950 shadow-sm"
-                                >
-                                    {splitVault >= 20 && <span className="drop-shadow-xs">{splitVault}%</span>}
-                                </div>
+                            {/* Single Dual-Color Range Slider Bar */}
+                            <div className="relative py-1">
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="100" 
+                                    step="5" 
+                                    value={splitWeekly} 
+                                    onChange={(e) => setSplitWeekly(Number(e.target.value))}
+                                    style={{
+                                        background: `linear-gradient(to right, #10b981 0%, #10b981 ${splitWeekly}%, #f59e0b ${splitWeekly}%, #f59e0b 100%)`
+                                    }}
+                                    className="fc-range w-full h-3 sm:h-3.5 rounded-full appearance-none cursor-pointer transition-all shadow-inner border border-slate-300 dark:border-white/20"
+                                    aria-label="Split between weekly pot and season vault"
+                                />
                             </div>
 
-                            {/* Range Slider Controller */}
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="100" 
-                                step="5" 
-                                value={splitWeekly} 
-                                onChange={(e) => setSplitWeekly(Number(e.target.value))}
-                                style={{
-                                    background: `linear-gradient(to right, #10b981 0%, #10b981 ${splitWeekly}%, #f59e0b ${splitWeekly}%, #f59e0b 100%)`
-                                }}
-                                className="fc-range w-full h-2.5 rounded-full appearance-none cursor-pointer transition-all"
-                                aria-label="Split between weekly pot and season vault"
-                            />
                             <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-400 font-semibold px-0.5">
-                                <span>0% Weekly (All to Vault)</span>
-                                <span>50 / 50</span>
-                                <span>100% Weekly (No Vault)</span>
+                                <span>0% Weekly (100% Vault)</span>
+                                <span className="font-bold text-slate-700 dark:text-slate-300">50 / 50 Balanced</span>
+                                <span>100% Weekly (0% Vault)</span>
                             </div>
                         </div>
                     </div>
@@ -593,15 +764,10 @@ export default function LandingPage() {
                             Fantasy <span className="text-emerald-600 dark:text-emerald-400">Chama</span>
                         </span>
                     </div>
-                    <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 space-x-10 items-center">
-                        <a href="#how-it-works" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">How It Works</a>
-                        <a href="#features" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Features</a>
-                        <Link to="/terms" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors text-sm font-medium tracking-wide">Terms</Link>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button onClick={() => navigate('/login')} className="fc-landing-nav-link text-xs sm:text-sm font-extrabold text-slate-700 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 shadow-sm">
-                            Sign In
-                        </button>
+                    <div className="flex space-x-6 sm:space-x-8 items-center text-xs sm:text-sm">
+                        <a href="#how-it-works" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium tracking-wide">How It Works</a>
+                        <a href="#features" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium tracking-wide">Features</a>
+                        <Link to="/terms" className="fc-landing-nav-link text-slate-600 dark:text-[#DFE2EF] opacity-80 hover:opacity-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium tracking-wide">Terms</Link>
                     </div>
                 </div>
             </nav>
@@ -731,176 +897,190 @@ export default function LandingPage() {
                 </section>
 
                 {/* Platform Capabilities: Bento Grid */}
-                <section id="features" className="fc-landing-section py-12 sm:py-16 md:py-20 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative z-20">
-                    <div className="mb-10 sm:mb-14 text-center sm:text-left">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2 block">Built for Kenyan FPL Leagues</span>
-                        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-3">Platform Features</h2>
-                        <div className="w-12 h-1 bg-gradient-to-r from-amber-500 to-amber-300 rounded-full mx-auto sm:mx-0" />
+                <section id="features" className="fc-landing-section py-10 sm:py-14 md:py-16 max-w-7xl mx-auto px-4 sm:px-6 md:px-8 relative z-20">
+                    <div className="mb-8 sm:mb-10 text-center sm:text-left">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-1.5 block">Built for Kenyan FPL Leagues</span>
+                        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">Platform Features</h2>
+                        <div className="w-10 h-1 bg-gradient-to-r from-emerald-500 to-amber-400 rounded-full mx-auto sm:mx-0" />
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
-                        {/* Large Feature: Automated Escrow */}
-                        <div className="fc-landing-card md:col-span-8 bg-white dark:bg-gradient-to-br dark:from-[#16202a] dark:to-[#0d141b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden group shadow-lg">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
-                            <div className="grid sm:grid-cols-12 gap-6 items-center relative z-10">
-                                <div className="sm:col-span-7 space-y-3">
-                                    <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
-                                        <Lock className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                                    </div>
-                                    <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Weekly Pot &amp; Season Vault</h3>
-                                    <p className="text-slate-600 dark:text-gray-400 text-sm sm:text-base leading-relaxed">
-                                        Weekly matchday stakes and end-of-season vaults are tracked down to the exact shilling. Payouts match official FPL scores with zero dispute or delay.
+                    {/* Compact, Fast-to-Scan Features Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-8 sm:mb-10">
+                        {/* 1. Automated M-Pesa Vault */}
+                        <div className="fc-landing-card bg-white dark:bg-[#111822] rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition-all shadow-md group">
+                            <div className="w-9 h-9 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                                <Lock className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">Automated M-Pesa Vault</h3>
+                            <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
+                                91% straight to winners. Payouts calculate down to the shilling with zero manual Excel headaches.
+                            </p>
+                        </div>
+
+                        {/* 2. Live FPL API & Lineups */}
+                        <div className="fc-landing-card bg-white dark:bg-[#111822] rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-md group">
+                            <div className="w-9 h-9 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center mb-3 text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform">
+                                <Zap className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">Live FPL Lineups &amp; Scores</h3>
+                            <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
+                                Direct official API sync. Goals, assists, bonus points, captain multipliers, and auto-subs in real-time.
+                            </p>
+                        </div>
+
+                        {/* 3. WhatsApp Banter Slip */}
+                        <div className="fc-landing-card bg-white dark:bg-[#111822] rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-white/10 hover:border-amber-500/40 transition-all shadow-md group">
+                            <div className="w-9 h-9 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-3 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
+                                <Flame className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">WhatsApp Banter Slips</h3>
+                            <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
+                                Automated 1-tap post-matchday digest in authentic Sheng. Roasts the wooden spoon and crowns the weekly king.
+                            </p>
+                        </div>
+
+                        {/* 4. Co-Chair Verification */}
+                        <div className="fc-landing-card bg-white dark:bg-[#111822] rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition-all shadow-md group">
+                            <div className="w-9 h-9 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-3 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                                <Shield className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">Co-Chair Dual Signatory</h3>
+                            <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
+                                Maker/Checker protocol ensures payouts require dual sign-off. Zero solo chairman tampering.
+                            </p>
+                        </div>
+
+                        {/* 5. Fair Mid-Season Buy-In */}
+                        <div className="fc-landing-card bg-white dark:bg-[#111822] rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-white/10 hover:border-blue-500/40 transition-all shadow-md group">
+                            <div className="w-9 h-9 bg-blue-500/15 border border-blue-500/30 rounded-xl flex items-center justify-center mb-3 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
+                                <Calculator className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">Fair Mid-Season Buy-Ins</h3>
+                            <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
+                                Mathematically backdated vault catch-up so late friends can join anytime without cheating existing members.
+                            </p>
+                        </div>
+
+                        {/* 6. Chairman Commission */}
+                        <div className="fc-landing-card bg-white dark:bg-[#111822] rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-white/10 hover:border-amber-500/40 transition-all shadow-md group">
+                            <div className="w-9 h-9 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-3 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
+                                <Trophy className="w-4 h-4" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">Chairman 4% Commission</h3>
+                            <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
+                                Stop running leagues for free. Automated 4% organizer reward routed to the Chairman's wallet each round.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* 1v1 Side Bets & Victory Cards - Crisp, High-Contrast Showcase */}
+                    <div className="fc-landing-card bg-gradient-to-br from-slate-900 via-[#0d1620] to-slate-950 dark:from-[#0a1018] dark:to-[#05080c] rounded-3xl p-6 sm:p-8 md:p-10 border-2 border-amber-500/30 shadow-2xl relative overflow-hidden text-white">
+                        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
+                        
+                        <div className="grid lg:grid-cols-12 gap-8 items-center relative z-10">
+                            {/* Left Column: Straight to the point pitch */}
+                            <div className="lg:col-span-6 space-y-4 text-center lg:text-left">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                                    <Swords className="w-3.5 h-3.5 text-amber-400" />
+                                    1v1 Cash Duels &amp; Spectator Mode
+                                </div>
+                                <h3 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight text-white leading-tight">
+                                    1v1 Side Bets &amp; <br />
+                                    <span className="text-amber-400">WhatsApp Flex Cards</span>
+                                </h3>
+                                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-md mx-auto lg:mx-0">
+                                    Spectators join for free and challenge friends to instant head-to-head matchday cash duels. Winner takes the pot straight to M-Pesa, with verified flex cards ready for WhatsApp Status.
+                                </p>
+                                
+                                <div className="space-y-2 pt-1 text-xs text-slate-300 font-semibold max-w-md mx-auto lg:mx-0 text-left">
+                                    <p className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span>Free for spectators · Zero season chama dues required</span>
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span>Safaricom M-Pesa escrow lock · Instant 90' full-time payout</span>
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span>Auto-generated verified victory cards to flex on WhatsApp</span>
                                     </p>
                                 </div>
-                                <div className="sm:col-span-5">
-                                    <div className="rounded-2xl p-4 bg-slate-50 dark:bg-[#0c1218] border border-emerald-200 dark:border-emerald-500/30 shadow-md dark:shadow-lg space-y-3 text-left font-sans">
-                                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                                                <Shield className="w-3 h-3" /> M-Pesa Escrow Lock
+
+                                <div className="pt-2">
+                                    <button
+                                        onClick={() => navigate('/setup')}
+                                        className="px-6 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-amber-400/20 active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+                                    >
+                                        <span>Start a League or Duel</span>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Right Column: Cute, Cool, Ultra-Readable Duel Widget */}
+                            <div className="lg:col-span-6 w-full max-w-md mx-auto">
+                                <div className="rounded-3xl bg-slate-950/90 dark:bg-black/80 border-2 border-amber-400/50 p-5 sm:p-6 shadow-2xl relative overflow-hidden backdrop-blur-md space-y-4">
+                                    {/* Top Header */}
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300">
+                                                1v1 Matchday Duel
                                             </span>
-                                            <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400">GW5 Active</span>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/5 rounded-xl p-2.5 shadow-xs">
-                                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Weekly Pot</p>
-                                                <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 tabular-nums">KES 1,960</p>
-                                            </div>
-                                            <div className="bg-white dark:bg-black/40 border border-slate-200/80 dark:border-white/5 rounded-xl p-2.5 shadow-xs">
-                                                <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Season Vault</p>
-                                                <p className="text-sm font-black text-amber-700 dark:text-amber-400 tabular-nums">KES 31,920</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between pt-1 text-[10px] text-slate-600 dark:text-gray-300 font-medium">
-                                            <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Auto Disbursal</span>
-                                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">100% Precision</span>
-                                        </div>
+                                        <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                            KES 1,000 POT 💰
+                                        </span>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Small Feature: Live FPL Sync */}
-                        <div className="fc-landing-card md:col-span-4 bg-white dark:bg-gradient-to-br dark:from-[#161c24] dark:to-[#0f141a] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-indigo-500/30 transition-all relative overflow-hidden shadow-lg">
-                            <div className="w-10 h-10 bg-indigo-500/15 border border-indigo-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Zap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Live FPL Sync</h3>
-                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                                    Direct integration with Official FPL APIs. Standings update automatically without manual spreadsheet entry.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Feature: Chama WhatsApp Banter Slip */}
-                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#18231c] dark:to-[#0f1814] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-emerald-500/35 transition-all relative overflow-hidden shadow-lg group">
-                            <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Flame className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">WhatsApp Banter Slip</h3>
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase">Instant Digest</span>
-                                </div>
-                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                                    Automated 1-tap post-matchday summary with authentic Kenyan Sheng. Highlights King of the Week, Mtu wa Chini (Wooden Spoon), Benched Regret, and Red Zone debt alerts across 3 customizable heat levels. Zero manual typing.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Feature: Mid-Season Fair Buy-In Calculator */}
-                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#1c1e28] dark:to-[#11131a] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-blue-500/35 transition-all relative overflow-hidden shadow-lg group">
-                            <div className="w-10 h-10 bg-blue-500/15 border border-blue-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Fair Buy-In Math</h3>
-                                    <span className="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase">Math Guaranteed</span>
-                                </div>
-                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                                    Want to invite a friend at Gameweek 10 or 15? The formula calculates their exact backdated share into the Season Vault so existing members aren't cheated. Generates a 1-tap WhatsApp invoice instantly.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Kickbacks / Chairman Incentive */}
-                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#191e24] dark:to-[#10151b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-amber-500/30 transition-all relative overflow-hidden shadow-lg">
-                            <div className="w-10 h-10 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Chairman Commission</h3>
-                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                                    Stop running your league for free. The platform routes an automatic 4% commission to the Chairman's wallet upon every gameweek settlement.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Co-Chair Approval */}
-                        <div className="fc-landing-card md:col-span-6 bg-white dark:bg-gradient-to-br dark:from-[#161f26] dark:to-[#0f151b] rounded-3xl p-6 sm:p-8 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-emerald-500/30 transition-all relative overflow-hidden shadow-lg">
-                            <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center justify-center mb-4">
-                                <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mb-2 tracking-tight">Co-Chair Verification</h3>
-                                <p className="text-slate-600 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                                    Every payout and member status update requires sign-off from your designated Co-Chair. Two pairs of eyes ensure total peace of mind.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* 1v1 Side Bets & Victory Cards */}
-                        <div className="fc-landing-card md:col-span-12 bg-white dark:bg-gradient-to-br dark:from-[#1c221a] dark:to-[#0f1614] rounded-3xl p-6 sm:p-8 md:p-10 flex flex-col justify-between border border-slate-200 dark:border-white/10 hover:border-amber-500/35 transition-all relative overflow-hidden group shadow-lg">
-                            <div className="absolute top-0 right-0 w-80 h-80 bg-amber-500/10 rounded-full blur-[90px] pointer-events-none" />
-                            <div className="grid sm:grid-cols-12 gap-8 items-center relative z-10">
-                                <div className="sm:col-span-7 space-y-4">
-                                    <div className="w-10 h-10 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-center mb-4">
-                                        <Trophy className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                                    </div>
-                                    <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">1v1 Side Bets &amp; Victory Cards</h3>
-                                    <p className="text-slate-600 dark:text-gray-300 text-sm sm:text-base leading-relaxed">
-                                        Spectators can follow the league for free and challenge friends to head-to-head cash side bets. Generate verified Victory Cards to flex on WhatsApp Status.
-                                    </p>
-                                    <div className="pt-2">
-                                        <button
-                                            onClick={() => navigate('/setup')}
-                                            className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0e17] font-extrabold text-sm transition-all shadow-md shadow-amber-500/20 active:scale-95 inline-flex items-center gap-2 cursor-pointer"
-                                        >
-                                            <span>Start a League Now</span>
-                                            <ArrowRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="sm:col-span-5">
-                                    <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 dark:from-[#1c221a] dark:to-[#0c1214] border-2 border-amber-300 dark:border-amber-500/40 shadow-lg dark:shadow-xl space-y-3.5 text-left font-sans">
-                                        <div className="flex items-center justify-between border-b border-amber-200/80 dark:border-white/10 pb-2.5">
+                                    {/* Head-to-Head Arena */}
+                                    <div className="grid grid-cols-11 gap-1 items-center py-2">
+                                        {/* Left Contender */}
+                                        <div className="col-span-5 space-y-1 text-left">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-ping" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400">1v1 Matchday Duel</span>
+                                                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-black flex items-center justify-center shrink-0">
+                                                    BM
+                                                </div>
+                                                <p className="text-xs font-black text-white truncate">Brian Mwangi</p>
                                             </div>
-                                            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 text-[9px] font-black uppercase border border-amber-200 dark:border-transparent">
-                                                KES 1,000 POT
+                                            <p className="text-3xl font-black text-emerald-400 tabular-nums">74 <span className="text-xs text-emerald-300 font-bold">pts</span></p>
+                                            <span className="inline-block px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-black uppercase">
+                                                Leading 🔥 (+6)
                                             </span>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3 items-center py-1">
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Brian Mwangi</p>
-                                                <p className="text-lg font-black text-emerald-700 dark:text-emerald-400 tabular-nums">74 pts</p>
-                                                <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300/80 uppercase">Leading 🔥</span>
-                                            </div>
-                                            <div className="space-y-1 text-right border-l border-amber-200/80 dark:border-white/10 pl-3">
-                                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Kevin Otieno</p>
-                                                <p className="text-lg font-black text-slate-700 dark:text-gray-300 tabular-nums">68 pts</p>
-                                                <span className="text-[9px] font-bold text-slate-500 dark:text-gray-500 uppercase">-6 pts</span>
+                                        {/* VS Lightning Center */}
+                                        <div className="col-span-1 flex justify-center">
+                                            <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-400/60 text-amber-300 text-xs font-black flex items-center justify-center shadow-md">
+                                                VS
                                             </div>
                                         </div>
 
-                                        <div className="w-full py-2 rounded-xl bg-amber-100/70 dark:bg-black/40 border border-amber-200 dark:border-white/10 text-slate-700 dark:text-gray-300 text-[10px] font-bold text-center flex items-center justify-center gap-1.5">
-                                            <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
-                                            <span>M-Pesa Verified · Disburses at 90'</span>
+                                        {/* Right Contender */}
+                                        <div className="col-span-5 space-y-1 text-right">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <p className="text-xs font-black text-white truncate">Kevin Otieno</p>
+                                                <div className="w-6 h-6 rounded-full bg-slate-700 border border-slate-500 text-slate-200 text-[10px] font-black flex items-center justify-center shrink-0">
+                                                    KO
+                                                </div>
+                                            </div>
+                                            <p className="text-3xl font-black text-slate-200 tabular-nums">68 <span className="text-xs text-slate-400 font-bold">pts</span></p>
+                                            <span className="inline-block px-2 py-0.5 rounded bg-white/10 border border-white/20 text-slate-300 text-[9px] font-bold uppercase">
+                                                Haaland left ⚡
+                                            </span>
                                         </div>
+                                    </div>
+
+                                    {/* Banter Snippet */}
+                                    <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-[11px] text-amber-200/90 font-mono italic leading-relaxed">
+                                        "Weka KES 1,000! Haaland akifunga leo unanilipa before final whistle 🤝"
+                                    </div>
+
+                                    {/* M-Pesa Security Footer */}
+                                    <div className="w-full py-2 px-3 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 text-[10px] font-bold text-center flex items-center justify-center gap-1.5">
+                                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                                        <span>M-Pesa Escrow Verified · Auto-Disbursed at 90' whistle</span>
                                     </div>
                                 </div>
                             </div>
