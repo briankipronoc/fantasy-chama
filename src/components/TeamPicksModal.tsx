@@ -37,12 +37,7 @@ interface PlayerDetails {
     assists?: number;
 }
 
-const POSITION_LABELS: Record<number, string> = {
-    1: 'GKP',
-    2: 'DEF',
-    3: 'MID',
-    4: 'FWD'
-};
+
 
 export default function TeamPicksModal({
     isOpen,
@@ -230,19 +225,19 @@ export default function TeamPicksModal({
                 onClick={e => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className="p-3.5 sm:p-5 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-[#0e141a] dark:to-emerald-950/20 relative">
+                <div className="p-3.5 sm:p-5 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#131b23] relative">
                     <div className="flex items-center justify-between gap-2 mb-3">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-300 dark:border-white/15 text-xs font-bold text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-emerald-300 transition-all cursor-pointer active:scale-95 shadow-xs"
                         >
                             <ChevronLeft className="w-4 h-4" />
                             <span>Back</span>
                         </button>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer active:scale-90"
+                            className="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-300 dark:border-white/15 flex items-center justify-center text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer active:scale-90"
                             aria-label="Close"
                         >
                             <X className="w-4 h-4" />
@@ -254,25 +249,25 @@ export default function TeamPicksModal({
                             <UserAvatar name={managerName} size="md" />
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">{managerName}</h3>
+                                    <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">{managerName}</h3>
                                     {isViewingMyself && (
-                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-bold">
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                                             You
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 truncate">
+                                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 truncate">
                                     {teamName}
                                 </p>
                             </div>
                         </div>
 
                         {/* Gameweek Navigator */}
-                        <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl p-1 self-start sm:self-auto">
+                        <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-[#0c1218] border border-slate-300 dark:border-white/15 rounded-xl p-1 self-start sm:self-auto shadow-inner">
                             <button
                                 onClick={() => setSelectedGw(prev => Math.max(1, prev - 1))}
                                 disabled={selectedGw <= 1}
-                                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+                                className="p-1 rounded-lg text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
                                 title="Previous Gameweek"
                             >
                                 <ChevronLeft className="w-4 h-4" />
@@ -283,7 +278,7 @@ export default function TeamPicksModal({
                             <button
                                 onClick={() => setSelectedGw(prev => Math.min(38, prev + 1))}
                                 disabled={selectedGw >= (gameweek || 38)}
-                                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
+                                className="p-1 rounded-lg text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300/50 dark:hover:bg-white/10 disabled:opacity-30 cursor-pointer transition-colors"
                                 title="Next Gameweek"
                             >
                                 <ChevronRight className="w-4 h-4" />
@@ -292,27 +287,27 @@ export default function TeamPicksModal({
                     </div>
 
                     {/* Stats & Chip Ribbon */}
-                    <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5 text-[11px] sm:text-xs">
-                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-bold">
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap mt-3 pt-2.5 border-t border-slate-200 dark:border-white/10 text-[11px] sm:text-xs">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 dark:bg-emerald-500/20 border border-emerald-500/30 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200 font-bold">
                             <Trophy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             <span>GW Points:</span>
                             <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tabular-nums">{calculatedGwScore}</span>
                         </div>
 
                         {transferCost > 0 && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 font-bold">
+                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 dark:bg-rose-500/20 border border-rose-500/30 dark:border-rose-500/40 text-rose-800 dark:text-rose-200 font-bold">
                                 <span>Hit: -{transferCost} pts</span>
                             </div>
                         )}
 
                         {transferCost > 0 && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-200 dark:bg-black/40 border border-slate-300 dark:border-white/10 text-slate-800 dark:text-gray-300 font-bold">
+                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-white/10 border border-slate-300 dark:border-white/15 text-slate-800 dark:text-gray-200 font-bold">
                                 <span>Net: {netGwScore} pts</span>
                             </div>
                         )}
 
                         {activeChip && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-black uppercase text-[9.5px] tracking-wider animate-pulse">
+                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-900 dark:text-amber-300 font-black uppercase text-[9.5px] tracking-wider animate-pulse">
                                 <Zap className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                                 {activeChip === 'bboost' && 'Bench Boost Active'}
                                 {activeChip === '3xc' && 'Triple Captain Active'}
@@ -321,7 +316,7 @@ export default function TeamPicksModal({
                             </div>
                         )}
 
-                        <span className="text-slate-500 dark:text-gray-400 text-[10px] ml-auto font-mono">
+                        <span className="text-slate-600 dark:text-gray-300 text-[10px] ml-auto font-mono font-bold bg-slate-200/60 dark:bg-white/5 px-2 py-0.5 rounded-md border border-slate-300/50 dark:border-white/10">
                             Formation: {formationString}
                         </span>
                     </div>
@@ -345,9 +340,9 @@ export default function TeamPicksModal({
                     ) : (
                         <>
                             {/* Visual Pitch */}
-                            <div className="relative rounded-2xl sm:rounded-3xl p-3 sm:p-5 overflow-hidden border border-emerald-500/30 dark:border-emerald-500/25 bg-gradient-to-b from-emerald-600 via-emerald-650 to-emerald-700 dark:from-[#0d2a1b] dark:via-[#091f14] dark:to-[#06150d] shadow-2xl">
+                            <div className="relative rounded-2xl sm:rounded-3xl p-3 sm:p-5 overflow-hidden border border-emerald-500/40 dark:border-emerald-500/30 bg-gradient-to-b from-[#0a4524] via-[#08391d] to-[#062c16] shadow-2xl">
                                 {/* Pitch Markings */}
-                                <div className="absolute inset-0 pointer-events-none opacity-35 dark:opacity-20">
+                                <div className="absolute inset-0 pointer-events-none opacity-25">
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-16 border-b-2 border-x-2 border-white rounded-b-xl" />
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full border-2 border-white" />
                                     <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white" />
@@ -460,65 +455,55 @@ function renderPlayerCard(pick: PlayerPick, player: PlayerDetails | undefined, a
     const mult = pick.multiplier || 1;
     const rawPoints = player?.points || 0;
     const scoredPoints = rawPoints * mult;
+    const posType = player?.element_type || 3; // 1: GKP, 2: DEF, 3: MID, 4: FWD
 
     return (
         <div 
             key={pick.element}
-            className="flex flex-col items-center min-w-[58px] sm:min-w-[70px] max-w-[82px] text-center group"
+            className="flex flex-col items-center min-w-[58px] sm:min-w-[70px] max-w-[84px] text-center group cursor-default"
         >
             {/* Jersey Card */}
             <div className="relative">
                 <div className={clsx(
-                    "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center p-0.5 border shadow-md transition-transform group-hover:scale-105",
-                    isCaptain
-                        ? "bg-amber-400 dark:bg-gradient-to-br dark:from-amber-500/30 dark:to-amber-600/10 border-amber-300 dark:border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
-                        : isVice
-                            ? "bg-slate-200 dark:bg-gradient-to-br dark:from-slate-400/25 dark:to-slate-600/10 border-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.25)]"
-                            : "bg-white/95 dark:bg-[#101b15]/90 border-slate-200/90 dark:border-white/15 hover:border-emerald-400/60 shadow-sm"
+                    "w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border shadow-md transition-transform group-hover:scale-110",
+                    posType === 1
+                        ? "bg-amber-500 border-amber-300/80 text-slate-950"
+                        : posType === 2
+                        ? "bg-emerald-600 border-emerald-400/50 text-white"
+                        : posType === 3
+                        ? "bg-indigo-600 border-indigo-400/50 text-white"
+                        : "bg-rose-600 border-rose-400/50 text-white",
+                    isCaptain ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-[#082d18] shadow-[0_0_14px_rgba(251,191,36,0.7)]" : "",
+                    isVice && !isCaptain ? "ring-2 ring-slate-200 ring-offset-1 ring-offset-[#082d18]" : ""
                 )}>
-                    <span className={clsx(
-                        "text-[8px] font-black tracking-wider uppercase leading-none",
-                        isCaptain ? "text-amber-950 dark:text-amber-300" : isVice ? "text-slate-800 dark:text-slate-200" : "text-emerald-700 dark:text-emerald-400"
-                    )}>
-                        {player?.team_short || 'PL'}
-                    </span>
-                    <Shirt className={clsx(
-                        "w-4 h-4 sm:w-5 sm:h-5 mt-0.5",
-                        isCaptain ? "text-amber-950 dark:text-amber-300" : isVice ? "text-slate-700 dark:text-slate-200" : "text-emerald-600 dark:text-emerald-100"
-                    )} />
+                    <Shirt className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-current drop-shadow-sm" />
                 </div>
+
+                {/* Team Tag pill on top */}
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 py-0.2 rounded bg-black/80 text-[7.5px] font-black uppercase text-white tracking-wider border border-white/20 whitespace-nowrap">
+                    {player?.team_short || 'PL'}
+                </span>
 
                 {/* Captaincy Badge */}
                 {isCaptain && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 font-black text-[9px] flex items-center justify-center border border-white shadow">
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 font-black text-[9px] flex items-center justify-center border border-white shadow-md">
                         {activeChip === '3xc' ? '3x' : 'C'}
                     </span>
                 )}
                 {isVice && !isCaptain && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-200 text-slate-950 font-black text-[8px] flex items-center justify-center border border-white shadow">
-                        VC
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-slate-900 text-white font-black text-[8px] flex items-center justify-center border border-white/60 shadow-md">
+                        V
                     </span>
                 )}
             </div>
 
-            {/* Name Banner */}
-            <div className="w-full mt-1 px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-lg bg-white/95 dark:bg-black/85 backdrop-blur-md border border-slate-300/80 dark:border-white/15 shadow-sm">
-                <p className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white truncate leading-tight">
+            {/* Name Banner & Points */}
+            <div className="w-full mt-2 px-1.5 py-1 rounded-lg bg-slate-950/90 dark:bg-black/95 backdrop-blur-md border border-white/20 shadow-md">
+                <p className="text-[10px] sm:text-[11px] font-black text-white truncate leading-tight">
                     {player?.web_name || `Player ${pick.element}`}
                 </p>
                 <div className="flex items-center justify-center gap-1 mt-0.5">
-                    <span className="text-[8.5px] text-slate-600 dark:text-gray-300 font-bold font-mono">
-                        {POSITION_LABELS[player?.element_type || 0] || 'MID'}
-                    </span>
-                    <span className="text-slate-400 dark:text-gray-500 font-bold">•</span>
-                    <span className={clsx(
-                        "text-[9.5px] sm:text-[10px] font-black tabular-nums",
-                        scoredPoints > 6 
-                            ? "text-emerald-700 dark:text-emerald-400" 
-                            : scoredPoints > 2 
-                                ? "text-slate-900 dark:text-white" 
-                                : "text-slate-700 dark:text-gray-300"
-                    )}>
+                    <span className="text-[9.5px] sm:text-[10px] font-black text-emerald-400 tabular-nums leading-none">
                         {scoredPoints} pts
                     </span>
                 </div>

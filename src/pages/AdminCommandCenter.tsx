@@ -4203,7 +4203,7 @@ burstFrame();
                           <p className="text-xs font-bold text-slate-800 dark:text-gray-200 flex items-center justify-between">
                             <span>Matches Status:</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-black">
-                              {fixtureStats?.remaining === 0 ? "All 10 Concluded" : `${fixtureStats?.remaining ?? 0} games remaining`}
+                              {fixtureStats?.remaining === 0 ? "All 10 Concluded" : fixtureStats?.remaining === 1 ? "1 game remaining" : `${fixtureStats?.remaining ?? 0} games remaining`}
                             </span>
                           </p>
                           {fixtureStats && fixtureStats.inPlay > 0 && (

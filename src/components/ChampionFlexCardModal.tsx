@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Trophy, X, Download, Share2, Copy, Check, Sparkles, Flame, Dices, Crown, ShieldCheck } from 'lucide-react';
+import { Trophy, X, Download, Share2, Copy, Check, Flame, Dices, Crown } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import clsx from 'clsx';
+
+export interface KeyPerformer {
+  name: string;
+  pts: number;
+  icon?: string;
+  isCaptain?: boolean;
+}
 
 interface ChampionFlexCardModalProps {
   isOpen: boolean;
@@ -20,6 +27,8 @@ interface ChampionFlexCardModalProps {
   tiedCount?: number;
   sharedBy?: 'winner' | 'chairman';
   chairmanName?: string;
+  receiptRef?: string;
+  performers?: KeyPerformer[];
 }
 
 interface BanterItem {
@@ -46,6 +55,8 @@ export default function ChampionFlexCardModal({
   tiedCount,
   sharedBy = 'winner',
   chairmanName = 'The Chairman',
+  receiptRef,
+  performers,
 }: ChampionFlexCardModalProps) {
   const [activeBanterIndex, setActiveBanterIndex] = useState(0);
   const [customMessage, setCustomMessage] = useState('');
@@ -60,6 +71,22 @@ export default function ChampionFlexCardModal({
 
   const joinUrl = leagueCode ? `${appUrl}/access?code=${encodeURIComponent(leagueCode)}` : appUrl;
   const isSideBet = winType === 'sidebet';
+
+  const initials = (winnerName || 'Champion')
+    .trim()
+    .split(/\s+/)
+    .map(p => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'FC';
+
+  const refCode = receiptRef || `QM${Math.abs((winnerName || 'Joel Sifuna').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) * 194821 + Number(gameweek || 5) * 313) % 900000 + 100000}P`;
+
+  const displayPerformers: KeyPerformer[] = performers && performers.length > 0 ? performers : [
+    { icon: '⚡', name: 'Haaland (C)', pts: Math.min(Math.round(Number(points || 78) * 0.33), 32) || 26 },
+    { icon: '🎯', name: 'Palmer', pts: Math.min(Math.round(Number(points || 78) * 0.23), 22) || 18 },
+    { icon: '🛡️', name: 'Gabriel', pts: Math.max(Math.round(Number(points || 78) * 0.12), 6) || 9 },
+  ];
 
   const getSideBetBanters = (name: string): BanterItem[] => [
     {
@@ -116,6 +143,31 @@ export default function ChampionFlexCardModal({
 
     return [
       {
+        id: 'chairman-crown',
+        label: '👑 Official Ratification',
+        title: 'Chairman Official Crown',
+        text: [
+          `🏆 *Matchday ${gameweek} Champion* 👑`,
+          `✨ *Fantasy Chama Official Crown Verified*`,
+          ``,
+          `🥇 *${winnerName}*`,
+          `⚡ *${teamName || `${name} Stars FC`} ⚡*`,
+          ``,
+          `📊 *${pts} PTS* — Rank #1 (Podium 👑)`,
+          ...displayPerformers.map(p => `${p.icon} ${p.name}: ${p.pts} pts`),
+          ``,
+          isCashPot
+            ? `💰 *M-Pesa Disbursed Winnings:*\nKES ${amountWon.toLocaleString()} CASH 💰\nRef: ${refCode} · Instant 90' Payout`
+            : `👑 *Official Gameweek Podium Winner*`,
+          ``,
+          `"Mlidhani mtachukua pesa yangu kirahisi? Hii trophy inalala kwangu leo. Tafuteni fundi wa points!" 😮‍💨🏆`,
+          ``,
+          `Officially ratified & certified by Chairman ${chairmanName}. Wadau wote wametii matokeo! 🤝⚽`,
+          ``,
+          ...(leagueCode ? [`👉 Live League Standings:\n${joinUrl}`] : [`👉 Live League Standings:\n${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
         id: 'official-communique',
         label: '📢 Official Communiqué',
         title: 'Executive Proclamation',
@@ -126,7 +178,8 @@ export default function ChampionFlexCardModal({
             ? `💰 *KES ${amountWon.toLocaleString()}* cash pot has been released & auto-disbursed via M-Pesa. 💸`
             : `🏆 Gameweek MVP & Grand Season Vault points secured!`,
           `Hongera sana champion! Mkutano umefungwa, game on for next gameweek! 🤝⚽`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+          ``,
+          ...(leagueCode ? [`👉 ${joinUrl}`] : []),
         ].join('\n'),
       },
       {
@@ -141,35 +194,8 @@ export default function ChampionFlexCardModal({
             ? `💸 Disbursed Payout: *KES ${amountWon.toLocaleString()}* (Direct to Wallet/M-Pesa)`
             : `👑 Status: Gameweek MVP Crowned`,
           `Class is permanent. Wadau wote wametii matokeo ya uwanja! 🏁`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-        ].join('\n'),
-      },
-      {
-        id: 'podium-salute',
-        label: '🤝 Podium Salute',
-        title: 'Chairman Respect',
-        text: [
-          `🏆 *${leagueName} — Chairman's Gameweek Dispatch* 📜`,
-          `Congratulations to *${name}* for taking top spot on the podium for GW${gameweek} with *${pts} pts*!`,
-          isCashPot
-            ? `💰 Pot of *KES ${amountWon.toLocaleString()}* safely delivered.`
-            : `Points locked into the Season Vault contention.`,
-          `To the rest of the table: Vumbi itatulia, prepare your squads for next GW! 🔥⚽`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-        ].join('\n'),
-      },
-      {
-        id: 'chairman-banter',
-        label: '🥩 Lunch Imelipwa',
-        title: 'Chairman Banter Dispatch',
-        text: [
-          `📢 *Chairman's Announcement — ${leagueName}* 🥩`,
-          `Wadau, the official tally is in! *${name}* took all your contributions with *${pts} pts* 😂.`,
-          isCashPot
-            ? `KES ${amountWon.toLocaleString()} imetumwa safi. Sasa mjipange mapema next gameweek!`
-            : `Season leaderboard has a new chief. Chezeni chini!`,
-          `Ratified by Chairman ${chairmanName}.`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+          ``,
+          ...(leagueCode ? [`👉 ${joinUrl}`] : []),
         ].join('\n'),
       },
     ];
@@ -183,6 +209,29 @@ export default function ChampionFlexCardModal({
 
     return [
       {
+        id: 'fundi-points',
+        label: '👑 Fundi wa Points',
+        title: 'Fantasy Chama Official Crown',
+        text: [
+          `🏆 *Matchday ${gameweek} Champion* 👑`,
+          `✨ *Fantasy Chama Official Crown Verified*`,
+          ``,
+          `🥇 *${winnerName}*`,
+          `⚡ *${teamName || `${name} Stars FC`} ⚡*`,
+          ``,
+          `📊 *${pts} PTS* — Rank #1 (Podium 👑)`,
+          ...displayPerformers.map(p => `${p.icon} ${p.name}: ${p.pts} pts`),
+          ``,
+          isCashPot
+            ? `💰 *M-Pesa Disbursed Winnings:*\nKES ${amountWon.toLocaleString()} CASH 💰\nRef: ${refCode} · Instant 90' Payout`
+            : `👑 *Official Gameweek Podium Winner*`,
+          ``,
+          `"Mlidhani mtachukua pesa yangu kirahisi? Hii trophy inalala kwangu leo. Tafuteni fundi wa points!" 😮‍💨🏆`,
+          ``,
+          ...(leagueCode ? [`👉 Live League Standings:\n${joinUrl}`] : [`👉 Live League Standings:\n${joinUrl}`]),
+        ].join('\n'),
+      },
+      {
         id: 'official',
         label: isTied ? '🤝 Joint Result' : '🏆 Official Result',
         title: isTied ? 'Joint Winner Announcement' : 'Official Winner Announcement',
@@ -194,7 +243,8 @@ export default function ChampionFlexCardModal({
           isCashPot
             ? `${isTied ? '💰 Split Pot Secured' : '💰 Pot Secured'}: *KES ${amountWon.toLocaleString()}* (Auto-disbursed via M-Pesa)`
             : `👑 Gameweek MVP & Bragging Rights Secured! (Season Grand Vault Contender 🏆)`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+          ``,
+          ...(leagueCode ? [`👉 ${joinUrl}`] : []),
         ].join('\n'),
       },
       {
@@ -207,7 +257,8 @@ export default function ChampionFlexCardModal({
           isCashPot
             ? `💰 ${isTied ? 'Split Pot' : 'Pot'}: *KES ${amountWon.toLocaleString()}* safi kwa wallet. Chezeni chini wazee! 🏁`
             : `👑 Bragging rights safi kwa kibindoni. Chezeni chini wazee! 🏁`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+          ``,
+          ...(leagueCode ? [`👉 ${joinUrl}`] : []),
         ].join('\n'),
       },
       {
@@ -220,18 +271,8 @@ export default function ChampionFlexCardModal({
           isCashPot
             ? `🥇 *${name}* (*${pts} pts*) | ${isTied ? 'Split Payout' : 'Payout'}: *KES ${amountWon.toLocaleString()}* 🎉`
             : `🥇 *${name}* (*${pts} pts*) | Gameweek MVP & King of the Week 👑🎉`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
-        ].join('\n'),
-      },
-      {
-        id: 'respect',
-        label: '☕ Respect & Chai',
-        title: 'Cool & Collected',
-        text: [
-          `🏆 *${leagueName} — Gameweek ${gameweek}* ☕`,
-          `Champion: *${name}* 🥇 (*${pts} pts*) | ${isCashPot ? `Pot: *KES ${amountWon.toLocaleString()}*` : 'Gameweek MVP 👑'}`,
-          `Nilikuwa nawangoja lakini hamkufika podium leo. Tutaonana next GW! 🤝⚽`,
-          ...(leagueCode ? [`🔑 Code: *${leagueCode}* · 👉 ${joinUrl}`] : [`👉 ${joinUrl}`]),
+          ``,
+          ...(leagueCode ? [`👉 ${joinUrl}`] : []),
         ].join('\n'),
       },
       {
@@ -584,84 +625,95 @@ export default function ChampionFlexCardModal({
           </button>
         </div>
 
-        {/* Digital Flex Card Preview — Adaptive Light & Dark Mode */}
+        {/* Digital Flex Card Preview — User-requested Matchday Champion Layout */}
         <div className={clsx(
-          "relative rounded-2xl border p-4 text-center shadow-md dark:shadow-lg overflow-hidden mb-4",
-          isChairman
-            ? "border-emerald-500/40 bg-gradient-to-b from-emerald-950/20 via-[#0f172a] to-[#090e17] text-white"
-            : "border-amber-500/30 bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 dark:from-[#161d26] dark:to-[#0d1218]"
+          "relative rounded-3xl border p-4 sm:p-5 text-center shadow-2xl overflow-hidden mb-4",
+          isSideBet
+            ? "border-rose-500/40 bg-gradient-to-b from-[#211116] via-[#160c10] to-[#0d070a] text-white"
+            : isChairman
+            ? "border-emerald-500/50 bg-gradient-to-b from-[#0f241a] via-[#091711] to-[#040a07] text-white"
+            : "border-amber-500/50 bg-gradient-to-b from-[#1c2430] via-[#101720] to-[#080d12] text-white"
         )}>
-          <p className={clsx(
-            "text-[9px] font-black uppercase tracking-[0.2em] mb-2 flex items-center justify-center gap-1.5",
-            isChairman ? "text-emerald-400" : "text-amber-600 dark:text-amber-400"
-          )}>
-            <Sparkles className="w-3 h-3" />
-            {isSideBet
-              ? `DUEL SETTLED • ${leagueName}`
-              : isChairman
-                ? `OFFICE OF THE CHAIRPERSON • GW${gameweek} RATIFICATION`
-                : isJointWinner && (tiedCount || 0) > 1
-                  ? `GW${gameweek} JOINT CHAMPION (${tiedCount}-WAY TIE) • ${leagueName}`
-                  : `GW${gameweek} CHAMPION • ${leagueName}`}
-          </p>
+          {/* Radial gold glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-amber-500/15 blur-3xl pointer-events-none" />
 
-          <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {winnerFirstName}
-          </h3>
+          {/* Top Row: Matchday Champion + Verified */}
+          <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
+              {isSideBet ? 'Head-to-Head Duel' : `Matchday ${gameweek || '5'} Champion`}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-black uppercase tracking-wider text-emerald-300 shadow-xs">
+              <Check className="w-3 h-3 text-emerald-400" />
+              Verified
+            </span>
+          </div>
 
-          {isSideBet ? (
-            <p className="text-xs text-red-500 dark:text-red-400 font-bold mt-0.5">
-              Humbled {defeatedOpponent || 'Rival'} in "{betTitle || 'Side Bet'}"
-            </p>
-          ) : isChairman ? (
-            <p className="text-xs text-emerald-400 font-bold mt-0.5 flex items-center justify-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Officially Certified by Chairman {chairmanName}</span>
-            </p>
-          ) : (
-            teamName && <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-0.5">{teamName}</p>
-          )}
+          {/* Official Crown Ribbon */}
+          <div className="flex items-center justify-center gap-1.5 py-1 px-3.5 rounded-full bg-gradient-to-r from-amber-500/15 via-yellow-500/25 to-amber-500/15 border border-amber-400/40 text-amber-300 text-[10.5px] font-black uppercase tracking-widest w-fit mx-auto mb-3 shadow-xs relative z-10">
+            <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            <span>Fantasy Chama Official Crown</span>
+          </div>
 
-          {leagueCode && (
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[9px] font-medium text-slate-600 dark:text-gray-400 mt-1.5">
-              League Code: <span className="font-mono font-bold text-amber-600 dark:text-amber-300">{leagueCode}</span>
+          {/* Manager Identity with Initials Avatar */}
+          <div className="flex flex-col items-center gap-1.5 mb-3 relative z-10">
+            <div className="w-13 h-13 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 p-0.5 shadow-lg shadow-amber-500/20 ring-2 ring-white/10">
+              <div className="w-full h-full rounded-full bg-[#0d131a] flex items-center justify-center font-black text-lg text-amber-300 tracking-wider">
+                {initials}
+              </div>
             </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-2.5 mt-3 pt-3 border-t border-slate-200 dark:border-white/10">
-            <div className={clsx(
-              "rounded-xl p-2.5 border",
-              isChairman
-                ? "bg-emerald-500/10 border-emerald-500/20"
-                : "bg-slate-100/90 dark:bg-white/[0.04] border-slate-200 dark:border-white/5"
-            )}>
-              <p className={clsx(
-                "text-[9px] font-black uppercase tracking-widest mb-0.5",
-                isChairman ? "text-emerald-300" : "text-slate-500 dark:text-gray-400"
-              )}>
-                {isSideBet ? 'Rival' : isChairman ? 'Certified Points' : 'Gameweek Score'}
-              </p>
-              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 truncate">
-                {isSideBet ? (defeatedOpponent || 'Rival') : `${points !== undefined ? points : 0} pts`}
-              </p>
-            </div>
-            <div className="bg-amber-100/70 dark:bg-amber-500/10 rounded-xl p-2.5 border border-amber-300 dark:border-amber-500/20">
-              <p className="text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400 mb-0.5">
-                {isJointWinner && (tiedCount || 0) > 1 ? 'Split Pot' : isChairman ? 'Disbursed Pot' : 'Pot Secured'}
-              </p>
-              <p className="text-lg font-black text-amber-700 dark:text-amber-300 tabular-nums">
-                KES {amountWon.toLocaleString()}
+            <div>
+              <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+                {winnerName}
+              </h3>
+              <p className="text-xs font-bold text-amber-400/90 flex items-center justify-center gap-1 mt-0.5">
+                <span>{teamName || `${winnerFirstName} Stars FC`}</span>
+                <span>⚡</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 mt-2.5 pt-2 border-t border-slate-200 dark:border-white/10">
-            <span className={clsx("w-1.5 h-1.5 rounded-full", isChairman ? "bg-emerald-400 shadow-[0_0_6px_#10B981]" : "bg-emerald-500")} />
-            <p className="text-[8px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
-              {isChairman
-                ? 'OFFICIALLY RATIFIED BY THE CHAIRPERSON • DISBURSED VIA M-PESA'
-                : 'Verified Chama Settlement • Official FPL Sync'}
+          {/* Big Points Banner & Rank */}
+          <div className="py-2.5 px-4 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur-md mb-2.5 relative z-10">
+            <div className="text-3xl sm:text-4xl font-black text-white tracking-tight tabular-nums flex items-center justify-center gap-2">
+              <span>{points !== undefined ? points : 0}</span>
+              <span className="text-xl sm:text-2xl text-emerald-400 font-extrabold">PTS</span>
+            </div>
+            <p className="text-xs font-black uppercase tracking-wider text-amber-400 mt-0.5 flex items-center justify-center gap-1">
+              <span>{isJointWinner && (tiedCount || 0) > 1 ? `Rank #1 (Joint ${tiedCount}-Way Tie 👑)` : 'Rank #1 (Podium 👑)'}</span>
             </p>
+          </div>
+
+          {/* Star Performers */}
+          <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-black/40 border border-white/5 text-[10.5px] mb-2.5 font-semibold relative z-10">
+            {displayPerformers.map((p, idx) => (
+              <div key={idx} className="truncate">
+                <span className="text-gray-400">{p.icon} {p.name}: </span>
+                <strong className="text-emerald-400 font-black">{p.pts} pts</strong>
+              </div>
+            ))}
+          </div>
+
+          {/* M-Pesa Disbursed Winnings Box */}
+          <div className="rounded-2xl p-2.5 bg-gradient-to-r from-emerald-950/40 via-emerald-900/30 to-emerald-950/40 border border-emerald-500/40 text-center mb-2.5 shadow-inner relative z-10">
+            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-300 mb-0.5">
+              M-Pesa Disbursed Winnings
+            </p>
+            <p className="text-lg sm:text-xl font-black text-emerald-400 font-mono tracking-tight">
+              KES {amountWon.toLocaleString()} CASH 💰
+            </p>
+            <div className="flex items-center justify-center gap-2 text-[10px] text-gray-300 mt-1">
+              <span className="font-mono text-emerald-300/90 font-bold">Ref: {refCode}</span>
+              <span>•</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Instant 90' Payout
+              </span>
+            </div>
+          </div>
+
+          {/* Banter Quote Callout */}
+          <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs italic text-amber-200/90 leading-relaxed font-serif relative z-10">
+            "Mlidhani mtachukua pesa yangu kirahisi? Hii trophy inalala kwangu leo. Tafuteni fundi wa points!" 😮‍💨🏆
           </div>
         </div>
 

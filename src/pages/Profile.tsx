@@ -78,6 +78,7 @@ export default function Profile() {
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
+    const [dangerZoneTab, setDangerZoneTab] = useState<'succession' | 'delete'>('succession');
     const [pendingPhoneMap, setPendingPhoneMap] = useState<Record<string, string>>({});
     const [isSavingPendingPhone, setIsSavingPendingPhone] = useState<string | null>(null);
     const [showPendingOnboarding, setShowPendingOnboarding] = useState(false);
@@ -1412,101 +1413,121 @@ export default function Profile() {
         </div>
     );
 
-    const renderRetirementCard = () => (
-        <div className="fc-card w-full bg-gradient-to-br from-rose-50/80 via-white to-rose-100/40 dark:from-[#161d24] dark:via-[#1a1518] dark:to-[#201214] border border-rose-200 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-            <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                    <Crown className="w-4 h-4" />
+    const renderOwnershipAndDangerZoneCard = () => (
+        <div className="fc-card w-full bg-gradient-to-br from-rose-50/70 via-white to-red-50/50 dark:from-[#161418] dark:via-[#1a1317] dark:to-[#1e1014] border border-rose-200/80 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+            {/* Header with pill tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-rose-200/50 dark:border-white/5">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+                        <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                            League Lifecycle & Controls
+                        </h2>
+                        <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Chairman succession transfer & league termination</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
-                        Chairman Retirement & Succession
-                    </h2>
-                    <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Step down and safely transfer chairmanship to the Co-Chair or a chosen manager</p>
+
+                <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => { haptics.selection(); setDangerZoneTab('succession'); }}
+                        className={clsx(
+                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                            dangerZoneTab === 'succession'
+                                ? "bg-rose-500 text-white shadow-sm"
+                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                        )}
+                    >
+                        <Crown className="w-3 h-3" /> Succession
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { haptics.selection(); setDangerZoneTab('delete'); }}
+                        className={clsx(
+                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                            dangerZoneTab === 'delete'
+                                ? "bg-red-600 text-white shadow-sm"
+                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                        )}
+                    >
+                        <Trash2 className="w-3 h-3" /> Delete League
+                    </button>
                 </div>
             </div>
 
-            <div className="space-y-3 mt-1">
-                {coAdminId && (
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-                        <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Designated Successor (Co-Chair)</p>
-                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
-                            </p>
+            {dangerZoneTab === 'succession' ? (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                    <p className="text-xs text-slate-600 dark:text-gray-400 font-medium">
+                        Step down and safely transfer chairmanship to your Co-Chair or select an eligible manager.
+                    </p>
+                    {coAdminId && (
+                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Designated Successor (Co-Chair)</p>
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedSuccessorId(coAdminId);
+                                    setShowRetireModal(true);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                            >
+                                Pass to Co-Chair →
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setSelectedSuccessorId(coAdminId);
-                                setShowRetireModal(true);
-                            }}
-                            className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
-                        >
-                            Pass to Co-Chair →
-                        </button>
-                    </div>
-                )}
+                    )}
 
-                <div>
-                    <label className="text-[10px] font-bold text-slate-700 dark:text-gray-400 uppercase tracking-widest block mb-1.5">
-                        Or Transfer Chairmanship to Any Manager:
-                    </label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <select
-                            value={selectedSuccessorId}
-                            onChange={(e) => setSelectedSuccessorId(e.target.value)}
-                            className="flex-1 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 shadow-xs transition-colors"
-                        >
-                            <option value="" className="bg-white dark:bg-[#0c1218] text-slate-500 dark:text-gray-400">-- Choose New Chairman --</option>
-                            {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
-                                <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-slate-900 dark:text-white">
-                                    {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            disabled={!selectedSuccessorId}
-                            onClick={() => setShowRetireModal(true)}
-                            className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:bg-slate-200 dark:disabled:bg-white/10 disabled:text-slate-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
-                        >
-                            Transfer Role
-                        </button>
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-700 dark:text-gray-400 uppercase tracking-widest block mb-1.5">
+                            Or Transfer Chairmanship to Any Manager:
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <select
+                                value={selectedSuccessorId}
+                                onChange={(e) => setSelectedSuccessorId(e.target.value)}
+                                className="flex-1 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 shadow-xs transition-colors"
+                            >
+                                <option value="" className="bg-white dark:bg-[#0c1218] text-slate-500 dark:text-gray-400">-- Choose New Chairman --</option>
+                                {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
+                                    <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-slate-900 dark:text-white">
+                                        {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                disabled={!selectedSuccessorId}
+                                onClick={() => setShowRetireModal(true)}
+                                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:bg-slate-200 dark:disabled:bg-white/10 disabled:text-slate-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                            >
+                                Transfer Role
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-
-    const renderDeleteLeagueCard = () => (
-        <div className="fc-card w-full bg-gradient-to-br from-red-50/80 via-white to-red-100/40 dark:from-[#161214] dark:via-[#1d1013] dark:to-[#240e11] border border-red-200 dark:border-red-500/30 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-            <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-600 dark:text-red-400">
-                    <Trash2 className="w-4 h-4" />
+            ) : (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                    <p className="text-xs text-slate-600 dark:text-red-200/80 leading-relaxed font-medium">
+                        Once deleted, all gameweek records, member registrations, pots, and settings for <strong className="text-slate-900 dark:text-white">{leagueName || 'this league'}</strong> will be permanently removed. This action cannot be reversed.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            haptics.warning();
+                            setShowDeleteLeagueModal(true);
+                        }}
+                        className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-md shadow-red-500/20 flex items-center justify-center gap-2 cursor-pointer border border-red-500"
+                    >
+                        <Trash2 className="w-4 h-4" /> Delete League Permanently
+                    </button>
                 </div>
-                <div>
-                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-red-700 dark:text-red-300">
-                        Danger Zone · Delete League
-                    </h2>
-                    <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Permanently erase this league and all historical records</p>
-                </div>
-            </div>
-
-            <p className="text-xs text-slate-600 dark:text-red-200/70 mb-4 leading-relaxed font-medium">
-                Once deleted, all gameweek records, member registrations, pots, and settings for <strong className="text-slate-900 dark:text-white">{leagueName || 'this league'}</strong> will be permanently removed. This action cannot be reversed.
-            </p>
-
-            <button
-                type="button"
-                onClick={() => {
-                    haptics.warning();
-                    setShowDeleteLeagueModal(true);
-                }}
-                className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-md shadow-red-500/20 flex items-center justify-center gap-2 cursor-pointer border border-red-500"
-            >
-                <Trash2 className="w-4 h-4" /> Delete League Permanently
-            </button>
+            )}
         </div>
     );
 
@@ -2046,20 +2067,19 @@ export default function Profile() {
                     </div>
 
                     {/* Mobile View: Chairman Retirement and Delete League Cards at the very end */}
+                    {/* Mobile View: Chairman Lifecycle & Danger Zone */}
                     {isAdminView && (
                         <div className="xl:hidden w-full flex flex-col gap-4">
-                            {renderRetirementCard()}
-                            {renderDeleteLeagueCard()}
+                            {renderOwnershipAndDangerZoneCard()}
                         </div>
                     )}
                 </div>
 
-                {/* Desktop Right Column: League Governance, Retirement & Delete League */}
+                {/* Desktop Right Column: League Governance, Lifecycle & Danger Zone */}
                 {isAdminView && (
                     <div className="hidden xl:flex xl:col-span-5 flex-col gap-4">
                         {renderLeagueGovernance()}
-                        {renderRetirementCard()}
-                        {renderDeleteLeagueCard()}
+                        {renderOwnershipAndDangerZoneCard()}
                     </div>
                 )}
                 </div>

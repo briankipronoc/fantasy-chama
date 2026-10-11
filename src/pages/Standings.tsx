@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt } from 'lucide-react';
+import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2 } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -97,7 +97,7 @@ export default function Standings() {
     const [isCachedStandings, setIsCachedStandings] = useState(false);
     const [leagueName, setLeagueName] = useState(() => league?.name || localStorage.getItem('activeLeagueName') || '');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
-    const [coAdminId, setCoAdminId] = useState<string | null>(null);
+    const [_coAdminId, setCoAdminId] = useState<string | null>(null);
     const [dbFplLeagueId, setDbFplLeagueId] = useState<number | null>(null);
     const [inputFplLeagueId, setInputFplLeagueId] = useState('');
     const [isSavingFplId, setIsSavingFplId] = useState(false);
@@ -1046,7 +1046,7 @@ export default function Standings() {
                                 >
                                     <Shirt className="w-3.5 h-3.5" /> View Your Lineup
                                 </button>
-                                <Trophy className="w-8 h-8 text-[#FBBF24]/40 hidden sm:block" />
+                                <Trophy className="w-8 h-8 text-emerald-500/70 dark:text-emerald-400/60 hidden sm:block" />
                             </div>
                         </div>
                     )}
@@ -1285,20 +1285,15 @@ export default function Standings() {
                                                     ? 'text-emerald-600 dark:text-[#10B981]'
                                                     : 'text-slate-600 dark:text-gray-400'
                                             )}>
-                                                {medal || (row.isTied ? `T${rankNum}` : rankNum)}
+                                                {medal || rankNum}
                                             </span>
                                             <UserAvatar name={row.player_name} size="sm" />
                                             <div className="flex-1 min-w-0">
                                                 <span className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 flex-wrap group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
                                                     <span className="truncate max-w-[170px] md:max-w-none">{row.player_name}</span>
                                                     {isDoubleCrown && (
-                                                        <span className="bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 text-[8px] px-1.5 py-0.5 rounded-full uppercase tracking-wider font-black shadow-xs">
-                                                            👑⚡ Double Crown
-                                                        </span>
-                                                    )}
-                                                    {isSeasonLeader && !isDoubleCrown && (
-                                                        <span className="bg-amber-400/20 text-amber-700 dark:text-amber-300 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-black border border-amber-400/40">
-                                                            👑 Season #1
+                                                        <span className="bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 text-[9px] px-2 py-0.5 rounded-full uppercase tracking-wider font-black shadow-xs flex items-center gap-1">
+                                                            🐐 GOAT
                                                         </span>
                                                     )}
                                                     {isGwWinnerRow && !isDoubleCrown && (
@@ -1308,9 +1303,6 @@ export default function Standings() {
                                                     )}
                                                     {matchedMember?.id === chairmanId && (
                                                         <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30">Chair</span>
-                                                    )}
-                                                    {matchedMember?.id === coAdminId && matchedMember.id !== chairmanId && matchedMember.isActive !== false && (matchedMember.role === 'co-chair' || matchedMember.role === 'admin') && (
-                                                        <span className="bg-[#10B981]/10 text-[#10B981] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#10B981]/30">Co</span>
                                                     )}
                                                 </span>
                                                 <p className="text-[11px] text-slate-500 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate md:hidden flex items-center gap-1 mt-0.5">
@@ -1574,14 +1566,36 @@ export default function Standings() {
 
                 {!error && topSeasonLeaders.length > 0 && (Number(leagueRules.vault ?? 30) > 0) && (
                     <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm dark:shadow-xl">
-                        <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                             <div>
                                 <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">Season Race Snapshot</h3>
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-500 mt-1">
                                     {seasonSnapshotLabel} • end-season vault leaders only
                                 </p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {topSeasonLeaders[0] && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const topLead = topSeasonLeaders[0];
+                                            setFlexCardData({
+                                                winnerName: topLead.player_name,
+                                                teamName: topLead.entry_name,
+                                                points: Number(topLead.event_total || topLead.total || 0),
+                                                amountWon: Number((topLead as any)?.projectedPayout || (topLead as any)?.amount || 0),
+                                                gameweek: currentEvent || 1,
+                                                isJointWinner: Boolean(topLead.isTied),
+                                                tiedCount: topLead.isTied ? 2 : 1
+                                            });
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/10 hover:from-amber-500/30 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-xs"
+                                        title="Preview and share live leader card on WhatsApp"
+                                    >
+                                        <Crown className="w-3.5 h-3.5 text-amber-500" />
+                                        <span>Share Leader Card ↗</span>
+                                    </button>
+                                )}
                                 {currentEvent && (
                                     <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24]">
                                         {currentGwLabel}
@@ -1599,7 +1613,22 @@ export default function Standings() {
                                 const isLeaderFunded = isMemberEligibleWinner(leader);
                                 const isLeaderTied = Boolean(leader.isTied);
                                 return (
-                                    <div key={leader.id || idx} className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 flex flex-col justify-between shadow-sm dark:shadow-lg hover:border-amber-500/30 transition-all min-w-0">
+                                    <div 
+                                        key={leader.id || idx} 
+                                        onClick={() => {
+                                            setFlexCardData({
+                                                winnerName: leader.player_name,
+                                                teamName: leader.entry_name,
+                                                points: Number(leader.event_total || leader.total || 0),
+                                                amountWon: Number((leader as any)?.projectedPayout || (leader as any)?.amount || 0),
+                                                gameweek: currentEvent || 1,
+                                                isJointWinner: Boolean(leader.isTied),
+                                                tiedCount: leader.isTied ? 2 : 1
+                                            });
+                                        }}
+                                        className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 flex flex-col justify-between shadow-sm dark:shadow-lg hover:border-amber-500/40 transition-all min-w-0 cursor-pointer group select-none"
+                                        title="Click to view and share champion card"
+                                    >
                                         <div>
                                             <div className="flex items-center justify-between gap-1 mb-1.5">
                                                 <span className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 truncate">
@@ -1620,20 +1649,23 @@ export default function Standings() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">{leader.player_name}</p>
+                                            <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate group-hover:text-amber-400 transition-colors">{leader.player_name}</p>
                                             <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
                                         </div>
-                                        <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5">
-                                            <p className="text-xs sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
-                                            <p className="text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-500 font-bold mt-0.5 truncate">
-                                                {isLeaderFunded ? (
-                                                    Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
-                                                        ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
-                                                        : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} behind`
-                                                ) : (
-                                                    <span className="text-amber-600 dark:text-amber-400/90 font-medium">Pending deposit</span>
-                                                )}
-                                            </p>
+                                        <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
+                                                <p className="text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-500 font-bold mt-0.5 truncate">
+                                                    {isLeaderFunded ? (
+                                                        Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
+                                                            ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
+                                                            : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} behind`
+                                                    ) : (
+                                                        <span className="text-amber-600 dark:text-amber-400/90 font-medium">Pending deposit</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            <Share2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
                                         </div>
                                     </div>
                                 );
@@ -1665,10 +1697,24 @@ export default function Standings() {
 
                                 return (
                                     <div
+                                        onClick={() => {
+                                            if (item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved' && item.winnerName !== 'In Progress') {
+                                                setFlexCardData({
+                                                    winnerName: item.winnerName,
+                                                    teamName: item.winnerTeam,
+                                                    points: Number(item.points || 0),
+                                                    amountWon: Number(item.amount || 0),
+                                                    gameweek: item.gw,
+                                                    isJointWinner: Boolean(item.isTie),
+                                                    tiedCount: item.tiedCount || 1
+                                                });
+                                            }
+                                        }}
                                         key={item.gw}
                                         data-gw-card={item.gw}
                                         className={clsx(
-                                            'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm',
+                                            'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm select-none',
+                                            (isApprovedPaid || isResolved || isCurrentLive) && 'cursor-pointer hover:border-amber-500/50',
                                             isApprovedPaid || isResolved
                                                 ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
                                                 : isCurrentLive
@@ -1761,6 +1807,10 @@ export default function Standings() {
                         amountWon={flexCardData.amountWon}
                         leagueName={leagueName || 'League'}
                         leagueCode={(league as any)?.code || ''}
+                        sharedBy={role === 'admin' ? 'chairman' : 'winner'}
+                        chairmanName={myMember?.displayName || 'The Chairman'}
+                        isJointWinner={flexCardData.isJointWinner}
+                        tiedCount={flexCardData.tiedCount}
                     />
                 )}
 

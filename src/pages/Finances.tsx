@@ -127,6 +127,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [txToDelete, setTxToDelete] = useState<any | null>(null);
     const [isDeletingTx, setIsDeletingTx] = useState(false);
     const [showPlayerBreakdown, setShowPlayerBreakdown] = useState(false);
+    const [showPayoutsModal, setShowPayoutsModal] = useState(false);
+    const [payoutsFilter, setPayoutsFilter] = useState<'all' | 'weekly' | 'season'>('all');
 
     useEffect(() => {
         setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
@@ -738,8 +740,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Number.isNaN(parsed) ? null : parsed;
     };
 
-    const totalPayoutsYielded = transactions
-        .filter((t) => {
+    const payoutTransactions = useMemo(() => {
+        return transactions.filter((t) => {
             if (t.type !== 'payout') return false;
             // Filter out payouts from prior season cycles before clean slate / reset
             if (lastResetAtMs) {
@@ -750,8 +752,24 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             const txGw = Number(t.gw || t.gameweek);
             if (Number.isFinite(txGw) && txGw < leagueStartGw) return false;
             return true;
-        })
-        .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
+        });
+    }, [transactions, lastResetAtMs, leagueStartGw]);
+
+    const weeklyPayoutsList = useMemo(() => {
+        return payoutTransactions.filter(t => {
+            const desc = (t.description || '').toLowerCase();
+            return t.subtype !== 'season' && !desc.includes('season') && !desc.includes('podium') && !desc.includes('championship');
+        });
+    }, [payoutTransactions]);
+
+    const seasonPayoutsList = useMemo(() => {
+        return payoutTransactions.filter(t => {
+            const desc = (t.description || '').toLowerCase();
+            return t.subtype === 'season' || desc.includes('season') || desc.includes('podium') || desc.includes('championship');
+        });
+    }, [payoutTransactions]);
+
+    const totalPayoutsYielded = payoutTransactions.reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
 
     // Member-only transaction log: their deposits + payout wins + wallet credits
     const myTransactions = isAdmin ? transactions : transactions.filter((tx: any) => {
@@ -1803,21 +1821,34 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     </div>
 
                                     {/* Card 2: Total Payouts Yielded */}
-                                    <div className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                                        <div className="flex items-center gap-2.5 mb-3">
-                                            <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400">
-                                                <Trophy className="w-4 h-4" />
+                                    <div 
+                                        onClick={() => setShowPayoutsModal(true)}
+                                        className="fc-card bg-gradient-to-br from-[#FBBF24]/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-[#FBBF24]/25 hover:border-[#FBBF24]/50 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px] cursor-pointer transition-all active:scale-[0.99] group"
+                                        title="Click to view full weekly and season payouts breakdown"
+                                    >
+                                        <div className="flex items-center justify-between gap-2.5 mb-3">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400 shrink-0">
+                                                    <Trophy className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
+                                                        {effectivePayoutMode === 'weekly_only'
+                                                            ? "Weekly Payouts Yielded"
+                                                            : effectivePayoutMode === 'season_only'
+                                                            ? "Season Payouts Yielded"
+                                                            : (projectedCardIndex === 0 ? "Weekly Payouts Yielded" : "Season Payouts Yielded")}
+                                                    </h3>
+                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Issued from ledger</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
-                                                    {effectivePayoutMode === 'weekly_only'
-                                                        ? "Weekly Payouts Yielded"
-                                                        : effectivePayoutMode === 'season_only'
-                                                        ? "Season Payouts Yielded"
-                                                        : (projectedCardIndex === 0 ? "Weekly Payouts Yielded" : "Season Payouts Yielded")}
-                                                </h3>
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Issued from ledger</p>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setShowPayoutsModal(true); }}
+                                                className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-amber-500/15 group-hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 transition-colors cursor-pointer flex items-center gap-1"
+                                            >
+                                                Breakdown ↗
+                                            </button>
                                         </div>
 
                                         <div>
@@ -1829,7 +1860,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     ? "Settled weekly gameweek payouts already disbursed and approved from the ledger."
                                                     : effectivePayoutMode === 'season_only'
                                                     ? "Settled season championship payouts already disbursed and approved from the ledger."
-                                                    : "Settled payouts already disbursed and approved from the ledger."}
+                                                    : "Settled payouts already disbursed. Tap to inspect weekly vs season payments."}
                                             </p>
                                         </div>
                                     </div>
@@ -1888,91 +1919,96 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </section>
                 )}
 
-                <section className="fc-card rounded-3xl border border-amber-500/30 dark:border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] p-5 md:p-7 mb-8 shadow-xl dark:shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
+                {/* Streamlined Vault Payout Preview */}
+                <section className="fc-card rounded-3xl border border-amber-500/30 dark:border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] p-4 sm:p-6 mb-6 shadow-xl dark:shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
                     <div className="absolute top-0 right-0 w-80 h-40 bg-amber-500/10 blur-[90px] pointer-events-none" />
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
+                    
+                    {/* Header: Title, Toggle & Badges */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200/70 dark:border-white/10">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600 dark:text-amber-400">Vault payout preview</p>
-                            <h2 className="fc-frosty-title text-2xl font-black mt-1 text-slate-900 dark:text-white">Configured by Chairman</h2>
-                            <p className="text-sm text-slate-600 dark:text-gray-300 mt-2 max-w-2xl font-medium">
-                                The preview mirrors your current season ladder and shows the exact amount each winner gets right now.
-                            </p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[9.5px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400">
+                                    Vault Payout Preview
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400">
+                                    {modeLabel} · {activeMembersCount} active players
+                                </span>
+                            </div>
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight mt-1">
+                                Chairman's Season Ladder
+                            </h2>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-black/30 px-4 py-3 text-left lg:text-right shadow-xs">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">Season winners</p>
-                            <p className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{modeLabel}</p>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Toggle: Live Accrued vs Projected */}
+                            <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/50 p-1 rounded-xl border border-slate-300 dark:border-white/10 text-[11px]">
+                                <button
+                                    type="button"
+                                    onClick={() => setVaultPodiumView('accrued')}
+                                    className={clsx(
+                                        "px-2.5 py-1 rounded-lg font-black uppercase tracking-wider transition-all cursor-pointer",
+                                        vaultPodiumView === 'accrued'
+                                            ? "bg-emerald-500 text-black shadow-xs font-extrabold"
+                                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                    )}
+                                >
+                                    Live Accrued
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setVaultPodiumView('projected')}
+                                    className={clsx(
+                                        "px-2.5 py-1 rounded-lg font-black uppercase tracking-wider transition-all cursor-pointer",
+                                        vaultPodiumView === 'projected'
+                                            ? "bg-amber-400 text-black shadow-xs font-extrabold"
+                                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                    )}
+                                >
+                                    Projected Final
+                                </button>
+                            </div>
+
                             {role === 'admin' && (
                                 (Number(currentGwNumber) >= 38 && isCurrentEventFinished) ? (
                                     <button
                                         onClick={() => setShowSeasonCeremony(true)}
-                                        className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                                     >
                                         <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                                        Launch Season Ceremony
+                                        Launch Ceremony
                                     </button>
                                 ) : (
-                                    <div className="mt-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-[10px] font-bold text-slate-500 dark:text-gray-400">
-                                        <span className="flex items-center gap-1.5">
-                                            <Lock className="w-3 h-3 text-amber-500" />
-                                            Ceremony unlocks after GW38 finale
-                                        </span>
-                                        <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                                            GW{currentGwNumber || '--'}/38
-                                        </span>
-                                    </div>
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border border-dashed border-slate-300 dark:border-white/15 bg-slate-100/60 dark:bg-white/[0.03] text-[10px] font-bold text-slate-500 dark:text-gray-400">
+                                        <Lock className="w-3 h-3 text-amber-500" />
+                                        GW{currentGwNumber || '--'}/38
+                                    </span>
                                 )
                             )}
                         </div>
                     </div>
 
-                    {/* Live Accrued vs Projected GW38 Toggle */}
-                    <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-black/40 p-1 rounded-2xl border border-slate-300 dark:border-white/10 w-fit mb-4">
-                        <button
-                            type="button"
-                            onClick={() => setVaultPodiumView('accrued')}
-                            className={clsx(
-                                "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
-                                vaultPodiumView === 'accrued'
-                                    ? "bg-emerald-500 text-black shadow-md font-extrabold"
-                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                            )}
-                        >
-                            Live Accrued
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setVaultPodiumView('projected')}
-                            className={clsx(
-                                "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
-                                vaultPodiumView === 'projected'
-                                    ? "bg-amber-400 text-black shadow-md font-extrabold"
-                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                            )}
-                        >
-                            Projected Final
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3.5 w-full items-stretch">
+                    {/* Podium Grid */}
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full items-stretch">
                         {tiedSeasonVaultPreview.slice(0, 3).map((tier: any) => {
                             const isAccrued = vaultPodiumView === 'accrued';
                             const primaryAmount = isAccrued ? (tier.accruedAmount ?? tier.amount) : (tier.projectedAmount || tier.amount);
                             const secondaryAmount = isAccrued ? (tier.projectedAmount || tier.amount) : (tier.accruedAmount ?? tier.amount);
+                            const medal = tier.rank === 1 ? '🥇' : tier.rank === 2 ? '🥈' : '🥉';
                             return (
                                 <div
                                     key={`${tier.originalPlace}-${tier.player_name}`}
                                     onClick={() => setVaultPodiumView(prev => prev === 'accrued' ? 'projected' : 'accrued')}
-                                    className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-3 sm:p-4 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-sm dark:shadow-lg min-w-0 cursor-pointer select-none"
-                                    title="Tap to toggle between live accrued and projected payout"
+                                    className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs min-w-0 cursor-pointer select-none"
+                                    title="Tap to toggle live accrued vs projected final"
                                 >
                                     <div>
-                                        <div className="flex items-center justify-between gap-1 mb-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 truncate">
-                                                #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-600 dark:text-amber-400 font-bold tracking-normal">(Tied)</span>}
-                                            </p>
+                                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                                            <span className="text-[10px] sm:text-xs font-black text-slate-900 dark:text-white flex items-center gap-1 truncate">
+                                                <span>{medal}</span> #{tier.rank}
+                                                {tier.isTied && <span className="text-[7.5px] text-amber-600 dark:text-amber-400 font-bold">(Tied)</span>}
+                                            </span>
                                             <span className={clsx(
-                                                'text-[8px] sm:text-[9px] font-black uppercase tracking-widest px-1.5 sm:px-2 py-0.5 rounded-full border shrink-0',
+                                                'text-[8px] sm:text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full border shrink-0',
                                                 tier.rank === 1 ? 'border-amber-400/40 bg-amber-400/15 text-amber-700 dark:text-amber-400' : tier.rank === 2 ? 'border-slate-300 bg-slate-100 dark:border-slate-300/30 dark:bg-slate-300/10 text-slate-700 dark:text-slate-200' : 'border-amber-600/30 bg-amber-600/15 text-amber-800 dark:text-amber-500'
                                             )}>
                                                 {tier.percentage}%
@@ -1980,21 +2016,21 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         </div>
                                         <div className="mt-1">
                                             <p className={clsx(
-                                                "text-base sm:text-xl md:text-2xl font-black tabular-nums truncate",
+                                                "text-sm sm:text-lg md:text-xl font-black tabular-nums truncate",
                                                 isAccrued ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                                             )}>
                                                 KES {Math.round(primaryAmount || 0).toLocaleString()}
                                             </p>
-                                            <p className="mt-0.5 text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate font-medium">
+                                            <p className="mt-0.5 text-[8px] sm:text-[9.5px] text-slate-500 dark:text-gray-400 truncate font-medium">
                                                 {isAccrued ? (
-                                                    <>Est. Final: <strong className="text-amber-600 dark:text-amber-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                    <>Est: <strong className="text-amber-600 dark:text-amber-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
                                                 ) : (
-                                                    <>Live Accrued: <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                    <>Accrued: <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
                                                 )}
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                                    <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-white/5">
                                         <p className="text-[10px] sm:text-[11px] font-black text-slate-800 dark:text-gray-200 truncate">
                                             {tier.player_name}
                                         </p>
@@ -2005,23 +2041,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                         })}
                     </div>
 
-                    <details className="mt-4 rounded-2xl border border-sky-300 dark:border-sky-500/20 bg-sky-100/70 dark:bg-sky-500/10 px-4 py-3">
-                        <summary className="cursor-pointer text-[11px] font-black uppercase tracking-widest text-sky-950 dark:text-sky-300">
-                            How these ratios work
-                        </summary>
-                        <p className="mt-2 text-sm text-slate-800 dark:text-sky-50/90 leading-relaxed font-medium">
-                            Ratios are normalized to 100% across visible winners, then converted to amounts using the live season vault balance. If active members are fewer than configured tiers, preview tiers are capped and rebalanced automatically.
-                        </p>
-                    </details>
-
-                    {isPreviewCapped && (
-                        <div className="mt-4 rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-100/70 dark:bg-amber-500/10 px-4 py-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-300">Tier capped</p>
-                            <p className="text-sm text-amber-950 dark:text-amber-50/90 mt-1 font-medium">
-                                This league currently has only {activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'}, so the vault preview stops at Top {eligibleWinnersCount}. The chairman's configured ladder will expand automatically once there are enough active players.
-                            </p>
-                        </div>
-                    )}
+                    <p className="mt-3 text-[10px] text-slate-500 dark:text-gray-400 font-medium text-center">
+                        💡 Payouts mirror live season rankings and rebalance automatically to 100% across podium tiers.
+                        {isPreviewCapped && ` (Capped at Top ${eligibleWinnersCount} until additional active players join)`}
+                    </p>
                 </section>
 
                 
@@ -3447,6 +3470,11 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 </button>
                             </div>
 
+                            {/* Informative Explanation */}
+                            <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-700 dark:text-indigo-300 font-medium leading-relaxed">
+                                💡 <strong>Receipts vs Available Float:</strong> Total Deposited tracks historical funds collected into the Chama. Available Float is the unspent wallet balance ready for future gameweeks.
+                            </div>
+
                             {/* Summary Stat Grid */}
                             <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/5 text-xs">
                                 <div>
@@ -3469,11 +3497,11 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <div key={m.id} className="pt-2 flex items-center justify-between text-xs">
                                         <div className="min-w-0 pr-2">
                                             <span className="text-slate-900 dark:text-white font-bold block truncate">{m.displayName}</span>
-                                            <span className="text-[10px] text-slate-400 dark:text-gray-500">Wallet Bal: KES {Number(m.walletBalance || 0).toLocaleString()}</span>
+                                            <span className="text-[10px] text-slate-400 dark:text-gray-500">Available Float: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">KES {Number(m.walletBalance || 0).toLocaleString()}</strong></span>
                                         </div>
                                         <div className="text-right shrink-0 font-mono">
-                                            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold block">KES {m.totalDeposited.toLocaleString()}</span>
-                                            <span className="text-[9px] text-slate-400 uppercase font-medium">Contributed</span>
+                                            <span className="text-indigo-600 dark:text-indigo-400 font-extrabold block">KES {m.totalDeposited.toLocaleString()}</span>
+                                            <span className="text-[9px] text-slate-400 uppercase font-semibold">Total Deposited</span>
                                         </div>
                                     </div>
                                 ))}
@@ -3483,6 +3511,163 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <button
                                     type="button"
                                     onClick={() => setShowPlayerBreakdown(false)}
+                                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-bold text-slate-700 dark:text-white transition-colors cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Payouts Breakdown Modal (Weekly vs Season) */}
+            {showPayoutsModal && (() => {
+                const weeklySum = weeklyPayoutsList.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+                const seasonSum = seasonPayoutsList.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+                const displayedPayouts = payoutsFilter === 'weekly' 
+                    ? weeklyPayoutsList 
+                    : payoutsFilter === 'season' 
+                    ? seasonPayoutsList 
+                    : payoutTransactions;
+
+                return (
+                    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+                        <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-amber-500/30 rounded-3xl p-6 shadow-2xl flex flex-col gap-4 text-slate-900 dark:text-white max-h-[85vh]">
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                                        <Trophy className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black tracking-tight text-slate-900 dark:text-white">Chama Payouts Breakdown</h3>
+                                        <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Settled weekly & season payouts</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPayoutsModal(false)}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Summary Stat Grid */}
+                            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/5 text-xs">
+                                <div>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Total Disbursed</span>
+                                    <span className="font-extrabold text-amber-600 dark:text-amber-400 text-sm">KES {totalPayoutsYielded.toLocaleString()}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Weekly GW Pots</span>
+                                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">KES {weeklySum.toLocaleString()}</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Season Vault</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-sm">KES {seasonSum.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Filter Tabs */}
+                            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold">
+                                <button
+                                    type="button"
+                                    onClick={() => setPayoutsFilter('all')}
+                                    className={clsx(
+                                        "flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer",
+                                        payoutsFilter === 'all'
+                                            ? "bg-white dark:bg-white/15 text-slate-900 dark:text-white shadow-xs font-black"
+                                            : "text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                    )}
+                                >
+                                    All ({payoutTransactions.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPayoutsFilter('weekly')}
+                                    className={clsx(
+                                        "flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer",
+                                        payoutsFilter === 'weekly'
+                                            ? "bg-emerald-500 text-black shadow-xs font-black"
+                                            : "text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                    )}
+                                >
+                                    Weekly ({weeklyPayoutsList.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPayoutsFilter('season')}
+                                    className={clsx(
+                                        "flex-1 py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer",
+                                        payoutsFilter === 'season'
+                                            ? "bg-amber-400 text-black shadow-xs font-black"
+                                            : "text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                    )}
+                                >
+                                    Season ({seasonPayoutsList.length})
+                                </button>
+                            </div>
+
+                            {/* Payouts List */}
+                            <div className="overflow-y-auto space-y-2.5 pr-1 max-h-[44vh] custom-scrollbar">
+                                {displayedPayouts.length === 0 ? (
+                                    <div className="py-10 text-center space-y-2">
+                                        <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 mx-auto flex items-center justify-center">
+                                            <Trophy className="w-5 h-5" />
+                                        </div>
+                                        <h4 className="text-xs font-bold text-slate-700 dark:text-gray-300">No Disbursed Payouts Yet</h4>
+                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
+                                            When gameweek winners or season championship podiums are approved and paid out, transaction receipts, recipients, and amounts will be catalogued here.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    displayedPayouts.map((tx: any, idx: number) => {
+                                        const isSeason = tx.subtype === 'season' || (tx.description || '').toLowerCase().includes('season');
+                                        const dateObj = txDate(tx);
+                                        const dateStr = dateObj ? dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Settled';
+                                        return (
+                                            <div 
+                                                key={tx.id || idx}
+                                                className="p-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3 text-xs"
+                                            >
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <span className={clsx(
+                                                            "text-[9px] font-black uppercase px-1.5 py-0.5 rounded border",
+                                                            isSeason 
+                                                                ? "bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400"
+                                                                : "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                                                        )}>
+                                                            {isSeason ? 'Season Vault' : `GW ${tx.gw || tx.gameweek || 'Round'}`}
+                                                        </span>
+                                                        <span className="font-bold text-slate-900 dark:text-white truncate">
+                                                            {tx.winnerName || tx.memberName || tx.userName || tx.description || 'Champion'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 truncate">
+                                                        {tx.receiptId ? `Ref: ${tx.receiptId}` : 'M-Pesa Disbursed'} · {dateStr}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <span className="text-sm font-black text-amber-600 dark:text-amber-400 font-mono block">
+                                                        KES {Number(tx.amount || 0).toLocaleString()}
+                                                    </span>
+                                                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold uppercase">
+                                                        Settled ✓
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPayoutsModal(false)}
                                     className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-bold text-slate-700 dark:text-white transition-colors cursor-pointer"
                                 >
                                     Close
