@@ -75,8 +75,10 @@ export default function SuperAdminDashboard() {
                     walletBalance: 0,
                     hasPaid: false,
                     paymentStreak: 0,
+                    missedGameweeks: 0,
                     lastPaymentGw: null,
                     joinedAtGw: targetGw,
+                    joinedGw: targetGw,
                     nextDueAt: null,
                     dueAt: null,
                 });
@@ -86,6 +88,7 @@ export default function SuperAdminDashboard() {
             batch.update(leagueDocRef, {
                 startGw: targetGw,
                 currentGw: targetGw,
+                forfeitedGws: [],
                 vaultBalance: 0,
                 totalPot: 0,
                 lastResetAt: serverTimestamp(),
@@ -93,15 +96,27 @@ export default function SuperAdminDashboard() {
             });
             await batch.commit();
 
-            // 2. Clear subcollections
-            const subcollections = ['transactions', 'side_bets', 'gw_settlements', 'hq_settlements'];
+            // 2. Clear subcollections in safe chunked batches
+            const subcollections = [
+                'transactions',
+                'side_bets',
+                'gw_settlements',
+                'hq_settlements',
+                'pending_payouts',
+                'wallet_topup_requests',
+                'payouts',
+                'league_events'
+            ];
             for (const sub of subcollections) {
                 try {
                     const subSnap = await getDocs(collection(db, 'leagues', leagueId, sub));
                     if (!subSnap.empty) {
-                        const subBatch = writeBatch(db);
-                        subSnap.docs.forEach(d => subBatch.delete(d.ref));
-                        await subBatch.commit();
+                        for (let i = 0; i < subSnap.docs.length; i += 400) {
+                            const chunk = subSnap.docs.slice(i, i + 400);
+                            const subBatch = writeBatch(db);
+                            chunk.forEach(d => subBatch.delete(d.ref));
+                            await subBatch.commit();
+                        }
                     }
                 } catch (subErr) {
                     console.warn(`[hq-clean-slate] clear ${sub} skipped:`, subErr);
@@ -1049,39 +1064,39 @@ export default function SuperAdminDashboard() {
 
             {/* Clean Slate Reset Modal for HQ */}
             {showResetModal && selectedLeagueForReset && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200 p-4">
-                    <div className="w-full max-w-md bg-[#161d24] border border-red-500/30 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 overflow-hidden text-white font-sans">
-                        <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-200 p-4">
+                    <div className="w-full max-w-md bg-white dark:bg-[#161d24] border border-red-500/30 rounded-3xl shadow-[0_10px_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white font-sans">
+                        <div className="px-6 py-5 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                                <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 dark:text-red-400">
                                     <AlertTriangle className="w-4 h-4" />
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-red-400">HQ Master Control</p>
-                                    <h3 className="text-base font-black">Clean Slate / Season Reset</h3>
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">HQ Master Control</p>
+                                    <h3 className="text-base font-black text-slate-900 dark:text-white">Clean Slate / Season Reset</h3>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowResetModal(false)}
-                                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white text-xs cursor-pointer"
+                                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white text-xs cursor-pointer"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
                         <div className="p-6 space-y-4">
-                            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 leading-relaxed">
-                                <span className="font-bold">Target League:</span> {selectedLeagueForReset.leagueName || selectedLeagueForReset.id}
+                            <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-xs text-rose-800 dark:text-red-300 leading-relaxed font-medium">
+                                <span className="font-bold text-rose-900 dark:text-white">Target League:</span> {selectedLeagueForReset.leagueName || selectedLeagueForReset.id}
                                 <br />
-                                <span className="font-bold">⚠️ Action:</span> This will reset all member wallet balances to <span className="font-bold">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
+                                <span className="font-bold text-rose-900 dark:text-white">⚠️ Action:</span> This will reset all member wallet balances to <span className="font-black text-rose-900 dark:text-white">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                <label className="block text-[10px] font-black text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">
                                     New Official Starting Round
                                 </label>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-bold text-gray-400">Gameweek</span>
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                    <span className="text-sm font-bold text-slate-600 dark:text-gray-300">Gameweek</span>
                                     <input
                                         type="number"
                                         min="1"
@@ -1089,22 +1104,38 @@ export default function SuperAdminDashboard() {
                                         value={resetTargetGw}
                                         onFocus={(e) => e.target.select()}
                                         onChange={(e) => setResetTargetGw(Math.max(1, Math.min(38, Number(e.target.value || 1))))}
-                                        className="w-24 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
+                                        className="w-20 bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2 px-3 text-center text-sm font-black text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500/50 outline-none"
                                     />
-                                    <span className="text-xs text-gray-500 font-medium">e.g. 10 (players start clean from GW10)</span>
+                                    <div className="flex items-center gap-1.5">
+                                        {[6, 7, 8].map((gwOpt) => (
+                                            <button
+                                                key={gwOpt}
+                                                type="button"
+                                                onClick={() => setResetTargetGw(gwOpt)}
+                                                className={clsx(
+                                                    "px-2.5 py-1.5 rounded-lg text-xs font-black border transition-colors cursor-pointer",
+                                                    Number(resetTargetGw) === gwOpt
+                                                        ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300 shadow-sm"
+                                                        : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
+                                                )}
+                                            >
+                                                GW{gwOpt}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
-                                    Type <span className="text-red-400 font-mono font-black">RESET</span> to confirm
+                                <label className="block text-[10px] font-black text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">
+                                    Type <span className="text-red-600 dark:text-red-400 font-mono font-black">RESET</span> to confirm
                                 </label>
                                 <input
                                     type="text"
                                     value={resetConfirmText}
                                     onChange={(e) => setResetConfirmText(e.target.value)}
                                     placeholder="RESET"
-                                    className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono uppercase tracking-widest focus:ring-1 focus:ring-red-500/50 outline-none"
+                                    className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm text-slate-900 dark:text-white font-mono uppercase tracking-widest placeholder:text-slate-400 dark:placeholder:text-gray-600 focus:ring-2 focus:ring-red-500/50 outline-none"
                                 />
                             </div>
                         </div>
@@ -1113,7 +1144,7 @@ export default function SuperAdminDashboard() {
                             <button
                                 type="button"
                                 onClick={() => setShowResetModal(false)}
-                                className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-bold hover:bg-white/5 transition-all cursor-pointer"
+                                className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 transition-all cursor-pointer"
                             >
                                 Cancel
                             </button>

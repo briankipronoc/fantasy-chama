@@ -499,25 +499,9 @@ export default function AdminCommandCenter() {
 
   const suspensionNudges = leagueSettings?.suspensionNudges || [];
 
-  // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
+  // Dynamically respect league start GW (e.g. GW1 for full season, or GW7 for mid-season clean slate)
   const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
-  const effectiveStartGw = useMemo(() => {
-    if (rawStartGw > 5) {
-      return 5;
-    }
-    return Math.max(1, rawStartGw || 5);
-  }, [rawStartGw]);
-
-  // Auto-heal league startGw in database if it was accidentally set to 6
-  useEffect(() => {
-    if (activeLeagueId && rawStartGw > 5) {
-      const leagueRef = doc(db, "leagues", activeLeagueId);
-      updateDoc(leagueRef, { startGw: 5 }).catch((err) => {
-        console.warn("Could not auto-heal league startGw to 5:", err);
-      });
-      setStartGw(5);
-    }
-  }, [activeLeagueId, rawStartGw]);
+  const effectiveStartGw = Math.max(1, rawStartGw || 1);
 
   const members = useStore((state) => state.members);
   const listenToLeagueMembers = useStore(
@@ -1634,7 +1618,8 @@ export default function AdminCommandCenter() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAddMemberModal, showPrefundOptions, showResolveModal, showWalletFundModal, showHqSettlementForm, showTutorial, showOpsModal, resolveTargetGw]);
-  const redZoneMembers = uniqueMembers.filter(
+  const isPreSeason = Boolean(Number(currentGwNumber || firestoreGw || 1) < effectiveStartGw);
+  const redZoneMembers = isPreSeason ? [] : uniqueMembers.filter(
     (m: any) => !memberHasFunding(m) && m.role !== "admin" && (m as any).playMode !== "sidebets_only",
   );
   const allPayableMembersFunded =
@@ -2338,8 +2323,10 @@ export default function AdminCommandCenter() {
           walletBalance: 0,
           hasPaid: false,
           paymentStreak: 0,
+          missedGameweeks: 0,
           lastPaymentGw: null,
           joinedAtGw: targetGw,
+          joinedGw: targetGw,
           nextDueAt: null,
           dueAt: null,
         });
@@ -6895,36 +6882,36 @@ burstFrame();
           {/* ── Clean Slate / Season Reset Modal ─────────────────────────── */}
           {showCleanSlateModal && (
             <div className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200 p-4">
-              <div className="w-full max-w-md bg-[#161d24] border border-red-500/30 rounded-3xl shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 overflow-hidden text-white">
-                <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+              <div className="w-full max-w-md bg-white dark:bg-[#161d24] border border-rose-200 dark:border-red-500/30 rounded-3xl shadow-2xl dark:shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white">
+                <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400">
+                    <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-500 dark:text-red-400">
                       <AlertTriangle className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-red-400">Danger Zone</p>
-                      <h3 className="text-base font-black">Clean Slate / Season Reset</h3>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">Danger Zone</p>
+                      <h3 className="text-base font-black text-slate-900 dark:text-white">Clean Slate / Season Reset</h3>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowCleanSlateModal(false)}
-                    className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white text-xs"
+                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white text-xs cursor-pointer"
                   >
                     ✕
                   </button>
                 </div>
 
                 <div className="p-6 space-y-4">
-                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 leading-relaxed">
-                    <span className="font-bold">⚠️ Warning:</span> This will reset all member wallet balances to <span className="font-bold">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
+                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-xs text-rose-800 dark:text-red-300 leading-relaxed font-medium">
+                    <span className="font-black text-rose-900 dark:text-red-200">⚠️ Warning:</span> This will reset all member wallet balances to <span className="font-black text-rose-900 dark:text-white">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                    <label className="block text-[10px] font-black text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">
                       New Official Starting Round
                     </label>
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <span className="text-sm font-bold text-gray-400">Gameweek</span>
+                      <span className="text-sm font-bold text-slate-600 dark:text-gray-300">Gameweek</span>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -6934,20 +6921,20 @@ burstFrame();
                           const cleaned = e.target.value.replace(/[^0-9]/g, '');
                           setCleanSlateTargetGw(cleaned);
                         }}
-                        placeholder="5"
-                        className="w-20 bg-[#0b1014] border border-white/10 rounded-xl py-2 px-3 text-center text-sm font-bold text-white focus:ring-1 focus:ring-red-500/50 outline-none"
+                        placeholder="7"
+                        className="w-20 bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2 px-3 text-center text-sm font-black text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500/50 outline-none"
                       />
                       <div className="flex items-center gap-1.5">
-                        {[nextPlayableGw || 5, (nextPlayableGw || 5) + 1, (nextPlayableGw || 5) + 2].map((gwOpt) => (
+                        {[nextPlayableGw || 6, (nextPlayableGw || 6) + 1, (nextPlayableGw || 6) + 2].map((gwOpt) => (
                           <button
                             key={gwOpt}
                             type="button"
                             onClick={() => setCleanSlateTargetGw(String(gwOpt))}
                             className={clsx(
-                              "px-2 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer",
+                              "px-2.5 py-1.5 rounded-lg text-xs font-black border transition-colors cursor-pointer",
                               String(cleanSlateTargetGw) === String(gwOpt)
-                                ? "bg-red-500/20 border-red-500/40 text-red-300"
-                                : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+                                ? "bg-red-500/20 border-red-500/50 text-red-700 dark:text-red-300 shadow-sm"
+                                : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300"
                             )}
                           >
                             GW{gwOpt}
@@ -6958,15 +6945,15 @@ burstFrame();
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
-                      Type <span className="text-red-400 font-mono font-black">RESET</span> to confirm
+                    <label className="block text-[10px] font-black text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">
+                      Type <span className="text-red-600 dark:text-red-400 font-mono font-black">RESET</span> to confirm
                     </label>
                     <input
                       type="text"
                       value={cleanSlateConfirmText}
                       onChange={(e) => setCleanSlateConfirmText(e.target.value)}
                       placeholder="RESET"
-                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white font-mono uppercase tracking-widest focus:ring-1 focus:ring-red-500/50 outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm text-slate-900 dark:text-white font-mono uppercase tracking-widest placeholder:text-slate-400 dark:placeholder:text-gray-600 focus:ring-2 focus:ring-red-500/50 outline-none"
                     />
                   </div>
                 </div>
@@ -6975,7 +6962,7 @@ burstFrame();
                   <button
                     type="button"
                     onClick={() => setShowCleanSlateModal(false)}
-                    className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-bold hover:bg-white/5 transition-all cursor-pointer"
+                    className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 transition-all cursor-pointer"
                   >
                     Cancel
                   </button>

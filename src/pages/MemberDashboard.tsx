@@ -89,8 +89,8 @@ export default function MemberDashboard() {
     // Phase 31: Real FPL Performance Trajectory
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(() => {
-        const raw = Number((useStore.getState().league as any)?.startGw || 5);
-        return raw > 5 ? 5 : (raw || 5);
+        const raw = Number((useStore.getState().league as any)?.startGw || 1);
+        return raw || 1;
     });
     const [leagueInviteCode, setLeagueInviteCode] = useState<string>(() => (useStore.getState().league as any)?.inviteCode || '');
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
@@ -216,8 +216,8 @@ export default function MemberDashboard() {
                 setCoAdminId(data.coAdminId || null);
                 setChairmanPhone(data.chairmanPhone || null);
                 if (data.startGw || data.startGameweek || data.rules?.startGw) {
-                    const raw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 5);
-                    setLeagueStartGw(raw > 5 ? 5 : (raw || 5));
+                    const raw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
+                    setLeagueStartGw(raw || 1);
                 }
                 if (data.inviteCode) {
                     setLeagueInviteCode(String(data.inviteCode));
@@ -713,7 +713,12 @@ export default function MemberDashboard() {
         if (currentGw <= 0) return;
 
         const leagueStart = Number(leagueStartGw || 1);
-        const memberJoinedGw = Number((currentUser as any).joinedGw || leagueStart);
+        const memberJoinedGw = Number((currentUser as any).joinedGw || (currentUser as any).joinedAtGw || leagueStart);
+
+        if (currentGw < leagueStart) {
+            // Season hasn't officially started yet! No missed gameweeks
+            return;
+        }
 
         // Walk backwards from the most recently finished GW
         let consecutiveMissed = 0;
@@ -1257,8 +1262,8 @@ export default function MemberDashboard() {
         }
 
         const pastMaxGw = currentFplEvent?.id ? (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) : 0;
-        const rawMdStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 5);
-        const mdStartGw = Math.max(1, rawMdStart > 5 ? 5 : (rawMdStart || 5));
+        const rawMdStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 1);
+        const mdStartGw = Math.max(1, rawMdStart || 1);
         const pastCompletedCount = pastMaxGw >= mdStartGw ? Math.max(0, pastMaxGw - mdStartGw + 1) : 0;
         const pastConsumedStake = pastCompletedCount * gameweekStake;
         const unspentCredit = Math.max(0, netDeposited - pastConsumedStake);
@@ -1280,20 +1285,10 @@ export default function MemberDashboard() {
     const animatedWalletBalance = useCountUp(walletBalance, 700);
 
 
-    const rawStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 5);
-    const effectiveMdStartGw = Math.max(1, rawStart > 5 ? 5 : (rawStart || 5));
+    const rawStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 1);
+    const effectiveMdStartGw = Math.max(1, rawStart || 1);
     const hasAnySettledGws = (pendingPayouts || []).some((p: any) => p.status === 'approved' || p.status === 'settled') ||
         (transactions || []).some((t: any) => t.type === 'payout');
-
-    // Auto-heal startGw to 5 in Firestore if it was erroneously set to 6
-    useEffect(() => {
-        if (activeLeagueId && rawStart > 5) {
-            updateDoc(doc(db, "leagues", activeLeagueId), { startGw: 5 }).catch((err) => {
-                console.warn("[member-dashboard] Failed to auto-heal startGw in Firestore:", err);
-            });
-            setLeagueStartGw(5);
-        }
-    }, [activeLeagueId, rawStart]);
 
     const isPreLeagueGw = Boolean(
         !hasAnySettledGws &&

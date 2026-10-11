@@ -371,15 +371,9 @@ export default function Standings() {
                         if (lData.rules) setLeagueRules(lData.rules);
                         if (lData.forfeitedGws) setForfeitedGws(lData.forfeitedGws);
                         if (lData.startGw) {
-                            const rawStart = Number(lData.startGw);
-                            if (rawStart > 5) {
-                                updateDoc(doc(db, 'leagues', activeLeagueId), { startGw: 5 }).catch(() => {});
-                                setLeagueStartGw(5);
-                            } else {
-                                setLeagueStartGw(rawStart);
-                            }
+                            setLeagueStartGw(Number(lData.startGw));
                         } else {
-                            setLeagueStartGw(5);
+                            setLeagueStartGw(1);
                         }
                         if (lData.fplLeagueId) {
                             setDbFplLeagueId(Number(lData.fplLeagueId));

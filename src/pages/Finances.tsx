@@ -395,65 +395,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         );
     };
 
-    // Dynamic start gameweek: respect league settings if configured, auto-heal if GW5 was played
-    const earliestRecordedGw = useMemo(() => {
-        const gws = transactions
-            .map((t: any) => {
-                const desc = (t.description || '').toLowerCase();
-                const gwMatch = desc.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
-                const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw || t.gameweek || 0);
-                return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-            })
-            .filter((g: any): g is number => g !== null && g >= 5);
-        return gws.length > 0 ? Math.min(...gws) : null;
-    }, [transactions]);
-
-    const hasGw5Record = useMemo(() => {
-        return transactions.some((t: any) => {
-            const desc = (t.description || '').toLowerCase();
-            return (
-                Number(t.gw || t.gameweek) === 5 ||
-                desc.includes('gw 5') ||
-                desc.includes('gw5') ||
-                desc.includes('gameweek 5')
-            );
-        });
-    }, [transactions]);
-
     const rawStart = Number((leagueSettings as any)?.startGw || startGw || 1);
-    const leagueStartGw = Math.max(1, (rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) ? 5 : rawStart);
-
-    // Auto-heal league startGw in database if set to 6 while GW5 had activity
-    useEffect(() => {
-        if (activeLeagueId && rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) {
-            updateDoc(doc(db, "leagues", activeLeagueId), { startGw: 5 }).catch((err) => {
-                console.warn("Could not auto-heal league startGw to 5 in Finances:", err);
-            });
-        }
-    }, [activeLeagueId, rawStart, hasGw5Record, earliestRecordedGw, currentGwNumber]);
-
-    // Auto-heal legacy future-tagged transactions (e.g. CASH_031064 tagged with GW7 during GW6)
-    useEffect(() => {
-        if (!activeLeagueId) return;
-        const currentGw = Number(currentGwNumber || 6);
-        const futureTxs = (transactions || []).filter((t: any) => 
-            Number(t.gw || t.gameweek || 0) > currentGw && 
-            (t.type === 'wallet_funding' || t.type === 'deposit')
-        );
-        if (futureTxs.length > 0) {
-            futureTxs.forEach((t: any) => {
-                if (!t.id) return;
-                const txRef = doc(db, 'leagues', activeLeagueId, 'transactions', t.id);
-                const oldNote = String(t.note || '');
-                const cleanedNote = oldNote.replace(/gw\s*7/gi, `GW${currentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${currentGw}`);
-                updateDoc(txRef, {
-                    gw: currentGw,
-                    gameweek: currentGw,
-                    note: cleanedNote || `Funded for Gameweek ${currentGw} • Receipt: ${t.receiptId || ''}`,
-                }).catch((err) => console.warn('Could not auto-heal future GW transaction:', err));
-            });
-        }
-    }, [activeLeagueId, currentGwNumber, transactions]);
+    const leagueStartGw = Math.max(1, rawStart || 1);
 
     const forfeitedGws: number[] = useMemo(() => {
         const fromSettings = (leagueSettings as any)?.forfeitedGws || [];
