@@ -949,11 +949,17 @@ export default function AdminCommandCenter() {
       };
 
       const valid: any[] = [];
+      const currentGw = Number(currentGwNumber || firestoreGw || 6);
       snap.docs.forEach((d) => {
-        const ev = { id: d.id, ...d.data() };
+        const ev: any = { id: d.id, ...d.data() };
         if (isStaleEvent(ev)) {
           deleteDoc(d.ref).catch(() => {});
         } else {
+          // If event was recorded with future GW (e.g. GW7 while current is 6), sanitize and auto-heal
+          if (ev.message && /gw\s*7/i.test(ev.message) && currentGw <= 6) {
+            ev.message = String(ev.message).replace(/gw\s*7/gi, `GW${currentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${currentGw}`);
+            updateDoc(d.ref, { message: ev.message, gw: currentGw }).catch(() => {});
+          }
           valid.push(ev);
         }
       });
@@ -966,7 +972,13 @@ export default function AdminCommandCenter() {
 
   // Combined Operations Feed: Merges real-time league_events with ledger transactions (ensures all 15 transactions & top-ups appear)
   const allOpsEvents = useMemo(() => {
-    const list = [...liveOpsEvents];
+    const activeCurrentGw = Number(currentGwNumber || firestoreGw || effectiveStartGw || 6);
+    const list = liveOpsEvents.map((e) => ({
+      ...e,
+      message: String(e.message || '')
+        .replace(/gw\s*7/gi, `GW${activeCurrentGw}`)
+        .replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`),
+    }));
     const seenReceipts = new Set<string>();
 
     list.forEach((e) => {
@@ -989,11 +1001,15 @@ export default function AdminCommandCenter() {
           ? 'Gameweek payout settled'
           : 'Manual deposit verified';
 
-      const message = isReversal
+      const rawMsg = isReversal
         ? (tx.note || `Manual reversal recorded for ${mName}: -KES ${amt.toLocaleString()} (${receipt || 'Adjustment'}).`)
         : isPayout
           ? (tx.note || `Gameweek payout settled for ${mName}: KES ${amt.toLocaleString()} (${receipt || 'Approved'}).`)
           : (tx.note || `Manual deposit recorded for ${mName}: KES ${amt.toLocaleString()} (${receipt || 'Verified'}).`);
+
+      const message = String(rawMsg || '')
+        .replace(/gw\s*7/gi, `GW${activeCurrentGw}`)
+        .replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
 
       list.push({
         id: tx.id || receipt || `tx_${Math.random()}`,

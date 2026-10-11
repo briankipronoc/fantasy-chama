@@ -637,7 +637,7 @@ export default function SideBets() {
     const selectedOpponent = members.find(m => m.id === opponentId);
 
     return (
-        <div className="fc-sidebets-page min-h-screen p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white relative overflow-hidden bg-transparent">
+        <div className="fc-sidebets-page min-h-screen p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-slate-900 dark:text-white relative overflow-hidden bg-transparent">
             {/* Ambient Lighting Background */}
             <div className="absolute inset-0 pointer-events-none opacity-70">
                 <div className="absolute -top-24 right-[10%] h-72 w-72 rounded-full bg-amber-500/10 blur-3xl" />
@@ -651,83 +651,88 @@ export default function SideBets() {
                 {/* Clean Unboxed Title Module (League Control Snapshot style) */}
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-0 pb-1">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400 mb-1">
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-500 dark:text-amber-400 mb-1">
                             League Features
                         </p>
-                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
-                            <Swords className="w-6 h-6 text-amber-400" /> Side Bets & Wagers
+                        <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1 text-slate-900 dark:text-white">
+                            <Swords className="w-6 h-6 text-amber-500 dark:text-amber-400" /> Side Bets & Wagers
                         </h2>
-                        <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-gray-400">
+                        <p className="fc-metallic-sub text-sm font-medium max-w-xl leading-relaxed text-slate-600 dark:text-gray-400">
                             Direct head-to-head wagers between managers. Chairman approved, wallets auto-settled.
                         </p>
                     </div>
                     <button
                         onClick={() => setShowCreate(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg shadow-amber-500/20 whitespace-nowrap self-start sm:self-auto"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-lg shadow-amber-500/20 whitespace-nowrap self-start sm:self-auto cursor-pointer"
                     >
                         <Plus className="w-4 h-4" /> Challenge Someone
                     </button>
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="flex items-center gap-2 border-b border-white/10 pb-3 flex-wrap">
+                <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 flex-wrap">
                     <button
                         onClick={() => setBetFilterTab('active')}
                         className={clsx(
-                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
                             betFilterTab === 'active'
-                                ? "bg-white/10 text-white shadow-sm font-black border border-white/20"
-                                : "text-gray-400 hover:text-white"
+                                ? "bg-slate-900 text-white dark:bg-white/10 dark:text-white shadow-sm font-black border border-slate-800 dark:border-white/20"
+                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Swords className="w-3.5 h-3.5 text-amber-400" />
+                        <Swords className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                         Live Duels
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-gray-300">
+                        <span className={clsx(
+                            "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                            betFilterTab === 'active'
+                                ? "bg-white/20 text-white"
+                                : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-gray-300"
+                        )}>
                             {activeBets.length}
                         </span>
                     </button>
                     <button
                         onClick={() => setBetFilterTab('my')}
                         className={clsx(
-                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
                             betFilterTab === 'my'
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black"
-                                : "text-gray-400 hover:text-white"
+                                ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-black shadow-xs"
+                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Flame className="w-3.5 h-3.5 text-amber-400" />
+                        <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                         My Wagers
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold">
                             {myActiveBets.length}
                         </span>
                     </button>
                     <button
                         onClick={() => setBetFilterTab('past')}
                         className={clsx(
-                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
                             betFilterTab === 'past'
-                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black"
-                                : "text-gray-400 hover:text-white"
+                                ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 font-black shadow-xs"
+                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <History className="w-3.5 h-3.5 text-emerald-400" />
+                        <History className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         Past Winners
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold">
                             {pastResolvedBets.length}
                         </span>
                     </button>
                     <button
                         onClick={() => setBetFilterTab('cancelled')}
                         className={clsx(
-                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+                            "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
                             betFilterTab === 'cancelled'
-                                ? "bg-red-500/20 text-red-300 border border-red-500/30 font-black"
-                                : "text-gray-400 hover:text-white"
+                                ? "bg-red-500/20 text-red-800 dark:text-red-300 border border-red-500/40 font-black shadow-xs"
+                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <X className="w-3.5 h-3.5 text-red-400" />
+                        <X className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
                         Cancelled & Withdrawn
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-700 dark:text-red-400 font-bold">
                             {cancelledBets.length}
                         </span>
                     </button>
@@ -735,12 +740,12 @@ export default function SideBets() {
 
                 {/* Empty State */}
                 {bets.length === 0 && (
-                    <div className="fc-card bg-[#161d24]/60 border border-white/5 rounded-3xl p-10 md:p-14 text-center relative overflow-hidden my-6">
-                        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.1)]">
+                    <div className="fc-card bg-slate-100/90 dark:bg-[#161d24]/60 border border-slate-200 dark:border-white/5 rounded-3xl p-10 md:p-14 text-center relative overflow-hidden my-6 text-slate-900 dark:text-white shadow-sm">
+                        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-500 dark:text-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.1)]">
                             <Swords className="w-8 h-8" />
                         </div>
-                        <h3 className="fc-frosty-title text-xl md:text-2xl font-black mb-2">No Active Side Bets Yet</h3>
-                        <p className="fc-metallic-sub text-sm max-w-md mx-auto leading-relaxed text-gray-400">
+                        <h3 className="fc-frosty-title text-xl md:text-2xl font-black mb-2 text-slate-900 dark:text-white">No Active Side Bets Yet</h3>
+                        <p className="fc-metallic-sub text-sm max-w-md mx-auto leading-relaxed text-slate-600 dark:text-gray-400">
                             Challenge any rival manager in this league to a winner-takes-all head-to-head duel. Wallets auto-settle upon completion.
                         </p>
                     </div>
@@ -954,10 +959,10 @@ export default function SideBets() {
                         )}
 
                         {myActiveBets.length === 0 && otherBets.length === 0 && bets.length > 0 && (
-                            <div className="text-center py-12 border border-white/5 rounded-2xl bg-white/[0.02]">
-                                <Swords className="w-8 h-8 text-gray-500 mx-auto mb-2 opacity-50" />
-                                <p className="text-sm font-bold text-gray-400">No live wagers currently running</p>
-                                <p className="text-xs text-gray-500">All recent duels have concluded. Check the "Past Side Bets" tab!</p>
+                            <div className="text-center py-12 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.02]">
+                                <Swords className="w-8 h-8 text-slate-400 dark:text-gray-500 mx-auto mb-2 opacity-60" />
+                                <p className="text-sm font-bold text-slate-800 dark:text-gray-400">No live wagers currently running</p>
+                                <p className="text-xs text-slate-500 dark:text-gray-500">All recent duels have concluded. Check the "Past Side Bets" tab!</p>
                             </div>
                         )}
                     </>
@@ -1307,17 +1312,17 @@ function BetCard({
     return (
         <div className={clsx(
             'fc-card rounded-2xl border p-5 transition-all duration-300 flex flex-col justify-between backdrop-blur-xl',
-            isResolved ? 'border-white/5 bg-[#161d24]/60' :
-            isCancelled ? 'border-red-500/10 bg-red-500/5' :
-            bet.status === 'active' ? 'border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-[#161d24] to-[#0c1218] shadow-[0_0_25px_rgba(251,191,36,0.06)]' :
-            'border-white/10 bg-[#161d24]/90'
+            isResolved ? 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#161d24]/60 text-slate-900 dark:text-white' :
+            isCancelled ? 'border-red-500/20 bg-red-50/50 dark:bg-red-500/5 text-slate-900 dark:text-white' :
+            bet.status === 'active' ? 'border-amber-400/40 bg-gradient-to-br from-amber-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] shadow-md dark:shadow-[0_0_25px_rgba(251,191,36,0.06)] text-slate-900 dark:text-white' :
+            'border-slate-200 dark:border-white/10 bg-white dark:bg-[#161d24]/90 text-slate-900 dark:text-white'
         )}>
             <div>
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
-                        <p className="fc-frosty-title font-black text-base leading-snug">{bet.title}</p>
-                        {bet.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{bet.description}</p>}
+                        <p className="fc-frosty-title font-black text-base leading-snug text-slate-900 dark:text-white">{bet.title}</p>
+                        {bet.description && <p className="text-xs text-slate-600 dark:text-gray-400 mt-1 line-clamp-2 leading-relaxed">{bet.description}</p>}
                     </div>
                     <div className="flex-shrink-0">{getStatusBadge(bet)}</div>
                 </div>
@@ -1327,43 +1332,43 @@ function BetCard({
                     <div className={clsx(
                         'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border',
                         bet.challenger.signed
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : 'bg-white/5 text-gray-400 border-white/5'
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/5'
                     )}>
-                        {bet.challenger.signed && <Check className="w-3 h-3 text-emerald-400" />}
+                        {bet.challenger.signed && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
                         <span>{bet.challenger.name}</span>
-                        {bet.challenger.signed && <span className="text-[9px] text-emerald-400/80 font-normal">(Challenger)</span>}
+                        {bet.challenger.signed && <span className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">(Challenger)</span>}
                     </div>
-                    <span className="text-gray-500 text-xs font-black">vs</span>
+                    <span className="text-slate-400 dark:text-gray-500 text-xs font-black">vs</span>
                     <div className={clsx(
                         'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border',
                         bet.opponent.signed
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30'
                     )}>
-                        {bet.opponent.signed ? <Check className="w-3 h-3 text-emerald-400" /> : <Clock className="w-3 h-3 text-amber-400" />}
+                        {bet.opponent.signed ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
                         <span>{bet.opponent.name}</span>
                         {bet.opponent.signed ? (
-                            <span className="text-[9px] text-emerald-400/80 font-normal">(Signed)</span>
+                            <span className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">(Signed)</span>
                         ) : (
-                            <span className="text-[9px] text-amber-400/80 font-normal">(Pending)</span>
+                            <span className="text-[9px] text-amber-600/80 dark:text-amber-400/80 font-normal">(Pending)</span>
                         )}
                     </div>
                 </div>
 
                 {/* Stake + Endorsers + Winner */}
-                <div className="flex items-center justify-between mb-4 pt-3 border-t border-white/5 flex-wrap gap-2">
+                <div className="flex items-center justify-between mb-4 pt-3 border-t border-slate-200 dark:border-white/5 flex-wrap gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-gray-400">Pot:</span>
-                        <span className="text-base font-black text-amber-400 tabular-nums">
+                        <span className="text-xs font-bold text-slate-500 dark:text-gray-400">Pot:</span>
+                        <span className="text-base font-black text-amber-600 dark:text-amber-400 tabular-nums">
                             KES {(bet.stake * 2).toLocaleString()}
                         </span>
-                        <span className="text-[10px] text-gray-500">({bet.stake.toLocaleString()} each)</span>
+                        <span className="text-[10px] text-slate-500 dark:text-gray-500">({bet.stake.toLocaleString()} each)</span>
                         <span className={clsx(
                             "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ml-1",
                             bet.fundingMode === 'instant_escrow'
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : "bg-white/5 text-gray-400 border-white/10"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10"
                         )}>
                             {bet.fundingMode === 'instant_escrow' ? '🔒 Escrow' : '⏳ Post-Match'}
                         </span>

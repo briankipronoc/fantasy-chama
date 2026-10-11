@@ -612,18 +612,18 @@ export default function SuperAdminDashboard() {
                     {/* Inputs Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* M-Pesa Sending Cost Input */}
-                        <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="bg-slate-100/80 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-                                    <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-gray-400 flex items-center gap-1.5">
+                                    <TrendingUp className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                                     M-Pesa Sending Cost (Per Payout)
                                 </label>
-                                <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-1 leading-snug">
                                     Actual transaction cost incurred per M-Pesa disbursement (e.g. KES 15). Keeps the money trail math 100% true.
                                 </p>
                             </div>
                             <div className="mt-3 flex items-center gap-2">
-                                <span className="text-xs font-black text-gray-400 font-mono">KES</span>
+                                <span className="text-xs font-black text-slate-500 dark:text-gray-400 font-mono">KES</span>
                                 <input
                                     type="number"
                                     min="0"
@@ -631,24 +631,24 @@ export default function SuperAdminDashboard() {
                                     value={platformSettings.mpesaCostPerTx}
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => setPlatformSettings(prev => ({ ...prev, mpesaCostPerTx: Math.max(0, Number(e.target.value)) }))}
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                    className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white font-mono focus:border-emerald-500 focus:outline-none shadow-xs"
                                     placeholder="15"
                                 />
                             </div>
                         </div>
 
                         {/* Collection Gateway Type */}
-                        <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="bg-slate-100/80 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-                                    <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-gray-400 flex items-center gap-1.5">
+                                    <CreditCard className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                                     Collection Routing Gateway
                                 </label>
-                                <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-1 leading-snug">
                                     Select how members fund pots. Use Pochi during pilot, or switch to registered Paybill / Till.
                                 </p>
                             </div>
-                            <div className="mt-3 grid grid-cols-3 gap-1.5 bg-black/50 p-1 rounded-xl border border-white/5">
+                            <div className="mt-3 grid grid-cols-3 gap-1.5 bg-slate-200/80 dark:bg-black/50 p-1 rounded-xl border border-slate-300 dark:border-white/5">
                                 {(['pochi', 'paybill', 'till'] as const).map(gw => (
                                     <button
                                         key={gw}
@@ -657,8 +657,8 @@ export default function SuperAdminDashboard() {
                                         className={clsx(
                                             "py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer",
                                             platformSettings.gatewayType === gw
-                                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                                                : "text-gray-500 hover:text-gray-300"
+                                                ? "bg-emerald-500 text-black dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-600 dark:border-emerald-500/40 shadow-xs font-black"
+                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-200"
                                         )}
                                     >
                                         {gw}
@@ -668,13 +668,13 @@ export default function SuperAdminDashboard() {
                         </div>
 
                         {/* Gateway Account Details */}
-                        <div className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="bg-slate-100/80 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
                             <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-1.5">
-                                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-gray-400 flex items-center gap-1.5">
+                                    <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                     {platformSettings.gatewayType === 'paybill' ? 'Paybill & Account' : platformSettings.gatewayType === 'till' ? 'Till Number' : 'Pilot Pochi Routing'}
                                 </label>
-                                <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-1 leading-snug">
                                     {platformSettings.gatewayType === 'pochi'
                                         ? "Pochi la Biashara routes directly to the league chairman's wallet."
                                         : "Once registered with Safaricom, enter credentials here to activate commercial flow."}
@@ -687,7 +687,7 @@ export default function SuperAdminDashboard() {
                                         value={platformSettings.tillNumber}
                                         onChange={(e) => setPlatformSettings(prev => ({ ...prev, tillNumber: e.target.value }))}
                                         placeholder="Till # (e.g. 987654)"
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                        className="w-full bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:border-emerald-500 focus:outline-none shadow-xs"
                                     />
                                 ) : platformSettings.gatewayType === 'paybill' ? (
                                     <>
@@ -696,20 +696,20 @@ export default function SuperAdminDashboard() {
                                             value={platformSettings.paybillNumber}
                                             onChange={(e) => setPlatformSettings(prev => ({ ...prev, paybillNumber: e.target.value }))}
                                             placeholder="Paybill #"
-                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                            className="w-1/2 bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:border-emerald-500 focus:outline-none shadow-xs"
                                         />
                                         <input
                                             type="text"
                                             value={platformSettings.paybillAccount}
                                             onChange={(e) => setPlatformSettings(prev => ({ ...prev, paybillAccount: e.target.value }))}
                                             placeholder="Account Ref"
-                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                                            className="w-1/2 bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-mono focus:border-emerald-500 focus:outline-none shadow-xs"
                                         />
                                     </>
                                 ) : (
-                                    <div className="w-full py-2 px-3 text-[11px] text-emerald-400/80 bg-emerald-500/5 rounded-xl border border-emerald-500/15 font-mono flex items-center justify-between">
+                                    <div className="w-full py-2 px-3 text-[11px] text-emerald-800 dark:text-emerald-400/90 bg-emerald-500/10 dark:bg-emerald-500/5 rounded-xl border border-emerald-500/20 font-mono flex items-center justify-between">
                                         <span>Direct Pochi P2P Active</span>
-                                        <span className="text-[9px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-300">0% Cut</span>
+                                        <span className="text-[9px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-300 font-bold">0% Cut</span>
                                     </div>
                                 )}
                             </div>

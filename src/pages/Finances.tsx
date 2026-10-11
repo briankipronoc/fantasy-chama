@@ -1873,26 +1873,26 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </section>
                 )}
 
-                <section className="fc-card rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-[#161d24] to-[#0c1218] p-5 md:p-7 mb-8 shadow-2xl relative overflow-hidden">
+                <section className="fc-card rounded-3xl border border-amber-500/30 dark:border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] p-5 md:p-7 mb-8 shadow-xl dark:shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
                     <div className="absolute top-0 right-0 w-80 h-40 bg-amber-500/10 blur-[90px] pointer-events-none" />
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-5">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">Vault payout preview</p>
-                            <h2 className="fc-frosty-title text-2xl font-black mt-1">Configured by Chairman</h2>
-                            <p className="text-sm text-slate-300 dark:text-gray-400 mt-2 max-w-2xl font-medium">
+                            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-600 dark:text-amber-400">Vault payout preview</p>
+                            <h2 className="fc-frosty-title text-2xl font-black mt-1 text-slate-900 dark:text-white">Configured by Chairman</h2>
+                            <p className="text-sm text-slate-600 dark:text-gray-300 mt-2 max-w-2xl font-medium">
                                 The preview mirrors your current season ladder and shows the exact amount each winner gets right now.
                             </p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-left lg:text-right">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Season winners</p>
-                            <p className="text-lg font-black text-white tabular-nums">{modeLabel}</p>
-                            <p className="text-[11px] text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
+                        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-black/30 px-4 py-3 text-left lg:text-right shadow-xs">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">Season winners</p>
+                            <p className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{modeLabel}</p>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
                             {role === 'admin' && (
                                 <button
                                     onClick={() => setShowSeasonCeremony(true)}
-                                    className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
+                                    className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
                                 >
-                                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                                    <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                                     Launch Season Ceremony
                                 </button>
                             )}
@@ -1900,7 +1900,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     {/* Live Accrued vs Projected GW38 Toggle */}
-                    <div className="flex items-center gap-1.5 bg-black/40 p-1 rounded-2xl border border-white/10 w-fit mb-4">
+                    <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-black/40 p-1 rounded-2xl border border-slate-300 dark:border-white/10 w-fit mb-4">
                         <button
                             type="button"
                             onClick={() => setVaultPodiumView('accrued')}
@@ -1908,7 +1908,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
                                 vaultPodiumView === 'accrued'
                                     ? "bg-emerald-500 text-black shadow-md font-extrabold"
-                                    : "text-gray-400 hover:text-white"
+                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                             )}
                         >
                             Live Accrued (KES {Math.round(seasonVaultCollectedSoFar || 0).toLocaleString()})
@@ -1920,7 +1920,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 "px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
                                 vaultPodiumView === 'projected'
                                     ? "bg-amber-400 text-black shadow-md font-extrabold"
-                                    : "text-gray-400 hover:text-white"
+                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                             )}
                         >
                             Projected Final (KES {Math.round(projectedSeasonVault || 0).toLocaleString()})
@@ -1936,17 +1936,17 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <div
                                     key={`${tier.originalPlace}-${tier.player_name}`}
                                     onClick={() => setVaultPodiumView(prev => prev === 'accrued' ? 'projected' : 'accrued')}
-                                    className="rounded-2xl border border-white/10 bg-[#0b1014]/90 p-3 sm:p-4 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-lg min-w-0 cursor-pointer select-none"
+                                    className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-3 sm:p-4 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-sm dark:shadow-lg min-w-0 cursor-pointer select-none"
                                     title="Tap to toggle between live accrued and projected payout"
                                 >
                                     <div>
                                         <div className="flex items-center justify-between gap-1 mb-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 truncate">
-                                                #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-400 font-bold tracking-normal">(Tied)</span>}
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 truncate">
+                                                #{tier.rank} {tier.isTied && <span className="text-[8px] text-amber-600 dark:text-amber-400 font-bold tracking-normal">(Tied)</span>}
                                             </p>
                                             <span className={clsx(
                                                 'text-[8px] sm:text-[9px] font-black uppercase tracking-widest px-1.5 sm:px-2 py-0.5 rounded-full border shrink-0',
-                                                tier.rank === 1 ? 'border-amber-400/30 bg-amber-400/10 text-amber-400' : tier.rank === 2 ? 'border-slate-300/30 bg-slate-300/10 text-slate-200' : 'border-amber-600/30 bg-amber-600/10 text-amber-500'
+                                                tier.rank === 1 ? 'border-amber-400/40 bg-amber-400/15 text-amber-700 dark:text-amber-400' : tier.rank === 2 ? 'border-slate-300 bg-slate-100 dark:border-slate-300/30 dark:bg-slate-300/10 text-slate-700 dark:text-slate-200' : 'border-amber-600/30 bg-amber-600/15 text-amber-800 dark:text-amber-500'
                                             )}>
                                                 {tier.percentage}%
                                             </span>
@@ -1954,43 +1954,43 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         <div className="mt-1">
                                             <p className={clsx(
                                                 "text-base sm:text-xl md:text-2xl font-black tabular-nums truncate",
-                                                isAccrued ? "text-emerald-400" : "text-amber-400"
+                                                isAccrued ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                                             )}>
                                                 KES {Math.round(primaryAmount || 0).toLocaleString()}
                                             </p>
-                                            <p className="mt-0.5 text-[8px] sm:text-[10px] text-gray-400 truncate">
+                                            <p className="mt-0.5 text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate font-medium">
                                                 {isAccrued ? (
-                                                    <>Est. Final: <strong className="text-amber-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                    <>Est. Final: <strong className="text-amber-600 dark:text-amber-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
                                                 ) : (
-                                                    <>Live Accrued: <strong className="text-emerald-400 font-mono">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
+                                                    <>Live Accrued: <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
                                                 )}
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="mt-2.5 pt-2 border-t border-white/5">
-                                        <p className="text-[10px] sm:text-[11px] font-black text-gray-200 truncate">
+                                    <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                                        <p className="text-[10px] sm:text-[11px] font-black text-slate-800 dark:text-gray-200 truncate">
                                             {tier.player_name}
                                         </p>
-                                        <p className="text-[8px] sm:text-[9px] text-gray-500 truncate mt-0.5">{tier.entry_name}</p>
+                                        <p className="text-[8px] sm:text-[9px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{tier.entry_name}</p>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
 
-                    <details className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/20 dark:bg-sky-500/10">
-                        <summary className="fc-vault-explainer-title cursor-pointer text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-sky-300">
+                    <details className="mt-4 rounded-2xl border border-sky-300 dark:border-sky-500/20 bg-sky-100/70 dark:bg-sky-500/10 px-4 py-3">
+                        <summary className="cursor-pointer text-[11px] font-black uppercase tracking-widest text-sky-950 dark:text-sky-300">
                             How these ratios work
                         </summary>
-                        <p className="fc-vault-explainer-copy mt-2 text-sm text-slate-700 dark:text-sky-50/90 leading-relaxed">
+                        <p className="mt-2 text-sm text-slate-800 dark:text-sky-50/90 leading-relaxed font-medium">
                             Ratios are normalized to 100% across visible winners, then converted to amounts using the live season vault balance. If active members are fewer than configured tiers, preview tiers are capped and rebalanced automatically.
                         </p>
                     </details>
 
                     {isPreviewCapped && (
-                        <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300">Tier capped</p>
-                            <p className="text-sm text-slate-800 dark:text-amber-50/90 mt-1 font-medium">
+                        <div className="mt-4 rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-100/70 dark:bg-amber-500/10 px-4 py-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-300">Tier capped</p>
+                            <p className="text-sm text-amber-950 dark:text-amber-50/90 mt-1 font-medium">
                                 This league currently has only {activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'}, so the vault preview stops at Top {eligibleWinnersCount}. The chairman's configured ladder will expand automatically once there are enough active players.
                             </p>
                         </div>

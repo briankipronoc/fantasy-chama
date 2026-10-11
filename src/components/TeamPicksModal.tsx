@@ -226,23 +226,23 @@ export default function TeamPicksModal({
     return (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/75 backdrop-blur-xl animate-in fade-in duration-200">
             <div 
-                className="fc-dark-modal relative w-full max-w-2xl bg-[#0e141a] border border-white/10 rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
+                className="relative w-full max-w-2xl bg-white dark:bg-[#0e141a] border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh] text-slate-900 dark:text-white"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className="p-3.5 sm:p-5 border-b border-white/5 bg-gradient-to-r from-emerald-950/40 via-[#0e141a] to-emerald-950/20 relative">
+                <div className="p-3.5 sm:p-5 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-[#0e141a] dark:to-emerald-950/20 relative">
                     <div className="flex items-center justify-between gap-2 mb-3">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200/80 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer active:scale-95 shadow-xs"
                         >
                             <ChevronLeft className="w-4 h-4" />
                             <span>Back</span>
                         </button>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all cursor-pointer active:scale-90"
+                            className="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer active:scale-90"
                             aria-label="Close"
                         >
                             <X className="w-4 h-4" />
@@ -254,36 +254,36 @@ export default function TeamPicksModal({
                             <UserAvatar name={managerName} size="md" />
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="text-base sm:text-lg font-black text-white truncate">{managerName}</h3>
+                                    <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">{managerName}</h3>
                                     {isViewingMyself && (
-                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[9px] font-black uppercase tracking-wider text-emerald-300">
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-bold">
                                             You
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs font-semibold text-emerald-400 truncate">
+                                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 truncate">
                                     {teamName}
                                 </p>
                             </div>
                         </div>
 
                         {/* Gameweek Navigator */}
-                        <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-xl p-1 self-start sm:self-auto">
+                        <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl p-1 self-start sm:self-auto">
                             <button
                                 onClick={() => setSelectedGw(prev => Math.max(1, prev - 1))}
                                 disabled={selectedGw <= 1}
-                                className="p-1 rounded-lg text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 cursor-pointer"
+                                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
                                 title="Previous Gameweek"
                             >
                                 <ChevronLeft className="w-4 h-4" />
                             </button>
-                            <span className="text-xs font-black px-2 py-0.5 text-white tracking-wider">
+                            <span className="text-xs font-black px-2 py-0.5 text-slate-900 dark:text-white tracking-wider">
                                 GW {selectedGw}
                             </span>
                             <button
                                 onClick={() => setSelectedGw(prev => Math.min(38, prev + 1))}
                                 disabled={selectedGw >= (gameweek || 38)}
-                                className="p-1 rounded-lg text-gray-400 hover:text-white disabled:opacity-30 disabled:hover:text-gray-400 cursor-pointer"
+                                className="p-1 rounded-lg text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer"
                                 title="Next Gameweek"
                             >
                                 <ChevronRight className="w-4 h-4" />
@@ -292,28 +292,28 @@ export default function TeamPicksModal({
                     </div>
 
                     {/* Stats & Chip Ribbon */}
-                    <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap mt-3 pt-2.5 border-t border-white/5 text-[11px] sm:text-xs">
-                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold">
-                            <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+                    <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5 text-[11px] sm:text-xs">
+                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-bold">
+                            <Trophy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             <span>GW Points:</span>
-                            <span className="text-xs sm:text-sm font-black text-white tabular-nums">{calculatedGwScore}</span>
+                            <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tabular-nums">{calculatedGwScore}</span>
                         </div>
 
                         {transferCost > 0 && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold">
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-800 dark:text-rose-300 font-bold">
                                 <span>Hit: -{transferCost} pts</span>
                             </div>
                         )}
 
                         {transferCost > 0 && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-black/40 border border-white/10 text-gray-300 font-bold">
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-200 dark:bg-black/40 border border-slate-300 dark:border-white/10 text-slate-800 dark:text-gray-300 font-bold">
                                 <span>Net: {netGwScore} pts</span>
                             </div>
                         )}
 
                         {activeChip && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black uppercase text-[9.5px] tracking-wider animate-pulse">
-                                <Zap className="w-3 h-3 text-amber-400" />
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 font-black uppercase text-[9.5px] tracking-wider animate-pulse">
+                                <Zap className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                                 {activeChip === 'bboost' && 'Bench Boost Active'}
                                 {activeChip === '3xc' && 'Triple Captain Active'}
                                 {activeChip === 'freehit' && 'Free Hit Active'}
@@ -321,7 +321,7 @@ export default function TeamPicksModal({
                             </div>
                         )}
 
-                        <span className="text-gray-500 text-[10px] ml-auto font-mono">
+                        <span className="text-slate-500 dark:text-gray-400 text-[10px] ml-auto font-mono">
                             Formation: {formationString}
                         </span>
                     </div>
@@ -330,17 +330,17 @@ export default function TeamPicksModal({
                 {/* Modal Body / Pitch View */}
                 <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4">
                     {loading ? (
-                        <div className="py-16 flex flex-col items-center justify-center gap-3 text-gray-400">
-                            <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
+                        <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400 dark:text-gray-400">
+                            <RefreshCw className="w-6 h-6 animate-spin text-emerald-500 dark:text-emerald-400" />
                             <p className="text-xs font-bold uppercase tracking-wider">Loading team lineup...</p>
                         </div>
                     ) : error ? (
                         <div className="py-14 px-6 text-center space-y-3">
-                            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto">
+                            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 flex items-center justify-center mx-auto">
                                 <AlertCircle className="w-5 h-5" />
                             </div>
-                            <h4 className="text-sm font-bold text-white">Lineup Unavailable</h4>
-                            <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">{error}</p>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Lineup Unavailable</h4>
+                            <p className="text-xs text-slate-600 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">{error}</p>
                         </div>
                     ) : (
                         <>
@@ -377,15 +377,15 @@ export default function TeamPicksModal({
                             </div>
 
                             {/* Bench Section */}
-                            <div className="rounded-2xl border border-white/10 bg-black/40 p-3 sm:p-4 space-y-2.5">
-                                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-black/40 p-3 sm:p-4 space-y-2.5 shadow-xs">
+                                <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2">
                                     <div className="flex items-center gap-1.5">
-                                        <Shirt className="w-3.5 h-3.5 text-gray-300" />
-                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-white">
+                                        <Shirt className="w-3.5 h-3.5 text-slate-600 dark:text-gray-300" />
+                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
                                             Substitutes Bench
                                         </h4>
                                     </div>
-                                    <span className="text-[10px] text-gray-400 font-mono font-medium">
+                                    <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono font-medium">
                                         {activeChip === 'bboost' ? 'Points Counted (Bench Boost Active)' : `Points on bench: ${entryHistory?.points_on_bench || 0}`}
                                     </span>
                                 </div>
@@ -396,21 +396,21 @@ export default function TeamPicksModal({
                                         return (
                                             <div 
                                                 key={p.element}
-                                                className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] flex items-center justify-between gap-1.5 shadow-xs"
+                                                className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] flex items-center justify-between gap-1.5 shadow-xs"
                                             >
                                                 <div className="min-w-0">
-                                                    <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded bg-white/10 text-emerald-300 border border-white/10 inline-block mb-1">
+                                                    <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-white/10 inline-block mb-1">
                                                         {idx === 0 ? 'GKP 12' : `Sub ${idx}`}
                                                     </span>
-                                                    <p className="text-[11px] font-bold text-white truncate">{player?.web_name || `Player ${p.element}`}</p>
-                                                    <p className="text-[9px] text-gray-300 font-medium">{player?.team_short || 'PL'}</p>
+                                                    <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{player?.web_name || `Player ${p.element}`}</p>
+                                                    <p className="text-[9px] text-slate-500 dark:text-gray-300 font-medium">{player?.team_short || 'PL'}</p>
                                                 </div>
                                                 <div className="text-right shrink-0">
                                                     <span className={clsx(
                                                         "text-[11px] font-black px-2 py-0.5 rounded-md block border",
                                                         activeChip === 'bboost'
-                                                            ? "bg-emerald-500/25 text-emerald-300 border-emerald-500/40"
-                                                            : "bg-white/10 text-white border-white/15"
+                                                            ? "bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border-emerald-500/40"
+                                                            : "bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white border-slate-200 dark:border-white/15"
                                                     )}>
                                                         {player?.points || 0} pts
                                                     </span>
@@ -425,26 +425,26 @@ export default function TeamPicksModal({
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-3 sm:p-4 border-t border-white/10 bg-black/50 flex items-center justify-between gap-2.5">
+                <div className="p-3 sm:p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/50 flex items-center justify-between gap-2.5">
                     {/* Toggle to My Team if viewing another rival */}
                     {!isViewingMyself && myTeamId && onSelectTeam ? (
                         <button
                             type="button"
                             onClick={() => onSelectTeam(myTeamId, myTeamName || 'My Team', myManagerName || 'You')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all cursor-pointer"
                         >
                             <User className="w-3.5 h-3.5" />
                             <span>Switch to My Team</span>
                             <ArrowRight className="w-3 h-3 ml-0.5" />
                         </button>
                     ) : (
-                        <span className="text-[10px] text-gray-400 font-medium">Official Fantasy Premier League data</span>
+                        <span className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Official Fantasy Premier League data</span>
                     )}
 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-black transition-all cursor-pointer ml-auto active:scale-95 shadow-sm"
+                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-900 dark:border-white/20 text-white text-xs font-black transition-all cursor-pointer ml-auto active:scale-95 shadow-sm"
                     >
                         Close Lineup
                     </button>

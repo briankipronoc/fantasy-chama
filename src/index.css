@@ -1493,8 +1493,10 @@
   border-color: rgba(15, 23, 42, 0.08) !important;
 }
 [data-theme="light"] .fc-hq-panel .bg-black\/20,
+[data-theme="light"] .fc-hq-panel .bg-black\/30,
+[data-theme="light"] .fc-hq-panel .bg-black\/50,
 [data-theme="light"] .fc-hq-panel .bg-white\/5 {
-  background-color: rgba(255, 255, 255, 0.88) !important;
+  background-color: rgba(248, 250, 252, 0.95) !important;
 }
 [data-theme="light"] .fc-hq-panel .bg-black\/40 {
   background-color: rgba(241, 245, 249, 0.92) !important;
