@@ -237,8 +237,8 @@ ${footer}`;
           {/* Tone Selector */}
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-gray-300 mb-2 flex items-center justify-between">
-              <span>Select Banter Heat Level</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-mono text-[10px]">Jakob Heuristic #3: User Control</span>
+              <span>Banter Tone / Hali ya Group</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">1-Tap Format</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -301,23 +301,31 @@ ${footer}`;
                 <span>Mtu wa Chini</span>
               </div>
               <p className="text-xs font-black text-slate-900 dark:text-white mt-1 truncate">
-                {lowestScorer ? lowestScorer.name : 'Everyone safe'}
+                {lowestScorer ? lowestScorer.name : 'Wote wako salama 🛡️'}
               </p>
               <p className="text-[10px] text-amber-700 dark:text-amber-400 font-mono">
-                {lowestScorer ? `${lowestScorer.points} pts` : '—'}
+                {lowestScorer ? `${lowestScorer.points} pts` : 'Hamna chokoraa hii round'}
               </p>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 col-span-2 sm:col-span-1">
-              <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold text-[10px] uppercase">
+            <div className={`p-2.5 rounded-xl col-span-2 sm:col-span-1 border ${
+              redZoneMembers.length > 0
+                ? 'bg-rose-500/10 border-rose-500/25'
+                : 'bg-emerald-500/10 border-emerald-500/25'
+            }`}>
+              <div className={`flex items-center gap-1.5 font-bold text-[10px] uppercase ${
+                redZoneMembers.length > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
+              }`}>
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Red Zone Debt</span>
+                <span>Deni za Chama</span>
               </div>
               <p className="text-xs font-black text-slate-900 dark:text-white mt-1">
-                {redZoneMembers.length > 0 ? `${redZoneMembers.length} member(s)` : 'All Clear ✓'}
+                {redZoneMembers.length > 0 ? `${redZoneMembers.length} member(s)` : 'Wote wamelipa ✓'}
               </p>
-              <p className="text-[10px] text-rose-700 dark:text-rose-400 font-mono">
-                {redZoneMembers.length > 0 ? `KES ${stake} each` : 'No arrears'}
+              <p className={`text-[10px] font-mono ${
+                redZoneMembers.length > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
+              }`}>
+                {redZoneMembers.length > 0 ? `KES ${stake} each` : 'Zero arrears'}
               </p>
             </div>
           </div>

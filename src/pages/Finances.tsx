@@ -811,18 +811,17 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .reduce((acc, t) => acc + (Number(t.amount || 0)), 0);
 
     // Member-only transaction log: their deposits + payout wins + wallet credits
-    const myTransactions = isAdmin ? transactions : transactions.filter(tx =>
-        (tx.type === 'deposit' && tx.phoneNumber === currentUser?.phone) ||
-        (tx.type === 'payout' && (
-            tx.winnerPhone === currentUser?.phone ||
-            tx.winnerName === currentUser?.displayName
-        )) ||
-        (tx.type === 'wallet_funding' && (
-            tx.memberId === activeUserId ||
-            tx.memberName === currentUser?.displayName ||
-            tx.phoneNumber === currentUser?.phone
-        ))
-    );
+    const myTransactions = isAdmin ? transactions : transactions.filter((tx: any) => {
+        const matchesUser = Boolean(
+            (activeUserId && (tx.memberId === activeUserId || tx.userId === activeUserId || tx.winnerId === activeUserId)) ||
+            (currentUser?.phone && (tx.phoneNumber === currentUser.phone || tx.phone === currentUser.phone || tx.winnerPhone === currentUser.phone)) ||
+            (currentUser?.displayName && (
+                (tx.memberName && tx.memberName.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase()) ||
+                (tx.winnerName && tx.winnerName.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase())
+            ))
+        );
+        return matchesUser;
+    });
 
     const currentSeasonStartMs = new Date('2026-08-01T00:00:00Z').getTime();
     const displayedTransactions = useMemo(() => {
@@ -1758,10 +1757,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                             {effectivePayoutMode === 'weekly_only'
                                                                 ? "Projected Weekly Payout"
                                                                 : effectivePayoutMode === 'season_only'
-                                                                ? (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")
+                                                                ? (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")
                                                                 : projectedCardIndex === 0
                                                                 ? "Projected Weekly Payout"
-                                                                : (seasonCardTab === 'collected' ? "Season Vault (Collected Now)" : "Projected Season Collection")}
+                                                                : (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")}
                                                         </h3>
                                                         <p className="text-[10px] text-gray-500 dark:text-gray-400">
                                                             {effectivePayoutMode === 'weekly_only'
@@ -1923,10 +1922,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             </div>
                                             <button
                                                 type="button"
-                                                onClick={() => setShowPlayerBreakdown(!showPlayerBreakdown)}
-                                                className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 transition-colors cursor-pointer"
+                                                onClick={() => setShowPlayerBreakdown(true)}
+                                                className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 transition-colors cursor-pointer flex items-center gap-1"
                                             >
-                                                {showPlayerBreakdown ? "Hide Breakdown ▲" : "Player Breakdown ▼"}
+                                                Player Breakdown ↗
                                             </button>
                                         </div>
                                     </div>
@@ -1939,20 +1938,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             <span>Avg KES {avgPerPlayer.toLocaleString()} / player</span>
                                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">KES {totalWalletFloat.toLocaleString()} float in wallets</span>
                                         </div>
-
-                                        {showPlayerBreakdown && (
-                                            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 space-y-1.5 max-h-36 overflow-y-auto">
-                                                {memberFundingSummary.map((m: any) => (
-                                                    <div key={m.id} className="flex items-center justify-between text-xs py-0.5">
-                                                        <span className="text-slate-800 dark:text-gray-200 font-medium truncate max-w-[140px]">{m.displayName}</span>
-                                                        <div className="flex items-center gap-2 font-mono tabular-nums">
-                                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">KES {m.totalDeposited.toLocaleString()}</span>
-                                                            <span className="text-[10px] text-slate-400 dark:text-gray-500">(Bal: KES {Number(m.walletBalance || 0).toLocaleString()})</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             );
@@ -2010,7 +1995,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                             )}
                         >
-                            Live Accrued (KES {Math.round(seasonVaultCollectedSoFar || 0).toLocaleString()})
+                            Live Accrued
                         </button>
                         <button
                             type="button"
@@ -2022,7 +2007,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                             )}
                         >
-                            Projected Final (KES {Math.round(projectedSeasonVault || 0).toLocaleString()})
+                            Projected Final
                         </button>
                     </div>
 
@@ -2492,12 +2477,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                             const rawNote = String(tx.note || '').trim();
                             const sanitizedNote = rawNote.replace(/gw\s*7/gi, `GW${activeCurrentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
                             const activityLabel = isReversal
-                                ? (sanitizedNote || `Reversal • ${memberName}`)
+                                ? `Reversal • ${memberName}`
                                 : tx.type === 'payout'
                                     ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                     : isWalletFunding
-                                        ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                        : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                        ? `Wallet Credit → ${memberName}`
+                                        : `Deposit • ${memberName}`;
+                            const subLabel = sanitizedNote || (isWalletFunding ? `Wallet Top-Up • ${gwTag}` : `Deposit • ${gwTag}`);
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -2525,8 +2511,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="font-bold text-white text-sm">
-                                        {activityLabel}
+                                    <div>
+                                        <div className="font-bold text-white text-sm">
+                                            {activityLabel}
+                                        </div>
+                                        {subLabel && (
+                                            <div className="text-xs text-gray-400 font-normal mt-0.5">
+                                                {subLabel}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-white/5">
                                         <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
@@ -2647,12 +2640,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     ? 'Inflow'
                                                     : 'Outflow';
                                         const activityLabel = isReversal
-                                            ? (sanitizedNote || `Reversal • ${memberName}`)
+                                            ? `Reversal • ${memberName}`
                                             : tx.type === 'payout'
                                                 ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                                 : isWalletFunding
-                                                    ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                                    : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                                    ? `Wallet Credit → ${memberName}`
+                                                    : `Deposit • ${memberName}`;
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
@@ -2680,7 +2673,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                             ? `Manual Reversal • ${tx.receiptId || 'Adjustment'}`
                                                             : tx.type === 'payout'
                                                             ? `GW ${tx.gameweek || tx.gw || 'N/A'} • ${tx.winnerPhone || tx.phoneNumber || 'phone not set'}`
-                                                            : `${gwTag ? `Funded for Gameweek ${targetTxGw} • ` : ''}Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
+                                                            : (sanitizedNote || `${gwTag ? `Funded for Gameweek ${targetTxGw} • ` : ''}Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`)}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
@@ -2915,12 +2908,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     const rawNote = String(tx.note || '').trim();
                                                     const statusLabel = isReversal ? 'Reversal' : isWalletFunding ? 'Wallet Credit' : ledgerDirection === '+' ? 'Inflow' : 'Outflow';
                                                     const activityLabel = isReversal
-                                                        ? (rawNote || `Reversal • ${memberName}`)
+                                                        ? `Reversal • ${memberName}`
                                                         : tx.type === 'payout'
                                                             ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                                             : isWalletFunding
-                                                                ? (rawNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                                                : (rawNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                                                ? `Wallet Credit → ${memberName}`
+                                                                : `Deposit • ${memberName}`;
 
                                                     return (
                                                         <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
@@ -2949,7 +2942,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                         ? `Manual Reversal • ${tx.receiptId || 'Adjustment'}`
                                                                         : tx.type === 'payout'
                                                                         ? `GW ${tx.gameweek || tx.gw || 'N/A'} • ${tx.winnerPhone || tx.phoneNumber || 'phone not set'}`
-                                                                        : `${gwTag ? `Funded for Gameweek ${targetTxGw} • ` : ''}Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`}
+                                                                        : (rawNote || `${gwTag ? `Funded for Gameweek ${targetTxGw} • ` : ''}Receipt: ${tx.mpesaCode || tx.receiptId || 'N/A'}`)}
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-3.5 text-right">
@@ -3072,12 +3065,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             const gwTag = `GW${targetTxGw}`;
                                             const sanitizedNote = String(tx.note || '');
                                             const activityLabel = isReversal
-                                                ? (sanitizedNote || `Reversal • ${memberName}`)
+                                                ? `Reversal • ${memberName}`
                                                 : tx.type === 'payout'
                                                     ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                                     : isWalletFunding
-                                                        ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                                        : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                                        ? `Wallet Credit → ${memberName}`
+                                                        : `Deposit • ${memberName}`;
+                                            const subLabel = sanitizedNote || (isWalletFunding ? `Wallet Top-Up • ${gwTag}` : `Deposit • ${gwTag}`);
 
                                             return (
                                                 <div key={tx.id} className="p-4 flex flex-col gap-2 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">
@@ -3106,8 +3100,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="font-bold text-slate-900 dark:text-white text-sm">
-                                                        {activityLabel}
+                                                    <div>
+                                                        <div className="font-bold text-slate-900 dark:text-white text-sm">
+                                                            {activityLabel}
+                                                        </div>
+                                                        {subLabel && (
+                                                            <div className="text-xs text-slate-500 dark:text-gray-400 font-normal mt-0.5">
+                                                                {subLabel}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-gray-500 pt-1 border-t border-slate-100 dark:border-white/5">
                                                         <span className="font-mono">{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
@@ -3471,6 +3472,81 @@ const handleRejectPendingPayout = async (payout: any) => {
                         sharedBy={sharedBy}
                         chairmanName={chairmanName}
                     />
+                );
+            })()}
+
+            {/* Player Receipts & Float Breakdown Modal */}
+            {showPlayerBreakdown && (() => {
+                const totalReceipts = memberFundingSummary.reduce((sum, m: any) => sum + (m.totalDeposited || 0), 0);
+                const totalFloat = memberFundingSummary.reduce((sum, m: any) => sum + (Number(m.walletBalance) || 0), 0);
+                const regularPlayers = memberFundingSummary.filter((m: any) => !m.isSpectator);
+                const avgReceipt = Math.round(totalReceipts / (regularPlayers.length || 1));
+
+                return (
+                    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+                        <div className="relative w-full max-w-lg bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-indigo-500/30 rounded-3xl p-6 shadow-2xl flex flex-col gap-4 text-slate-900 dark:text-white max-h-[85vh]">
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                        <Users className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black tracking-tight text-slate-900 dark:text-white">Player Receipts & Float</h3>
+                                        <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Live receipts across {regularPlayers.length} players</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPlayerBreakdown(false)}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Summary Stat Grid */}
+                            <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/5 text-xs">
+                                <div>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Total Receipts</span>
+                                    <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-sm">KES {totalReceipts.toLocaleString()}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Avg / Player</span>
+                                    <span className="font-extrabold text-slate-700 dark:text-slate-300 text-sm">KES {avgReceipt.toLocaleString()}</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Float In Wallets</span>
+                                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">KES {totalFloat.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Scrollable Members List */}
+                            <div className="overflow-y-auto space-y-2 pr-1 max-h-[46vh] divide-y divide-slate-100 dark:divide-white/5">
+                                {memberFundingSummary.map((m: any) => (
+                                    <div key={m.id} className="pt-2 flex items-center justify-between text-xs">
+                                        <div className="min-w-0 pr-2">
+                                            <span className="text-slate-900 dark:text-white font-bold block truncate">{m.displayName}</span>
+                                            <span className="text-[10px] text-slate-400 dark:text-gray-500">Wallet Bal: KES {Number(m.walletBalance || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="text-right shrink-0 font-mono">
+                                            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold block">KES {m.totalDeposited.toLocaleString()}</span>
+                                            <span className="text-[9px] text-slate-400 uppercase font-medium">Contributed</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPlayerBreakdown(false)}
+                                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-bold text-slate-700 dark:text-white transition-colors cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 );
             })()}
 

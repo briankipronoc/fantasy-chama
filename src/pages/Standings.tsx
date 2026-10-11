@@ -1213,7 +1213,6 @@ export default function Standings() {
 
                                 return rankedRows.map((row: any, index: number) => {
                                 const rankNum = Number(row.displayRank || index + 1);
-                                const isTop1Overall = rankNum === 1;
                                 const isInPodium = rankNum <= visibleSeasonWinnerCount;
                                 const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
                                 const isSpectator = (matchedMember as any)?.playMode === 'sidebets_only';
@@ -1238,12 +1237,20 @@ export default function Standings() {
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const isSeasonView = heroRankView === 'season';
+                                const isSeasonLeader = isSeasonView && rankNum === 1;
+                                const isDoubleCrown = isSeasonLeader && isGwWinnerRow;
                                 const medal = isSeasonView
                                     ? (rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null)
                                     : (rankNum === 1 ? '🥇' : null);
-                                const podiumBorder = isSeasonView
-                                    ? (rankNum === 1 ? 'border-l-4 border-l-amber-400' : rankNum === 2 ? 'border-l-4 border-l-slate-300' : rankNum === 3 ? 'border-l-4 border-l-amber-700' : 'border-l-4 border-l-transparent')
-                                    : (rankNum === 1 ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-transparent');
+                                const podiumBorder = isDoubleCrown
+                                    ? 'border-l-4 border-l-amber-400 ring-2 ring-amber-400/60'
+                                    : isSeasonLeader
+                                    ? 'border-l-4 border-l-amber-400 ring-1 ring-amber-400/50'
+                                    : isGwWinnerRow
+                                    ? 'border-l-4 border-l-emerald-500 ring-1 ring-emerald-500/40'
+                                    : isSeasonView
+                                    ? (rankNum === 2 ? 'border-l-4 border-l-slate-300' : rankNum === 3 ? 'border-l-4 border-l-amber-700' : 'border-l-4 border-l-transparent')
+                                    : (rankNum === 1 ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-transparent');
                                 return (
                                     <div
                                         key={row.id}
@@ -1261,21 +1268,50 @@ export default function Standings() {
                                         className={clsx(
                                             'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards cursor-pointer group',
                                             podiumBorder,
-                                            isTop1Overall ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : (isSeasonView && isInPodium && index > 0) ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]',
-                                            isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
+                                            isDoubleCrown
+                                                ? 'bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-amber-500/20 hover:from-amber-500/25 hover:to-amber-500/25 shadow-md'
+                                                : isSeasonLeader
+                                                ? 'bg-amber-400/15 hover:bg-amber-400/20 dark:bg-amber-400/10 dark:hover:bg-amber-400/15 shadow-xs'
+                                                : isGwWinnerRow
+                                                ? 'bg-emerald-500/15 hover:bg-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15 shadow-xs'
+                                                : (isSeasonView && isInPodium && index > 0)
+                                                ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08]'
+                                                : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]',
                                             isMe ? 'ring-1 ring-[#FBBF24]/40' : ''
                                         )}
                                         title={`Tap to view ${row.player_name}'s team lineup`}
                                     >
                                         {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
                                         <div className="flex items-center gap-3 md:col-span-5 w-full">
-                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-7 text-center shrink-0 flex items-center justify-center', isTop1Overall ? 'text-emerald-600 dark:text-[#10B981]' : 'text-slate-600 dark:text-gray-400')}>
+                                            <span className={clsx(
+                                                'font-extrabold text-lg md:text-base tabular-nums w-7 text-center shrink-0 flex items-center justify-center',
+                                                isDoubleCrown || isSeasonLeader
+                                                    ? 'text-amber-500 dark:text-amber-400'
+                                                    : isGwWinnerRow
+                                                    ? 'text-emerald-600 dark:text-[#10B981]'
+                                                    : 'text-slate-600 dark:text-gray-400'
+                                            )}>
                                                 {medal || (row.isTied ? `T${rankNum}` : rankNum)}
                                             </span>
                                             <UserAvatar name={row.player_name} size="sm" />
                                             <div className="flex-1 min-w-0">
                                                 <span className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 flex-wrap group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
                                                     <span className="truncate max-w-[170px] md:max-w-none">{row.player_name}</span>
+                                                    {isDoubleCrown && (
+                                                        <span className="bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 text-[8px] px-1.5 py-0.5 rounded-full uppercase tracking-wider font-black shadow-xs">
+                                                            👑⚡ Double Crown
+                                                        </span>
+                                                    )}
+                                                    {isSeasonLeader && !isDoubleCrown && (
+                                                        <span className="bg-amber-400/20 text-amber-700 dark:text-amber-300 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-black border border-amber-400/40">
+                                                            👑 Season #1
+                                                        </span>
+                                                    )}
+                                                    {isGwWinnerRow && !isDoubleCrown && (
+                                                        <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-black border border-emerald-500/40">
+                                                            ⚡ GW Winner
+                                                        </span>
+                                                    )}
                                                     {matchedMember?.id === chairmanId && (
                                                         <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30">Chair</span>
                                                     )}

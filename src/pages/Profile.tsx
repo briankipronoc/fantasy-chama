@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, getDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -24,8 +24,6 @@ export default function Profile() {
     const role = useStore(state => state.role);
     const setRole = useStore(state => state.setRole);
     const members = useStore(state => state.members);
-    const isStealthMode = useStore(state => state.isStealthMode);
-    const toggleStealthMode = useStore(state => state.toggleStealthMode);
     const currentUser = members.find(m => m.id === activeUserId || (m.authUid && m.authUid === activeUserId));
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
@@ -1822,12 +1820,12 @@ export default function Profile() {
                         </div>
 
                         {/* Interactive Theme Cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-1">
                             {[
-                                { key: 'dark', label: 'Dark Mode', desc: 'Matte obsidian night', icon: '🌙', accent: 'border-slate-500/40' },
-                                { key: 'stealth', label: 'Stealth Mode', desc: 'Tactical abyss OLED #000', icon: '🛡️', accent: 'border-amber-500/40' },
-                                { key: 'system', label: 'System Auto', desc: 'Matches device', icon: '💻', accent: 'border-blue-500/40' },
-                                { key: 'light', label: 'Light Mode', desc: 'Crisp bright view', icon: '☀️', accent: 'border-amber-500/40' },
+                                { key: 'dark', label: 'Dark Mode', icon: '🌙' },
+                                { key: 'stealth', label: 'Stealth Mode', icon: '🛡️' },
+                                { key: 'system', label: 'System Auto', icon: '💻' },
+                                { key: 'light', label: 'Light Mode', icon: '☀️' },
                             ].map((t) => {
                                 const isSelected = theme === t.key;
                                 return (
@@ -1840,13 +1838,13 @@ export default function Profile() {
                                             toast.success(`${t.label} activated`);
                                         }}
                                         className={clsx(
-                                            "p-3 sm:p-3.5 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer select-none active:scale-95 min-h-[82px]",
+                                            "p-3 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer select-none active:scale-95 min-h-[68px]",
                                             isSelected
                                                 ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
                                                 : "bg-white/80 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
                                         )}
                                     >
-                                        <div className="flex items-center justify-between w-full mb-1.5">
+                                        <div className="flex items-center justify-between w-full mb-1">
                                             <span className="text-xl sm:text-2xl leading-none drop-shadow-xs">{t.icon}</span>
                                             {isSelected ? (
                                                 <div className="flex items-center gap-1">
@@ -1864,65 +1862,10 @@ export default function Profile() {
                                             )}>
                                                 {t.label}
                                             </p>
-                                            <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 font-medium leading-tight mt-0.5">
-                                                {t.desc}
-                                            </p>
                                         </div>
                                     </button>
                                 );
                             })}
-                        </div>
-
-                        {/* Separate Privacy & Sensitive Numbers Masking Card */}
-                        <div className="p-3 sm:p-3.5 rounded-2xl bg-white/60 dark:bg-black/40 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                                <div className={clsx(
-                                    "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
-                                    isStealthMode
-                                        ? "bg-amber-500/15 border-amber-500/30 text-amber-500"
-                                        : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400"
-                                )}>
-                                    {isStealthMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
-                                            Mask Financial Figures
-                                        </span>
-                                        <span className={clsx(
-                                            "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded border",
-                                            isStealthMode
-                                                ? "bg-amber-500/15 border-amber-500/30 text-amber-500"
-                                                : "bg-slate-200 dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-500 dark:text-gray-400"
-                                        )}>
-                                            {isStealthMode ? "Masked (KES ****)" : "Visible"}
-                                        </span>
-                                    </div>
-                                    <span className="text-[10px] text-slate-500 dark:text-gray-400 block leading-tight mt-0.5">
-                                        Hides wallet balances & payouts across all screens until explicitly turned on
-                                    </span>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    haptics.selection();
-                                    toggleStealthMode();
-                                    toast.success(isStealthMode ? "Financial figures unmasked" : "Financial figures masked");
-                                }}
-                                className={clsx(
-                                    "w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 p-0.5 border",
-                                    isStealthMode ? "bg-emerald-500 border-emerald-400" : "bg-slate-300 dark:bg-zinc-700 border-slate-400 dark:border-zinc-600"
-                                )}
-                                aria-label="Toggle Mask Figures"
-                            >
-                                <div
-                                    className={clsx(
-                                        "w-4 h-4 rounded-full bg-white transition-transform shadow-xs",
-                                        isStealthMode ? "translate-x-4" : "translate-x-0"
-                                    )}
-                                />
-                            </button>
                         </div>
                     </div>
 

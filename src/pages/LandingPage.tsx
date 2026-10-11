@@ -1296,14 +1296,11 @@ export default function LandingPage() {
                             </p>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2">
+                        <div className="flex justify-center items-center pt-2">
                             <button onClick={() => navigate('/setup')} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-[#002113] px-8 py-4 rounded-xl font-extrabold text-base shadow-lg shadow-emerald-500/25 transition-all active:scale-95 flex items-center justify-center gap-2 group cursor-pointer">
                                 <Trophy className="w-4 h-4" />
                                 <span>Start a League</span>
                                 <span className="bg-[#002113] text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider border border-emerald-400/40">FREE</span>
-                            </button>
-                            <button onClick={() => navigate('/access')} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-[#161d24] dark:hover:bg-[#1f2937] border border-slate-200 dark:border-white/10 transition-colors active:scale-95 text-slate-900 dark:text-white cursor-pointer">
-                                Join With Code
                             </button>
                         </div>
                         <p className="text-slate-500 dark:text-gray-500 text-xs">No credit card needed · Free for all managers · Chairman earns 4% commission</p>
