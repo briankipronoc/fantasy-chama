@@ -393,6 +393,51 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         );
     };
 
+    // Dynamic start gameweek: respect league settings if configured, auto-heal if GW5 was played
+    const earliestRecordedGw = useMemo(() => {
+        const gws = transactions
+            .map((t: any) => {
+                const desc = (t.description || '').toLowerCase();
+                const gwMatch = desc.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
+                const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw || t.gameweek || 0);
+                return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+            })
+            .filter((g: any): g is number => g !== null && g >= 5);
+        return gws.length > 0 ? Math.min(...gws) : null;
+    }, [transactions]);
+
+    const hasGw5Record = useMemo(() => {
+        return transactions.some((t: any) => {
+            const desc = (t.description || '').toLowerCase();
+            return (
+                Number(t.gw || t.gameweek) === 5 ||
+                desc.includes('gw 5') ||
+                desc.includes('gw5') ||
+                desc.includes('gameweek 5')
+            );
+        });
+    }, [transactions]);
+
+    const rawStart = Number((leagueSettings as any)?.startGw || startGw || 1);
+    const leagueStartGw = Math.max(1, (rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) ? 5 : rawStart);
+
+    // Auto-heal league startGw in database if set to 6 while GW5 had activity
+    useEffect(() => {
+        if (activeLeagueId && rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) {
+            updateDoc(doc(db, "leagues", activeLeagueId), { startGw: 5 }).catch((err) => {
+                console.warn("Could not auto-heal league startGw to 5 in Finances:", err);
+            });
+        }
+    }, [activeLeagueId, rawStart, hasGw5Record, earliestRecordedGw, currentGwNumber]);
+
+    const forfeitedGws: number[] = useMemo(() => {
+        const fromSettings = (leagueSettings as any)?.forfeitedGws || [];
+        const fromPayouts = (pendingApprovals || [])
+            .filter((p: any) => p.status === 'forfeited')
+            .map((p: any) => Number(p.gw));
+        return Array.from(new Set([...fromSettings, ...fromPayouts])).map(Number);
+    }, [leagueSettings, pendingApprovals]);
+
     const isMemberFunded = (m: any) => {
         if (!m || m.isActive === false || (m as any).isEliminated || (m as any).isPending) return false;
         if ((m as any).playMode === 'sidebets_only') return false;
@@ -438,43 +483,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
     const paidMembers = members.filter(isMemberFunded);
     const totalSecured = paidMembers.length * (gameweekStake || 0);
-    
-    // Dynamic start gameweek: respect league settings if configured, auto-heal if GW5 was played
-    const earliestRecordedGw = useMemo(() => {
-        const gws = transactions
-            .map((t: any) => {
-                const desc = (t.description || '').toLowerCase();
-                const gwMatch = desc.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
-                const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw || t.gameweek || 0);
-                return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-            })
-            .filter((g: any): g is number => g !== null && g >= 5);
-        return gws.length > 0 ? Math.min(...gws) : null;
-    }, [transactions]);
-
-    const hasGw5Record = useMemo(() => {
-        return transactions.some((t: any) => {
-            const desc = (t.description || '').toLowerCase();
-            return (
-                Number(t.gw || t.gameweek) === 5 ||
-                desc.includes('gw 5') ||
-                desc.includes('gw5') ||
-                desc.includes('gameweek 5')
-            );
-        });
-    }, [transactions]);
-
-    const rawStart = Number((leagueSettings as any)?.startGw || startGw || 1);
-    const leagueStartGw = Math.max(1, (rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) ? 5 : rawStart);
-
-    // Auto-heal league startGw in database if set to 6 while GW5 had activity
-    useEffect(() => {
-        if (activeLeagueId && rawStart > 5 && (hasGw5Record || earliestRecordedGw === 5 || currentGwNumber === 5)) {
-            updateDoc(doc(db, "leagues", activeLeagueId), { startGw: 5 }).catch((err) => {
-                console.warn("Could not auto-heal league startGw to 5 in Finances:", err);
-            });
-        }
-    }, [activeLeagueId, rawStart, hasGw5Record, earliestRecordedGw, currentGwNumber]);
     
     const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
     
@@ -532,14 +540,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const totalRefundsAllTime = transactions
         .filter(isTxRefundOrReversal)
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
-
-    const forfeitedGws: number[] = useMemo(() => {
-        const fromSettings = (leagueSettings as any)?.forfeitedGws || [];
-        const fromPayouts = (pendingApprovals || [])
-            .filter((p: any) => p.status === 'forfeited')
-            .map((p: any) => Number(p.gw));
-        return Array.from(new Set([...fromSettings, ...fromPayouts])).map(Number);
-    }, [leagueSettings, pendingApprovals]);
 
     const effectiveLeagueStartGw = leagueStartGw;
     // Count only playable completed rounds (excludes unplayed / forfeited rounds)

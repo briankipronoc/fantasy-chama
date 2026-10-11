@@ -1441,6 +1441,40 @@ export default function AdminCommandCenter() {
     }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
   };
 
+  const isPendingMember = (m: any) =>
+    Boolean(
+      m &&
+      m.isActive !== false &&
+      (m.isPending === true || (!m.phone && !m.phoneNumber))
+    );
+
+  // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
+  const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
+  const effectiveStartGw = useMemo(() => {
+    if (rawStartGw > 5) {
+      return 5;
+    }
+    return Math.max(1, rawStartGw || 5);
+  }, [rawStartGw]);
+
+  // Auto-heal league startGw in database if it was accidentally set to 6
+  useEffect(() => {
+    if (activeLeagueId && rawStartGw > 5) {
+      const leagueRef = doc(db, "leagues", activeLeagueId);
+      updateDoc(leagueRef, { startGw: 5 }).catch((err) => {
+        console.warn("Could not auto-heal league startGw to 5:", err);
+      });
+      setStartGw(5);
+    }
+  }, [activeLeagueId, rawStartGw]);
+
+  // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
+  const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
+  const forfeitedGws: number[] = Array.from(new Set([
+    ...actualForfeitedGws,
+    ...pendingPayouts.filter((p: any) => p.status === 'forfeited' && Number(p.gw) >= effectiveStartGw).map((p: any) => Number(p.gw))
+  ]));
+
   // Math scales properly natively and reconciles reversals from the ledger
   const memberHasFunding = (member: any) => {
     if (!member || member.isActive === false) return false;
@@ -1478,13 +1512,6 @@ export default function AdminCommandCenter() {
       (Number(member.lastPaymentGw) === currentGw && Boolean(member.hasPaid))
     );
   };
-
-  const isPendingMember = (m: any) =>
-    Boolean(
-      m &&
-      m.isActive !== false &&
-      (m.isPending === true || (!m.phone && !m.phoneNumber))
-    );
 
   // Deduplicate members by id and phone so no member is ever repeated in the master ledger or collections
   const uniqueMembers = useMemo(() => {
@@ -1551,8 +1578,6 @@ export default function AdminCommandCenter() {
     activeMembersCount > 0 && fundedMembersCount === activeMembersCount;
   const totalCollected = totalSecured;
   const weeklyPot = totalCollected * (rules.weekly / 100);
-  // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
-  const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
   const earliestResolvedGw = useMemo(() => {
     const payoutGws = pendingPayouts
       .filter((p: any) => ['approved', 'settled'].includes(p.status) || Number(p.amount || 0) > 0)
@@ -1596,30 +1621,7 @@ export default function AdminCommandCenter() {
     return null;
   }, [pendingPayouts, transactions]);
 
-  const effectiveStartGw = useMemo(() => {
-    if (rawStartGw > 5) {
-      return 5;
-    }
-    return Math.max(1, rawStartGw || 5);
-  }, [rawStartGw]);
-
-  // Auto-heal league startGw in database if it was accidentally set to 6
-  useEffect(() => {
-    if (activeLeagueId && rawStartGw > 5) {
-      const leagueRef = doc(db, "leagues", activeLeagueId);
-      updateDoc(leagueRef, { startGw: 5 }).catch((err) => {
-        console.warn("Could not auto-heal league startGw to 5:", err);
-      });
-      setStartGw(5);
-    }
-  }, [activeLeagueId, rawStartGw]);
   const nextPlayableGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber + 1 : (currentGwNumber || firestoreGw || 1);
-  // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
-  const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
-  const forfeitedGws: number[] = Array.from(new Set([
-    ...actualForfeitedGws,
-    ...pendingPayouts.filter((p: any) => p.status === 'forfeited' && Number(p.gw) >= effectiveStartGw).map((p: any) => Number(p.gw))
-  ]));
   const grossInflowsAllTime = transactions
     .filter(isTxValidInflow)
     .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
