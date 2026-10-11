@@ -1324,7 +1324,7 @@ export default function MemberDashboard() {
     const netCollectedSoFar = Math.max(0, grossInflows - totalRefunds);
     const seasonVaultFromTxs = Math.round(netCollectedSoFar * vaultMultiplier);
 
-    const maxPastGw = currentFplEvent?.id ? (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) : 0;
+    const maxPastGw = currentFplEvent?.id ? Math.max(effectiveMdStartGw, currentFplEvent.id) : (effectiveMdStartGw || 1);
     const playedPastGws: number[] = [];
     for (let g = effectiveMdStartGw; g <= maxPastGw; g++) {
         if (!forfeitedList.includes(g)) {

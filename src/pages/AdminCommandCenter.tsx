@@ -1675,7 +1675,7 @@ export default function AdminCommandCenter() {
     .reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
   const netInflowsFromLedger = Math.max(0, grossInflowsAllTime - totalRefundsAllTime);
 
-  const maxCompletedGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber : (currentGwNumber ? currentGwNumber - 1 : 0);
+  const maxCompletedGw = Math.max(effectiveStartGw, Number(currentGwNumber || firestoreGw || effectiveStartGw));
   const completedRoundsList: number[] = [];
   for (let g = effectiveStartGw; g <= maxCompletedGw; g++) {
     if (!forfeitedGws.includes(g)) completedRoundsList.push(g);
@@ -5677,6 +5677,10 @@ burstFrame();
                         </div>
                         <div className="text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
                           <span className="font-mono">{row.phone || '—'}</span>
+                          <span className="text-white/20">•</span>
+                          <span className="text-emerald-400 font-semibold" title="Total net receipts received from this player">
+                            Received: <strong className="font-mono font-bold text-emerald-300">KES {netDeposited.toLocaleString()}</strong>
+                          </span>
                           <span className="text-white/20">•</span>
                           {row.id !== activeUserId && row.id !== chairmanId && (row as any).role !== "chairman" && (row as any).authUid !== auth.currentUser?.uid && (
                             <>

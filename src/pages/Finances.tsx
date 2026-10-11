@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2 } from 'lucide-react';
+import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2, Users } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
@@ -107,7 +107,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [seasonFilter, setSeasonFilter] = useState<'current' | 'all'>('current');
     const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
-    const [isCurrentEventFinished, setIsCurrentEventFinished] = useState<boolean>(false);
+    const [_isCurrentEventFinished, setIsCurrentEventFinished] = useState<boolean>(false);
     const [leagueCreatedAtMs, setLeagueCreatedAtMs] = useState<number | null>(null);
     const [startGw, setStartGw] = useState<number>(1);
     const [lastResetAtMs, setLastResetAtMs] = useState<number | null>(null);
@@ -125,6 +125,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [isPushingTopUpMpesa, setIsPushingTopUpMpesa] = useState(false);
     const [txToDelete, setTxToDelete] = useState<any | null>(null);
     const [isDeletingTx, setIsDeletingTx] = useState(false);
+    const [showPlayerBreakdown, setShowPlayerBreakdown] = useState(false);
 
     useEffect(() => {
         setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
@@ -430,6 +431,29 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }
     }, [activeLeagueId, rawStart, hasGw5Record, earliestRecordedGw, currentGwNumber]);
 
+    // Auto-heal legacy future-tagged transactions (e.g. CASH_031064 tagged with GW7 during GW6)
+    useEffect(() => {
+        if (!activeLeagueId) return;
+        const currentGw = Number(currentGwNumber || 6);
+        const futureTxs = (transactions || []).filter((t: any) => 
+            Number(t.gw || t.gameweek || 0) > currentGw && 
+            (t.type === 'wallet_funding' || t.type === 'deposit')
+        );
+        if (futureTxs.length > 0) {
+            futureTxs.forEach((t: any) => {
+                if (!t.id) return;
+                const txRef = doc(db, 'leagues', activeLeagueId, 'transactions', t.id);
+                const oldNote = String(t.note || '');
+                const cleanedNote = oldNote.replace(/gw\s*7/gi, `GW${currentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${currentGw}`);
+                updateDoc(txRef, {
+                    gw: currentGw,
+                    gameweek: currentGw,
+                    note: cleanedNote || `Funded for Gameweek ${currentGw} • Receipt: ${t.receiptId || ''}`,
+                }).catch((err) => console.warn('Could not auto-heal future GW transaction:', err));
+            });
+        }
+    }, [activeLeagueId, currentGwNumber, transactions]);
+
     const forfeitedGws: number[] = useMemo(() => {
         const fromSettings = (leagueSettings as any)?.forfeitedGws || [];
         const fromPayouts = (pendingApprovals || [])
@@ -544,18 +568,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
     const effectiveLeagueStartGw = leagueStartGw;
-    // Count only playable completed rounds (excludes unplayed / forfeited rounds)
+    // Count active and completed playable rounds to date (includes current active round and past completed rounds)
     const playedCompletedGws = useMemo(() => {
         if (!currentGwNumber || currentGwNumber < effectiveLeagueStartGw) return [];
-        const maxPastGw = isCurrentEventFinished ? currentGwNumber : currentGwNumber - 1;
+        const maxTrackedGw = Math.max(effectiveLeagueStartGw, Number(currentGwNumber || effectiveLeagueStartGw));
         const list: number[] = [];
-        for (let g = effectiveLeagueStartGw; g <= maxPastGw; g++) {
+        for (let g = effectiveLeagueStartGw; g <= maxTrackedGw; g++) {
             if (!forfeitedGws.includes(g)) {
                 list.push(g);
             }
         }
         return list;
-    }, [currentGwNumber, effectiveLeagueStartGw, isCurrentEventFinished, forfeitedGws]);
+    }, [currentGwNumber, effectiveLeagueStartGw, forfeitedGws]);
 
     const completedGwsCount = playedCompletedGws.length;
 
@@ -567,7 +591,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, 0);
 
     const vaultPercent = Number(rules.vault ?? 30);
-    // Strict ledger verification: Only actual verified contributions count towards vault
+    // Strict ledger verification: Realized pot includes verified member contributions for tracked rounds
     const seasonCollectedSoFarGross = completedGwsCount > 0
         ? cappedMemberContributionsSum
         : Math.max(0, grossInflows - totalRefundsAllTime);
@@ -1784,61 +1808,65 @@ const handleRejectPendingPayout = async (payout: any) => {
                             );
                         })()}
 
-                        {/* Card 3: League Treasury Split */}
+                        {/* Card 3: Member Receipts & Inflow Liquidity (Player Collections) */}
                         {(() => {
-                            const isPilot = (leagueSettings as any)?.pilotMode !== false;
-                            if (isPilot) return null;
-
-                            const totalCollectedGross = totalSecured;
-                            const hasCoAdmin = members.filter(m => m.role === 'admin' || m.role === 'co-chair').length > 1;
-                            const chairmanRate = hasCoAdmin ? 0.03 : 0.04;
-                            const coAdminRate = hasCoAdmin ? 0.01 : 0;
-                            const chairmanShare = totalCollectedGross * chairmanRate;
-                            const coChairShare = totalCollectedGross * coAdminRate;
-                            const hqRate = 0.035;
-                            const hqShare = totalCollectedGross * hqRate;
-                            const networkShare = totalCollectedGross * 0.015;
+                            const totalContributedByAll = activeMembers.reduce((sum, m: any) => {
+                                return sum + Number(contributionByMemberId[String(m.id)] || 0);
+                            }, 0);
+                            const totalWalletFloat = activeMembers.reduce((sum, m: any) => sum + Number(m.walletBalance || 0), 0);
+                            const regularCount = activeMembers.filter(m => (m as any).playMode !== 'sidebets_only').length || 1;
+                            const avgPerPlayer = Math.round(totalContributedByAll / regularCount);
 
                             return (
-                                <div className="fc-card bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-amber-500/25 p-5 sm:p-6 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-2.5">
-                                            <div className="w-7 h-7 rounded-full bg-amber-500/15 flex items-center justify-center border border-amber-500/30 text-amber-500 dark:text-amber-400 flex-shrink-0">
-                                                <Wallet className="w-3.5 h-3.5" />
+                                <div className="fc-card bg-gradient-to-br from-indigo-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-indigo-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
+                                    <div className="space-y-2.5 mb-3">
+                                        <div className="flex items-center justify-between gap-2.5">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-500/15 flex items-center justify-center border border-indigo-500/30 text-indigo-500 dark:text-indigo-400 shrink-0">
+                                                    <Users className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
+                                                        Player Receipts & Float
+                                                    </h3>
+                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                                        Live receipts across {regularCount} players
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0 flex-1">
-                                                <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">League Treasury Split</h3>
-                                                <p className="text-[9px] text-gray-500 dark:text-gray-400 font-medium">Current GW secured funds snapshot</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
-                                                <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Chairman</p>
-                                                <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(chairmanShare).toLocaleString()}</p>
-                                                <p className="text-[7.5px] text-amber-600 dark:text-amber-400 font-bold">{(chairmanRate * 100).toFixed(1)}% fee</p>
-                                            </div>
-                                            <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
-                                                <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Co-Chair</p>
-                                                <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(coChairShare).toLocaleString()}</p>
-                                                <p className="text-[7.5px] text-gray-500 dark:text-gray-400 font-bold">{(coAdminRate * 100).toFixed(1)}% fee</p>
-                                            </div>
-                                            <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
-                                                <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">HQ Share</p>
-                                                <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(hqShare).toLocaleString()}</p>
-                                                <p className="text-[7.5px] text-emerald-600 dark:text-emerald-400 font-bold">{isPilot ? '0% (Pilot Waived)' : '3.5%'}</p>
-                                            </div>
-                                            <div className="bg-black/5 dark:bg-black/30 rounded-xl p-1.5 text-center border border-black/5 dark:border-white/5">
-                                                <p className="text-[8px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Network Buffer</p>
-                                                <p className="text-xs font-black text-gray-900 dark:text-white tabular-nums">KES {Math.round(networkShare).toLocaleString()}</p>
-                                                <p className="text-[7.5px] text-gray-500 dark:text-gray-400 font-bold">1.5% fee</p>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPlayerBreakdown(!showPlayerBreakdown)}
+                                                className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 transition-colors cursor-pointer"
+                                            >
+                                                {showPlayerBreakdown ? "Hide Breakdown ▲" : "Player Breakdown ▼"}
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <p className="text-[8px] text-gray-500 dark:text-gray-400 font-medium mt-2 text-center leading-tight bg-black/5 dark:bg-black/30 px-2 py-1 rounded-lg border border-black/5 dark:border-white/5">
-                                        Withdrawals are hidden while payouts route through Pochi. Enable after Paybill/Till switch.
-                                    </p>
+                                    <div>
+                                        <p className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight text-indigo-600 dark:text-indigo-400">
+                                            {isStealthMode ? 'KES ****' : <AnimatedKes amount={totalContributedByAll} className="tabular-nums" />}
+                                        </p>
+                                        <div className="flex items-center justify-between gap-2 mt-1.5 flex-wrap text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                                            <span>Avg KES {avgPerPlayer.toLocaleString()} / player</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">KES {totalWalletFloat.toLocaleString()} float in wallets</span>
+                                        </div>
+
+                                        {showPlayerBreakdown && (
+                                            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 space-y-1.5 max-h-36 overflow-y-auto">
+                                                {memberFundingSummary.map((m: any) => (
+                                                    <div key={m.id} className="flex items-center justify-between text-xs py-0.5">
+                                                        <span className="text-slate-800 dark:text-gray-200 font-medium truncate max-w-[140px]">{m.displayName}</span>
+                                                        <div className="flex items-center gap-2 font-mono tabular-nums">
+                                                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">KES {m.totalDeposited.toLocaleString()}</span>
+                                                            <span className="text-[10px] text-slate-400 dark:text-gray-500">(Bal: KES {Number(m.walletBalance || 0).toLocaleString()})</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })()}
@@ -2194,6 +2222,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     <div className="text-xs text-slate-500 dark:text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
                                                         <span className="font-mono">{m.phone || 'No phone'}</span>
                                                         <span>•</span>
+                                                        <span>Received: <strong className="text-emerald-700 dark:text-emerald-400 font-mono">KES {Number(m.totalDeposited || 0).toLocaleString()}</strong></span>
+                                                        <span>•</span>
                                                         <span>Wallet: <strong className="text-slate-800 dark:text-gray-300 font-mono">KES {Number(m.walletBalance || 0).toLocaleString()}</strong></span>
                                                     </div>
                                                 </div>
@@ -2356,17 +2386,19 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     : ledgerDirection === '+'
                                         ? 'Inflow'
                                         : 'Outflow';
+                            const activeCurrentGw = Number(currentGwNumber || leagueStartGw || 6);
                             const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                            const targetTxGw = rawTxGw > 0 ? rawTxGw : leagueStartGw;
+                            const targetTxGw = rawTxGw > 0 ? (rawTxGw > activeCurrentGw ? activeCurrentGw : rawTxGw) : activeCurrentGw;
                             const gwTag = `GW${targetTxGw}`;
                             const rawNote = String(tx.note || '').trim();
+                            const sanitizedNote = rawNote.replace(/gw\s*7/gi, `GW${activeCurrentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
                             const activityLabel = isReversal
-                                ? (rawNote || `Reversal • ${memberName}`)
+                                ? (sanitizedNote || `Reversal • ${memberName}`)
                                 : tx.type === 'payout'
                                     ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                     : isWalletFunding
-                                        ? (rawNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                        : (rawNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                        ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
+                                        : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
@@ -2502,10 +2534,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const isPayout = tx.type === 'payout';
                                         const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
+                                        const activeCurrentGw = Number(currentGwNumber || leagueStartGw || 6);
                                         const rawTxGw = Number(tx.gameweek || tx.gw || 0);
-                                        const targetTxGw = rawTxGw > 0 ? rawTxGw : leagueStartGw;
+                                        const targetTxGw = rawTxGw > 0 ? (rawTxGw > activeCurrentGw ? activeCurrentGw : rawTxGw) : activeCurrentGw;
                                         const gwTag = `GW${targetTxGw}`;
                                         const rawNote = String(tx.note || '').trim();
+                                        const sanitizedNote = rawNote.replace(/gw\s*7/gi, `GW${activeCurrentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
                                         const statusLabel = isReversal
                                             ? 'Reversal'
                                             : isWalletFunding
@@ -2514,12 +2548,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     ? 'Inflow'
                                                     : 'Outflow';
                                         const activityLabel = isReversal
-                                            ? (rawNote || `Reversal • ${memberName}`)
+                                            ? (sanitizedNote || `Reversal • ${memberName}`)
                                             : tx.type === 'payout'
                                                 ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
                                                 : isWalletFunding
-                                                    ? (rawNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
-                                                    : (rawNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
+                                                    ? (sanitizedNote || `Wallet Top-Up • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`)
+                                                    : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
