@@ -130,10 +130,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [showPayoutsModal, setShowPayoutsModal] = useState(false);
     const [payoutsFilter, setPayoutsFilter] = useState<'all' | 'weekly' | 'season'>('all');
 
-    useEffect(() => {
-        setActionMessage({ type: 'success', text: `✓ Active API: ${getApiBaseUrl()}` });
-        setTimeout(() => setActionMessage(null), 5000);
-    }, []);
 
     useEffect(() => {
         if (!activeLeagueId) {
@@ -3321,6 +3317,14 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                     const effectiveCurrentGw = currentGwNumber || (effectiveLeagueStart + Math.max(0, completedSeasonGws - 1));
 
+                    // Strict ledger verified: If seasonVaultCollectedSoFar <= 0, accumulated vault is STRICTLY 0 KES!
+                    const currentVault = completedSeasonGws > 0 
+                        ? (seasonVaultCollectedSoFar > 0 ? Math.min(completedSeasonGws * vaultRatePerGW, seasonVaultCollectedSoFar) : 0)
+                        : 0;
+                    const nonForfeitedRemaining = Math.max(0, (38 - effectiveLeagueStart + 1) - forfeitedGws.filter(g => g >= effectiveLeagueStart).length);
+                    const projectedFinal = vaultRatePerGW * nonForfeitedRemaining;
+                    const remainingLeagueGws = Math.max(0, nonForfeitedRemaining - completedSeasonGws);
+
                     const chartData = Array.from({ length: totalSeasonGWs }, (_, i) => {
                         const roundGw = effectiveLeagueStart + i;
                         const isForfeitedRound = forfeitedGws.includes(roundGw);
@@ -3354,13 +3358,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                             roundGw,
                         };
                     });
-                    // Strict ledger verified: If seasonVaultCollectedSoFar <= 0, accumulated vault is STRICTLY 0 KES!
-                    const currentVault = completedSeasonGws > 0 
-                        ? (seasonVaultCollectedSoFar > 0 ? Math.min(completedSeasonGws * vaultRatePerGW, seasonVaultCollectedSoFar) : 0)
-                        : 0;
-                    const nonForfeitedRemaining = Math.max(0, (38 - effectiveLeagueStart + 1) - forfeitedGws.filter(g => g >= effectiveLeagueStart).length);
-                    const projectedFinal = vaultRatePerGW * nonForfeitedRemaining;
-                    const remainingLeagueGws = Math.max(0, nonForfeitedRemaining - completedSeasonGws);
 
                     return (
                         <div className="fc-card mt-8 bg-[#0b1014] border border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden">

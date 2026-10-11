@@ -1007,7 +1007,7 @@ export default function Profile() {
                 document.body
             )}
 
-            <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5 sm:gap-3">
                 {[...directoryMembers]
                     .sort((a, b) => {
                         const aInactive = a.isActive === false ? 1 : 0;
@@ -1025,7 +1025,7 @@ export default function Profile() {
                         && isActive
                         && (member.role === 'co-chair' || member.role === 'admin');
                     const rawName = String(member.displayName || 'Member').trim();
-                    const formattedName = rawName.length > 15 ? `${rawName.slice(0, 15)}...` : rawName;
+                    const formattedName = rawName.length > 22 ? `${rawName.slice(0, 20)}...` : rawName;
 
                     return (
                         <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[86px] sm:min-h-[90px] h-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f151a] p-2 flex flex-col items-center justify-center gap-1.5 shadow-xs hover:border-emerald-500/40 dark:hover:border-white/20 transition-all">

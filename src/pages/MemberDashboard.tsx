@@ -2402,7 +2402,7 @@ export default function MemberDashboard() {
 
                                     <p className="text-[10px] text-gray-400 mt-3 pt-2.5 border-t border-white/5">
                                         {isRoundFinished
-                                            ? "Official FPL points and rankings finalized."
+                                            ? "Official FPL points finalized. Chairman will resolve & disburse payout shortly."
                                             : "Bonus points & auto-subs lock after the final whistle."}
                                     </p>
                                 </div>

@@ -3985,14 +3985,47 @@ burstFrame();
               const fixturePct = fixtureStats && fixtureStats.total > 0 ? Math.round((fixtureStats.finished / fixtureStats.total) * 100) : 0;
 
               return (
-                <div
-                  className={clsx(
-                    "fc-card relative overflow-hidden rounded-3xl sm:rounded-[2rem] border transition-all shadow-xl p-4 sm:p-6 mb-4",
-                    "bg-white dark:bg-gradient-to-r dark:from-[#181409] dark:via-[#161d24] dark:to-[#0f141a]",
-                    "border-amber-400/40 dark:border-[#FBBF24]/30",
-                    resolutionPulse && "fc-burst-success"
+                <>
+                  {/* Action Notice: Prompt Chairman to resolve immediately upon final whistle */}
+                  {isRoundConcluded && !gwAlreadySettled && !isResolved && !isPreLeagueRound && (
+                    <div className="mb-4 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-emerald-500/20 border-2 border-amber-400/60 dark:border-amber-400/50 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+                      <div className="flex items-start gap-3.5 min-w-0">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-500 shrink-0 mt-0.5 shadow-sm">
+                          <Trophy className="w-5 h-5 text-amber-500 animate-bounce" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                              Final Whistle Blown — GW{currentGwNumber || 6} Concluded!
+                            </h4>
+                            <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs">
+                              Action Required
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-gray-300 font-medium mt-1 leading-relaxed">
+                            Matches have ended. Resolve now to crown the winner, execute payout, and automatically deduct player stakes into the Chama ledger.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTimeout(() => setShowResolveModal(true), 0)}
+                        className="px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg hover:shadow-amber-400/25 active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                      >
+                        <Trophy className="w-4 h-4" />
+                        <span>Resolve & Disburse Pot ↗</span>
+                      </button>
+                    </div>
                   )}
-                >
+
+                  <div
+                    className={clsx(
+                      "fc-card relative overflow-hidden rounded-3xl sm:rounded-[2rem] border transition-all shadow-xl p-4 sm:p-6 mb-4",
+                      "bg-white dark:bg-gradient-to-r dark:from-[#181409] dark:via-[#161d24] dark:to-[#0f141a]",
+                      "border-amber-400/40 dark:border-[#FBBF24]/30",
+                      resolutionPulse && "fc-burst-success"
+                    )}
+                  >
                   {/* Ambient background glows */}
                   <div className="absolute top-0 right-0 w-80 h-32 bg-amber-500/10 dark:bg-[#FBBF24]/10 blur-[80px] pointer-events-none" />
                   <div className="absolute bottom-0 left-0 w-64 h-32 bg-emerald-500/10 blur-[80px] pointer-events-none" />
@@ -4340,7 +4373,8 @@ burstFrame();
                     </div>
                   </div>
                 </div>
-              );
+              </>
+            );
             })()}
 
             <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 w-full">
