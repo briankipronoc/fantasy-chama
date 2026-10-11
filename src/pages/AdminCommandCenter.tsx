@@ -46,6 +46,7 @@ import PotVaultSwapper from "../components/PotVaultSwapper";
 import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
 import MidSeasonBuyInCalculatorModal from "../components/MidSeasonBuyInCalculatorModal";
 import FplServerStatusBanner from "../components/FplServerStatusBanner";
+import { calculateMpesaSendFee, calculateNetPayout } from "../utils/mpesaFees";
 import { db, auth } from "../firebase";
 import {
   doc,
@@ -497,6 +498,26 @@ export default function AdminCommandCenter() {
   }, [pendingHQDebt]);
 
   const suspensionNudges = leagueSettings?.suspensionNudges || [];
+
+  // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
+  const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
+  const effectiveStartGw = useMemo(() => {
+    if (rawStartGw > 5) {
+      return 5;
+    }
+    return Math.max(1, rawStartGw || 5);
+  }, [rawStartGw]);
+
+  // Auto-heal league startGw in database if it was accidentally set to 6
+  useEffect(() => {
+    if (activeLeagueId && rawStartGw > 5) {
+      const leagueRef = doc(db, "leagues", activeLeagueId);
+      updateDoc(leagueRef, { startGw: 5 }).catch((err) => {
+        console.warn("Could not auto-heal league startGw to 5:", err);
+      });
+      setStartGw(5);
+    }
+  }, [activeLeagueId, rawStartGw]);
 
   const members = useStore((state) => state.members);
   const listenToLeagueMembers = useStore(
@@ -1512,25 +1533,6 @@ export default function AdminCommandCenter() {
       (m.isPending === true || (!m.phone && !m.phoneNumber))
     );
 
-  // Dynamically respect league start GW (e.g. GW1 for full season, or GW5 for mid-season clean slate)
-  const rawStartGw = Number((leagueSettings as any)?.startGw || startGw || 1);
-  const effectiveStartGw = useMemo(() => {
-    if (rawStartGw > 5) {
-      return 5;
-    }
-    return Math.max(1, rawStartGw || 5);
-  }, [rawStartGw]);
-
-  // Auto-heal league startGw in database if it was accidentally set to 6
-  useEffect(() => {
-    if (activeLeagueId && rawStartGw > 5) {
-      const leagueRef = doc(db, "leagues", activeLeagueId);
-      updateDoc(leagueRef, { startGw: 5 }).catch((err) => {
-        console.warn("Could not auto-heal league startGw to 5:", err);
-      });
-      setStartGw(5);
-    }
-  }, [activeLeagueId, rawStartGw]);
 
   // Only actual in-season gameweeks (>= effectiveStartGw) marked as forfeited count towards voided rounds
   const actualForfeitedGws = ((leagueSettings as any)?.forfeitedGws || []).filter((g: number) => g >= effectiveStartGw);
@@ -2841,14 +2843,17 @@ export default function AdminCommandCenter() {
       if (hasValidCoChair) {
         // Feature: Maker / Checker (Requires Approval)
         const pendingPayoutsRef = collection(db, "leagues", activeLeagueId, "pending_payouts");
-        const splitAmount = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
+        const rawSplit = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
+        const { gross, fee, net } = calculateNetPayout(rawSplit);
         
         for (const w of winners) {
           await addDoc(pendingPayoutsRef, {
             winnerId: w.id,
             winnerName: w.displayName + (winners.length > 1 ? " (Tie)" : ""),
             winnerPhone: w.phone,
-            amount: splitAmount,
+            amount: net,
+            grossAmount: gross,
+            feeAmount: fee,
             points: winningPoints,
             gw: gwNumber,
             status: "awaiting_approval",
@@ -2934,13 +2939,16 @@ burstFrame();
       } else {
         // No Co-Chair? Chairman becomes maker-checker and signs the pending payout from the same queue.
         const pendingPayoutsRef = collection(db, "leagues", activeLeagueId, "pending_payouts");
-        const splitAmount = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
+        const rawSplit = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
+        const { gross, fee, net } = calculateNetPayout(rawSplit);
         for (const w of winners) {
           await addDoc(pendingPayoutsRef, {
             winnerId: w.id,
             winnerName: w.displayName + (winners.length > 1 ? " (Tie)" : ""),
             winnerPhone: w.phone,
-            amount: splitAmount,
+            amount: net,
+            grossAmount: gross,
+            feeAmount: fee,
             points: winningPoints,
             gw: gwNumber,
             status: "awaiting_approval",
@@ -3165,12 +3173,19 @@ burstFrame();
         },
       );
 
+      const payoutGross = Number(payout.grossAmount || (payout.feeAmount ? Number(payout.amount || 0) + Number(payout.feeAmount || 0) : payout.amount) || 0);
+      const payoutFee = Number(payout.feeAmount !== undefined ? payout.feeAmount : calculateMpesaSendFee(payoutGross));
+      const payoutNet = Number(payout.amount && payout.grossAmount ? payout.amount : Math.max(0, payoutGross - payoutFee));
+
       if (resolvedMethod === "cash") {
         await addDoc(
           collection(db, "leagues", activeLeagueId, "transactions"),
           {
             type: "payout",
-            amount: payout.amount,
+            amount: payoutNet,
+            grossAmount: payoutGross,
+            feeAmount: payoutFee,
+            feeBreakdown: payoutFee > 0 ? `Gross KES ${payoutGross.toLocaleString()} less KES ${payoutFee} M-Pesa transfer fee = KES ${payoutNet.toLocaleString()}` : undefined,
             winnerName: payout.winnerName,
             winnerId: payout.winnerId,
             winnerPhone: payoutPhone || null,
@@ -3191,7 +3206,9 @@ burstFrame();
             winnerName: payout.winnerName,
             points: payoutPoints,
             gw: Number(payout.gw || 0),
-            message: `Cash handoff confirmed: ${payout.winnerName} received KES ${Number(payout.amount || 0).toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts).`,
+            message: payoutFee > 0
+              ? `Cash handoff confirmed: ${payout.winnerName} received KES ${payoutNet.toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts) [Gross KES ${payoutGross.toLocaleString()} less KES ${payoutFee} fee].`
+              : `Cash handoff confirmed: ${payout.winnerName} received KES ${payoutNet.toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts).`,
             timestamp: serverTimestamp(),
             readBy: [],
           },

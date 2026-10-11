@@ -832,7 +832,7 @@ export default function Standings() {
 
     if (isLoading) {
         return (
-            <div className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden bg-transparent">
+            <div className="fc-standings-page min-h-screen w-full font-sans text-slate-900 dark:text-white relative overflow-hidden bg-transparent">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-6">
                     <Header role={role || 'member'} title={resolvedTitle} subtitle="Gameweek Rankings" />
                     <StandingsSkeleton />
@@ -843,7 +843,7 @@ export default function Standings() {
 
     return (
         <div
-            className="fc-standings-page min-h-screen w-full font-sans text-white relative overflow-hidden bg-transparent"
+            className="fc-standings-page min-h-screen w-full font-sans text-slate-900 dark:text-white relative overflow-hidden bg-transparent"
         >
             {/* Ambient Lighting Background — smoothly blended like SideBets */}
             <div className="absolute inset-0 pointer-events-none opacity-60">
@@ -945,9 +945,9 @@ export default function Standings() {
                 {/* Stats swapper + user hero */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Honest Funded Pot Members Card */}
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px]">
+                    <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-5 flex items-center justify-between min-h-[88px] shadow-sm dark:shadow-md">
                         <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Funded Pot Members</p>
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest mb-1">Funded Pot Members</p>
                             {(() => {
                                 const activeOnboardedPotContenders = standingsData.filter((row: any) => {
                                     const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
@@ -967,67 +967,67 @@ export default function Standings() {
 
                                 return (
                                     <>
-                                        <p className="text-2xl font-black text-white">
-                                            {eligibleGwStandings.length} <span className="text-sm font-bold text-gray-400">/ {totalPotMembers} Paid</span>
+                                        <p className="text-2xl font-black text-slate-900 dark:text-white">
+                                            {eligibleGwStandings.length} <span className="text-sm font-bold text-slate-500 dark:text-gray-400">/ {totalPotMembers} Paid</span>
                                         </p>
                                         <p className="text-[10px] font-semibold mt-0.5">
                                             {unpaidCount > 0 ? (
-                                                <span className="text-rose-500 font-bold">{unpaidCount} in Red Zone (unpaid)</span>
+                                                 <span className="text-rose-500 font-bold">{unpaidCount} in Red Zone (unpaid)</span>
                                             ) : (
-                                                <span className="text-emerald-400 font-bold">All pot members funded ✓</span>
+                                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">All pot members funded ✓</span>
                                             )}
-                                            {pendingOnboardingCount > 0 ? <span className="text-amber-400 font-medium"> · {pendingOnboardingCount} Pending Onboarding</span> : null}
-                                            {spectatorCount > 0 ? <span className="text-gray-400 font-normal"> · {spectatorCount} Spectators (1v1 Bets)</span> : null}
+                                            {pendingOnboardingCount > 0 ? <span className="text-amber-600 dark:text-amber-400 font-medium"> · {pendingOnboardingCount} Pending Onboarding</span> : null}
+                                            {spectatorCount > 0 ? <span className="text-slate-500 dark:text-gray-400 font-normal"> · {spectatorCount} Spectators (1v1 Bets)</span> : null}
                                         </p>
                                     </>
                                 );
                             })()}
                         </div>
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                            <Users className="w-5 h-5 text-emerald-400" />
+                            <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                     </div>
 
                     {/* User hero card with GW / Season rank toggle */}
                     {myStanding && (
-                        <div className="fc-card bg-gradient-to-r from-[#FBBF24]/10 via-[#161d24] to-[#161d24] border border-[#FBBF24]/20 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+                        <div className="fc-card bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:via-[#161d24] dark:to-[#161d24] bg-white dark:bg-[#161d24] border border-amber-500/25 dark:border-[#FBBF24]/20 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm dark:shadow-lg">
                             <div className="flex-1 min-w-0">
                                 {/* Toggle pill */}
-                                <div className="flex items-center gap-1 bg-black/30 p-1 rounded-xl border border-white/10 w-fit mb-3">
+                                <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/30 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit mb-3">
                                     <button
                                         type="button"
                                         onClick={() => { haptics.selection(); setHeroRankView('season'); }}
-                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'season' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
+                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'season' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white')}
                                     >Season</button>
                                     <button
                                         type="button"
                                         onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
-                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'gw' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-gray-400 hover:text-white')}
+                                        className={clsx('px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all', heroRankView === 'gw' ? 'bg-[#FBBF24] text-slate-950 shadow-sm' : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white')}
                                     >GW Rank</button>
                                 </div>
 
                                 {heroRankView === 'gw' ? (
                                     <>
-                                        <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your GW{currentEvent || ''} Rank</p>
-                                        <p className="text-2xl font-black text-white">
+                                        <p className="text-[10px] font-bold text-amber-700 dark:text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your GW{currentEvent || ''} Rank</p>
+                                        <p className="text-2xl font-black text-slate-900 dark:text-white">
                                             #{myGwRank || (myStandingIdx + 1)}
-                                            <span className="text-sm font-bold text-[#FBBF24] ml-2">{myStanding.event_total} pts</span>
+                                            <span className="text-sm font-bold text-amber-600 dark:text-[#FBBF24] ml-2">{myStanding.event_total} pts</span>
                                         </p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-0.5">
                                             League avg: {currentGwAverage} pts
                                             {Number(myStanding.event_total) > Number(currentGwAverage)
-                                                ? <span className="text-emerald-400 ml-1">· {(Number(myStanding.event_total) - Number(currentGwAverage)).toFixed(0)} above avg</span>
-                                                : myStandingIdx > 0 ? <span className="text-gray-500 ml-1">· {(Number(currentGwAverage) - Number(myStanding.event_total)).toFixed(0)} below avg</span> : null}
+                                                ? <span className="text-emerald-600 dark:text-emerald-400 ml-1">· {(Number(myStanding.event_total) - Number(currentGwAverage)).toFixed(0)} above avg</span>
+                                                : myStandingIdx > 0 ? <span className="text-slate-500 dark:text-gray-500 ml-1">· {(Number(currentGwAverage) - Number(myStanding.event_total)).toFixed(0)} below avg</span> : null}
                                         </p>
                                     </>
                                 ) : (
                                     <>
-                                        <p className="text-[10px] font-bold text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your Season Rank</p>
-                                        <p className="text-2xl font-black text-white">
+                                        <p className="text-[10px] font-bold text-amber-700 dark:text-[#FBBF24]/70 uppercase tracking-widest mb-1">Your Season Rank</p>
+                                        <p className="text-2xl font-black text-slate-900 dark:text-white">
                                             #{mySeasonRank ?? (myStandingIdx + 1)}
-                                            <span className="text-sm font-bold text-[#FBBF24] ml-2">{Number(myStanding.total || 0).toLocaleString()} pts</span>
+                                            <span className="text-sm font-bold text-amber-600 dark:text-[#FBBF24] ml-2">{Number(myStanding.total || 0).toLocaleString()} pts</span>
                                         </p>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-0.5">
                                             {sortedSeasonPool[0] && mySeasonRank && mySeasonRank > 1
                                                 ? `${(Number(sortedSeasonPool[0].total || 0) - Number(myStanding.total || 0)).toLocaleString()} pts behind #1`
                                                 : mySeasonRank === 1 ? '🏆 Leading the season!' : 'Season standings'}
@@ -1154,9 +1154,9 @@ export default function Standings() {
                         </div>
                     )
                 ) : (
-                    <div className="fc-card w-full bg-[#161d24] border border-white/5 rounded-2xl overflow-hidden">
+                    <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
                         {/* Desktop table header — hidden on mobile */}
-                        <div className="hidden md:grid grid-cols-12 gap-2 px-5 py-3 border-b border-white/5 bg-black/20 text-[10px] font-bold text-[#10B981] uppercase tracking-widest">
+                        <div className="hidden md:grid grid-cols-12 gap-2 px-5 py-3 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/20 text-[10px] font-black text-emerald-600 dark:text-[#10B981] uppercase tracking-widest">
                             <div className="col-span-1">Rank</div>
                             <div className="col-span-4">Member</div>
                             <div className="col-span-3">FPL Team</div>
@@ -1165,7 +1165,7 @@ export default function Standings() {
                             <div className="col-span-2 text-right">Status</div>
                         </div>
                         {/* Rows */}
-                        <div className="divide-y divide-white/[0.04]">
+                        <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {(() => {
                                 const filteredRows = standingsData
                                     .filter((row: any) => {
@@ -1261,7 +1261,7 @@ export default function Standings() {
                                         className={clsx(
                                             'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards cursor-pointer group',
                                             podiumBorder,
-                                            isTop1Overall ? 'bg-[#10B981]/5 hover:bg-[#10B981]/10' : (isSeasonView && isInPodium && index > 0) ? 'bg-emerald-500/[0.02] hover:bg-emerald-500/[0.06]' : 'hover:bg-white/[0.04]',
+                                            isTop1Overall ? 'bg-emerald-500/10 hover:bg-emerald-500/15' : (isSeasonView && isInPodium && index > 0) ? 'bg-emerald-500/[0.04] hover:bg-emerald-500/[0.08]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]',
                                             isGwWinnerRow && !isTop1Overall ? 'bg-[#10B981]/10 ring-1 ring-[#10B981]/30' : '',
                                             isMe ? 'ring-1 ring-[#FBBF24]/40' : ''
                                         )}
@@ -1269,12 +1269,12 @@ export default function Standings() {
                                     >
                                         {/* Rank + Avatar + Name (Row 1 on Mobile, Col 1-5 on Desktop) */}
                                         <div className="flex items-center gap-3 md:col-span-5 w-full">
-                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-7 text-center shrink-0 flex items-center justify-center', isTop1Overall ? 'text-[#10B981]' : 'text-gray-500')}>
+                                            <span className={clsx('font-extrabold text-lg md:text-base tabular-nums w-7 text-center shrink-0 flex items-center justify-center', isTop1Overall ? 'text-emerald-600 dark:text-[#10B981]' : 'text-slate-600 dark:text-gray-400')}>
                                                 {medal || (row.isTied ? `T${rankNum}` : rankNum)}
                                             </span>
                                             <UserAvatar name={row.player_name} size="sm" />
                                             <div className="flex-1 min-w-0">
-                                                <span className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap group-hover:text-emerald-300 transition-colors">
+                                                <span className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 flex-wrap group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
                                                     <span className="truncate max-w-[170px] md:max-w-none">{row.player_name}</span>
                                                     {matchedMember?.id === chairmanId && (
                                                         <span className="bg-[#FBBF24]/10 text-[#FBBF24] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#FBBF24]/30">Chair</span>
@@ -1283,35 +1283,35 @@ export default function Standings() {
                                                         <span className="bg-[#10B981]/10 text-[#10B981] text-[8px] px-1 py-0.5 rounded uppercase tracking-widest font-black border border-[#10B981]/30">Co</span>
                                                     )}
                                                 </span>
-                                                <p className="text-[11px] text-gray-400 group-hover:text-emerald-400 transition-colors truncate md:hidden flex items-center gap-1 mt-0.5">
-                                                    <Shirt className="w-3 h-3 text-emerald-400/80 shrink-0" />
+                                                <p className="text-[11px] text-slate-500 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate md:hidden flex items-center gap-1 mt-0.5">
+                                                    <Shirt className="w-3 h-3 text-emerald-600 dark:text-emerald-400/80 shrink-0" />
                                                     {row.entry_name}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {/* FPL Team — desktop only */}
-                                        <div className="hidden md:flex md:col-span-3 text-gray-400 group-hover:text-emerald-300 transition-colors text-sm italic truncate pr-2 items-center gap-1.5">
-                                            <Shirt className="w-3.5 h-3.5 text-emerald-400/70 shrink-0" />
+                                        <div className="hidden md:flex md:col-span-3 text-slate-600 dark:text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors text-sm italic truncate pr-2 items-center gap-1.5">
+                                            <Shirt className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400/70 shrink-0" />
                                             <span className="truncate">{row.entry_name}</span>
                                         </div>
 
                                         {/* Stats Row (Row 2 on Mobile, Col 9-12 on Desktop) */}
-                                        <div className="flex items-center justify-between md:contents mt-3 md:mt-0 pt-3 md:pt-0 border-t border-white/5 md:border-0 w-full">
+                                        <div className="flex items-center justify-between md:contents mt-3 md:mt-0 pt-3 md:pt-0 border-t border-slate-200 dark:border-white/5 md:border-0 w-full">
                                             <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 md:hidden mb-1.5">GW Pts</span>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">GW Pts</span>
                                                 <span className={clsx(
                                                     'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
                                                     isGwWinnerRow
                                                         ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
-                                                        : 'bg-white/5 text-slate-200 border-white/5'
+                                                        : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-slate-200 border-slate-200 dark:border-white/5'
                                                 )}>
                                                     {row.event_total}
                                                 </span>
                                             </div>
                                             <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 md:hidden mb-1.5">Total</span>
-                                                <div className="font-extrabold text-white text-sm tabular-nums">{Number(row.total || 0).toLocaleString()}</div>
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">Total</span>
+                                                <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">{Number(row.total || 0).toLocaleString()}</div>
                                             </div>
                                             <div className="md:col-span-2 flex justify-end md:justify-end items-center w-28 md:w-auto">
                                                 {isSpectator ? (
@@ -1543,11 +1543,11 @@ export default function Standings() {
                 )}
 
                 {!error && topSeasonLeaders.length > 0 && (Number(leagueRules.vault ?? 30) > 0) && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
+                    <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm dark:shadow-xl">
                         <div className="flex items-center justify-between gap-3 mb-4">
                             <div>
-                                <h3 className="text-sm md:text-base font-black text-white tracking-tight">Season Race Snapshot</h3>
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">
+                                <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">Season Race Snapshot</h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-500 mt-1">
                                     {seasonSnapshotLabel} • end-season vault leaders only
                                 </p>
                             </div>
@@ -1569,39 +1569,39 @@ export default function Standings() {
                                 const isLeaderFunded = isMemberEligibleWinner(leader);
                                 const isLeaderTied = Boolean(leader.isTied);
                                 return (
-                                    <div key={leader.id || idx} className="rounded-2xl border border-white/10 bg-[#0b1014]/90 p-2.5 sm:p-3.5 flex flex-col justify-between shadow-lg hover:border-amber-500/30 transition-all min-w-0">
+                                    <div key={leader.id || idx} className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 flex flex-col justify-between shadow-sm dark:shadow-lg hover:border-amber-500/30 transition-all min-w-0">
                                         <div>
                                             <div className="flex items-center justify-between gap-1 mb-1.5">
-                                                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-amber-400 flex items-center gap-1 truncate">
+                                                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 truncate">
                                                     {leaderMedal ? `${leaderMedal} #${leaderRank}` : `#${leaderRank}`}
                                                     {isLeaderTied && (
-                                                        <span className="text-[7px] sm:text-[8px] font-black text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
+                                                        <span className="text-[7px] sm:text-[8px] font-black text-amber-700 dark:text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
                                                             Tied
                                                         </span>
                                                     )}
                                                 </span>
                                                 {isLeaderFunded ? (
-                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 truncate">
+                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 truncate">
                                                         ✓ Funded
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
+                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
                                                         ⏳ Pending
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs sm:text-sm font-black text-white truncate">{leader.player_name}</p>
-                                            <p className="text-[9px] sm:text-[10px] text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
+                                            <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">{leader.player_name}</p>
+                                            <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
                                         </div>
-                                        <div className="mt-2 pt-1.5 border-t border-white/5">
-                                            <p className="text-xs sm:text-base font-black text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
-                                            <p className="text-[8px] sm:text-[10px] text-gray-500 font-bold mt-0.5 truncate">
+                                        <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5">
+                                            <p className="text-xs sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
+                                            <p className="text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-500 font-bold mt-0.5 truncate">
                                                 {isLeaderFunded ? (
                                                     Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
                                                         ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
                                                         : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} behind`
                                                 ) : (
-                                                    <span className="text-amber-400/90 font-medium">Pending deposit</span>
+                                                    <span className="text-amber-600 dark:text-amber-400/90 font-medium">Pending deposit</span>
                                                 )}
                                             </p>
                                         </div>
@@ -1613,11 +1613,11 @@ export default function Standings() {
                 )}
 
                 {!error && gwWinnersLedger.length > 0 && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-5 md:p-6">
+                    <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm dark:shadow-xl">
                         <div className="flex items-center justify-between gap-3 mb-4">
                             <div>
-                                <h3 className="text-sm md:text-base font-black text-white tracking-tight">Gameweek Winners Ledger</h3>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">Historical and upcoming round payouts</p>
+                                <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">Gameweek Winners Ledger</h3>
+                                <p className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">Historical and upcoming round payouts</p>
                             </div>
                         </div>
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">

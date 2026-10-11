@@ -159,36 +159,36 @@ export default class ErrorBoundary extends Component<Props, State> {
             const info = getHumanFriendlyErrorInfo(this.state.error, this.props.fallbackMessage);
 
             return (
-                <div className="fc-error-boundary min-h-[100dvh] w-full flex flex-col items-center justify-center gap-5 px-4 sm:px-6 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+2rem))] pb-12 text-center bg-[#0a0e17] text-white select-none border-0 outline-none">
+                <div className="fc-error-boundary min-h-[100dvh] w-full flex flex-col items-center justify-center gap-5 px-4 sm:px-6 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+2rem))] pb-12 text-center bg-slate-50 dark:bg-[#0a0e17] text-slate-900 dark:text-white select-none border-0 outline-none">
                     {/* Visual Status Indicator Icon */}
                     <div className="relative">
                         <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_35px_rgba(16,185,129,0.18)]">
                             {info.icon === 'network' ? (
-                                <WifiOff className="w-8 h-8 text-amber-400" />
+                                <WifiOff className="w-8 h-8 text-amber-500 dark:text-amber-400" />
                             ) : info.icon === 'refresh' || info.icon === 'fpl' ? (
-                                <RefreshCw className="w-8 h-8 text-emerald-400" />
+                                <RefreshCw className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                             ) : (
-                                <AlertTriangle className="w-8 h-8 text-amber-400" />
+                                <AlertTriangle className="w-8 h-8 text-amber-500 dark:text-amber-400" />
                             )}
                         </div>
-                        <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#0a0e17] border border-emerald-500/40 flex items-center justify-center">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white dark:bg-[#0a0e17] border border-emerald-500/40 flex items-center justify-center shadow-xs">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                         </div>
                     </div>
 
                     {/* Human-Friendly Text Copy */}
                     <div className="max-w-md space-y-2">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-black uppercase tracking-wider">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                             Funds & Chama Records Safe
                         </div>
-                        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
+                        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-1">
                             {info.title}
                         </h2>
-                        <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                             {info.explanation}
                         </p>
-                        <p className="text-[11px] sm:text-xs text-emerald-400/90 font-bold mt-1">
+                        <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400 font-bold mt-1">
                             {info.actionAdvice}
                         </p>
                     </div>
@@ -206,9 +206,9 @@ export default class ErrorBoundary extends Component<Props, State> {
                         <button
                             type="button"
                             onClick={this.handleGoToDashboard}
-                            className="w-full sm:flex-1 py-3 px-5 text-xs font-black uppercase tracking-wider rounded-2xl transition-all border border-slate-700 hover:border-emerald-500/40 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                            className="w-full sm:flex-1 py-3 px-5 text-xs font-black uppercase tracking-wider rounded-2xl transition-all border border-slate-300 dark:border-slate-700 hover:border-emerald-500/40 bg-white hover:bg-slate-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-800 dark:text-slate-200 flex items-center justify-center gap-2 active:scale-95 cursor-pointer shadow-xs"
                         >
-                            <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                            <LayoutDashboard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <span>Dashboard</span>
                         </button>
                     </div>
@@ -216,7 +216,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                     <button
                         type="button"
                         onClick={this.handleGoHome}
-                        className="text-[11px] font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                         <Home className="w-3.5 h-3.5" />
                         <span>Return to Main Page</span>
@@ -224,11 +224,11 @@ export default class ErrorBoundary extends Component<Props, State> {
 
                     {/* Discreet Collapsible Technical Diagnostics (Jakob Nielsen #9 & #10: Help developers without scaring users) */}
                     {this.state.error?.message && (
-                        <div className="w-full max-w-md mt-4 pt-3 border-t border-white/5">
+                        <div className="w-full max-w-md mt-4 pt-3 border-t border-slate-200 dark:border-white/5">
                             <button
                                 type="button"
                                 onClick={this.toggleTechnicalDetails}
-                                className="text-[10px] font-bold text-slate-500 hover:text-slate-400 transition-colors inline-flex items-center gap-1 cursor-pointer select-none"
+                                className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-colors inline-flex items-center gap-1 cursor-pointer select-none"
                             >
                                 <span>Technical Diagnostics</span>
                                 {this.state.showTechnicalDetails ? (
@@ -239,11 +239,11 @@ export default class ErrorBoundary extends Component<Props, State> {
                             </button>
 
                             {this.state.showTechnicalDetails && (
-                                <div className="mt-2 p-3 rounded-xl bg-black/60 border border-white/10 text-left font-mono text-[10px] text-slate-400 overflow-x-auto max-h-36 select-text animate-in fade-in duration-150">
-                                    <p className="text-amber-400/90 font-bold mb-1">
+                                <div className="mt-2 p-3.5 rounded-xl bg-slate-100 dark:bg-black/60 border border-slate-200 dark:border-white/10 text-left font-mono text-[10px] text-slate-800 dark:text-slate-300 overflow-x-auto max-h-36 select-text animate-in fade-in duration-150 shadow-inner">
+                                    <p className="text-amber-700 dark:text-amber-400 font-bold mb-1">
                                         Error: {this.state.error.name || 'Error'}
                                     </p>
-                                    <p className="break-all whitespace-pre-wrap text-slate-300">
+                                    <p className="break-all whitespace-pre-wrap text-slate-800 dark:text-slate-300">
                                         {this.state.error.message}
                                     </p>
                                     {this.state.error.stack && (

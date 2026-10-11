@@ -12,6 +12,7 @@ import Header from '../components/Header';
 import SeasonCeremonyModal from '../components/SeasonCeremonyModal';
 import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import AnimatedKes from '../components/AnimatedKes';
+import { calculateMpesaSendFee } from '../utils/mpesaFees';
 import toast from 'react-hot-toast';
 
 const fetchFplStandings = async (leagueId: number) => {
@@ -1146,19 +1147,28 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             || String(tx.receiptId || '').startsWith('SEED_')
             || String(tx.note || '').toUpperCase().includes('ADMIN_PREFUND')
             || String(tx.note || '').toLowerCase().includes('wallet top-up')
-            || tx.paymentMethod === 'cash_handoff';
+        const isPayout = tx.type === 'payout' || tx.type === 'season_vault_payout';
+        const gross = Number(tx.grossAmount || (tx.feeAmount ? Number(tx.amount || 0) + Number(tx.feeAmount || 0) : tx.amount) || 0);
+        const fee = Number(tx.feeAmount || 0);
+        const net = Number(tx.amount || 0);
+
         const title = tx.type === 'payout'
             ? 'Payout Receipt'
-            : isWalletFunding
-                ? 'Wallet Credit Receipt'
-                : 'Deposit Receipt';
+            : tx.type === 'season_vault_payout'
+                ? 'Season Vault Payout Receipt'
+                : isWalletFunding
+                    ? 'Wallet Credit Receipt'
+                    : 'Deposit Receipt';
         const message = [
             `🧾 *${leagueName} ${title}*`,
             '',
             `Member: *${tx.memberName || tx.winnerName || 'Member'}*`,
-            `Amount: *KES ${Number(tx.amount || 0).toLocaleString()}*`,
+            isPayout && fee > 0 ? `Gross Prize Won: *KES ${gross.toLocaleString()}*` : '',
+            isPayout && fee > 0 ? `M-Pesa Sending Fee: *-KES ${fee}* (Pochi tariff)` : '',
+            `Net Disbursed: *KES ${(isPayout && fee > 0 ? net : (tx.amount || 0)).toLocaleString()}*`,
             tx.receiptId ? `Receipt: *${tx.receiptId}*` : '',
             tx.type === 'payout' ? `GW: *${tx.gw || tx.gameweek || 'N/A'}*` : '',
+            isPayout && fee > 0 ? `_Transparent Chama accounting: transfer costs deducted at source._` : '',
             '',
             `Powered by FantasyChama`,
         ].filter(Boolean).join('\n');
@@ -1342,6 +1352,10 @@ const handleApprovePendingPayout = async (payout: any) => {
             );
             const payoutPhone = payout.winnerPhone || winnerMember?.phone;
 
+            const payoutGross = Number(payout.grossAmount || (payout.feeAmount ? Number(payout.amount || 0) + Number(payout.feeAmount || 0) : payout.amount) || 0);
+            const payoutFee = Number(payout.feeAmount !== undefined ? payout.feeAmount : calculateMpesaSendFee(payoutGross));
+            const payoutNet = Number(payout.amount && payout.grossAmount ? payout.amount : Math.max(0, payoutGross - payoutFee));
+
             if ((payout.method === 'mpesa' || !payout.method) && !payoutPhone) {
                 throw new Error('Winner phone number is missing. Update member details and retry.');
             }
@@ -1354,7 +1368,7 @@ const handleApprovePendingPayout = async (payout: any) => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         phone: payoutPhone,
-                        amount: payout.amount,
+                        amount: payoutNet,
                         winnerName: payout.winnerName,
                         remarks: `FantasyChama GW${payout.gw} Approved Payout`,
                         userId: payout.winnerId || winnerMember?.id || activeUserId,
@@ -1373,8 +1387,27 @@ const handleApprovePendingPayout = async (payout: any) => {
             await updateDoc(doc(db, 'leagues', activeLeagueId, 'pending_payouts', payout.id), {
                 status: 'approved',
                 winnerPhone: payoutPhone || null,
+                grossAmount: payoutGross,
+                feeAmount: payoutFee,
+                amount: payoutNet,
                 approvedBy: auth.currentUser?.displayName || 'Admin',
                 approvedAt: serverTimestamp()
+            });
+
+            // Write transaction to ledger
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                type: 'payout',
+                amount: payoutNet,
+                grossAmount: payoutGross,
+                feeAmount: payoutFee,
+                feeBreakdown: payoutFee > 0 ? `Gross KES ${payoutGross.toLocaleString()} less KES ${payoutFee} M-Pesa transfer fee = KES ${payoutNet.toLocaleString()}` : undefined,
+                winnerName: payout.winnerName,
+                winnerId: payout.winnerId,
+                winnerPhone: payoutPhone || null,
+                points: payoutPoints,
+                gw: Number(payout.gw || 0),
+                receiptId: `CASH_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`,
+                timestamp: serverTimestamp(),
             });
 
             // Deduct gameweek stake from each funded member's wallet directly via Firestore
@@ -1398,7 +1431,7 @@ const handleApprovePendingPayout = async (payout: any) => {
                 timestamp: serverTimestamp(),
             });
 
-            showActionMessage('success', `Resolved & paid ${payout.winnerName} (KES ${Number(payout.amount || 0).toLocaleString()}).`);
+            showActionMessage('success', `Resolved & paid ${payout.winnerName} (Net KES ${payoutNet.toLocaleString()}${payoutFee > 0 ? ` · Fee KES ${payoutFee}` : ''}).`);
         } catch (err: any) {
             const message = err?.message || 'Unknown error';
             if (/failed to fetch|networkerror|network error|load failed/i.test(String(message))) {
@@ -1587,11 +1620,11 @@ const handleRejectPendingPayout = async (payout: any) => {
                         </article>
 
                         {/* Wallet Top-Up Card */}
-                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-[#161d24] shadow-md flex flex-col justify-between">
+                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-white dark:bg-[#161d24] shadow-sm dark:shadow-md flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Wallet Top-Up</p>
-                                    <Wallet className="w-4 h-4 text-emerald-400" />
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Wallet Top-Up</p>
+                                    <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 </div>
 
                                 <div className="space-y-2.5">
@@ -1605,14 +1638,14 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             setCashTopUpAmount(cleaned);
                                         }}
                                         placeholder="Amount (KES)"
-                                        className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                                        className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/25 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
                                     />
                                     <input
                                         type="text"
                                         value={cashTopUpNote}
                                         onChange={(e) => setCashTopUpNote(e.target.value)}
                                         placeholder="Optional note"
-                                        className="w-full rounded-xl border border-white/10 bg-black/25 px-3.5 py-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400"
+                                        className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/25 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
                                     />
                                     <div className="grid grid-cols-2 gap-2 pt-1">
                                         <button

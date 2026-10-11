@@ -8,6 +8,7 @@ import { AlertTriangle, RefreshCw, ArrowRightLeft } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
+import { calculateNetPayout } from '../utils/mpesaFees';
 import type { Member } from '../store/useStore';
 
 export interface SeasonWinnerTier {
@@ -524,16 +525,20 @@ export default function SeasonCeremonyModal({
                         // 1. Record season winner payouts
                         winners.forEach((w) => {
                           if (w.amount > 0) {
+                            const { gross, fee, net } = calculateNetPayout(w.amount);
                             const payoutRef = doc(collection(db, 'leagues', leagueId, 'transactions'));
                             batch.set(payoutRef, {
                               type: 'season_vault_payout',
                               memberName: w.name,
-                              amount: w.amount,
+                              grossAmount: gross,
+                              feeAmount: fee,
+                              amount: net,
                               rank: w.rank,
                               teamName: w.teamName,
                               timestamp: serverTimestamp(),
                               status: 'completed',
-                              description: `Season Vault Tier #${w.rank} Prize (${w.percent}%)`
+                              feeBreakdown: fee > 0 ? `Gross KES ${gross.toLocaleString()} less KES ${fee} M-Pesa transfer fee = KES ${net.toLocaleString()}` : undefined,
+                              description: `Season Vault Tier #${w.rank} Prize (${w.percent}%): Net KES ${net.toLocaleString()}${fee > 0 ? ` (less KES ${fee} M-Pesa sending fee)` : ''}`
                             });
                           }
                         });

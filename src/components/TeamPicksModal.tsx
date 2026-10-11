@@ -345,9 +345,9 @@ export default function TeamPicksModal({
                     ) : (
                         <>
                             {/* Visual Pitch */}
-                            <div className="relative rounded-2xl sm:rounded-3xl p-3 sm:p-5 overflow-hidden border border-emerald-500/25 bg-gradient-to-b from-[#0d2a1b] via-[#091f14] to-[#06150d] shadow-2xl">
+                            <div className="relative rounded-2xl sm:rounded-3xl p-3 sm:p-5 overflow-hidden border border-emerald-500/30 dark:border-emerald-500/25 bg-gradient-to-b from-emerald-600 via-emerald-650 to-emerald-700 dark:from-[#0d2a1b] dark:via-[#091f14] dark:to-[#06150d] shadow-2xl">
                                 {/* Pitch Markings */}
-                                <div className="absolute inset-0 pointer-events-none opacity-20">
+                                <div className="absolute inset-0 pointer-events-none opacity-35 dark:opacity-20">
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-16 border-b-2 border-x-2 border-white rounded-b-xl" />
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full border-2 border-white" />
                                     <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white" />
@@ -471,15 +471,21 @@ function renderPlayerCard(pick: PlayerPick, player: PlayerDetails | undefined, a
                 <div className={clsx(
                     "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center p-0.5 border shadow-md transition-transform group-hover:scale-105",
                     isCaptain
-                        ? "bg-gradient-to-br from-amber-500/30 to-amber-600/10 border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.25)]"
+                        ? "bg-amber-400 dark:bg-gradient-to-br dark:from-amber-500/30 dark:to-amber-600/10 border-amber-300 dark:border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
                         : isVice
-                            ? "bg-gradient-to-br from-slate-400/25 to-slate-600/10 border-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.15)]"
-                            : "bg-[#101b15]/90 border-white/15 hover:border-emerald-400/40"
+                            ? "bg-slate-200 dark:bg-gradient-to-br dark:from-slate-400/25 dark:to-slate-600/10 border-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.25)]"
+                            : "bg-white/95 dark:bg-[#101b15]/90 border-slate-200/90 dark:border-white/15 hover:border-emerald-400/60 shadow-sm"
                 )}>
-                    <span className="text-[8px] font-black text-emerald-400 tracking-wider uppercase leading-none">
+                    <span className={clsx(
+                        "text-[8px] font-black tracking-wider uppercase leading-none",
+                        isCaptain ? "text-amber-950 dark:text-amber-300" : isVice ? "text-slate-800 dark:text-slate-200" : "text-emerald-700 dark:text-emerald-400"
+                    )}>
                         {player?.team_short || 'PL'}
                     </span>
-                    <Shirt className={clsx("w-4 h-4 sm:w-5 sm:h-5 mt-0.5", isCaptain ? "text-amber-300" : isVice ? "text-slate-200" : "text-emerald-100")} />
+                    <Shirt className={clsx(
+                        "w-4 h-4 sm:w-5 sm:h-5 mt-0.5",
+                        isCaptain ? "text-amber-950 dark:text-amber-300" : isVice ? "text-slate-700 dark:text-slate-200" : "text-emerald-600 dark:text-emerald-100"
+                    )} />
                 </div>
 
                 {/* Captaincy Badge */}
@@ -489,25 +495,29 @@ function renderPlayerCard(pick: PlayerPick, player: PlayerDetails | undefined, a
                     </span>
                 )}
                 {isVice && !isCaptain && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-300 text-slate-950 font-black text-[8px] flex items-center justify-center border border-white shadow">
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-200 text-slate-950 font-black text-[8px] flex items-center justify-center border border-white shadow">
                         VC
                     </span>
                 )}
             </div>
 
             {/* Name Banner */}
-            <div className="w-full mt-1 px-1 py-0.5 rounded-md bg-black/70 backdrop-blur-sm border border-white/10">
-                <p className="text-[10px] sm:text-[11px] font-bold text-white truncate leading-tight">
+            <div className="w-full mt-1 px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-lg bg-white/95 dark:bg-black/85 backdrop-blur-md border border-slate-300/80 dark:border-white/15 shadow-sm">
+                <p className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white truncate leading-tight">
                     {player?.web_name || `Player ${pick.element}`}
                 </p>
                 <div className="flex items-center justify-center gap-1 mt-0.5">
-                    <span className="text-[8.5px] text-gray-400 font-mono">
+                    <span className="text-[8.5px] text-slate-600 dark:text-gray-300 font-bold font-mono">
                         {POSITION_LABELS[player?.element_type || 0] || 'MID'}
                     </span>
-                    <span className="text-gray-600">•</span>
+                    <span className="text-slate-400 dark:text-gray-500 font-bold">•</span>
                     <span className={clsx(
                         "text-[9.5px] sm:text-[10px] font-black tabular-nums",
-                        scoredPoints > 6 ? "text-emerald-400" : scoredPoints > 2 ? "text-white" : "text-gray-300"
+                        scoredPoints > 6 
+                            ? "text-emerald-700 dark:text-emerald-400" 
+                            : scoredPoints > 2 
+                                ? "text-slate-900 dark:text-white" 
+                                : "text-slate-700 dark:text-gray-300"
                     )}>
                         {scoredPoints} pts
                     </span>
