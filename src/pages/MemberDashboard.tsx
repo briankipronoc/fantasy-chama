@@ -2347,13 +2347,18 @@ export default function MemberDashboard() {
                                 {/* TILE 2: Matchday Clock & Fixtures */}
                                 <div className="rounded-2xl p-4 bg-black/40 border border-white/10 flex flex-col justify-between shadow-xs">
                                     <div>
-                                        <div className="flex items-center justify-between gap-2 mb-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-gray-400">
-                                                <Clock className="w-3.5 h-3.5 text-amber-500" /> Fixtures & Schedule
-                                            </p>
-                                            <span className="text-[9px] font-black text-gray-300 tabular-nums">
-                                                {fixtureStats ? `${fixtureStats.finished}/${fixtureStats.total} Played` : 'FPL Live'}
+                                        <div className="mb-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-0.5">
+                                                {currentFplEvent?.name || (currentFplEvent?.id ? `Gameweek ${currentFplEvent.id}` : 'Gameweek')}
                                             </span>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-white">
+                                                    <Clock className="w-3.5 h-3.5 text-amber-500" /> Fixtures & Schedule
+                                                </p>
+                                                <span className="text-[9px] font-black text-gray-300 tabular-nums">
+                                                    {fixtureStats ? `${fixtureStats.finished}/${fixtureStats.total} Played` : 'FPL Live'}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         {/* Visual Progress Bar */}

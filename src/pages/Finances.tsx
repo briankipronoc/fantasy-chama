@@ -3319,13 +3319,39 @@ const handleRejectPendingPayout = async (payout: any) => {
                         : (Number(rules.vault || 30) / 100) * paidMembers.length * (gameweekStake || 0);
                     const completedSeasonGws = playedCompletedGws.length;
 
+                    const effectiveCurrentGw = currentGwNumber || (effectiveLeagueStart + Math.max(0, completedSeasonGws - 1));
+
                     const chartData = Array.from({ length: totalSeasonGWs }, (_, i) => {
                         const roundGw = effectiveLeagueStart + i;
                         const isForfeitedRound = forfeitedGws.includes(roundGw);
+                        const isPastOrCurrent = roundGw <= effectiveCurrentGw;
+                        const isCurrentOrFuture = roundGw >= effectiveCurrentGw;
+
+                        let actualVault: number | null = null;
+                        let projectedVault: number | null = null;
+
+                        if (isPastOrCurrent) {
+                            if (roundGw === effectiveCurrentGw) {
+                                actualVault = currentVault;
+                            } else {
+                                actualVault = isForfeitedRound ? 0 : Math.round(vaultRatePerGW * (i + 1));
+                            }
+                        }
+
+                        if (isCurrentOrFuture) {
+                            if (roundGw === effectiveCurrentGw) {
+                                projectedVault = currentVault;
+                            } else {
+                                const stepsAhead = roundGw - effectiveCurrentGw;
+                                projectedVault = currentVault + Math.round(vaultRatePerGW * stepsAhead);
+                            }
+                        }
+
                         return {
                             gw: `GW${roundGw}`,
-                            vault: isForfeitedRound ? 0 : Math.round(vaultRatePerGW * (i + 1)),
-                            active: (i + 1) <= completedSeasonGws && !isForfeitedRound
+                            actualVault,
+                            projectedVault,
+                            roundGw,
                         };
                     });
                     // Strict ledger verified: If seasonVaultCollectedSoFar <= 0, accumulated vault is STRICTLY 0 KES!
@@ -3365,8 +3391,12 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
                                         <defs>
                                             <linearGradient id="vaultGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
+                                                <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
                                                 <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="projectedVaultGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.15} />
+                                                <stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
@@ -3376,19 +3406,52 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             contentStyle={{ background: '#0b1014', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '10px 14px' }}
                                             labelStyle={{ color: '#10B981', fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}
                                             itemStyle={{ color: '#fff', fontWeight: 800 }}
-                                            formatter={(value) => [`KES ${Number(value ?? 0).toLocaleString()}`, 'Vault']}
+                                            formatter={(value: any, name: any) => {
+                                                if (value === null || value === undefined) return ['', ''];
+                                                const label = name === 'actualVault' ? 'Accrued to Date' : 'Projected Forecast';
+                                                return [`KES ${Number(value).toLocaleString()}`, label];
+                                            }}
                                         />
-                                        <Area type="monotone" dataKey="vault" stroke="#10B981" strokeWidth={2.5} fill="url(#vaultGradient)" dot={false} activeDot={{ r: 5, fill: '#10B981', strokeWidth: 0 }} />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="actualVault"
+                                            name="actualVault"
+                                            stroke="#10B981"
+                                            strokeWidth={2.5}
+                                            fill="url(#vaultGradient)"
+                                            dot={{ r: 3, fill: '#10B981' }}
+                                            activeDot={{ r: 5, fill: '#10B981', strokeWidth: 0 }}
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="projectedVault"
+                                            name="projectedVault"
+                                            stroke="#F59E0B"
+                                            strokeWidth={2.5}
+                                            strokeDasharray="5 5"
+                                            fill="url(#projectedVaultGradient)"
+                                            dot={false}
+                                            activeDot={{ r: 5, fill: '#F59E0B', strokeWidth: 0 }}
+                                        />
                                     </AreaChart>
                                 </ResponsiveContainer>
                                 ) : (
                                 <div className="h-full w-full rounded-xl bg-black/20 border border-white/5" />
                                 )}
                             </div>
-                            <div className="flex items-center gap-2 mt-4 justify-center">
-                                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Vault value grows by KES {vaultRatePerGW.toLocaleString()} per resolved GW</span>
+                            <div className="flex flex-wrap items-center justify-center gap-5 mt-4 text-[10px] font-bold">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-3.5 h-1 bg-emerald-500 rounded-full inline-block" />
+                                    <span className="text-gray-300">Accrued to Date (GW{effectiveLeagueStart} → GW{effectiveCurrentGw})</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="w-5 h-0 border-t-2 border-dashed border-amber-400 inline-block" />
+                                    <span className="text-amber-400">Projected Growth (GW{effectiveCurrentGw} → GW38)</span>
+                                </div>
                             </div>
+                            <p className="text-[10px] text-gray-500 text-center mt-2 font-medium">
+                                Vault grows by KES {vaultRatePerGW.toLocaleString()} per resolved GW · Projection assumes active roster retention.
+                            </p>
                         </div>
                     );
                 })()}
@@ -3542,7 +3605,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     </div>
                                     <div>
                                         <h3 className="text-base font-black tracking-tight text-slate-900 dark:text-white">Chama Payouts Breakdown</h3>
-                                        <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Settled weekly & season payouts</p>
+                                        <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Winnings disbursed to managers from the ledger</p>
                                     </div>
                                 </div>
                                 <button
@@ -3554,18 +3617,23 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 </button>
                             </div>
 
+                            {/* Informative Explanation */}
+                            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 font-medium leading-relaxed">
+                                💡 <strong>Disbursed Payouts vs Season Vault:</strong> This ledger catalogues prize money already paid out to winners. Your <strong>Season Vault holds KES {seasonVaultCollectedSoFar.toLocaleString()}</strong> in accrued funds from played gameweeks (matures and pays out at GW38). Gameweek pots disburse when the Chairman approves & executes payouts in the Command Center.
+                            </div>
+
                             {/* Summary Stat Grid */}
                             <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/5 text-xs">
                                 <div>
-                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Total Disbursed</span>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Total Paid Out</span>
                                     <span className="font-extrabold text-amber-600 dark:text-amber-400 text-sm">KES {totalPayoutsYielded.toLocaleString()}</span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Weekly GW Pots</span>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">GW Winnings Paid</span>
                                     <span className="font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">KES {weeklySum.toLocaleString()}</span>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Season Vault</span>
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 uppercase font-black tracking-wider block">Podiums Paid</span>
                                     <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-sm">KES {seasonSum.toLocaleString()}</span>
                                 </div>
                             </div>
@@ -3613,14 +3681,19 @@ const handleRejectPendingPayout = async (payout: any) => {
                             {/* Payouts List */}
                             <div className="overflow-y-auto space-y-2.5 pr-1 max-h-[44vh] custom-scrollbar">
                                 {displayedPayouts.length === 0 ? (
-                                    <div className="py-10 text-center space-y-2">
+                                    <div className="py-8 text-center space-y-2">
                                         <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 mx-auto flex items-center justify-center">
                                             <Trophy className="w-5 h-5" />
                                         </div>
                                         <h4 className="text-xs font-bold text-slate-700 dark:text-gray-300">No Disbursed Payouts Yet</h4>
-                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 max-w-xs mx-auto leading-relaxed">
-                                            When gameweek winners or season championship podiums are approved and paid out, transaction receipts, recipients, and amounts will be catalogued here.
+                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                                            When gameweek winners or season championship podiums are approved and disbursed, transaction receipts, recipients, and amounts will be catalogued here.
                                         </p>
+                                        <div className="pt-2 flex items-center justify-center gap-3 text-[10px] font-bold text-slate-500 dark:text-gray-400">
+                                            <span className="px-2 py-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">Accrued Season Vault: KES {seasonVaultCollectedSoFar.toLocaleString()}</span>
+                                            <span>•</span>
+                                            <span className="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Matures at GW38</span>
+                                        </div>
                                     </div>
                                 ) : (
                                     displayedPayouts.map((tx: any, idx: number) => {

@@ -1415,44 +1415,46 @@ export default function Profile() {
 
     const renderOwnershipAndDangerZoneCard = () => (
         <div className="fc-card w-full bg-gradient-to-br from-rose-50/70 via-white to-red-50/50 dark:from-[#161418] dark:via-[#1a1317] dark:to-[#1e1014] border border-rose-200/80 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-            {/* Header with pill tabs */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-rose-200/50 dark:border-white/5">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+            {/* Header with two-row title & pill controls below */}
+            <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-rose-200/50 dark:border-white/5">
+                <div className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
                         <AlertTriangle className="w-4 h-4" />
                     </div>
                     <div>
-                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-700 dark:text-rose-300 leading-tight">
                             League Lifecycle & Controls
                         </h2>
-                        <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">Chairman succession transfer & league termination</p>
+                        <p className="text-xs text-slate-600 dark:text-gray-400 font-medium mt-1">
+                            Chairman succession transfer & league termination
+                        </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit shrink-0">
+                <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit shrink-0">
                     <button
                         type="button"
                         onClick={() => { haptics.selection(); setDangerZoneTab('succession'); }}
                         className={clsx(
-                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                            "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
                             dangerZoneTab === 'succession'
                                 ? "bg-rose-500 text-white shadow-sm"
                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Crown className="w-3 h-3" /> Succession
+                        <Crown className="w-3.5 h-3.5" /> Succession
                     </button>
                     <button
                         type="button"
                         onClick={() => { haptics.selection(); setDangerZoneTab('delete'); }}
                         className={clsx(
-                            "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
+                            "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
                             dangerZoneTab === 'delete'
                                 ? "bg-red-600 text-white shadow-sm"
                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Trash2 className="w-3 h-3" /> Delete League
+                        <Trash2 className="w-3.5 h-3.5" /> Delete League
                     </button>
                 </div>
             </div>
