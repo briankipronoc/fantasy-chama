@@ -343,7 +343,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                         <Link
                             to="/hq"
                             onClick={() => haptics.selection()}
-                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500 hover:text-white text-emerald-700 dark:text-emerald-300 transition-all font-black text-xs uppercase tracking-wider shadow-[0_0_14px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer shrink-0"
+                            className="hidden md:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500 hover:text-white text-emerald-700 dark:text-emerald-300 transition-all font-black text-xs uppercase tracking-wider shadow-[0_0_14px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer shrink-0"
                             title="Platform Master HQ & Backend Finances"
                         >
                             <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />

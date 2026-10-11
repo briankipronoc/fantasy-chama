@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Copy, Check, Share2, MessageCircle, Crown, AlertTriangle } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import confetti from 'canvas-confetti';
@@ -151,7 +152,38 @@ ${optionalNote}
 ${footer}`;
   }, [gameweek, leagueName, winner, lowestScorer, benchRegret, redZoneMembers, currentVaultTotal, stake, tone, customBanterNote]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const stateKey = 'fc_banter_slip_open';
+    try {
+      window.history.pushState({ [stateKey]: true }, '');
+    } catch {
+      // ignore state errors in restricted environments
+    }
+
+    const handlePopState = () => {
+      onClose();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (window.history.state?.[stateKey]) {
+        try {
+          window.history.back();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
+
+  const handleSafeClose = () => {
+    onClose();
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedText);
@@ -167,7 +199,7 @@ ${footer}`;
     window.open(url, '_blank');
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div 
         className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0F141C] border border-slate-200 dark:border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] dark:shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[92vh] text-slate-900 dark:text-white"
@@ -192,7 +224,7 @@ ${footer}`;
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleSafeClose}
             className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -339,6 +371,7 @@ ${footer}`;
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

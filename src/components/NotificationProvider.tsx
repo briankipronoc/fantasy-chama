@@ -52,20 +52,31 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
 
     const getToastPalette = () => {
-        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-        return isLight
-            ? {
+        const root = typeof document !== 'undefined' ? document.documentElement : null;
+        const isLight = root?.getAttribute('data-theme') === 'light' || (root && !root.classList.contains('dark') && !root.classList.contains('stealth'));
+        const isStealth = root?.getAttribute('data-theme') === 'stealth' || root?.classList.contains('stealth');
+        if (isLight) {
+            return {
                 background: '#ffffff',
-                color: '#1e293b',
-                border: '1px solid rgba(0,0,0,0.08)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
-            }
-            : {
-                background: '#161d24',
-                color: '#f8fafc',
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.4)'
+                color: '#0f172a',
+                border: '1px solid rgba(0,0,0,0.12)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.12)'
             };
+        }
+        if (isStealth) {
+            return {
+                background: '#04070a',
+                color: '#e2e8f0',
+                border: '1px solid rgba(16,185,129,0.2)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.7)'
+            };
+        }
+        return {
+            background: '#161d24',
+            color: '#f8fafc',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 12px 32px rgba(0,0,0,0.5)'
+        };
     };
 
     // Capture mount timestamp — only show toasts for notifications NEWER than this

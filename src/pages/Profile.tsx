@@ -35,10 +35,17 @@ export default function Profile() {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user && user.uid === import.meta.env.VITE_SUPER_ADMIN_UID) {
+            const isAnon = Boolean(user?.isAnonymous);
+            const userEmail = !isAnon ? user?.email?.toLowerCase() : null;
+            const uid = !isAnon ? user?.uid : null;
+            if (
+                (!isAnon && uid === import.meta.env.VITE_SUPER_ADMIN_UID) ||
+                activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
+                userEmail === 'cbrian@kabarak.ac.ke'
+            ) {
                 setIsSuperAdmin(true);
             } else {
-                setIsSuperAdmin(activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID);
+                setIsSuperAdmin(false);
             }
         });
         return () => unsubscribe();
@@ -1553,11 +1560,14 @@ export default function Profile() {
                             {isSuperAdmin && (
                                 <button
                                     type="button"
-                                    onClick={() => navigate('/hq')}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#10B981]/15 border border-[#10B981]/40 rounded-xl text-[#10B981] hover:text-white hover:bg-[#10B981] transition-all font-black text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer"
-                                    title="Access Super Admin HQ"
+                                    onClick={() => {
+                                        haptics.impact();
+                                        navigate('/hq');
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500 border border-emerald-500/40 hover:border-emerald-500 rounded-xl text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer shrink-0"
+                                    title="Access Super Admin Platform HQ"
                                 >
-                                    <Shield className="w-3.5 h-3.5" /> Join HQ
+                                    <Shield className="w-4 h-4" /> Go to HQ
                                 </button>
                             )}
                         </div>

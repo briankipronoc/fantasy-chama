@@ -47,8 +47,24 @@ export default function AppLayout() {
     useEffect(() => {
         setRouteTransitionClass('fc-route-enter');
         const timer = window.setTimeout(() => setRouteTransitionClass(''), 340);
+
+        // Auto-scroll to top when switching pages unless directed to a specific element by hash
+        if (location.hash) {
+            const targetEl = document.querySelector(location.hash);
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth' });
+                return () => window.clearTimeout(timer);
+            }
+        }
+
+        const scrollHost = document.querySelector('.fc-main-scroll');
+        if (scrollHost) {
+            scrollHost.scrollTop = 0;
+        }
+        window.scrollTo(0, 0);
+
         return () => window.clearTimeout(timer);
-    }, [location.pathname]);
+    }, [location.pathname, location.hash]);
 
     useEffect(() => {
         if (!activeLeagueId || role !== 'admin') {

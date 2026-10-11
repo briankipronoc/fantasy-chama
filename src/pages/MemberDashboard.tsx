@@ -2250,26 +2250,50 @@ export default function MemberDashboard() {
                                             </span>
                                         </div>
 
-                                        {activeChampion.leadMargin !== null && activeChampion.leadMargin !== undefined && (
-                                            <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                    +{activeChampion.leadMargin} pts vs {activeChampion.runnerUpName || 'Challenger'}
-                                                </span>
-                                                <span
-                                                    className={clsx(
-                                                        "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border",
-                                                        (activeChampion.leadMargin || 0) >= 15
-                                                            ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
-                                                            : (activeChampion.leadMargin || 0) >= 5
-                                                            ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                                                            : "bg-red-500/15 border-red-500/30 text-red-300 animate-pulse"
+                                        {activeChampion.leadMargin !== null && activeChampion.leadMargin !== undefined && (() => {
+                                            const isUserWinner = Boolean(
+                                                (currentUser?.displayName && activeChampion?.player_name && currentUser.displayName.toLowerCase() === activeChampion.player_name.toLowerCase()) ||
+                                                (((currentUser as any)?.fplTeamName || currentUser?.teamName) && activeChampion?.entry_name && ((currentUser as any)?.fplTeamName || currentUser?.teamName).toLowerCase() === activeChampion.entry_name.toLowerCase()) ||
+                                                (currentUser?.fplTeamId && activeChampion?.entry && Number(currentUser.fplTeamId) === Number(activeChampion.entry)) ||
+                                                (currentUser?.id && (activeChampion as any)?.memberId && currentUser.id === (activeChampion as any).memberId) ||
+                                                (activeChampion.id && (currentUser?.id === activeChampion.id || currentUser?.authUid === activeChampion.id))
+                                            );
+
+                                            const ptsBehind = myGwScore !== null ? Math.max(0, (activeChampion.event_total ?? 0) - myGwScore) : null;
+
+                                            return (
+                                                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                                    {isUserWinner ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            +{activeChampion.leadMargin} pts ahead of 2nd ({activeChampion.runnerUpName || 'No. 2'})
+                                                        </span>
+                                                    ) : ptsBehind !== null && ptsBehind > 0 ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                                            Leader is +{ptsBehind} pts ahead of you
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                            +{activeChampion.leadMargin} pts ahead of 2nd ({activeChampion.runnerUpName || 'No. 2'})
+                                                        </span>
                                                     )}
-                                                >
-                                                    {(activeChampion.leadMargin || 0) >= 15 ? "Dominant 🚀" : (activeChampion.leadMargin || 0) >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
-                                                </span>
-                                            </div>
-                                        )}
+                                                    <span
+                                                        className={clsx(
+                                                            "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border",
+                                                            (activeChampion.leadMargin || 0) >= 15
+                                                                ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                                                                : (activeChampion.leadMargin || 0) >= 5
+                                                                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                                                : "bg-red-500/15 border-red-500/30 text-red-300 animate-pulse"
+                                                        )}
+                                                    >
+                                                        {(activeChampion.leadMargin || 0) >= 15 ? "Dominant 🚀" : (activeChampion.leadMargin || 0) >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Member / Props Area */}

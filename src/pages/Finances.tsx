@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2, Users } from 'lucide-react';
+import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2, Users, Lock } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
@@ -108,7 +108,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [standingsData, setStandingsData] = useState<any[]>([]);
     const [seasonFilter, setSeasonFilter] = useState<'current' | 'all'>('current');
     const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
-    const [_isCurrentEventFinished, setIsCurrentEventFinished] = useState<boolean>(false);
+    const [isCurrentEventFinished, setIsCurrentEventFinished] = useState<boolean>(false);
     const [leagueCreatedAtMs, setLeagueCreatedAtMs] = useState<number | null>(null);
     const [startGw, setStartGw] = useState<number>(1);
     const [lastResetAtMs, setLastResetAtMs] = useState<number | null>(null);
@@ -1921,13 +1921,25 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <p className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{modeLabel}</p>
                             <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">{activeMembersCount} active member{activeMembersCount === 1 ? '' : 's'} · {isPreviewCapped ? `capped at Top ${eligibleWinnersCount}` : 'all tiers available'}</p>
                             {role === 'admin' && (
-                                <button
-                                    onClick={() => setShowSeasonCeremony(true)}
-                                    className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
-                                >
-                                    <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                                    Launch Season Ceremony
-                                </button>
+                                (Number(currentGwNumber) >= 38 && isCurrentEventFinished) ? (
+                                    <button
+                                        onClick={() => setShowSeasonCeremony(true)}
+                                        className="mt-3 w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 hover:from-amber-500/30 text-xs font-black uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] cursor-pointer"
+                                    >
+                                        <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                                        Launch Season Ceremony
+                                    </button>
+                                ) : (
+                                    <div className="mt-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-[10px] font-bold text-slate-500 dark:text-gray-400">
+                                        <span className="flex items-center gap-1.5">
+                                            <Lock className="w-3 h-3 text-amber-500" />
+                                            Ceremony unlocks after GW38 finale
+                                        </span>
+                                        <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                                            GW{currentGwNumber || '--'}/38
+                                        </span>
+                                    </div>
+                                )
                             )}
                         </div>
                     </div>

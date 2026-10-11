@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AppLayout from './layouts/AppLayout';
 import { useStore } from './store/useStore';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -8,6 +8,56 @@ import OfflineBanner from './components/OfflineBanner';
 import QuickActionFab from './components/QuickActionFab';
 import { auth } from './firebase';
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) {
+      const el = document.querySelector(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+    }
+    const scrollHost = document.querySelector('.fc-main-scroll');
+    if (scrollHost) {
+      scrollHost.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }, [pathname, hash]);
+
+  return null;
+}
+
+const SuperAdminGate = ({ children }: { children: React.ReactNode }) => {
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      const isAnon = Boolean(user?.isAnonymous);
+      const userEmail = !isAnon ? user?.email?.toLowerCase() : null;
+      const uid = !isAnon ? user?.uid : null;
+      const activeUserId = localStorage.getItem('activeUserId');
+      if (
+        (!isAnon && uid === import.meta.env.VITE_SUPER_ADMIN_UID) ||
+        activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
+        userEmail === 'cbrian@kabarak.ac.ke'
+      ) {
+        setIsSuperAdmin(true);
+      } else {
+        setIsSuperAdmin(false);
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  if (loading) return <RouteLoader />;
+  if (!isSuperAdmin) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
 
 const Login = lazy(() => import('./pages/Login'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -137,6 +187,7 @@ function App() {
 
   return (
     <>
+      <ScrollToTop />
       <OfflineBanner />
       <ErrorBoundary fallbackMessage="FantasyChama encountered an unexpected error. Your data is safe. Please retry.">
         <Suspense fallback={<RouteLoader />}>
@@ -159,7 +210,7 @@ function App() {
             <Route path="/manual/co-chair" element={<CoChairManual />} />
             <Route path="/manual/cochair" element={<CoChairManual />} />
             <Route path="/docs" element={<Docs />} />
-            <Route path="/hq" element={<SuperAdminDashboard />} />
+            <Route path="/hq" element={<SuperAdminGate><SuperAdminDashboard /></SuperAdminGate>} />
             <Route path="/win" element={<WinSharePage />} />
 
             {/* Authenticated routes — inside the AppLayout + NotificationProvider shell */}

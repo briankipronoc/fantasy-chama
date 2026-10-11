@@ -3862,17 +3862,6 @@ burstFrame();
                   <UserPlus className="w-4 h-4 text-[#10B981]" /> Add Member
                 </button>
                 <button
-                  type="button"
-                  onClick={() => {
-                    haptics.impact();
-                    setShowBuyInModal(true);
-                  }}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs sm:text-sm font-bold rounded-xl transition-all shrink-0 cursor-pointer shadow-sm active:scale-95"
-                  title="Calculate fair mid-season buy-in for new recruits"
-                >
-                  <Calculator className="w-4 h-4 text-amber-500" /> Buy-In Calculator 🧮
-                </button>
-                <button
                   onClick={handleBulkNudge}
                   className="flex items-center justify-center gap-2 px-3.5 py-2 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-bold rounded-xl transition-colors shadow-[0_0_15px_rgba(239,68,68,0.28)] shrink-0"
                 >
@@ -4135,7 +4124,7 @@ burstFrame();
                               <div className="mt-2 flex items-center gap-2 flex-wrap">
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  +{leadMargin} pts vs {runnerUp || 'Challenger'}
+                                  +{leadMargin} pts ahead of No. 2 {runnerUp ? `(${runnerUp})` : ''}
                                 </span>
                                 <span
                                   className={clsx(
@@ -4502,13 +4491,28 @@ burstFrame();
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
                         ? "border-emerald-300/80 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-[#111822] hover:bg-emerald-100/60 dark:hover:bg-[#151f2c] dark:hover:border-emerald-500/50"
-                        : "border-amber-300 bg-amber-50/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100/90 dark:hover:border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/40"
+                        : isCurrentEventFinished
+                        ? "border-amber-300 bg-amber-50/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100/90 dark:hover:border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/40"
+                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
                     )}
                     onClick={() => {
-                      setShowResolveModal(true);
-                      showToast(gwAlreadySettled ? `Viewing GW${currentGwNumber || ''} settlement summary.` : `Opening GW${currentGwNumber || ''} payout resolution.`);
+                      if (gwAlreadySettled) {
+                        setShowResolveModal(true);
+                        showToast(`Viewing GW${currentGwNumber || ''} settlement summary.`);
+                      } else if (isCurrentEventFinished) {
+                        setShowResolveModal(true);
+                        showToast(`Opening GW${currentGwNumber || ''} payout resolution.`);
+                      } else {
+                        showToast(`GW${currentGwNumber || ''} matches are still in play. Resolution unlocks once matches conclude! ⚽`);
+                      }
                     }}
-                    title={gwAlreadySettled ? "Tap to review GW settlement" : "Tap to settle GW winner"}
+                    title={
+                      gwAlreadySettled 
+                        ? "Tap to review GW settlement" 
+                        : isCurrentEventFinished 
+                        ? "Tap to settle GW winner" 
+                        : "Gameweek is currently in play"
+                    }
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-[10.5px] uppercase font-black tracking-wider text-emerald-700 dark:text-emerald-300 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition-colors">
@@ -4516,8 +4520,10 @@ burstFrame();
                       </p>
                       {gwAlreadySettled ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
+                      ) : isCurrentEventFinished ? (
                         <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 animate-pulse" />
+                      ) : (
+                        <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400" />
                       )}
                     </div>
                     <div className="my-1">
@@ -4525,13 +4531,23 @@ burstFrame();
                         "text-[11px] font-black px-2 py-0.5 rounded-lg inline-block truncate max-w-full",
                         gwAlreadySettled
                           ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30"
-                          : "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-400/40"
+                          : isCurrentEventFinished
+                          ? "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/25 dark:text-amber-300 dark:border-amber-400/40"
+                          : "bg-slate-100 text-slate-700 border border-slate-300 dark:bg-white/10 dark:text-gray-300 dark:border-white/10"
                       )}>
-                        {gwAlreadySettled ? `GW${currentGwNumber || 5} Settled` : `GW${currentGwNumber || 5} Ready`}
+                        {gwAlreadySettled 
+                          ? `GW${currentGwNumber || 5} Settled` 
+                          : isCurrentEventFinished 
+                          ? `GW${currentGwNumber || 5} Ready` 
+                          : `GW${currentGwNumber || 5} In Play`}
                       </span>
                     </div>
                     <span className="text-[9.5px] text-slate-500 dark:text-gray-400 font-bold truncate">
-                      {gwAlreadySettled ? "Settlement verified ✓" : "Tap to resolve"}
+                      {gwAlreadySettled 
+                        ? "Settlement verified ✓" 
+                        : isCurrentEventFinished 
+                        ? "Tap to resolve" 
+                        : "Awaiting GW completion ⚽"}
                     </span>
                   </div>
 
@@ -6104,27 +6120,26 @@ burstFrame();
             />
           )}
 
-          {/* Chama WhatsApp Banter Slip Modal */}
-          <ChamaBanterSlipModal
-            isOpen={showBanterSlipModal}
-            onClose={() => setShowBanterSlipModal(false)}
-            data={banterSlipData}
-          />
-
-          {/* Mid-Season Buy-In Calculator Modal */}
-          <MidSeasonBuyInCalculatorModal
-            isOpen={showBuyInModal}
-            onClose={() => setShowBuyInModal(false)}
-            leagueName={leagueName || "Fantasy Chama"}
-            leagueStartGw={effectiveStartGw}
-            currentGw={currentGwNumber || firestoreGw || 6}
-            gameweekStake={gameweekStake || 50}
-            vaultPercent={rules?.vault ?? 30}
-          />
           </div>
         </div>
 
         {/* Global Modals (accessible from all tabs) */}
+        <ChamaBanterSlipModal
+          isOpen={showBanterSlipModal}
+          onClose={() => setShowBanterSlipModal(false)}
+          data={banterSlipData}
+        />
+
+        <MidSeasonBuyInCalculatorModal
+          isOpen={showBuyInModal}
+          onClose={() => setShowBuyInModal(false)}
+          leagueName={leagueName || "Fantasy Chama"}
+          leagueStartGw={effectiveStartGw}
+          currentGw={currentGwNumber || firestoreGw || 6}
+          gameweekStake={gameweekStake || 50}
+          vaultPercent={rules?.vault ?? 30}
+        />
+
         {showResolveModal && createPortal(
             <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4">
               {/* Theme-adaptive glass backdrop */}
