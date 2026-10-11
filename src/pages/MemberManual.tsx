@@ -49,9 +49,9 @@ export default function MemberManual() {
       {/* 1 — Getting Started */}
       <Section icon={Star} color="text-emerald-400" title="1. Getting Started & Player Modes">
         <div className="space-y-4">
-          <Step n={1} title="Accept your invite" desc="Your Chairman sends a 6-digit invite PIN or share link via WhatsApp. Open the link, enter the PIN, and fill in your display name and M-Pesa number." />
-          <Step n={2} title="Link your FPL Team" desc="Go to Profile → tap 'Edit Profile' → paste your FPL Team ID (found in the URL of your FPL team page: fantasy.premierleague.com/entry/XXXXXX). This is how the app tracks your weekly points." />
-          <Step n={3} title="Choose your participation mode" desc="Contenders fund their wallet to compete for weekly pots and the Grand Season Vault. Spectators can follow the league for free, view live standings, and participate exclusively in 1v1 head-to-head Side Bets without pot stake auto-deductions." />
+          <Step n={1} title="Accept your invite" desc="Your Chairman sends a 1-tap invite link (/join?code=...) or 6-digit code via WhatsApp. Opening the link preloads the league, letting you match your FPL team directly from the league standings, confirm your M-Pesa number, and choose your player mode in seconds." />
+          <Step n={2} title="Link your FPL Team" desc="Match your team directly from the unlinked list or paste your FPL Team ID from fantasy.premierleague.com/entry/XXXXXX. This tracks your live weekly points and matchup performance." />
+          <Step n={3} title="Choose your participation mode" desc="Contenders fund their wallet to compete for weekly cash pots and the Grand Season Vault. Spectators enjoy free access to live matchday pitch lineups, standings, banter slips, and 1v1 side bets, while the private financial vault remains reserved for cash stakeholders." />
           <Step n={4} title="Sign the constitution" desc="On first login you'll see the league constitution. Scroll to the bottom and tap 'I Accept — Enter League'. You cannot access the app until you accept." />
           <Tip>Your wallet can hold enough for multiple gameweeks. Top up early and don't worry about deadlines — your GW stake is auto-deducted when the Chairman resolves each round.</Tip>
         </div>

@@ -1470,7 +1470,7 @@ export default function MemberDashboard() {
         const code = leagueInviteCode || (leagueSettings as any)?.inviteCode || '';
         if (!code) return;
         const appUrl = window.location.origin;
-        const link = `${appUrl}/login?code=${code}`;
+        const link = `${appUrl}/join?code=${code}`;
         const host = currentUser?.displayName || 'The Chairman';
         const lName = leagueName || 'our FPL Chama';
         const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${code}*`;
@@ -1943,7 +1943,7 @@ export default function MemberDashboard() {
 
             {/* Toast Notification */}
             <div className={clsx(
-                "fixed top-6 right-4 left-4 sm:left-auto max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3.5 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.4)] fc-inline-toast",
+                "fixed top-[max(calc(env(safe-area-inset-top,0px)+14px),54px)] sm:top-8 right-4 left-4 sm:left-auto sm:right-8 max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3.5 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.4)] fc-inline-toast",
                 toastMessage ? "opacity-100 translate-y-0 scale-100 visible" : "opacity-0 -translate-y-2 scale-95 invisible",
                 toastType === 'error'
                     ? "fc-inline-toast-error"

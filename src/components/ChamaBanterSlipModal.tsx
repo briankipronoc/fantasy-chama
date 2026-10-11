@@ -65,15 +65,16 @@ export default function ChamaBanterSlipModal({ isOpen, onClose, data }: ChamaBan
     // King of the week
     let kingSection = '';
     if (winner) {
+      const hasCashPot = Number(winner.amountWon || 0) > 0;
       if (tone === 'street') {
         kingSection = `👑 *KING WA ROUND (${gwLabel}):* ${winner.name} (${winner.teamName || 'Chama Top Dog'})
-└ 💥 *${winner.points} pts* | Amepokea KES *${winner.amountWon.toLocaleString()}* safi kwa M-Pesa! Mpigieni makofi kabla pesa iishe 👏💸`;
+└ 💥 *${winner.points} pts* | ${hasCashPot ? `Amepokea KES *${winner.amountWon.toLocaleString()}* safi kwa M-Pesa! Mpigieni makofi kabla pesa iishe 👏💸` : `Ushindi safi wa round bila kupingwa! Heshima yote kwa champion 👏👑🔥`}`;
       } else if (tone === 'roast') {
-        kingSection = `👑 *TAJIRI WA WIKI (${gwLabel}):* ${winner.name} (${winner.teamName || 'Haters Cry'})
-└ 💥 *${winner.points} pts* | KES *${winner.amountWon.toLocaleString()}* imeenda hivo. Wengine mlikua mnaomba sare? Pole sana, chama haina huruma! 😂🍾`;
+        kingSection = `👑 *${hasCashPot ? 'TAJIRI WA WIKI' : 'CHAMPION WA WIKI'} (${gwLabel}):* ${winner.name} (${winner.teamName || 'Haters Cry'})
+└ 💥 *${winner.points} pts* | ${hasCashPot ? `KES *${winner.amountWon.toLocaleString()}* imeenda hivo. Wengine mlikua mnaomba sare? Pole sana, chama haina huruma! 😂🍾` : `Amebeba heshima yote ya round bila huruma! Wengine mlikua mnaomba sare? Endeleeni kulia kwa pembe! 😂👑`}`;
       } else {
         kingSection = `👑 *ROUND CHAMPION (${gwLabel}):* ${winner.name} (${winner.teamName || 'Top Rank'})
-└ 💥 Score: *${winner.points} pts* | Cash Pot Disbursed: KES *${winner.amountWon.toLocaleString()}* via M-Pesa. Hongera sana! 🏆`;
+└ 💥 Score: *${winner.points} pts* | ${hasCashPot ? `Cash Pot Disbursed: KES *${winner.amountWon.toLocaleString()}* via M-Pesa. Hongera sana! 🏆` : `Gameweek Winner & League Bragging Rights Secured! Hongera sana! 🏆`}`;
       }
     } else {
       kingSection = `👑 *KING WA ROUND:* Hakuna winner aliyepatikana bado. Standings zinachambuliwa...`;
@@ -290,7 +291,7 @@ ${footer}`;
                 {winner ? `${winner.name}` : 'Awaiting sync'}
               </p>
               <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
-                {winner ? `${winner.points} pts (KES ${winner.amountWon.toLocaleString()})` : '—'}
+                {winner ? (Number(winner.amountWon || 0) > 0 ? `${winner.points} pts (KES ${winner.amountWon.toLocaleString()})` : `${winner.points} pts (Round MVP 👑)`) : '—'}
               </p>
             </div>
 

@@ -584,7 +584,7 @@ export default function Profile() {
 
     const handleShare = () => {
         const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
-        const link = `${origin}/login?code=${inviteCode}`;
+        const link = `${origin}/join?code=${inviteCode}`;
         const host = chairmanName || members.find(m => m.role === 'admin' || m.role === 'chairman')?.displayName || displayName || localStorage.getItem('activeUserName') || localStorage.getItem('fc-setup-fullName') || 'The Chairman';
         const text = `You're invited by ${host} to join *${leagueName || 'our FPL Chama'}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
@@ -592,7 +592,7 @@ export default function Profile() {
 
     const handleCopy = () => {
         const origin = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'https://fantasy-chama.vercel.app';
-        const link = `${origin}/login?code=${inviteCode}`;
+        const link = `${origin}/join?code=${inviteCode}`;
         const host = chairmanName || members.find(m => m.role === 'admin' || m.role === 'chairman')?.displayName || displayName || localStorage.getItem('activeUserName') || localStorage.getItem('fc-setup-fullName') || 'The Chairman';
         const text = `You're invited by ${host} to join *${leagueName || 'our FPL Chama'}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
         navigator.clipboard.writeText(text);

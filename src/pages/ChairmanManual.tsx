@@ -52,9 +52,9 @@ export default function ChairmanManual() {
           <Step n={1} title="Create your account" desc="Visit fantasy-chama.vercel.app → 'Start a League'. Enter your name, phone, email, and password. Your phone is your login credential and payout remittance identifier." />
           <Step n={2} title="Enter your FPL League ID or Standings Link" desc="Paste your FPL mini-league link or ID (e.g. fantasy.premierleague.com/leagues/XXXXXX/standings/c). The app automatically fetches your league name and imports manager squads." />
           <Step n={3} title="Set the economy & start gameweek" desc="Set your Gameweek Stake (e.g. KES 50), enter the Chairman's POCHI / M-PESA # for incoming funds, and adjust the Weekly Prize vs Grand Vault split ratio. You can launch at GW1 or start mid-season (e.g. GW5) — the app dynamically locks startGw and insulates pre-season rounds." />
-          <Step n={4} title="Enroll members & self-onboarding" desc="Sync squads directly from FPL standings, or enter phone numbers. Managers without phone numbers can use the self-onboarding link or shareable 6-digit invite PIN." />
+          <Step n={4} title="Enroll members & 1-Tap Self-Onboarding" desc="Sync squads directly from FPL standings. Share the 1-tap invite link (/join?code=...) on WhatsApp so managers instantly match their FPL team from the standings, enter their M-Pesa number, and choose Cash Pot Contender vs Spectator mode." />
           <Step n={5} title="Assign a Co-Chair (Dual Signatory)" desc="On the Members step, tap '+ Co-Chair' next to any trusted manager. The Co-Chair acts as the second signatory required to approve all prize payouts — the Maker/Checker protocol guarantees zero solo chairman tampering." />
-          <Tip>The invite link and WhatsApp share buttons let members join seamlessly. Their phone number becomes their verified wallet and login credential.</Tip>
+          <Tip>The preloaded invite link (/join?code=...) eliminates typing errors. Spectators enjoy full matchday banter and side bets while the private financial vault remains securely locked to cash contenders.</Tip>
         </div>
       </Section>
 

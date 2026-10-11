@@ -387,11 +387,11 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                 className={`fc-theme-toggle-btn flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                                     currentTheme === mode
                                         ? mode === 'dark' 
-                                            ? 'bg-slate-800 text-white shadow-sm'
+                                            ? 'bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/40'
                                             : mode === 'light' 
-                                                ? 'bg-amber-400/25 text-amber-700 dark:text-amber-300 shadow-sm'
-                                                : 'bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
+                                                ? 'bg-white dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 border border-slate-200 dark:border-amber-400/30 shadow-xs'
+                                                : 'bg-white dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-emerald-500/30 shadow-xs'
+                                        : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
                                 }`}
                                 title={mode === 'dark' ? 'Matte Dark Mode' : mode === 'light' ? 'Light Theme' : 'Default OS'}
                                 aria-label={`Set theme to ${mode}`}

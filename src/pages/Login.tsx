@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { Shield, User, ArrowRight, ArrowLeft, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Swords, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Crown, Users, Zap } from 'lucide-react';
+import { Shield, User, ArrowRight, ArrowLeft, Mail, KeyRound, Phone, Smartphone, AlertCircle, Eye, EyeOff, Trophy, Sparkles, CheckCircle2, X, Search, Check, ChevronDown, Users, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { db, auth } from '../firebase';
 import { collection, query, where, getDocs, updateDoc, addDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
@@ -36,11 +36,11 @@ export default function Login() {
     const [selectedTeamClaim, setSelectedTeamClaim] = useState<string>('custom');
     const [onboardManagerName, setOnboardManagerName] = useState('');
     const [onboardTeamName, setOnboardTeamName] = useState('');
-    const [customFplId, setCustomFplId] = useState('');
+    const [customFplId] = useState('');
     const [onboardSearch, setOnboardSearch] = useState('');
     const [onboardPlayMode, setOnboardPlayMode] = useState<'pot' | 'season_only' | 'sidebets_only'>('pot');
     const [isOnboardingSubmitting, setIsOnboardingSubmitting] = useState(false);
-    const [onboardStep, setOnboardStep] = useState<1 | 2 | 3>(1);
+    const [onboardStep, setOnboardStep] = useState<1 | 2>(1);
     const [onboardError, setOnboardError] = useState('');
     const [previewLeague, setPreviewLeague] = useState<{
         name: string;
@@ -1213,142 +1213,130 @@ export default function Login() {
 
             {/* ── Modal: Self-Onboarding Wizard ──────────────────── */}
             {showSelfOnboardModal && onboardData && (
-                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="w-full max-w-lg bg-gradient-to-b from-[#1c272c] to-[#11171a] border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative text-white animate-in zoom-in-95 duration-200 my-8">
+                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                    <div className="w-full max-w-lg bg-white dark:bg-[#121921] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 shadow-2xl relative text-slate-900 dark:text-white animate-in zoom-in-95 duration-200 my-6">
                         {/* Close button */}
                         <button
                             type="button"
                             onClick={() => setShowSelfOnboardModal(false)}
-                            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-colors cursor-pointer"
                         >
                             <X className="w-4 h-4" />
                         </button>
 
                         {/* Header */}
-                        <div className="text-center mb-5">
-                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-3 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-                                <Sparkles className="w-6 h-6" />
+                        <div className="text-center mb-4 sm:mb-5">
+                            <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 mb-2.5 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                                <Sparkles className="w-5 h-5" />
                             </div>
-                            <h2 className="text-xl md:text-2xl font-black tracking-tight mb-1">
+                            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white mb-1">
                                 Welcome to {onboardData.leagueName}!
                             </h2>
-                            <p className="text-xs text-gray-300">
-                                Invited by <span className="text-[#FBBF24] font-bold">{onboardData.invitedBy}</span>
+                            <p className="text-xs text-slate-600 dark:text-gray-300">
+                                Invited by <span className="text-amber-600 dark:text-[#FBBF24] font-bold">{onboardData.invitedBy}</span>
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-0.5">
-                                WhatsApp Invite Code <span className="text-emerald-400 font-mono font-bold">{code.join('')}</span>
+                            <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">
+                                League Invite Code: <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">{code.join('')}</span>
                             </p>
                             {previewLeague && previewLeague.memberNames.length > 0 && (
-                                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-[11px] font-semibold">
-                                    <span>👥 Join <strong className="text-white">{previewLeague.memberNames.join(', ')}</strong></span>
+                                <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold">
+                                    <span>👥 Join <strong className="text-slate-900 dark:text-white">{previewLeague.memberNames.join(', ')}</strong></span>
                                     {previewLeague.totalMembers > previewLeague.memberNames.length && (
-                                        <span className="text-emerald-400 font-normal">+{previewLeague.totalMembers - previewLeague.memberNames.length} others</span>
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-normal">+{previewLeague.totalMembers - previewLeague.memberNames.length} others</span>
                                     )}
                                 </div>
                             )}
                         </div>
 
                         {/* Gameweek Join Pill */}
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-4 flex items-start gap-2.5">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                            <div className="text-[11px] leading-relaxed text-gray-300">
-                                <span className="font-bold text-white">Joining from Gameweek {onboardData.currentGw}:</span> Your contributions only apply from this round forward. You are never back-charged for earlier gameweeks!
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5 sm:p-3 mb-4 flex items-start gap-2.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                            <div className="text-[11px] leading-relaxed text-slate-700 dark:text-gray-300">
+                                <span className="font-bold text-slate-900 dark:text-white">Joining from Gameweek {onboardData.currentGw}:</span> Active from this round forward. Zero back-charges for past gameweeks!
                             </div>
                         </div>
 
-                        {/* Progressive Stepper Header */}
-                        <div className="flex items-center justify-between gap-1.5 mb-5 px-1">
-                            {[
-                                { step: 1, label: '1. Squad', icon: Shield },
-                                { step: 2, label: '2. Tier', icon: Trophy },
-                                { step: 3, label: '3. Confirm', icon: CheckCircle2 }
-                            ].map((s) => {
-                                const isCurrent = onboardStep === s.step;
-                                const isPast = onboardStep > s.step;
-                                const Icon = s.icon;
-                                return (
-                                    <button
-                                        key={s.step}
-                                        type="button"
-                                        onClick={() => {
-                                            if (s.step < onboardStep) {
-                                                setOnboardStep(s.step as any);
-                                            } else if (s.step === 2) {
-                                                let name = onboardManagerName.trim();
-                                                if (selectedTeamClaim !== 'custom') {
-                                                    const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
-                                                    if (matched) name = name || matched.displayName || '';
-                                                }
-                                                if (!name) {
-                                                    setOnboardError('Please complete Step 1 (Manager Name) first.');
-                                                    return;
-                                                }
-                                                setOnboardError('');
-                                                setOnboardStep(2);
-                                            } else if (s.step === 3) {
-                                                let name = onboardManagerName.trim();
-                                                if (selectedTeamClaim !== 'custom') {
-                                                    const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
-                                                    if (matched) name = name || matched.displayName || '';
-                                                }
-                                                if (!name) {
-                                                    setOnboardError('Please complete Step 1 (Manager Name) first.');
-                                                    return;
-                                                }
-                                                setOnboardError('');
-                                                setOnboardStep(3);
-                                            }
-                                        }}
-                                        className={clsx(
-                                            "flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all",
-                                            isCurrent
-                                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm"
-                                                : isPast
-                                                    ? "bg-white/5 text-gray-300 border border-white/10 hover:border-emerald-500/30 cursor-pointer"
-                                                    : "bg-white/[0.02] text-gray-600 border border-white/5 cursor-not-allowed"
-                                        )}
-                                    >
-                                        <Icon className={clsx("w-3 h-3", isCurrent ? "text-emerald-400" : isPast ? "text-emerald-500" : "text-gray-600")} />
-                                        <span className="truncate">{s.label}</span>
-                                    </button>
-                                );
-                            })}
+                        {/* 2-Step Progressive Header */}
+                        <div className="flex items-center justify-between gap-2 mb-4 px-1">
+                            <button
+                                type="button"
+                                onClick={() => setOnboardStep(1)}
+                                className={clsx(
+                                    "flex-1 py-1.5 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                                    onboardStep === 1
+                                        ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/50 shadow-xs"
+                                        : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10"
+                                )}
+                            >
+                                <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>1. Team & Phone</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    let name = onboardManagerName.trim();
+                                    if (selectedTeamClaim !== 'custom') {
+                                        const matched = onboardData.unlinkedTeams.find(t => t.id === selectedTeamClaim);
+                                        if (matched) name = name || matched.displayName || '';
+                                    }
+                                    if (!name) {
+                                        setOnboardError('Please select or enter your Manager Name first.');
+                                        return;
+                                    }
+                                    const cleanP = normalizeKenyanPhone(phone);
+                                    if (!cleanP || cleanP.length < 10) {
+                                        setOnboardError('Please enter a valid M-Pesa phone number.');
+                                        return;
+                                    }
+                                    setOnboardError('');
+                                    setOnboardStep(2);
+                                }}
+                                className={clsx(
+                                    "flex-1 py-1.5 px-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer",
+                                    onboardStep === 2
+                                        ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/50 shadow-xs"
+                                        : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10"
+                                )}
+                            >
+                                <Trophy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>2. Mode & Join</span>
+                            </button>
                         </div>
 
                         {onboardError && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium p-3 rounded-xl mb-4 flex items-start gap-2">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <div className="bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-semibold p-3 rounded-xl mb-4 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
                                 <span>{onboardError}</span>
                             </div>
                         )}
 
                         <form onSubmit={handleCompleteOnboarding} className="space-y-4">
-                            {/* STEP 1: Link FPL Team & Name */}
+                            {/* STEP 1: Link FPL Team & Phone */}
                             {onboardStep === 1 && (
                                 <div className="space-y-3 animate-in fade-in duration-200">
                                     <div className="flex items-center justify-between">
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                            Link Your FPL Team & Profile
+                                        <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider">
+                                            Match Your FPL Squad
                                         </label>
-                                        <span className="text-[10px] text-emerald-400 font-bold">Step 1 of 3</span>
+                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Step 1 of 2</span>
                                     </div>
 
                                     {onboardData.unlinkedTeams.length > 0 && (
                                         <div className="space-y-2 mb-2">
                                             <div className="relative">
-                                                <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                                <Search className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                                 <input
                                                     type="text"
                                                     value={onboardSearch}
                                                     onChange={(e) => setOnboardSearch(e.target.value)}
                                                     placeholder="Search your name or FPL team..."
-                                                    className="w-full bg-[#12181f] border border-white/10 rounded-xl py-2 pl-9 pr-7 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500/50"
+                                                    className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl py-2 pl-9 pr-7 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
                                                 />
                                                 {onboardSearch && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setOnboardSearch('')}
-                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs"
+                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white text-xs cursor-pointer"
                                                     >
                                                         ✕
                                                     </button>
@@ -1369,16 +1357,16 @@ export default function Login() {
                                                             }
                                                         }
                                                     }}
-                                                    className="w-full appearance-none bg-white dark:bg-[#161d24] border border-gray-300 dark:border-white/10 rounded-xl py-2.5 pl-3 pr-9 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer font-semibold shadow-sm transition-all"
+                                                    className="w-full appearance-none bg-white dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 pl-3 pr-9 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer font-semibold shadow-xs transition-all"
                                                 >
-                                                    <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"} className="bg-white dark:bg-[#161d24] text-gray-900 dark:text-white">
+                                                    <optgroup label={filteredUnlinkedTeams.length > 0 ? `Select Your Team (${filteredUnlinkedTeams.length} available)` : "No exact matches"} className="bg-white dark:bg-[#161d24] text-slate-900 dark:text-white">
                                                         {filteredUnlinkedTeams.map((t) => (
-                                                            <option key={t.id} value={t.id} className="bg-white dark:bg-[#161d24] text-gray-900 dark:text-white py-1.5 font-medium">
+                                                            <option key={t.id} value={t.id} className="bg-white dark:bg-[#161d24] text-slate-900 dark:text-white py-1.5 font-medium">
                                                                 {t.displayName} — {t.fplTeamName || t.teamName || 'FPL Squad'}
                                                             </option>
                                                         ))}
                                                     </optgroup>
-                                                    <option value="custom" className="bg-white dark:bg-[#161d24] text-amber-600 dark:text-amber-300 font-bold py-1.5">➕ Not in list / Enter manually</option>
+                                                    <option value="custom" className="bg-white dark:bg-[#161d24] text-amber-600 dark:text-amber-400 font-bold py-1.5">➕ Not in list / Enter manually</option>
                                                 </select>
                                                 <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
                                             </div>
@@ -1388,14 +1376,14 @@ export default function Login() {
                                     {selectedTeamClaim !== 'custom' ? (
                                         <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 flex items-center justify-between text-xs mb-2">
                                             <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                                                <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                                                     <Check className="w-4 h-4" />
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <span className="text-xs font-bold text-white block truncate">
+                                                    <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
                                                         {onboardTeamName || 'Selected FPL Squad'}
                                                     </span>
-                                                    <span className="text-[11px] text-emerald-400 truncate block">
+                                                    <span className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate block font-medium">
                                                         Manager: {onboardManagerName || 'Verified'}
                                                     </span>
                                                 </div>
@@ -1403,7 +1391,7 @@ export default function Login() {
                                             <button
                                                 type="button"
                                                 onClick={() => setSelectedTeamClaim('custom')}
-                                                className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 underline shrink-0 ml-2"
+                                                className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline shrink-0 ml-2 cursor-pointer"
                                             >
                                                 Change
                                             </button>
@@ -1412,7 +1400,7 @@ export default function Login() {
                                         <div className="space-y-2.5 mb-2">
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                                 <div>
-                                                    <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                                    <label className="block text-[9px] font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                                                         Your Name (Manager) *
                                                     </label>
                                                     <input
@@ -1421,11 +1409,11 @@ export default function Login() {
                                                         value={onboardManagerName}
                                                         onChange={(e) => setOnboardManagerName(e.target.value)}
                                                         placeholder="Your Full Name"
-                                                        className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+                                                        className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                                    <label className="block text-[9px] font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                                                         FPL Team Name
                                                     </label>
                                                     <input
@@ -1433,38 +1421,38 @@ export default function Login() {
                                                         value={onboardTeamName}
                                                         onChange={(e) => setOnboardTeamName(e.target.value)}
                                                         placeholder="Team Name"
-                                                        className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50"
+                                                        className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
                                                     />
                                                 </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                                                    <span>FPL Team ID (Optional)</span>
-                                                    <span className="text-[8px] text-gray-500 font-normal">from fantasy.premierleague.com</span>
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    value={customFplId}
-                                                    onFocus={(e) => e.target.select()}
-                                                    onChange={(e) => setCustomFplId(e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, ''))}
-                                                    placeholder="Numeric Team ID"
-                                                    className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2 px-3 text-xs text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500/50 font-mono"
-                                                />
-                                                <p className="text-[10px] text-gray-400 mt-1 leading-tight">
-                                                    💡 <em>In FPL app/browser, open team URL: <span className="font-mono text-amber-300">fantasy.premierleague.com/entry/<strong>XXXXXX</strong></span> — the number is your Team ID.</em>
-                                                </p>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Verified Phone Indicator */}
-                                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-white/[0.03] border border-white/5 rounded-xl text-[11px] text-gray-400">
-                                        <span>Payout Phone (M-Pesa):</span>
-                                        <span className="text-white font-mono font-bold flex items-center gap-1.5">
-                                            <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                                            {onboardData.phone}
-                                        </span>
+                                    {/* M-Pesa Phone Number input */}
+                                    <div className="space-y-1.5 pt-1">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[11px] font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                                                <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                <span>M-Pesa Phone Number</span>
+                                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">*</span>
+                                            </label>
+                                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">Payouts & Sign In</span>
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            value={phone}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setPhone(val);
+                                                if (onboardData) setOnboardData({ ...onboardData, phone: val });
+                                            }}
+                                            placeholder="e.g. 0712 345 678 or 254..."
+                                            className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-3.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 font-mono font-bold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                                            required
+                                        />
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-tight">
+                                            Use your active Safaricom M-Pesa line for direct cash pot prizes and sign in.
+                                        </p>
                                     </div>
 
                                     <button
@@ -1480,7 +1468,12 @@ export default function Login() {
                                                 }
                                             }
                                             if (!name) {
-                                                setOnboardError('Please enter or select your Manager Name to proceed.');
+                                                setOnboardError('Please select or enter your Manager Name to proceed.');
+                                                return;
+                                            }
+                                            const cleanPhone = normalizeKenyanPhone((phone || '').trim());
+                                            if (!cleanPhone || cleanPhone.length < 10) {
+                                                setOnboardError('Please enter a valid M-Pesa phone number (e.g. 0712345678).');
                                                 return;
                                             }
                                             setOnboardManagerName(name);
@@ -1488,22 +1481,22 @@ export default function Login() {
                                             setOnboardError('');
                                             setOnboardStep(2);
                                         }}
-                                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-[#0A0E17] font-black text-xs uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer mt-2"
+                                        className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer mt-3"
                                     >
-                                        <span>Next: Choose Participation Tier</span>
+                                        <span>Next: Choose Participation Mode</span>
                                         <ArrowRight className="w-4 h-4" />
                                     </button>
                                 </div>
                             )}
 
-                            {/* STEP 2: Choose Participation Tier */}
+                            {/* STEP 2: Choose Mode & Confirm */}
                             {onboardStep === 2 && (
                                 <div className="space-y-3 animate-in fade-in duration-200">
                                     <div className="flex items-center justify-between">
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                            Choose Your Participation Tier
+                                        <label className="block text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider">
+                                            Choose Your Participation Mode
                                         </label>
-                                        <span className="text-[10px] text-emerald-400 font-bold">Step 2 of 3</span>
+                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Step 2 of 2</span>
                                     </div>
 
                                     <div className="space-y-2.5">
@@ -1512,184 +1505,96 @@ export default function Login() {
                                             onClick={() => setOnboardPlayMode('pot')}
                                             className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
                                                 onboardPlayMode === 'pot'
-                                                    ? 'bg-emerald-500/15 border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)] ring-1 ring-emerald-500/40'
-                                                    : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                                    ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-500 shadow-sm ring-1 ring-emerald-500/40'
+                                                    : 'bg-slate-50 dark:bg-[#161d24] border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                    <Trophy className="w-4 h-4 text-[#FBBF24]" /> Full Pot (Weekly + Season)
+                                                <span className="text-xs font-black flex items-center gap-1.5 text-slate-900 dark:text-white">
+                                                    <Trophy className="w-4 h-4 text-amber-500" /> Participate in Cash Pots
                                                 </span>
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/20">
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-[#FBBF24] border border-amber-500/20">
                                                     KES {onboardData.monthlyFee.toLocaleString()}/GW
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-gray-300 leading-snug mb-2">
-                                                Compete for every round's gameweek cash prize + qualify for the end-of-season championship vault.
+                                            <p className="text-[11px] text-slate-600 dark:text-gray-300 leading-snug mb-2">
+                                                Compete for every round's weekly M-Pesa cash prize + qualify for the end-of-season championship vault.
                                             </p>
-                                            <span className="text-[10px] font-bold text-emerald-400 block">
+                                            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 block">
                                                 ✓ Weekly Round Cash & Season Championship Vault
                                             </span>
                                         </div>
 
-                                        {/* Option 2: Season Vault Only */}
-                                        <div
-                                            onClick={() => setOnboardPlayMode('season_only')}
-                                            className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
-                                                onboardPlayMode === 'season_only'
-                                                    ? 'bg-amber-500/15 border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-500/40'
-                                                    : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
-                                            }`}
-                                        >
-                                            <div className="flex items-center justify-between mb-1.5">
-                                                <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                    <Crown className="w-4 h-4 text-amber-400" /> Season Vault Only
-                                                </span>
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                                    Season Jackpot Focus
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] text-gray-300 leading-snug mb-2">
-                                                Focus entirely on the 38-gameweek overall championship. No weekly round pot dues required.
-                                            </p>
-                                            <span className="text-[10px] font-bold text-amber-400 block">
-                                                ✓ Overall Season Standings & Trophy Vault Focus
-                                            </span>
-                                        </div>
-
-                                        {/* Option 3: Spectator & Side-Bets Only */}
+                                        {/* Option 2: Spectator Mode (Free) */}
                                         <div
                                             onClick={() => setOnboardPlayMode('sidebets_only')}
                                             className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative ${
                                                 onboardPlayMode === 'sidebets_only'
-                                                    ? 'bg-indigo-500/15 border-indigo-500/60 shadow-[0_0_20px_rgba(99,102,241,0.2)] ring-1 ring-indigo-500/40'
-                                                    : 'bg-[#161d24] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20'
+                                                    ? 'bg-indigo-50 dark:bg-indigo-500/15 border-indigo-500 shadow-sm ring-1 ring-indigo-500/40'
+                                                    : 'bg-slate-50 dark:bg-[#161d24] border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20'
                                             }`}
                                         >
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <span className="text-xs font-black flex items-center gap-1.5 text-white">
-                                                    <Swords className="w-4 h-4 text-indigo-400" /> Free Spectator & Side-Bets
+                                                <span className="text-xs font-black flex items-center gap-1.5 text-slate-900 dark:text-white">
+                                                    <Shield className="w-4 h-4 text-indigo-500 dark:text-indigo-400" /> Spectator Mode (Free)
                                                 </span>
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
                                                     Free Entry
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-gray-300 leading-snug mb-2">
-                                                Follow live league standings for free. Challenge rivals to 1v1 M-Pesa cash side bets whenever you want!
+                                            <p className="text-[11px] text-slate-600 dark:text-gray-300 leading-snug mb-2">
+                                                Follow live league standings, matchday pitch & banter for free. Challenge rivals to 1v1 M-Pesa side bets anytime!
                                             </p>
-                                            <span className="text-[10px] font-bold text-indigo-400 block">
+                                            <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-400 block">
                                                 ✓ 1v1 P2P Side Bets · Zero Chama Dues
                                             </span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-3 pt-3 border-t border-white/10">
+                                    {/* Summary Review Card */}
+                                    <div className="rounded-2xl border border-slate-200 dark:border-emerald-500/30 bg-slate-50 dark:bg-[#121920] p-3.5 space-y-2">
+                                        <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-white/5 text-xs">
+                                            <span className="text-[11px] text-slate-500 dark:text-gray-400">Manager:</span>
+                                            <span className="font-black text-slate-900 dark:text-emerald-400">{onboardManagerName}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-white/5 text-xs">
+                                            <span className="text-[11px] text-slate-500 dark:text-gray-400">FPL Squad:</span>
+                                            <span className="font-bold text-slate-900 dark:text-white truncate max-w-[200px]">{onboardTeamName || 'FPL Squad'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-white/5 text-xs">
+                                            <span className="text-[11px] text-slate-500 dark:text-gray-400">M-Pesa Number:</span>
+                                            <span className="font-mono font-bold text-slate-900 dark:text-white">{phone}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-[11px] text-slate-500 dark:text-gray-400">Selected Mode:</span>
+                                            <span className={clsx(
+                                                "font-black px-2 py-0.5 rounded-lg text-[10px] uppercase tracking-wider",
+                                                onboardPlayMode === 'pot'
+                                                    ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+                                                    : "bg-indigo-500/15 text-indigo-800 dark:text-indigo-300"
+                                            )}>
+                                                {onboardPlayMode === 'pot' ? 'Cash Pot Contender' : 'Spectator (Free)'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 pt-2">
                                         <button
                                             type="button"
                                             onClick={() => setOnboardStep(1)}
-                                            className="px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
-                                        >
-                                            <ArrowLeft className="w-3.5 h-3.5" /> Back
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setOnboardStep(3)}
-                                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-[#0A0E17] font-black text-xs sm:text-sm uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
-                                        >
-                                            <span>Next: Review & Confirm</span>
-                                            <ArrowRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* STEP 3: Review & Confirm */}
-                            {onboardStep === 3 && (
-                                <div className="space-y-3 animate-in fade-in duration-200">
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                            Review Your Profile & Join
-                                        </label>
-                                        <span className="text-[10px] text-emerald-400 font-bold">Step 3 of 3</span>
-                                    </div>
-
-                                    {/* Summary Card */}
-                                    <div className="rounded-2xl border border-emerald-500/30 bg-[#121920] p-4 space-y-2.5 shadow-inner">
-                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                                            <span className="text-[11px] text-gray-400">League:</span>
-                                            <span className="text-xs font-black text-white">{onboardData.leagueName}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                                            <span className="text-[11px] text-gray-400">Manager:</span>
-                                            <span className="text-xs font-black text-emerald-400">{onboardManagerName || 'Manager'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                                            <span className="text-[11px] text-gray-400">FPL Squad:</span>
-                                            <span className="text-xs font-bold text-white truncate max-w-[180px]">{onboardTeamName || 'FPL Squad'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                                            <span className="text-[11px] text-gray-400">Selected Tier:</span>
-                                            <span className={clsx(
-                                                "text-xs font-black px-2 py-0.5 rounded-lg border",
-                                                onboardPlayMode === 'pot'
-                                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                                                    : onboardPlayMode === 'season_only'
-                                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                                                    : "bg-indigo-500/10 border-indigo-500/30 text-indigo-300"
-                                            )}>
-                                                {onboardPlayMode === 'pot'
-                                                    ? `🏆 Full Pot (KES ${onboardData.monthlyFee}/GW)`
-                                                    : onboardPlayMode === 'season_only'
-                                                    ? '👑 Season Vault Only'
-                                                    : '🛡️ Spectator & Bets (Free)'}
-                                            </span>
-                                        </div>
-                                        <div className="pt-2 border-t border-white/5 space-y-1.5">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-[11px] font-bold text-gray-300 flex items-center gap-1.5">
-                                                    <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                                                    <span>M-Pesa Payout Number</span>
-                                                    <span className="text-emerald-400 font-bold">*</span>
-                                                </label>
-                                                <span className="text-[10px] text-emerald-400 font-medium">Instant Winnings</span>
-                                            </div>
-                                            <input
-                                                type="tel"
-                                                value={phone}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setPhone(val);
-                                                    if (onboardData) {
-                                                        setOnboardData({ ...onboardData, phone: val });
-                                                    }
-                                                }}
-                                                placeholder="e.g. 0712 345 678"
-                                                className="w-full bg-[#161d24] border border-white/10 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder:text-gray-500 font-mono focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-bold"
-                                                required
-                                            />
-                                            <p className="text-[10px] text-gray-400 leading-snug">
-                                                Weekly cash prizes and payouts will be sent directly to this Safaricom M-Pesa number.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-3 pt-3 border-t border-white/10">
-                                        <button
-                                            type="button"
-                                            onClick={() => setOnboardStep(2)}
-                                            className="px-5 py-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
+                                            className="px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
                                         >
                                             <ArrowLeft className="w-3.5 h-3.5" /> Back
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={isOnboardingSubmitting}
-                                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-[#0A0E17] font-black text-xs sm:text-sm uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-95 disabled:opacity-50 cursor-pointer"
+                                            className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
                                         >
                                             {isOnboardingSubmitting ? (
-                                                <><span className="w-4 h-4 border-2 border-[#0A0E17] border-t-transparent rounded-full animate-spin" /> Activating Profile...</>
+                                                <><span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" /> Activating Profile...</>
                                             ) : (
-                                                <><span>Complete & Enter League</span> <ArrowRight className="w-4 h-4" /></>
+                                                <><span>Join {onboardData.leagueName}</span> <ArrowRight className="w-4 h-4" /></>
                                             )}
                                         </button>
                                     </div>

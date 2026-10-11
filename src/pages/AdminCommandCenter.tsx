@@ -1895,7 +1895,7 @@ export default function AdminCommandCenter() {
   const shareInviteCode = () => {
     navigator.clipboard.writeText(inviteCode);
     const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
-    const link = `${appUrl}/login?code=${inviteCode}`;
+    const link = `${appUrl}/join?code=${inviteCode}`;
     const host = chairmanName || members.find(m => m.role === 'admin' || m.role === 'chairman')?.displayName || auth.currentUser?.displayName || localStorage.getItem('activeUserName') || localStorage.getItem('fc-setup-fullName') || "The Chairman";
     const lName = leagueName || "our FPL Chama";
     const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${inviteCode}*`;
@@ -3815,14 +3815,14 @@ burstFrame();
         {/* Unified Global Toast Notification */}
         <div
           className={clsx(
-            "fixed top-4 right-4 left-4 sm:left-auto max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
+            "fixed top-[max(calc(env(safe-area-inset-top,0px)+14px),54px)] sm:top-8 right-4 left-4 sm:left-auto sm:right-8 max-w-[calc(100vw-2rem)] sm:max-w-md px-5 py-3 rounded-2xl text-[13px] font-bold flex items-center gap-3 transition-all duration-500 pointer-events-none z-[9999] shadow-[0_20px_50px_rgba(0,0,0,0.5)] fc-inline-toast fc-inline-toast-success",
             toastMessage
               ? "opacity-100 translate-y-0 scale-100 visible"
               : "opacity-0 -translate-y-2 scale-95 invisible",
           )}
         >
-          <CheckCircle2 className="w-5 h-5 text-[#10B981]" />
-          {toastMessage}
+          <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0" />
+          <span className="leading-snug">{toastMessage}</span>
         </div>
 
         <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8 pb-6 lg:pb-8">
@@ -5801,7 +5801,7 @@ burstFrame();
                         )}
                       </div>
 
-                      {/* Bespoke Fantasy Chama Toggle Switch (Dark slate track, emerald glow when funded, no duplicate text) */}
+                      {/* Bespoke Fantasy Chama Toggle Switch (Adaptive track: light slate in light mode, obsidian in dark mode, emerald glow when funded) */}
                       <button
                         type="button"
                         role="switch"
@@ -5810,8 +5810,8 @@ burstFrame();
                         className={clsx(
                           "relative inline-flex h-7 w-14 items-center rounded-full p-0.5 border transition-all duration-200 ease-in-out cursor-pointer select-none shrink-0 shadow-xs focus:outline-none",
                           rowHasPaidCurrent
-                            ? "bg-[#10B981]/25 border-[#10B981]/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
-                            : "bg-slate-800/90 border-slate-700/80 hover:border-slate-600"
+                            ? "bg-emerald-500/25 border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+                            : "bg-slate-200 border-slate-300 hover:border-slate-400 dark:bg-slate-800/90 dark:border-slate-700/80 dark:hover:border-slate-600"
                         )}
                         title={rowHasPaidCurrent ? "Funded — Click to mark unpaid / reverse" : "Unpaid — Click to mark funded"}
                       >
@@ -5819,14 +5819,14 @@ burstFrame();
                           className={clsx(
                             "inline-flex h-6 w-6 items-center justify-center rounded-full shadow-md transform transition-transform duration-200 ease-in-out",
                             rowHasPaidCurrent
-                              ? "translate-x-7 bg-[#10B981] text-black"
-                              : "translate-x-0 bg-slate-600 text-slate-300"
+                              ? "translate-x-7 bg-emerald-500 text-white dark:bg-[#10B981] dark:text-black"
+                              : "translate-x-0 bg-white border border-slate-300 dark:border-none dark:bg-slate-600 text-slate-400 dark:text-slate-300"
                           )}
                         >
                           {rowHasPaidCurrent ? (
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           ) : (
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-400" />
                           )}
                         </span>
                       </button>

@@ -13,9 +13,9 @@ export default function InviteHub() {
 
     const [targetPhone, setTargetPhone] = useState('');
     const [expiresDays, setExpiresDays] = useState('7');
+    const appUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app');
 
     const handleCopyShare = () => {
-        const appUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || 'https://fantasy-chama.vercel.app');
         const expiresAt = Date.now() + (parseInt(expiresDays || '7') * 24 * 60 * 60 * 1000);
         
         let params = `?code=${inviteCode}&e=${expiresAt}`;
@@ -25,7 +25,7 @@ export default function InviteHub() {
             params += `&p=${encodeURIComponent(formattedPhone)}`;
         }
 
-        const shareUrl = `${appUrl}/login${params}`;
+        const shareUrl = `${appUrl}/join${params}`;
         
         const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\n` +
             `Win weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\n` +
@@ -148,7 +148,7 @@ export default function InviteHub() {
                         <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Invitation Preview</span>
                     </div>
                     <div className="bg-[#161d24] border border-white/5 rounded-xl p-5 md:p-6 text-gray-300 text-sm leading-relaxed shadow-lg font-mono whitespace-pre-wrap">
-                        {`You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: https://fantasy-chama.vercel.app/login?code=${inviteCode}\nLeague Code: *${inviteCode}*`}
+                        {`You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${appUrl}/join?code=${inviteCode}\nLeague Code: *${inviteCode}*`}
                     </div>
                 </div>
 

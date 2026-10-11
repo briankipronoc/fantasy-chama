@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2, Users, Lock } from 'lucide-react';
+import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2, Users, Lock, BarChart3 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl } from '../utils/api';
@@ -1471,6 +1471,60 @@ const handleRejectPendingPayout = async (payout: any) => {
                     <div className="fc-card mt-8 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-5 py-4">
                         <p className="text-sm font-black text-amber-300 uppercase tracking-widest">Sync Pending</p>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Your member profile is still syncing. Refresh in a few seconds and try again.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isAdmin && isSpectator) {
+        return (
+            <div className="fc-finances-page p-3 sm:p-5 md:p-6 lg:p-8 w-full animate-in fade-in duration-500 pb-36 sm:pb-32 lg:pb-16 font-sans text-slate-900 dark:text-white relative">
+                <div className="w-full max-w-4xl mx-auto space-y-6">
+                    <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
+                    
+                    <div className="mt-8 rounded-3xl border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 via-slate-50 dark:via-[#111822] to-slate-100 dark:to-[#0b1014] p-6 sm:p-10 text-center shadow-xl relative overflow-hidden">
+                        <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mx-auto mb-4 text-indigo-500 dark:text-indigo-400 shadow-[0_0_30px_rgba(99,102,241,0.25)]">
+                            <Lock className="w-8 h-8" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-400">
+                            Spectator Mode Active
+                        </span>
+                        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white mt-3 mb-2">
+                            Financial Vault & Ledger Locked
+                        </h2>
+                        <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-300 max-w-lg mx-auto leading-relaxed">
+                            Financial records, weekly pot balances, and M-Pesa audit trails are exclusively accessible to registered Chama members who are actively participating in cash pots.
+                        </p>
+
+                        <div className="mt-6 p-4 rounded-2xl bg-white/80 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 max-w-md mx-auto text-left space-y-2">
+                            <p className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-gray-200">
+                                What You Can Access as a Spectator:
+                            </p>
+                            <ul className="text-xs text-slate-600 dark:text-gray-400 space-y-1.5 list-disc list-inside">
+                                <li>Live Premier League Standings & Gameweek Points</li>
+                                <li>Full Matchday Lineup Pitch & Manager Matchups</li>
+                                <li>Chama Banter Slips & 1-Tap WhatsApp Digests</li>
+                                <li>1v1 P2P Cash Side Bets with any rival</li>
+                            </ul>
+                        </div>
+
+                        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                            <button
+                                onClick={() => navigate('/deposit', { state: { upgradeMode: true } })}
+                                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                            >
+                                <Trophy className="w-4 h-4" />
+                                <span>Upgrade to Cash Pot Contender</span>
+                            </button>
+                            <button
+                                onClick={() => navigate('/standings')}
+                                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white font-bold text-xs uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                            >
+                                <BarChart3 className="w-4 h-4" />
+                                <span>View Live Standings</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

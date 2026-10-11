@@ -1055,7 +1055,7 @@ export default function AdminSetup() {
 
     const handleShareWhatsApp = () => {
         const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
-        const link = `${appUrl}/login?code=${generatedCode}`;
+        const link = `${appUrl}/join?code=${generatedCode}`;
         const host = (fullName && fullName.trim().toLowerCase() !== 'chairman' && fullName.trim().toLowerCase() !== 'admin')
             ? fullName.trim()
             : (effectiveManagerName && effectiveManagerName !== 'League Founder' ? effectiveManagerName : "your Chairman");
@@ -1069,7 +1069,7 @@ export default function AdminSetup() {
 
     const handleCopyInviteLink = () => {
         const appUrl = (typeof window !== "undefined" && window.location.origin) ? window.location.origin : (import.meta.env.VITE_APP_URL || "https://fantasy-chama.vercel.app");
-        const link = `${appUrl}/login?code=${generatedCode}`;
+        const link = `${appUrl}/join?code=${generatedCode}`;
         navigator.clipboard.writeText(link);
         setCopiedLink(true);
         toast.success('Invite link copied to clipboard!');
