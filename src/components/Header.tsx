@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
 import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles } from 'lucide-react';
@@ -40,6 +40,12 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const isAnonymousAuth = Boolean(currentUser?.isAnonymous);
     const currentUid = !isAnonymousAuth ? currentUser?.uid : null;
     const currentAuthEmail = !isAnonymousAuth ? currentUser?.email?.toLowerCase() : null;
+
+    const isSuperAdmin = Boolean(
+        (!isAnonymousAuth && currentUid === import.meta.env.VITE_SUPER_ADMIN_UID) ||
+        activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
+        currentAuthEmail === 'cbrian@kabarak.ac.ke'
+    );
 
     // Strictly verify if the user has authenticated as the Chairman via Firebase Auth (Email/Password)
     const isEmailAuthenticatedChairman = Boolean(
@@ -333,6 +339,17 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
 
                 {/* League Switcher & Notifications Bell directly to the right of the League Title */}
                 <div className="shrink-0 flex items-center gap-2">
+                    {isSuperAdmin && (
+                        <Link
+                            to="/hq"
+                            onClick={() => haptics.selection()}
+                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500 hover:text-white text-emerald-700 dark:text-emerald-300 transition-all font-black text-xs uppercase tracking-wider shadow-[0_0_14px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer shrink-0"
+                            title="Platform Master HQ & Backend Finances"
+                        >
+                            <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>HQ</span>
+                        </Link>
+                    )}
                     <LeagueSwitcher variant="header" />
                     {shouldHideExtraControls && (
                         <div className="relative">

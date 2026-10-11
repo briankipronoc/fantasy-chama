@@ -226,7 +226,7 @@ export default function TeamPicksModal({
     return (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/75 backdrop-blur-xl animate-in fade-in duration-200">
             <div 
-                className="relative w-full max-w-2xl bg-[#0e141a] border border-white/10 rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
+                className="fc-dark-modal relative w-full max-w-2xl bg-[#0e141a] border border-white/10 rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col my-auto max-h-[92vh]"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Modal Header */}

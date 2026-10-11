@@ -483,9 +483,8 @@
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.025em;
   }
-  /* Ensure modal dialog titles & copy remain crisp high-contrast white on dark modal glass cards in ALL themes */
-  [data-theme="light"] [role="dialog"] .fc-frosty-title,
-  [data-theme="light"] .fc-resolve-modal-overlay .fc-frosty-title {
+  /* Scoped dark modal support: only force white metallic title if explicitly inside .fc-dark-modal */
+  [data-theme="light"] .fc-dark-modal .fc-frosty-title {
     background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #cbd5e1 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
@@ -496,8 +495,7 @@
   [data-theme="light"] .fc-frosty-sub {
     color: #475569 !important;
   }
-  [data-theme="light"] [role="dialog"] .fc-frosty-sub,
-  [data-theme="light"] .fc-resolve-modal-overlay .fc-frosty-sub {
+  [data-theme="light"] .fc-dark-modal .fc-frosty-sub {
     color: #94a3b8 !important;
   }
   .fc-metallic-sub {
@@ -1412,18 +1410,39 @@
 [data-theme="light"] .bg-\[\#11171a\] {
   background-color: #f1f5f1 !important;
 }
-[data-theme="light"] .text-white {
+[data-theme="light"] .text-white:not(button):not(button *):not(.btn *):not(.fc-preserve-white):not(.fc-preserve-white *):not(.fc-dark-modal *):not([class*="bg-red"] *):not([class*="bg-emerald"] *):not([class*="bg-blue"] *):not([class*="bg-purple"] *):not([class*="from-red"] *):not([class*="from-emerald"] *):not([class*="from-blue"] *) {
   color: #111827 !important;
 }
-[data-theme="light"] .text-gray-400 {
+[data-theme="light"] .text-gray-400:not(.fc-dark-modal *):not([class*="bg-red"] *):not([class*="bg-emerald"] *) {
   color: #1f2937 !important;
 }
-[data-theme="light"] .text-gray-500,
-[data-theme="light"] .text-gray-600 {
+[data-theme="light"] .text-gray-500:not(.fc-dark-modal *),
+[data-theme="light"] .text-gray-600:not(.fc-dark-modal *) {
   color: #374151 !important;
 }
-[data-theme="light"] .text-gray-700 {
+[data-theme="light"] .text-gray-700:not(.fc-dark-modal *) {
   color: #4b5563 !important;
+}
+
+/* Explicitly preserve crisp white text on buttons, badges and dark modals in light mode */
+[data-theme="light"] button.text-white,
+[data-theme="light"] button .text-white,
+[data-theme="light"] [class*="bg-red"] .text-white,
+[data-theme="light"] [class*="bg-emerald"] .text-white,
+[data-theme="light"] [class*="bg-blue"] .text-white,
+[data-theme="light"] [class*="from-red"] .text-white,
+[data-theme="light"] [class*="from-emerald"] .text-white,
+[data-theme="light"] [class*="from-blue"] .text-white,
+[data-theme="light"] .fc-preserve-white,
+[data-theme="light"] .fc-preserve-white *,
+[data-theme="light"] .fc-dark-modal .text-white {
+  color: #ffffff !important;
+}
+[data-theme="light"] .fc-dark-modal .text-gray-300 {
+  color: #cbd5e1 !important;
+}
+[data-theme="light"] .fc-dark-modal .text-gray-400 {
+  color: #94a3b8 !important;
 }
 [data-theme="light"] .fc-inline-toast {
   background-color: rgba(255, 255, 255, 0.96) !important;

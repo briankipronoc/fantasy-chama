@@ -1,8 +1,8 @@
 import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
-import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Flame, Trophy } from 'lucide-react';
-import { db } from '../firebase';
+import { LayoutDashboard, BarChart3, AlertTriangle, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Flame, Trophy, Shield } from 'lucide-react';
+import { db, auth } from '../firebase';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import clsx from 'clsx';
 import { useNotifications } from '../components/NotificationProvider';
@@ -120,24 +120,46 @@ export default function AppLayout() {
     const memberOwnUnpaid = activeUserMember && !isUserSpectator && !activeUserMember.hasPaid ? 1 : 0;
 
     const isCoChair = Boolean(coChairMemberId && activeUserId === coChairMemberId);
-    const adminNavItems = [
+    const currentUser = auth.currentUser;
+    const isAnonymousAuth = Boolean(currentUser?.isAnonymous);
+    const currentUid = !isAnonymousAuth ? currentUser?.uid : null;
+    const currentAuthEmail = !isAnonymousAuth ? currentUser?.email?.toLowerCase() : null;
+    const isSuperAdmin = Boolean(
+        (!isAnonymousAuth && currentUid === import.meta.env.VITE_SUPER_ADMIN_UID) ||
+        activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
+        currentAuthEmail === 'cbrian@kabarak.ac.ke'
+    );
+
+    type NavItem = {
+        name: string;
+        shortName: string;
+        path: string;
+        icon: any;
+        badge?: number;
+    };
+
+    const hqNavItem: NavItem = { name: 'HQ Command', shortName: 'HQ', path: '/hq', icon: Shield };
+
+    const adminNavItems: NavItem[] = [
         { name: isCoChair ? 'Co-Chair Hub' : 'Chairman Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
         { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
         { name: 'Red Zone & Finances', shortName: 'Finances', path: '/finances', icon: AlertTriangle, badge: adminFinanceBadge > 0 ? adminFinanceBadge : undefined },
+        ...(isSuperAdmin ? [hqNavItem] : []),
         { name: 'Settings & Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 
-    const memberNavItems = [
+    const memberNavItems: NavItem[] = [
         { name: 'Member Hub', shortName: 'Hub', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Standings', shortName: 'Standings', path: '/standings', icon: BarChart3 },
         { name: 'Side Bets', shortName: 'Bets', path: '/sidebets', icon: Flame },
         // Only show badge if THIS member personally hasn't paid in pot mode
         { name: 'Finances & Payouts', shortName: 'Finances', path: '/finances', icon: memberOwnUnpaid > 0 ? AlertTriangle : BarChart3, badge: memberOwnUnpaid > 0 ? memberOwnUnpaid : undefined },
+        ...(isSuperAdmin ? [hqNavItem] : []),
         { name: 'My Profile', shortName: 'Profile', path: '/profile', icon: Settings },
     ];
 
-    const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge, memberOwnUnpaid, isCoChair]);
+    const navItems = useMemo(() => role === 'admin' ? adminNavItems : memberNavItems, [role, redZoneCount, adminFinanceBadge, memberOwnUnpaid, isCoChair, isSuperAdmin]);
 
     useEffect(() => {
         const currentFinanceBadge = role === 'admin' ? adminFinanceBadge : redZoneCount;

@@ -5708,40 +5708,40 @@ burstFrame();
           {/* Gameweek Action / Forfeit Modal */}
           {showGwActionModal && selectedGwForAction && createPortal(
             <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-              {/* Dark glass backdrop */}
+              {/* Theme-adaptive glass backdrop */}
               <div
-                className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+                className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
                 onClick={() => setShowGwActionModal(false)}
               />
 
               {/* Modal Dialog Squircle Card */}
               <div
-                className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col"
+                className="relative w-full max-w-md bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-slate-900 dark:text-white font-sans max-h-[90vh] flex flex-col"
                 role="dialog"
                 aria-modal="true"
               >
                 {/* Glow ambient accent */}
-                <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35 bg-amber-500" />
+                <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-25 dark:opacity-35 bg-amber-500" />
 
                 {/* Close Button */}
                 <button
                   onClick={() => setShowGwActionModal(false)}
-                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer z-10"
+                  className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10 transition-all cursor-pointer z-10"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
                 </button>
 
                 {/* Header Icon + Title */}
-                <div className="flex items-start gap-4 pb-4 border-b border-white/5 mb-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                <div className="flex items-start gap-4 pb-4 border-b border-slate-100 dark:border-white/5 mb-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-500 dark:text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
                     <Trophy className="w-6 h-6" />
                   </div>
                   <div className="min-w-0 flex-1 pr-6">
-                    <h3 className="fc-frosty-title text-xl font-black tracking-tight">
+                    <h3 className="fc-frosty-title text-xl font-black tracking-tight text-slate-900 dark:text-white">
                       Gameweek {selectedGwForAction} Action
                     </h3>
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mt-0.5">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-400 mt-0.5">
                       Manage settlement, payouts or forfeit unplayed rounds
                     </p>
                   </div>
@@ -5757,14 +5757,14 @@ burstFrame();
                   if (targetPreLeague) {
                     return (
                       <div className="space-y-4">
-                        <div className="rounded-2xl border border-gray-600/30 bg-gray-800/30 p-4">
+                        <div className="rounded-2xl border border-slate-200 dark:border-gray-600/30 bg-slate-50 dark:bg-gray-800/30 p-4">
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-base">🚫</span>
-                            <p className="text-xs font-black uppercase tracking-wider text-gray-200">
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-gray-200">
                               Gameweek {selectedGwForAction} is Voided (Pre-League)
                             </p>
                           </div>
-                          <p className="text-xs text-gray-400 leading-relaxed">
+                          <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed font-medium">
                             This Gameweek occurred before your league officially started (League started at GW{effectiveStartGw}). No stakes were collected and member balances remained untouched.
                           </p>
                         </div>
@@ -5775,14 +5775,14 @@ burstFrame();
                   if (targetForfeited) {
                     return (
                       <div className="space-y-4">
-                        <div className="rounded-2xl border border-gray-600/30 bg-gray-800/30 p-4">
+                        <div className="rounded-2xl border border-slate-200 dark:border-gray-600/30 bg-slate-50 dark:bg-gray-800/30 p-4">
                           <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-base">🚫</span>
-                            <p className="text-xs font-black uppercase tracking-wider text-gray-200">
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-gray-200">
                               Gameweek {selectedGwForAction} is Forfeited
                             </p>
                           </div>
-                          <p className="text-xs text-gray-400 leading-relaxed">
+                          <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed font-medium">
                             This Gameweek is marked as unplayed. No pot or stakes were deducted, and deposited funds remain intact in member wallets.
                           </p>
                         </div>
@@ -5790,7 +5790,7 @@ burstFrame();
                           type="button"
                           onClick={() => handleUnforfeitGw(selectedGwForAction)}
                           disabled={isForfeiting}
-                          className="w-full h-12 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                          className="w-full h-12 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white/10 dark:hover:bg-white/15 border border-slate-800 dark:border-white/20 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                         >
                           {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Reopen / Restore GW ${selectedGwForAction}`}
                         </button>
@@ -5802,33 +5802,33 @@ burstFrame();
                     const isZeroPot = Number(targetApproved.amount || 0) === 0;
                     return (
                       <div className="space-y-4">
-                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">
+                            <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
                               {isZeroPot ? "🏆 Honorary Winner" : "✓ Settled & Paid"}
                             </span>
-                            <span className="text-sm font-black text-[#FBBF24]">
+                            <span className="text-sm font-black text-amber-600 dark:text-[#FBBF24]">
                               {isZeroPot ? "Bragging Rights" : `KES ${Number(targetApproved.amount || 0).toLocaleString()}`}
                             </span>
                           </div>
-                          <p className="text-sm text-white font-bold">{targetApproved.winnerName}</p>
-                          <p className="text-[11px] text-gray-400 mt-1">
+                          <p className="text-sm text-slate-900 dark:text-white font-bold">{targetApproved.winnerName}</p>
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-1">
                             {isZeroPot 
                               ? `Topped GW with ${targetApproved.points || '--'} pts · Season Vault League` 
                               : `Disbursement: ${targetApproved.method === 'cash' ? 'Cash Handoff' : 'M-Pesa B2C'}`}
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
-                          <p className="text-xs font-bold text-red-300 mb-1">Resolved in error?</p>
-                          <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                        <div className="rounded-2xl border border-red-500/20 bg-red-50 dark:bg-red-500/5 p-4">
+                          <p className="text-xs font-bold text-red-700 dark:text-red-300 mb-1">Resolved in error?</p>
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mb-3 leading-relaxed">
                             If your league did not actually play GW{selectedGwForAction}, you can forfeit it. This reverts the payout and refunds the KES {gameweekStake.toLocaleString()} stake back into each member's wallet balance.
                           </p>
                           <button
                             type="button"
                             onClick={() => handleForfeitGw(selectedGwForAction)}
                             disabled={isForfeiting}
-                            className="w-full h-11 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                            className="w-full h-11 px-4 rounded-2xl bg-red-600 hover:bg-red-700 !text-white text-white dark:bg-red-500/15 dark:hover:bg-red-500/25 border border-red-600 dark:border-red-500/30 dark:text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                           >
                             {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Forfeit & Refund Member Stakes'}
                           </button>
@@ -5840,12 +5840,12 @@ burstFrame();
                   if (targetPending) {
                     return (
                       <div className="space-y-4">
-                        <div className="rounded-2xl border border-[#FBBF24]/30 bg-[#FBBF24]/10 p-4">
+                        <div className="rounded-2xl border border-[#FBBF24]/30 bg-amber-50 dark:bg-[#FBBF24]/10 p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black text-[#FBBF24] uppercase tracking-widest">⏳ Pending Approval</span>
-                            <span className="text-sm font-black text-[#FBBF24]">KES {Number(targetPending.amount || 0).toLocaleString()}</span>
+                            <span className="text-xs font-black text-amber-700 dark:text-[#FBBF24] uppercase tracking-widest">⏳ Pending Approval</span>
+                            <span className="text-sm font-black text-amber-700 dark:text-[#FBBF24]">KES {Number(targetPending.amount || 0).toLocaleString()}</span>
                           </div>
-                          <p className="text-sm text-white font-bold">{targetPending.winnerName}</p>
+                          <p className="text-sm text-slate-900 dark:text-white font-bold">{targetPending.winnerName}</p>
                         </div>
                         <div className="flex flex-col gap-2.5">
                           <button
@@ -5854,7 +5854,7 @@ burstFrame();
                               setShowGwActionModal(false);
                               handleApprovePayout(targetPending);
                             }}
-                            className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-95"
+                            className="w-full h-12 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 !text-white text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-95"
                           >
                             <CheckCircle2 className="w-4 h-4" /> Approve Payout
                           </button>
@@ -5862,7 +5862,7 @@ burstFrame();
                             type="button"
                             onClick={() => handleForfeitGw(selectedGwForAction)}
                             disabled={isForfeiting}
-                            className="w-full h-11 px-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                            className="w-full h-11 px-4 rounded-2xl bg-red-600 hover:bg-red-700 !text-white text-white dark:bg-red-500/15 dark:hover:bg-red-500/25 border border-red-600 dark:border-red-500/30 dark:text-red-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                           >
                             {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Did Not Play — Forfeit GW ${selectedGwForAction}`}
                           </button>
@@ -5874,21 +5874,21 @@ burstFrame();
                   // Default: Unsettled / Unplayed GW
                   return (
                     <div className="space-y-4">
-                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 font-medium">
+                      <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-900 dark:text-amber-300 font-medium">
                         GW{selectedGwForAction} is unsettled. Choose whether your league competed or did not play:
                       </div>
 
                       {/* Choice 1: Forfeit / Skip */}
-                      <div className="p-4 rounded-2xl border border-white/10 bg-black/30 hover:border-gray-500/40 transition-all">
+                      <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 hover:border-slate-300 dark:hover:border-gray-500/40 transition-all">
                         <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                          <p className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
                             <span>⛔</span> Forfeit / Skip Gameweek
                           </p>
-                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-300">
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-700 dark:text-blue-300">
                             Didn't Play
                           </span>
                         </div>
-                        <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                        <p className="text-[11px] text-slate-600 dark:text-gray-400 mb-3 leading-relaxed font-medium">
                           Mark as unplayed because your league started later. Removes this GW from required season dues and ensures <strong>no money or stakes are deducted</strong> from member wallets.
                         </p>
                         <div className="flex flex-col gap-2">
@@ -5896,7 +5896,7 @@ burstFrame();
                             type="button"
                             onClick={() => handleForfeitGw(selectedGwForAction, false)}
                             disabled={isForfeiting}
-                            className="w-full h-11 px-4 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+                            className="w-full h-11 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white/10 dark:hover:bg-white/20 border border-slate-800 dark:border-white/20 text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95"
                           >
                             {isForfeiting ? <RefreshCw className="w-4 h-4 animate-spin" /> : `Forfeit GW ${selectedGwForAction}`}
                           </button>
@@ -5906,7 +5906,7 @@ burstFrame();
                               type="button"
                               onClick={() => handleForfeitGw(selectedGwForAction, true)}
                               disabled={isForfeiting}
-                              className="w-full h-10 px-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                              className="w-full h-10 px-3 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                             >
                               {isForfeiting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : `⚡ Forfeit All GW 1 through ${selectedGwForAction}`}
                             </button>
@@ -5915,16 +5915,16 @@ burstFrame();
                       </div>
 
                       {/* Choice 2: Played & Resolve Winner */}
-                      <div className="p-4 rounded-2xl border border-[#FBBF24]/25 bg-[#FBBF24]/5 hover:border-[#FBBF24]/40 transition-all">
+                      <div className="p-4 rounded-2xl border border-amber-300/80 dark:border-[#FBBF24]/25 bg-amber-50/60 dark:bg-[#FBBF24]/5 hover:border-amber-400 dark:hover:border-[#FBBF24]/40 transition-all">
                         <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                            <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Resolve Winner & Pay Out
+                          <p className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-[#FBBF24]" /> Resolve Winner & Pay Out
                           </p>
-                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
                             Played
                           </span>
                         </div>
-                        <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+                        <p className="text-[11px] text-slate-600 dark:text-gray-400 mb-3 leading-relaxed font-medium">
                           If your league actually competed in GW{selectedGwForAction}: fetch official standings, finalize the winner, and queue the KES {weeklyPot.toLocaleString()} pot payout.
                         </p>
                         <button
@@ -5991,9 +5991,9 @@ burstFrame();
         {/* Global Modals (accessible from all tabs) */}
         {showResolveModal && createPortal(
             <div className="fc-resolve-modal-overlay fixed inset-0 z-[99999] flex items-center justify-center p-4">
-              {/* Dark glass backdrop */}
+              {/* Theme-adaptive glass backdrop */}
               <div
-                className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+                className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
                 onClick={() => {
                   if (!isResolving) setShowResolveModal(false);
                 }}
@@ -6001,42 +6001,42 @@ burstFrame();
 
               {/* Modal Dialog Squircle Card */}
               <div
-                className="relative w-full max-w-md bg-gradient-to-b from-[#161a22]/98 to-[#0c0f14]/98 border border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.9)] backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-white font-sans max-h-[90vh] flex flex-col"
+                className="relative w-full max-w-md bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-slate-900 dark:text-white font-sans max-h-[90vh] flex flex-col"
                 role="dialog"
                 aria-modal="true"
               >
                 {/* Glow ambient accent */}
-                <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-35 bg-amber-500" />
+                <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full blur-[65px] pointer-events-none opacity-25 dark:opacity-35 bg-amber-500" />
 
                 {/* Close Button */}
                 <button
                   onClick={() => setShowResolveModal(false)}
                   disabled={isResolving}
-                  className="absolute top-5 right-5 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50 cursor-pointer z-10"
+                  className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10 transition-all disabled:opacity-50 cursor-pointer z-10"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
                 </button>
 
                 {/* Header */}
-                <div className="flex items-start gap-4 pb-4 border-b border-white/5 mb-2">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+                <div className="flex items-start gap-4 pb-4 border-b border-slate-100 dark:border-white/5 mb-2">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border bg-amber-500/15 border-amber-500/30 text-amber-500 dark:text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
                     <Trophy className="w-6 h-6" />
                   </div>
                   <div className="min-w-0 flex-1 pr-6">
-                    <h3 className="fc-frosty-title text-xl font-black tracking-tight">Resolve Gameweek</h3>
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mt-0.5">Finalize winner & queue payout</p>
+                    <h3 className="fc-frosty-title text-xl font-black tracking-tight text-slate-900 dark:text-white">Resolve Gameweek</h3>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-400 mt-0.5">Finalize winner & queue payout</p>
                   </div>
                 </div>
 
                 {/* Body */}
                 <div className="py-3 space-y-4 overflow-y-auto">
                   {!isCurrentEventFinished && (
-                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-amber-300">
-                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div className="p-3.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-300">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                       <div className="space-y-1">
-                        <p className="font-bold text-white">Gameweek {currentGwNumber || ''} Fixtures Still in Play</p>
-                        <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                        <p className="font-bold text-amber-950 dark:text-amber-100">Gameweek {currentGwNumber || ''} Fixtures Still in Play</p>
+                        <p className="text-[11px] text-amber-800/90 dark:text-amber-200/80 leading-relaxed font-medium">
                           Matches are currently active. Official FPL scores, bonus points, and rankings will finalize once the Premier League marks all fixtures finished.
                         </p>
                       </div>
@@ -6044,39 +6044,39 @@ burstFrame();
                   )}
 
                   {weeklyPot === 0 || Number(rules.weekly || 0) === 0 ? (
-                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-amber-500 dark:text-amber-400">
-                        <Trophy className="w-5 h-5 shrink-0" />
+                    <div className="rounded-2xl border border-amber-300/80 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-500/10 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400">
+                        <Trophy className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
                         <p className="text-xs font-black uppercase tracking-wider">Season Vault League • Honorary Gameweek Crown</p>
                       </div>
-                      <p className="text-xs text-slate-600 dark:text-gray-300 leading-relaxed">
+                      <p className="text-xs text-amber-950/80 dark:text-gray-300 leading-relaxed font-medium">
                         This league operates on 100% Season Vault (0% weekly pot). Resolving will award the official Gameweek {currentGwNumber || ''} winner title and record the top-scoring manager on the official ledger.
                       </p>
                     </div>
                   ) : (
                     <>
                       {/* Payout summary */}
-                      <div className="rounded-2xl border border-white/8 bg-black/20 p-4 flex items-center justify-between">
+                      <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-black/20 p-4 flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Winner Payout</p>
-                          <p className="text-2xl font-black text-[#FBBF24] tabular-nums mt-0.5">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">Winner Payout</p>
+                          <p className="text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums mt-0.5">
                             KES {isStealthMode ? "****" : weeklyPot.toLocaleString()}
                           </p>
                         </div>
-                        <Banknote className="w-8 h-8 text-[#FBBF24]/30" />
+                        <Banknote className="w-8 h-8 text-amber-500/40 dark:text-[#FBBF24]/30" />
                       </div>
 
                       {/* Method toggle */}
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Disbursement Method</p>
-                        <div className="flex bg-black/30 rounded-2xl p-1 border border-white/5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-2">Disbursement Method</p>
+                        <div className="flex bg-slate-100 dark:bg-black/30 rounded-2xl p-1 border border-slate-200 dark:border-white/5">
                           <button
                             onClick={() => setPayoutMethod("mpesa")}
                             className={clsx(
                               "flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all",
                               payoutMethod === "mpesa"
-                                ? "bg-[#10B981]/15 text-[#10B981] shadow-sm border border-[#10B981]/25"
-                                : "text-gray-500 hover:text-gray-300 border border-transparent"
+                                ? "bg-white dark:bg-[#10B981]/15 text-emerald-700 dark:text-[#10B981] shadow-sm border border-emerald-500/25"
+                                : "text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-gray-200 border border-transparent"
                             )}
                           >
                             M-Pesa B2C
@@ -6086,8 +6086,8 @@ burstFrame();
                             className={clsx(
                               "flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all",
                               payoutMethod === "cash"
-                                ? "bg-[#FBBF24]/15 text-[#FBBF24] shadow-sm border border-[#FBBF24]/25"
-                                : "text-gray-500 hover:text-gray-300 border border-transparent"
+                                ? "bg-white dark:bg-[#FBBF24]/15 text-amber-700 dark:text-[#FBBF24] shadow-sm border border-[#FBBF24]/25"
+                                : "text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-gray-200 border border-transparent"
                             )}
                           >
                             Cash Handoff
@@ -6099,7 +6099,7 @@ burstFrame();
                 </div>
 
                 {/* Footer with single full-width Squircle CTA */}
-                <div className="mt-4 pt-4 border-t border-white/5">
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5">
                   <button
                     type="button"
                     onClick={handleResolveGameweek}
