@@ -964,6 +964,54 @@ export default function AdminCommandCenter() {
     return () => unsub();
   }, [activeLeagueId, currentGwNumber, firestoreGw]);
 
+  // Combined Operations Feed: Merges real-time league_events with ledger transactions (ensures all 15 transactions & top-ups appear)
+  const allOpsEvents = useMemo(() => {
+    const list = [...liveOpsEvents];
+    const seenReceipts = new Set<string>();
+
+    list.forEach((e) => {
+      const match = String(e.message || '').match(/(CASH_\w+|DEP\w+|REV\w+)/i);
+      if (match) seenReceipts.add(match[1].toUpperCase());
+    });
+
+    for (const tx of transactions) {
+      const receipt = String(tx.receiptId || '').toUpperCase();
+      if (receipt && seenReceipts.has(receipt)) continue;
+
+      const isReversal = tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0;
+      const isPayout = tx.type === 'payout';
+      const mName = tx.memberName || tx.winnerName || 'Member';
+      const amt = Math.abs(Number(tx.amount || 0));
+
+      const title = isReversal
+        ? 'Manual reversal recorded'
+        : isPayout
+          ? 'Gameweek payout settled'
+          : 'Manual deposit verified';
+
+      const message = isReversal
+        ? (tx.note || `Manual reversal recorded for ${mName}: -KES ${amt.toLocaleString()} (${receipt || 'Adjustment'}).`)
+        : isPayout
+          ? (tx.note || `Gameweek payout settled for ${mName}: KES ${amt.toLocaleString()} (${receipt || 'Approved'}).`)
+          : (tx.note || `Manual deposit recorded for ${mName}: KES ${amt.toLocaleString()} (${receipt || 'Verified'}).`);
+
+      list.push({
+        id: tx.id || receipt || `tx_${Math.random()}`,
+        title,
+        message,
+        type: isReversal ? 'warning' : isPayout ? 'info' : 'success',
+        timestamp: tx.timestamp || tx.createdAt,
+      });
+
+      if (receipt) seenReceipts.add(receipt);
+    }
+
+    return list.sort((a, b) => {
+      const getMs = (t: any) => t?.toMillis?.() || t?.toDate?.()?.getTime() || (t ? new Date(t).getTime() : 0);
+      return getMs(b.timestamp) - getMs(a.timestamp);
+    });
+  }, [liveOpsEvents, transactions]);
+
   // Module 3B: Approve a dispute claim
   const handleApproveDispute = async (dispute: any) => {
     if (!activeLeagueId) return;
@@ -1485,12 +1533,7 @@ export default function AdminCommandCenter() {
     const refundTotal = getMemberRefundTotal(member);
     const inflowTotal = getMemberInflowTotal(member);
     const netDeposited = Math.max(0, inflowTotal - refundTotal);
-    const effectiveWallet = Math.max(0, Number(member.walletBalance || 0) - refundTotal);
-
-    // If transactions exist and show that this member's deposit was reversed, they are NOT funded
-    if (refundTotal > 0 && netDeposited < gameweekStake && effectiveWallet < gameweekStake) {
-      return false;
-    }
+    const effectiveWallet = Math.max(0, Number(member.walletBalance || 0));
 
     if (gameweekStake === 0) return true;
 
@@ -1506,10 +1549,12 @@ export default function AdminCommandCenter() {
     const unspentCredit = Math.max(0, netDeposited - pastConsumedStake);
 
     return (
+      (effectiveWallet >= gameweekStake) ||
       (unspentCredit >= gameweekStake) ||
       (netDeposited >= requiredDepositForCurrent) ||
       transactions.some((tx: any) => isTxValidInflow(tx) && (tx.memberId === member.id || tx.userId === member.id) && Number(tx.gw || tx.gameweek || 0) === currentGw) ||
-      (Number(member.lastPaymentGw) === currentGw && Boolean(member.hasPaid))
+      (Number(member.lastPaymentGw) === currentGw && Boolean(member.hasPaid)) ||
+      Boolean(member.hasPaid)
     );
   };
 
@@ -2489,8 +2534,11 @@ export default function AdminCommandCenter() {
         paymentStreak: increment(shouldIncreaseStreak ? 1 : 0),
       });
 
-      const roundsCovered = gameweekStake > 0 ? Math.floor(currentWallet / gameweekStake) : 0;
-      const targetGw = Math.max(Number(effectiveStartGw || startGw || 1), Number(effectiveStartGw || 1) + roundsCovered);
+      const activeRoundGw = Number(currentGwNumber || firestoreGw || effectiveStartGw || 1);
+      const transactionNote = fundNote.trim()
+        ? fundNote.trim()
+        : `Funded for Gameweek ${activeRoundGw} • Receipt: ${receiptId}`;
+
       await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
         type: "wallet_funding",
         source: fundMethod,
@@ -2501,10 +2549,10 @@ export default function AdminCommandCenter() {
         winnerName: member?.displayName || "Member",
         phoneNumber: member?.phone || "",
         receiptId,
-        gameweek: targetGw,
-        gw: targetGw,
+        gameweek: activeRoundGw,
+        gw: activeRoundGw,
         cashHandoffDate: fundMethod === "cash" ? fundCashDate : null,
-        note: fundNote.trim() ? `${fundNote.trim()} (Funded for GW${targetGw})` : `Funded for GW${targetGw}`,
+        note: transactionNote,
         timestamp: serverTimestamp(),
       });
 
@@ -2517,6 +2565,13 @@ export default function AdminCommandCenter() {
         timestamp: serverTimestamp(),
         readBy: [],
         targetMemberId,
+      });
+
+      await recordOperationEvent({
+        title: "Manual deposit verified",
+        message: `Manual deposit recorded for ${member?.displayName || "Member"}: KES ${amount.toLocaleString()} (${fundMethod === "mpesa" ? "M-Pesa" : "Cash"}).`,
+        targetMemberId,
+        type: "success",
       });
 
       setShowWalletFundModal(false);
@@ -5139,12 +5194,12 @@ burstFrame();
                     <h4 className="flex items-center gap-2 text-[12px] font-bold text-gray-400 uppercase tracking-widest">
                       <Bell className="w-4 h-4" /> Operations Feed
                     </h4>
-                    {liveOpsEvents.length > 3 && (
+                    {allOpsEvents.length > 3 && (
                       <button
                         onClick={() => setShowOpsModal(true)}
-                        className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 px-2.5 py-1 rounded-lg transition-colors"
+                        className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                       >
-                        View All ({liveOpsEvents.length})
+                        View All ({allOpsEvents.length})
                       </button>
                     )}
                   </div>
@@ -5181,10 +5236,10 @@ burstFrame();
                   )}
 
                   {/* Live operation events — show latest 3 only */}
-                  {liveOpsEvents.length > 0 && (
+                  {allOpsEvents.length > 0 && (
                     <div className="space-y-2 mb-4">
-                      {liveOpsEvents.slice(0, 3).map((evt: any) => {
-                        const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : null;
+                      {allOpsEvents.slice(0, 3).map((evt: any) => {
+                        const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : (evt.timestamp ? new Date(evt.timestamp) : null);
                         const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
                         const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
                         return (
@@ -5542,8 +5597,8 @@ burstFrame();
               ) : (
                 filteredMembers.map((row: any) => {
                   const refundTotal = getMemberRefundTotal(row);
-                  const rawWallet = (row as any).walletBalance ?? 0;
-                  const wallet = Math.max(0, rawWallet - refundTotal);
+                  const rawWallet = Math.max(0, Number((row as any).walletBalance || 0));
+                  const wallet = rawWallet;
                   const gwCost = gameweekStake;
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                   const isRowSpectator = (row as any).playMode === "sidebets_only";
@@ -5556,8 +5611,16 @@ burstFrame();
                   }
                   const totalCompletedOrCurrent = playableRounds.length;
                   const rowHasPaidCurrent = memberHasFunding(row);
-                  const rowFundedCount = rowHasPaidCurrent ? Math.max(1, gwsLeft) : gwsLeft;
-                  const rowSkippedGws = (isRowSpectator || totalCompletedOrCurrent === 0) ? 0 : Math.max(0, totalCompletedOrCurrent - rowFundedCount);
+                  
+                  // In Chama play, purchasing power includes total net deposits plus current wallet
+                  const netDeposited = Math.max(0, getMemberInflowTotal(row) - refundTotal);
+                  const totalContributed = Math.max(netDeposited, rawWallet);
+                  const totalFundedRounds = gwCost > 0 ? Math.floor(totalContributed / gwCost) : totalCompletedOrCurrent;
+                  const rowFundedCount = rowHasPaidCurrent ? Math.max(1, totalFundedRounds) : totalFundedRounds;
+                  // If the member is funded for current round, they do NOT owe current round dues
+                  const rowSkippedGws = (isRowSpectator || totalCompletedOrCurrent === 0 || rowHasPaidCurrent)
+                    ? 0
+                    : Math.max(0, totalCompletedOrCurrent - rowFundedCount);
                   const rowOwedArrears = rowSkippedGws * gwCost;
                   const walletColor =
                     wallet <= 0
@@ -6945,13 +7008,13 @@ burstFrame();
               <div className="w-full max-w-lg bg-white dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-300 text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/5">
                   <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
-                    <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> All Operations ({liveOpsEvents.length})
+                    <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> All Operations ({allOpsEvents.length})
                   </h3>
                   <button onClick={() => setShowOpsModal(false)} className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5 transition-colors text-lg font-bold">×</button>
                 </div>
                 <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
-                  {liveOpsEvents.map((evt: any) => {
-                    const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : null;
+                  {allOpsEvents.map((evt: any) => {
+                    const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : (evt.timestamp ? new Date(evt.timestamp) : null);
                     const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
                     const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
                     return (

@@ -475,9 +475,11 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Boolean(
             (gameweekStake || 0) === 0 ||
             (unspentCredit >= (gameweekStake || 0)) ||
+            (Number((m as any).walletBalance || 0) >= (gameweekStake || 0)) ||
             (netDeposited >= totalRounds * (gameweekStake || 0)) ||
             (transactions || []).some((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx) && Number(tx.gw || tx.gameweek || 0) === currentGw) ||
-            (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid))
+            (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid)) ||
+            Boolean(m.hasPaid)
         );
     };
 
@@ -935,7 +937,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
                 const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
-                const effectiveMemberBalance = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
+                const effectiveMemberBalance = Math.max(0, Number(m.walletBalance || 0));
                 
                 // Real unspent credit: deposits remaining after past completed rounds are accounted for
                 const pastCompletedRoundsCount = Math.max(0, totalCompleted - 1);
@@ -943,19 +945,21 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const unspentCredit = Math.max(0, totalDeposited - pastConsumedStake);
 
                 // Member has paid current GW if stake is 0, unspent credit covers stake, cumulative deposits cover all rounds including current,
-                // or they made an inflow transaction explicitly tagged with the current GW, or lastPaymentGw is current GW
+                // wallet covers current stake, or they made an inflow transaction explicitly tagged with the current GW, or hasPaid is true
                 const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
                     (stake === 0) ||
                     (stake > 0 && unspentCredit >= stake) ||
+                    (stake > 0 && effectiveMemberBalance >= stake) ||
                     (stake > 0 && totalCompleted > 0 && totalDeposited >= (totalCompleted * stake)) ||
                     (memberInflowTxs.some((tx: any) => Number(tx.gw || tx.gameweek || 0) === currentGw)) ||
-                    (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid))
+                    (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid)) ||
+                    Boolean(m.hasPaid)
                 );
 
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
-                const rawFundedCount = stake > 0 ? Math.floor(totalDeposited / stake) : totalCompleted;
+                const rawFundedCount = stake > 0 ? Math.floor(Math.max(totalDeposited, effectiveMemberBalance) / stake) : totalCompleted;
                 const gwsFundedCount = hasPaidCurrent ? Math.max(1, rawFundedCount) : rawFundedCount;
-                const gwsSkippedCount = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0) ? 0 : Math.max(0, totalCompleted - gwsFundedCount);
+                const gwsSkippedCount = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0 || hasPaidCurrent) ? 0 : Math.max(0, totalCompleted - gwsFundedCount);
                 const totalOwedArrears = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0) ? 0 : gwsSkippedCount * stake;
 
                 const taggedGws = Array.from(
@@ -2433,7 +2437,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             })()}
                                             <button
                                                 onClick={() => shareTransactionReceipt(tx)}
-                                                className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-wider text-white hover:bg-white/10 transition-colors"
+                                                className="px-2.5 py-1 rounded-md border border-slate-300 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-[9px] font-black uppercase tracking-wider text-slate-800 dark:text-white transition-colors cursor-pointer"
                                             >
                                                 Share
                                             </button>
@@ -2605,7 +2609,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         })()}
                                                         <button
                                                             onClick={() => shareTransactionReceipt(tx)}
-                                                            className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors"
+                                                            className="px-3 py-2 rounded-lg border border-slate-300 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-white transition-colors cursor-pointer"
                                                         >
                                                             Share
                                                         </button>
@@ -2877,7 +2881,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                     })()}
                                                                     <button
                                                                         onClick={() => shareTransactionReceipt(tx)}
-                                                                        className="px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                                                        className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-white transition-colors cursor-pointer"
                                                                     >
                                                                         Share
                                                                     </button>
