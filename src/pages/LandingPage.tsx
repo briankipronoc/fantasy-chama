@@ -1,7 +1,7 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
-import { useEffect, useState } from 'react';
-import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Flame, MessageSquare, Calculator, Copy, Shirt, Swords, Sparkles } from 'lucide-react';
+import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Flame, MessageSquare, Calculator, Copy, Shirt, Swords, Sparkles, Share2 } from 'lucide-react';
 
 // ─── Crisp, Zero-Scroll Animated Ledger Demo ────────────────────────────────
 interface DemoMember {
@@ -43,7 +43,9 @@ function LedgerDemo() {
     const [members, setMembers] = useState(initialDemoMembers);
     const [highlightId, setHighlightId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'lineup' | 'standings' | 'banter' | 'victory'>('lineup');
+    const [banterTone, setBanterTone] = useState<'street' | 'roast'>('street');
     const [copiedBanter, setCopiedBanter] = useState(false);
+    const [copiedFlex, setCopiedFlex] = useState(false);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -66,8 +68,19 @@ function LedgerDemo() {
     }, []);
 
     const copyBanterToClipboard = () => {
+        const textToCopy = banterTone === 'street'
+            ? `⚽ *NAIROBI ELITE CHAMA — GW5 SLIP* 🇰🇪\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👑 *KING WA ROUND:* Joel Sifuna (Sifuna Stars)\n└ 💥 *78 pts* · KES 1,960 M-Pesa Disbursed! 💸\n└ 🗣️ "Mlisema Haaland hawezi score away? Kuleni vumbi, sherehe ya chapo dondo iko Westlands!" 🍾\n\n🥔 *KIJIJI WOODEN SPOON:* David Ochieng (54 pts) 🥄\n└ 📉 Bro rudisha smartphone kwa duka ununue Mulika Mwizi!\n└ 🗣️ "Ku-triple captain defender wa Everton ni maombi ama uchawi?" 😭\n\n🤦 *BENCH CASUALTY:* Kevin Otieno\n└ 🪑 Amekalia 16 pts kwa subs zikioza kwa baridi! 🥶\n\n🚨 *RED ZONE (DENI LIST):*\n└ @Brian Mwangi wallet iko dry! Leta kakitu ya GW6 kabla deadline usitolewe kwa pot uwe spectator bure! ⏰\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🔒 *M-Pesa Escrow Verified · Fantasy Chama*`
+            : `🔥 *NAIROBI ELITE CHAMA — ROAST EDITION (GW5)* 🇰🇪\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n👑 *TAJIRI WA WIKI:* Joel Sifuna (78 pts) 🏆\n└ KES 1,960 imeenda hivo safi kwa M-Pesa. Wengine mlikua mnaomba sare? Pole sana, chama haina huruma! 😂🍾\n\n🥔 *CHOKORA YA WIKI:* David Ochieng (54 pts) 🥄\n└ Hata goalkeeper wa Southampton angekushinda points hii round. Wacha kiburi, lipia fundi wa FPL! 💀📉\n\n🤦 *KIBURI YA SUBS:* Kevin Otieno (16 pts)\n└ Points ziliachwa nje zikinyeshewa. Unalipa starter zero, sub anafunga hat-trick? Akili ni nywele kweli? 🤡\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🔒 *Disbursed via Fantasy Chama Escrow*`;
+        navigator.clipboard?.writeText?.(textToCopy);
         setCopiedBanter(true);
         setTimeout(() => setCopiedBanter(false), 2000);
+    };
+
+    const copyFlexToClipboard = () => {
+        const textToCopy = `🏆 *GW5 CHAMPION — SIFUNA STARS* 👑\n\nManager: Joel Sifuna\nScore: 78 pts (Rank #1)\nCash Won: KES 1,960 via M-Pesa ✅\n\n"Mlidhani mtachukua pesa yangu kirahisi? Hii trophy inalala kwangu leo. Tafuteni fundi wa points!" 😮‍💨🔥\n\nVerified by Fantasy Chama ⚽`;
+        navigator.clipboard?.writeText?.(textToCopy);
+        setCopiedFlex(true);
+        setTimeout(() => setCopiedFlex(false), 2000);
     };
 
     return (
@@ -391,44 +404,124 @@ function LedgerDemo() {
             {/* TAB 2: WhatsApp Banter Slip */}
             {activeTab === 'banter' && (
                 <div className="w-full flex flex-col justify-between animate-in fade-in duration-200">
-                    <div className="px-4 py-3 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 flex items-center justify-between">
+                    <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 flex items-center justify-between">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                            🔥 Chama WhatsApp Banter Slip
+                            🔥 Authentic Kenyan Banter Slip
                         </div>
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-gray-300">
-                            1-Tap Group Export
-                        </span>
+                        {/* Tone Selector */}
+                        <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/50 p-0.5 rounded-lg border border-slate-300 dark:border-white/10 text-[10px] font-black">
+                            <button
+                                type="button"
+                                onClick={() => setBanterTone('street')}
+                                className={`px-2 py-0.5 rounded cursor-pointer transition-all ${
+                                    banterTone === 'street'
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Street 🇰🇪
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setBanterTone('roast')}
+                                className={`px-2 py-0.5 rounded cursor-pointer transition-all ${
+                                    banterTone === 'roast'
+                                        ? 'bg-amber-500 text-slate-950 shadow-xs'
+                                        : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                            >
+                                Roast 🔥
+                            </button>
+                        </div>
                     </div>
 
                     <div className="p-3 sm:p-4 flex-1 flex flex-col items-center justify-center">
-                        <div className="w-full rounded-2xl bg-white dark:bg-[#0b141a] border-2 border-emerald-500/30 dark:border-emerald-500/40 p-3 sm:p-4 shadow-md text-left font-sans text-xs">
-                            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2 mb-2">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-base">📋</span>
+                        {/* WhatsApp Chat Bubble Mockup */}
+                        <div className="w-full rounded-2xl bg-[#0b141a] border border-[#202c33] p-3 sm:p-4 shadow-xl text-left font-sans text-xs relative overflow-hidden">
+                            {/* Chat Group Header Bar */}
+                            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2.5">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                                        FC
+                                    </div>
                                     <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Matchday Digest</p>
-                                        <p className="text-xs font-bold text-slate-900 dark:text-white">Chama WhatsApp Banter</p>
+                                        <p className="text-xs font-black text-white flex items-center gap-1.5">
+                                            <span>Chama Ya Mtaa (12)</span>
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                        </p>
+                                        <p className="text-[9px] text-[#8696a0] font-medium">WhatsApp · Forwarded message</p>
                                     </div>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 text-[9px] font-black">
-                                    ROAST: PROPER 🔥
+                                <span className="px-2 py-0.5 rounded-full bg-[#1f2c34] text-emerald-400 text-[9px] font-bold border border-emerald-500/30">
+                                    ↩️ Forwarded
                                 </span>
                             </div>
 
-                            <div className="space-y-1.5 bg-slate-50 dark:bg-black/40 border border-slate-200/80 dark:border-white/10 rounded-xl p-2.5 text-slate-800 dark:text-slate-200 text-[10.5px] leading-relaxed font-mono">
-                                <p className="font-bold text-emerald-700 dark:text-emerald-300">🏆 *NAIROBI CHAMA GW5 DIGEST*</p>
-                                <p>👑 *King of the Week:* Joel Sifuna: 78 pts (KES 1,960) 💰<br /><span className="text-slate-500 dark:text-gray-400 italic">"Huyu jamaa ameiba points tena, sherehe iko wapi?"</span></p>
-                                <p>🥔 *Mtu wa Chini:* David Ochieng: 54 pts 🥄<br /><span className="text-slate-500 dark:text-gray-400 italic">"Form imeshuka kama shillingi. Tafuta fundi."</span></p>
-                                <p className="text-amber-700 dark:text-amber-400 font-bold">🚨 *Red Zone:* 1 member atume stake kabla Ijumaa 8 PM!</p>
+                            {/* WhatsApp Chat Message Balloon */}
+                            <div className="bg-[#1f2c34] rounded-2xl rounded-tl-sm p-3 text-slate-100 border border-white/5 space-y-2 text-[11px] leading-relaxed shadow-sm font-sans">
+                                <div className="font-bold text-emerald-400 flex items-center justify-between border-b border-white/10 pb-1">
+                                    <span>⚽ NAIROBI ELITE CHAMA — GW5 SLIP 🇰🇪</span>
+                                    <span className="text-[9px] text-[#8696a0] font-normal">21:42</span>
+                                </div>
+
+                                {banterTone === 'street' ? (
+                                    <div className="space-y-1.5 text-[11px]">
+                                        <p className="leading-snug">
+                                            <span className="text-amber-300 font-bold">👑 KING WA ROUND:</span> <strong className="text-white">Joel Sifuna</strong> (Sifuna Stars)<br />
+                                            └ 💥 <strong className="text-emerald-400">78 pts</strong> · <span className="text-emerald-300 font-bold">KES 1,960 M-Pesa Disbursed! 💸</span><br />
+                                            <span className="text-[#aebac1] italic pl-2 block text-[10px]">
+                                                "Mlisema Haaland hawezi score away? Kuleni vumbi, sherehe ya chapo dondo iko Westlands!" 🍾
+                                            </span>
+                                        </p>
+                                        <p className="leading-snug">
+                                            <span className="text-rose-400 font-bold">🥔 KIJIJI WOODEN SPOON:</span> <strong className="text-white">David Ochieng</strong> (54 pts) 🥄<br />
+                                            └ 📉 Bro rudisha smartphone kwa duka ununue Mulika Mwizi!<br />
+                                            <span className="text-[#aebac1] italic pl-2 block text-[10px]">
+                                                "Ku-triple captain defender wa Everton ni maombi ama uchawi?" 😭
+                                            </span>
+                                        </p>
+                                        <p className="leading-snug">
+                                            <span className="text-cyan-300 font-bold">🤦 BENCH CASUALTY:</span> Kevin Otieno<br />
+                                            └ 🪑 Amekalia <strong className="text-amber-300">16 pts</strong> kwa subs zikioza kwa baridi! 🥶
+                                        </p>
+                                        <p className="leading-snug text-amber-300">
+                                            🚨 <strong>RED ZONE:</strong> @Brian Mwangi wallet iko dry! Leta kakitu ya GW6 kabla deadline usitolewe kwa pot uwe spectator bure! ⏰
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1.5 text-[11px]">
+                                        <p className="leading-snug">
+                                            <span className="text-amber-300 font-bold">👑 TAJIRI WA WIKI:</span> <strong className="text-white">Joel Sifuna</strong> (78 pts) 🏆<br />
+                                            └ KES 1,960 imeenda hivo safi kwa M-Pesa. Wengine mlikua mnaomba sare? Pole sana, chama haina huruma! 😂🍾
+                                        </p>
+                                        <p className="leading-snug">
+                                            <span className="text-rose-400 font-bold">🥔 CHOKORA YA WIKI:</span> <strong className="text-white">David Ochieng</strong> (54 pts) 🥄<br />
+                                            └ Hata goalkeeper wa Southampton angekushinda points hii round. Wacha kiburi, lipia fundi wa FPL! 💀📉
+                                        </p>
+                                        <p className="leading-snug">
+                                            <span className="text-cyan-300 font-bold">🤦 KIBURI YA SUBS:</span> Kevin Otieno (16 pts)<br />
+                                            └ Points ziliachwa nje zikinyeshewa. Unalipa starter zero, sub anafunga hat-trick? Akili ni nywele kweli? 🤡
+                                        </p>
+                                        <p className="leading-snug text-amber-300">
+                                            🚨 <strong>KAMATI YA WALIPA DENI:</strong> Lipeni stake zenu kabla ya deadline. Chairman ameshika rungu! 👮‍♂️
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[9px] text-[#8696a0]">
+                                    <span>🔒 Safaricom M-Pesa Escrow Verified</span>
+                                    <span className="text-cyan-400 font-bold">✓✓ Read</span>
+                                </div>
                             </div>
 
+                            {/* WhatsApp Action Button */}
                             <button
                                 type="button"
                                 onClick={copyBanterToClipboard}
-                                className="w-full mt-2.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-black text-xs transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
+                                className="w-full mt-3 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] active:bg-[#1caa4f] text-[#0b141a] font-black text-xs transition-all shadow-md active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                                 <Copy className="w-3.5 h-3.5" />
-                                <span>{copiedBanter ? '✓ Copied to WhatsApp!' : 'Copy Banter Slip for WhatsApp'}</span>
+                                <span>{copiedBanter ? '✓ Copied to WhatsApp!' : 'Copy WhatsApp Banter Slip'}</span>
                             </button>
                         </div>
                     </div>
@@ -436,10 +529,10 @@ function LedgerDemo() {
                     <div className="px-4 py-2 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400">
                         <span className="flex items-center gap-1 font-semibold text-slate-700 dark:text-gray-300">
                             <MessageSquare className="w-3 h-3 text-emerald-500" />
-                            Kenyan Sheng Ready
+                            Real Kenyan Football Banter
                         </span>
                         <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                            Zero Manual Typing
+                            Zero Generic AI Copy
                         </span>
                     </div>
                 </div>
@@ -448,61 +541,124 @@ function LedgerDemo() {
             {/* TAB 3: WhatsApp Victory Card */}
             {activeTab === 'victory' && (
                 <div className="w-full flex flex-col justify-between animate-in fade-in duration-200">
-                    <div className="px-4 py-3 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 flex items-center justify-between">
+                    <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-white/5 bg-slate-50/70 dark:bg-[#121920]/80 flex items-center justify-between">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider">
-                            🏆 WhatsApp Flex Card
+                            🏆 WhatsApp Status Victory Card
                         </div>
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-gray-300">
-                            Auto-Generated
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Verified Crown
                         </span>
                     </div>
 
                     <div className="p-3 sm:p-4 flex-1 flex flex-col items-center justify-center">
-                        <div className="w-full rounded-2xl bg-gradient-to-b from-amber-50/90 via-white to-amber-50/40 dark:from-[#18231c] dark:via-[#0d141b] dark:to-[#080d12] border-2 border-amber-400/80 dark:border-amber-500/40 p-4 shadow-md text-left font-sans">
-                            <div className="flex items-center justify-between border-b border-amber-200/80 dark:border-white/10 pb-2 mb-2">
+                        {/* Ultra-Crisp FIFA / EA FC Holographic Champion Victory Card */}
+                        <div className="w-full rounded-2xl bg-gradient-to-br from-[#1a1202] via-[#0d1620] to-[#04120a] border-2 border-amber-400/80 p-4 sm:p-5 shadow-2xl text-left text-white relative overflow-hidden space-y-3">
+                            {/* Subtle Gold Shimmer Overlay */}
+                            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
+
+                            {/* Card Header Ribbon */}
+                            <div className="flex items-center justify-between border-b border-white/10 pb-2 relative z-10">
                                 <div className="flex items-center gap-1.5">
-                                    <div className="w-7 h-7 rounded-lg bg-amber-100 border border-amber-300 dark:bg-amber-500/20 dark:border-amber-500/40 flex items-center justify-center">
-                                        <Trophy className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                                    <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-md">
+                                        <Trophy className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-400">Gameweek 5 Winner</p>
-                                        <p className="text-xs font-bold text-slate-900 dark:text-white">Official Chama Crown</p>
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Matchday 5 Champion</p>
+                                        <p className="text-xs font-black text-white">Fantasy Chama Official Crown</p>
                                     </div>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40 dark:text-emerald-400 text-[9px] font-black uppercase">
-                                    VERIFIED
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Verified
                                 </span>
                             </div>
 
-                            <div className="space-y-0.5 mb-2.5">
-                                <p className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Joel Sifuna</p>
-                                <p className="text-xs text-amber-800 dark:text-amber-300/80 font-semibold">Sifuna Stars · 78 pts</p>
+                            {/* Champion Main Spotlight */}
+                            <div className="flex items-center justify-between py-1 relative z-10">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <div className="w-8 h-8 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center shadow-lg border-2 border-amber-200">
+                                            JS
+                                        </div>
+                                        <div>
+                                            <h4 className="text-base sm:text-lg font-black text-white tracking-tight leading-none">
+                                                Joel Sifuna
+                                            </h4>
+                                            <p className="text-[11px] font-semibold text-amber-300/90">
+                                                Sifuna Stars FC ⚡
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="text-right">
+                                    <p className="text-3xl sm:text-4xl font-black text-amber-400 tabular-nums tracking-tight leading-none">
+                                        78 <span className="text-xs font-bold text-amber-200">PTS</span>
+                                    </p>
+                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">
+                                        Rank #1 (Podium 👑)
+                                    </span>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 bg-white/80 dark:bg-black/40 border border-amber-200/80 dark:border-white/10 rounded-xl p-2.5 mb-2.5 shadow-xs">
+                            {/* Key Performers Chips */}
+                            <div className="flex flex-wrap gap-1.5 relative z-10">
+                                <span className="px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-[10px] font-bold text-slate-200">
+                                    ⚡ Haaland (C): 26 pts
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-[10px] font-bold text-slate-200">
+                                    🎯 Palmer: 18 pts
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-[10px] font-bold text-slate-200">
+                                    🛡️ Gabriel: 9 pts
+                                </span>
+                            </div>
+
+                            {/* M-Pesa Cash Disbursed Banner */}
+                            <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-950/80 via-emerald-900/60 to-emerald-950/80 border border-emerald-400/50 flex items-center justify-between relative z-10">
                                 <div>
-                                    <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Cash Won</p>
-                                    <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 tabular-nums">KES 1,960</p>
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-300 block">
+                                        M-Pesa Disbursed Winnings
+                                    </span>
+                                    <span className="text-lg sm:text-xl font-black text-emerald-300 tabular-nums">
+                                        KES 1,960 CASH 💰
+                                    </span>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Season Rank</p>
-                                    <p className="text-sm font-black text-amber-700 dark:text-amber-400">#1 (Podium)</p>
+                                    <span className="text-[9px] text-emerald-200 font-mono block">
+                                        Ref: QM948210P
+                                    </span>
+                                    <span className="text-[9px] font-bold text-emerald-400">
+                                        Instant 90' Payout
+                                    </span>
                                 </div>
                             </div>
 
-                            <div className="w-full py-1.5 rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40 dark:text-emerald-300 text-[9px] font-black uppercase tracking-widest text-center">
-                                📱 Ready to flex on WhatsApp Status
+                            {/* Mic-Drop Status Quote */}
+                            <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10 text-[10.5px] text-amber-100/90 font-mono italic leading-relaxed relative z-10">
+                                "Mlidhani mtachukua pesa yangu kirahisi? Hii trophy inalala kwangu leo. Tafuteni fundi wa points!" 😮‍💨🏆
                             </div>
+
+                            {/* Action Button */}
+                            <button
+                                type="button"
+                                onClick={copyFlexToClipboard}
+                                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-98 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer relative z-10"
+                            >
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>{copiedFlex ? '✓ Copied Victory Card!' : 'Share to WhatsApp Status'}</span>
+                            </button>
                         </div>
                     </div>
 
                     <div className="px-4 py-2 bg-slate-50/90 dark:bg-[#121920]/90 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-600 dark:text-gray-400">
                         <span className="flex items-center gap-1 font-semibold text-slate-700 dark:text-gray-300">
                             <Trophy className="w-3 h-3 text-amber-500" />
-                            Official Podium Slip
+                            Verified Flex Card
                         </span>
                         <span className="font-bold text-amber-700 dark:text-amber-400">
-                            One-Tap Share
+                            Ready for WhatsApp Status
                         </span>
                     </div>
                 </div>
@@ -629,6 +785,7 @@ function TrustSlider() {
                                     { label: '50 / 50', val: 50 },
                                     { label: '80 / 20', val: 80 },
                                     { label: '100% Weekly', val: 100 },
+                                    { label: 'All to Vault (100%)', val: 0 },
                                 ].map((p) => (
                                     <button
                                         key={p.val}
@@ -675,9 +832,15 @@ function TrustSlider() {
                             </div>
 
                             <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-400 font-semibold px-0.5">
-                                <span>0% Weekly (100% Vault)</span>
-                                <span className="font-bold text-slate-700 dark:text-slate-300">50 / 50 Balanced</span>
-                                <span>100% Weekly (0% Vault)</span>
+                                <button type="button" onClick={() => setSplitWeekly(0)} className="hover:text-amber-500 transition-colors cursor-pointer">
+                                    0% Weekly (100% Vault)
+                                </button>
+                                <button type="button" onClick={() => setSplitWeekly(50)} className="hover:text-emerald-500 transition-colors cursor-pointer font-bold text-slate-700 dark:text-slate-300">
+                                    50 / 50 Balanced
+                                </button>
+                                <button type="button" onClick={() => setSplitWeekly(100)} className="hover:text-emerald-500 transition-colors cursor-pointer">
+                                    100% Weekly (No Vault)
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -685,7 +848,11 @@ function TrustSlider() {
                     {/* Breakdown Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         {/* Weekly Winner Prize Card */}
-                        <div className="md:col-span-4 bg-emerald-500/10 border-2 border-emerald-500/35 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs">
+                        <div className={`md:col-span-4 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs transition-all ${
+                            splitWeekly > 0 
+                                ? 'bg-emerald-500/10 border-2 border-emerald-500/35' 
+                                : 'bg-slate-100/70 dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 opacity-70'
+                        }`}>
                             <div>
                                 <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
                                     <Trophy className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Weekly Winner ({splitWeekly}%)
@@ -695,23 +862,49 @@ function TrustSlider() {
                                 </p>
                             </div>
                             <p className="text-xs text-slate-600 dark:text-gray-400 mt-2 font-medium">
-                                Sent to the top gameweek manager every single round via M-Pesa.
+                                {splitWeekly === 0 
+                                    ? 'No weekly prize. 100% of collected stakes accumulate into the Season Finale Vault!' 
+                                    : 'Sent to the top gameweek manager every single round via M-Pesa.'}
                             </p>
                         </div>
 
                         {/* Season Vault Pool Card */}
-                        <div className="md:col-span-4 bg-amber-500/10 border-2 border-amber-500/35 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs">
+                        <div className={`md:col-span-4 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs transition-all ${
+                            splitVault > 0 
+                                ? 'bg-amber-500/10 border-2 border-amber-500/40' 
+                                : 'bg-slate-100/70 dark:bg-white/[0.03] border-2 border-slate-200 dark:border-white/10 opacity-70'
+                        }`}>
                             <div>
-                                <p className="text-[10px] font-black text-amber-800 dark:text-amber-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                    <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Season Vault ({splitVault}%)
-                                </p>
+                                <div className="flex items-center justify-between mb-1">
+                                    <p className="text-[10px] font-black text-amber-800 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Season Vault ({splitVault}%)
+                                    </p>
+                                    {splitVault > 0 && (
+                                        <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-800 dark:text-amber-300 text-[9px] font-black uppercase tracking-wider">
+                                            38 GWs ESCROW
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-2xl sm:text-3xl font-black text-amber-800 dark:text-amber-400 tabular-nums">
-                                    KES {seasonVaultWeekly.toLocaleString()} <span className="text-xs font-bold">/ GW</span>
+                                    KES {seasonVaultWeekly.toLocaleString()} <span className="text-xs font-bold text-amber-700 dark:text-amber-300">/ GW</span>
                                 </p>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-gray-400 mt-2 font-medium">
-                                Locked in escrow. Grows to <strong className="text-slate-900 dark:text-white">KES {seasonVaultTotal.toLocaleString()}</strong> across 38 GWs for podium winners!
-                            </p>
+                            <div className="mt-2.5 pt-2 border-t border-amber-500/20">
+                                {splitVault > 0 ? (
+                                    <>
+                                        <p className="text-xs text-slate-700 dark:text-gray-300 font-semibold leading-relaxed">
+                                            Locked in escrow. Grows to <strong className="text-amber-800 dark:text-amber-300 font-black text-sm">KES {seasonVaultTotal.toLocaleString()}</strong> across 38 GWs for podium winners!
+                                        </p>
+                                        <p className="text-[10.5px] text-amber-800/80 dark:text-amber-400/80 font-mono font-medium mt-1">
+                                            (KES {seasonVaultWeekly.toLocaleString()} / GW × 38 GWs = KES {seasonVaultTotal.toLocaleString()} Grand Jackpot)
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-slate-500 dark:text-gray-400 italic font-medium">
+                                        0% to Season Vault — 100% of the pot is paid out to weekly winners each round.
+                                    </p>
+                                )}
+                            </div>
                         </div>
 
                         {/* Ops & Chairman Fee (9%) */}
