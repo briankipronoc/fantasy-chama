@@ -292,14 +292,14 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                         haptics.selection();
                                         useStore.getState().setRole('member');
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shadow-sm group"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-500/30 dark:border-emerald-500/40 bg-transparent hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer shadow-xs group"
                                     title="Switch to your Member Hub view"
                                 >
                                     <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-emerald-400 transition-colors">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-emerald-500 transition-colors">
                                         Chairman Hub
                                     </span>
-                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
+                                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
                                         View Member Hub
                                     </span>
                                 </button>
@@ -310,19 +310,19 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                         haptics.selection();
                                         useStore.getState().setRole('admin');
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer shadow-sm group"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-amber-500/30 dark:border-amber-500/40 bg-transparent hover:bg-amber-500/10 active:scale-95 transition-all cursor-pointer shadow-xs group"
                                     title="Return to Chairman Command Center"
                                 >
                                     <Trophy className="w-3 h-3 text-[#FBBF24] shrink-0" />
-                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-400 transition-colors">
+                                    <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-500 transition-colors">
                                         Member Hub
                                     </span>
-                                    <span className="text-[9px] font-bold text-amber-400 bg-amber-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
+                                    <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
                                         Chairman HQ
                                     </span>
                                 </button>
                             ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-white/[0.04] backdrop-blur-md shadow-sm">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-white/10 bg-transparent shadow-xs">
                                     {role === 'admin' ? (
                                         <Shield className="w-3 h-3 text-[#22c55e] shrink-0" />
                                     ) : (

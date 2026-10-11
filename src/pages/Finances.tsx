@@ -413,16 +413,26 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
 
         const netDeposited = Math.max(0, memberInflows - refundTotal);
-        const effectiveWallet = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
-
-        if (refundTotal > 0 && netDeposited < (gameweekStake || 0) && effectiveWallet < (gameweekStake || 0)) {
+        if (refundTotal > 0 && netDeposited < (gameweekStake || 0)) {
             return false;
         }
 
+        const currentGw = Number(currentGwNumber || leagueStartGw || 1);
+        const playableGws: number[] = [];
+        for (let g = leagueStartGw; g <= currentGw; g++) {
+            if (!forfeitedGws.includes(g)) playableGws.push(g);
+        }
+        const totalRounds = Math.max(1, playableGws.length);
+        const pastCompletedCount = Math.max(0, totalRounds - 1);
+        const pastConsumedStake = pastCompletedCount * (gameweekStake || 0);
+        const unspentCredit = Math.max(0, netDeposited - pastConsumedStake);
+
         return Boolean(
-            ((gameweekStake || 0) > 0 && effectiveWallet >= (gameweekStake || 0)) ||
-            (netDeposited >= (gameweekStake || 0)) ||
-            (m.hasPaid && (memberInflows > 0 || (gameweekStake || 0) === 0))
+            (gameweekStake || 0) === 0 ||
+            (unspentCredit >= (gameweekStake || 0)) ||
+            (netDeposited >= totalRounds * (gameweekStake || 0)) ||
+            (transactions || []).some((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx) && Number(tx.gw || tx.gameweek || 0) === currentGw) ||
+            (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid))
         );
     };
 
@@ -899,7 +909,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return members
             .filter((m: any) => m.isActive !== false && (m as any).isEliminated !== true)
             .map((m: any) => {
-                const isPendingOnboarding = Boolean(m.isPending === true || (!m.phone && !m.phoneNumber) || !m.authUid);
+                const isPendingOnboarding = Boolean(m.isPending === true || (!m.phone && !m.phoneNumber));
                 const isMemberSpectator = (m as any).playMode === 'sidebets_only';
 
                 // Identify all deposit / inflow transactions associated with this member
@@ -926,10 +936,20 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
                 const effectiveMemberBalance = Math.max(0, Number(m.walletBalance || 0) - refundTotal);
+                
+                // Real unspent credit: deposits remaining after past completed rounds are accounted for
+                const pastCompletedRoundsCount = Math.max(0, totalCompleted - 1);
+                const pastConsumedStake = pastCompletedRoundsCount * stake;
+                const unspentCredit = Math.max(0, totalDeposited - pastConsumedStake);
+
+                // Member has paid current GW if stake is 0, unspent credit covers stake, cumulative deposits cover all rounds including current,
+                // or they made an inflow transaction explicitly tagged with the current GW, or lastPaymentGw is current GW
                 const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
-                    (stake > 0 && effectiveMemberBalance >= stake) ||
-                    (totalDeposited >= stake) ||
-                    (Boolean(m.hasPaid) && (grossDeposited > 0 || stake === 0))
+                    (stake === 0) ||
+                    (stake > 0 && unspentCredit >= stake) ||
+                    (stake > 0 && totalCompleted > 0 && totalDeposited >= (totalCompleted * stake)) ||
+                    (memberInflowTxs.some((tx: any) => Number(tx.gw || tx.gameweek || 0) === currentGw)) ||
+                    (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid))
                 );
 
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
@@ -990,14 +1010,14 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const seasonDepositedTotal = Math.max(0, seasonCollectedSoFarGross);
 
     const activeChamaMembers = useMemo(() => {
-        return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding);
+        return memberFundingSummary.filter(m => !m.isSpectator);
     }, [memberFundingSummary]);
 
     const currentGwExpectedWeekly = activeChamaMembers.length * (gameweekStake || 0);
-    const currentGwFundedMembers = activeChamaMembers.filter(m => m.hasPaidCurrent || m.walletBalance >= (gameweekStake || 0));
-    const currentGwUnfundedMembers = activeChamaMembers.filter(m => !m.hasPaidCurrent && m.walletBalance < (gameweekStake || 0));
+    const currentGwFundedMembers = activeChamaMembers.filter(m => m.hasPaidCurrent);
+    const currentGwUnfundedMembers = activeChamaMembers.filter(m => !m.hasPaidCurrent);
     const currentGwCollectedWeekly = currentGwFundedMembers.length * (gameweekStake || 0);
-    const isWeeklyPotBalanced = currentGwUnfundedMembers.length === 0 && currentGwExpectedWeekly > 0;
+    const isWeeklyPotBalanced = currentGwUnfundedMembers.length === 0 && currentGwExpectedWeekly > 0 && currentGwFundedMembers.length > 0;
 
     const filteredAuditMembers = useMemo(() => {
         if (fundingAuditFilter === 'skipped') {
@@ -1973,20 +1993,20 @@ const handleRejectPendingPayout = async (payout: any) => {
 
 
                 {/* Member Gameweek Funding & Arrears Audit */}
-                <section className="fc-card mb-8 rounded-3xl border border-white/10 bg-[#151c18] overflow-hidden shadow-xl">
-                    <div className="p-5 md:p-6 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <section className="fc-card mb-8 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151c18] overflow-hidden shadow-xl">
+                    <div className="p-5 md:p-6 border-b border-slate-100 dark:border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-start sm:items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-1 sm:mt-0">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 mt-1 sm:mt-0">
                                 <ReceiptText className="w-5 h-5" />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="font-bold text-lg text-white">Gameweek Funding & Arrears Audit</h3>
-                                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                    <h3 className="font-black text-lg text-slate-900 dark:text-white">Gameweek Funding & Arrears Audit</h3>
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                                         Since GW{leagueStartGw}
                                     </span>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                                <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
                                     Track member contributions, skipped gameweeks, and outstanding dues across active rounds.
                                 </p>
                             </div>
@@ -1996,7 +2016,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <button
                                 type="button"
                                 onClick={() => setIsAuditExpanded((prev) => !prev)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-gray-300 transition-all cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-gray-300 transition-all cursor-pointer"
                             >
                                 <span>{isAuditExpanded ? 'Collapse Audit ▲' : 'View Audit Details ▼'}</span>
                             </button>
@@ -2004,68 +2024,68 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     {/* Metric Bar */}
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 md:p-6 bg-black/20 border-b border-white/5">
-                        <div className="p-3 rounded-2xl bg-emerald-500/[0.07] border border-emerald-500/20 col-span-2 sm:col-span-1">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Total Raised / Deposited</p>
-                                <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-400 mt-0.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 md:p-6 bg-slate-50/80 dark:bg-black/20 border-b border-slate-200/60 dark:border-white/5">
+                        <div className="p-3 rounded-2xl bg-emerald-500/[0.08] dark:bg-emerald-500/[0.07] border border-emerald-500/30 dark:border-emerald-500/20 col-span-2 sm:col-span-1">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Total Raised / Deposited</p>
+                                <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-700 dark:text-emerald-400 mt-0.5">
                                     {isStealthMode ? 'KES ****' : <AnimatedKes amount={seasonDepositedTotal} className="tabular-nums" />}
                                 </p>
-                            <p className="text-[10px] text-gray-400 mt-0.5">Total member pot contributions</p>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">Total member pot contributions</p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Total Arrears Owed</p>
-                            <p className={clsx("text-lg sm:text-xl font-black tabular-nums mt-0.5", totalChamaArrears > 0 ? "text-rose-400" : "text-emerald-400")}>
+                        <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 shadow-xs">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-400">Total Arrears Owed</p>
+                            <p className={clsx("text-lg sm:text-xl font-black tabular-nums mt-0.5", totalChamaArrears > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400")}>
                                 {isStealthMode ? 'KES ****' : <AnimatedKes amount={totalChamaArrears} className="tabular-nums" />}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">{totalChamaArrears > 0 ? `${skippedMembersCount} members behind` : "All accounts square"}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-0.5">{totalChamaArrears > 0 ? `${skippedMembersCount} members behind` : "All accounts square"}</p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Rounds Tracked</p>
-                            <p className="text-lg sm:text-xl font-black tabular-nums text-white mt-0.5">
+                        <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 shadow-xs">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-400">Rounds Tracked</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-slate-900 dark:text-white mt-0.5">
                                 {totalCompletedOrCurrentGws} GW{totalCompletedOrCurrentGws !== 1 ? 's' : ''}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">GW{leagueStartGw} → GW{Math.max(leagueStartGw, Number(currentGwNumber || leagueStartGw))}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-0.5">GW{leagueStartGw} → GW{Math.max(leagueStartGw, Number(currentGwNumber || leagueStartGw))}</p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Fully Funded</p>
-                            <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-400 mt-0.5">
-                                {fundedMembersCount} <span className="text-xs font-normal text-gray-400">/ {regularMembersCount}</span>
+                        <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 shadow-xs">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-400">Fully Funded</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                {fundedMembersCount} <span className="text-xs font-normal text-slate-500 dark:text-gray-400">/ {regularMembersCount}</span>
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">Active pot contenders</p>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-0.5">Active pot contenders</p>
                         </div>
-                        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Spectators</p>
-                            <p className="text-lg sm:text-xl font-black tabular-nums text-indigo-300 mt-0.5">
+                        <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 shadow-xs">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-gray-400">Spectators</p>
+                            <p className="text-lg sm:text-xl font-black tabular-nums text-indigo-600 dark:text-indigo-300 mt-0.5">
                                 {spectatorsCount}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">1v1 bets only (exempt)</p>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-0.5">1v1 bets only (exempt)</p>
                         </div>
                     </div>
 
                     {/* Weekly Pot Balancing Indicator */}
-                    <div className="px-4 py-3 md:px-6 bg-emerald-500/[0.04] border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                    <div className="px-4 py-3 md:px-6 bg-emerald-500/[0.06] dark:bg-emerald-500/[0.04] border-b border-slate-200/60 dark:border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-gray-300">GW{currentGwNumber || leagueStartGw || 1} Weekly Pot:</span>
-                            <span className="font-black text-white tabular-nums">KES {currentGwCollectedWeekly.toLocaleString()}</span>
-                            <span className="text-gray-400">collected of</span>
-                            <span className="font-black text-emerald-400 tabular-nums">KES {currentGwExpectedWeekly.toLocaleString()}</span>
-                            <span className="text-gray-400">expected ({currentGwFundedMembers.length}/{activeChamaMembers.length} active players)</span>
+                            <span className="font-bold text-slate-700 dark:text-gray-300">GW{currentGwNumber || leagueStartGw || 1} Weekly Pot:</span>
+                            <span className="font-black text-slate-900 dark:text-white tabular-nums">KES {currentGwCollectedWeekly.toLocaleString()}</span>
+                            <span className="text-slate-500 dark:text-gray-400">collected of</span>
+                            <span className="font-black text-emerald-700 dark:text-emerald-400 tabular-nums">KES {currentGwExpectedWeekly.toLocaleString()}</span>
+                            <span className="text-slate-500 dark:text-gray-400">expected ({currentGwFundedMembers.length}/{activeChamaMembers.length} active players)</span>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
                             {isWeeklyPotBalanced ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[11px]">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                     Pot Balanced for GW{currentGwNumber || leagueStartGw || 1}
                                 </span>
                             ) : (
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[11px]">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-[11px]">
                                         <AlertCircle className="w-3.5 h-3.5" />
                                         Unbalanced: {currentGwUnfundedMembers.length} Pending
                                     </span>
                                     <div className="flex items-center gap-1 flex-wrap">
                                         {currentGwUnfundedMembers.map((m: any) => (
-                                            <span key={m.id} className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">
+                                            <span key={m.id} className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-semibold">
                                                 {m.displayName} (KES {gameweekStake || 0} due)
                                             </span>
                                         ))}
@@ -2079,16 +2099,16 @@ const handleRejectPendingPayout = async (payout: any) => {
                     {isAuditExpanded && (
                         <div>
                             {/* Filter Pills */}
-                            <div className="p-4 md:px-6 border-b border-white/5 bg-black/10">
-                                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 overflow-x-auto self-start md:self-auto w-fit">
+                            <div className="p-4 md:px-6 border-b border-slate-200/60 dark:border-white/5 bg-slate-50 dark:bg-black/10">
+                                <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 overflow-x-auto self-start md:self-auto w-fit">
                                     <button
                                         type="button"
                                         onClick={() => setFundingAuditFilter('all')}
                                         className={clsx(
                                             'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
                                             fundingAuditFilter === 'all'
-                                                ? 'bg-emerald-500 text-black shadow-sm'
-                                                : 'text-gray-400 hover:text-white'
+                                                ? 'bg-emerald-500 text-black shadow-xs font-black'
+                                                : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
                                         )}
                                     >
                                         All ({memberFundingSummary.length})
@@ -2099,8 +2119,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         className={clsx(
                                             'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5',
                                             fundingAuditFilter === 'skipped'
-                                                ? 'bg-rose-500 text-white shadow-sm'
-                                                : 'text-rose-400/90 hover:text-rose-300'
+                                                ? 'bg-rose-500 text-white shadow-xs font-black'
+                                                : 'text-rose-600 hover:text-rose-700 dark:text-rose-400/90 dark:hover:text-rose-300'
                                         )}
                                     >
                                         <span>Behind / Skipped</span>
@@ -2108,7 +2128,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             "px-1.5 py-0.2 rounded-full text-[10px] font-black border",
                                             fundingAuditFilter === 'skipped'
                                                 ? "bg-white/20 text-white border-white/30"
-                                                : "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                                : "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30"
                                         )}>
                                             {skippedMembersCount}
                                         </span>
@@ -2119,8 +2139,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         className={clsx(
                                             'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
                                             fundingAuditFilter === 'funded'
-                                                ? 'bg-emerald-500 text-black shadow-sm'
-                                                : 'text-emerald-400/90 hover:text-emerald-300'
+                                                ? 'bg-emerald-500 text-black shadow-xs font-black'
+                                                : 'text-emerald-700 hover:text-emerald-800 dark:text-emerald-400/90 dark:hover:text-emerald-300'
                                         )}
                                     >
                                         Up to Date ({fundedMembersCount})
@@ -2132,8 +2152,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             className={clsx(
                                                 'px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer',
                                                 fundingAuditFilter === 'spectators'
-                                                    ? 'bg-indigo-500 text-white shadow-sm'
-                                                    : 'text-indigo-400/90 hover:text-indigo-300'
+                                                    ? 'bg-indigo-500 text-white shadow-xs font-black'
+                                                    : 'text-indigo-700 hover:text-indigo-800 dark:text-indigo-400/90 dark:hover:text-indigo-300'
                                             )}
                                         >
                                             Spectators ({spectatorsCount})
@@ -2141,36 +2161,36 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     )}
                                 </div>
                             </div>
-                            <div className="divide-y divide-white/5">
+                            <div className="divide-y divide-slate-100 dark:divide-white/5">
                             {filteredAuditMembers.length === 0 ? (
-                                <div className="p-8 text-center text-gray-500 text-sm">
+                                <div className="p-8 text-center text-slate-500 dark:text-gray-500 text-sm">
                                     No members found in this audit filter.
                                 </div>
                             ) : (
                                 filteredAuditMembers.map((m: any) => {
                                     const isCurrentUser = m.id === activeUserId || (currentUser && m.phone && m.phone === currentUser.phone);
                                     return (
-                                        <div key={m.id} className="p-4 md:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors">
+                                        <div key={m.id} className="p-4 md:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <UserAvatar name={m.displayName} size="md" />
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="font-bold text-white text-sm truncate">{m.displayName}</span>
+                                                        <span className="font-bold text-slate-900 dark:text-white text-sm truncate">{m.displayName}</span>
                                                         {isCurrentUser && (
-                                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                                                                 You
                                                             </span>
                                                         )}
                                                         {m.role === 'admin' && (
-                                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                                                                 Admin
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                                    <div className="text-xs text-slate-500 dark:text-gray-500 flex items-center gap-2 mt-0.5 flex-wrap">
                                                         <span className="font-mono">{m.phone || 'No phone'}</span>
                                                         <span>•</span>
-                                                        <span>Wallet: <strong className="text-gray-300 font-mono">KES {Number(m.walletBalance || 0).toLocaleString()}</strong></span>
+                                                        <span>Wallet: <strong className="text-slate-800 dark:text-gray-300 font-mono">KES {Number(m.walletBalance || 0).toLocaleString()}</strong></span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2638,21 +2658,21 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {/* ── Full Ledger Modal ──────────────────────────────────────── */}
                 {isLedgerModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in">
-                        <div className="fc-card w-full max-w-5xl max-h-[90vh] flex flex-col bg-[#0d1410] border border-emerald-500/30 rounded-3xl overflow-hidden shadow-2xl">
+                        <div className="fc-card w-full max-w-5xl max-h-[90vh] flex flex-col bg-white dark:bg-[#0d1410] border border-slate-200 dark:border-emerald-500/30 rounded-3xl overflow-hidden shadow-2xl">
                             {/* Modal Header */}
-                            <div className="p-5 md:p-6 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/30">
+                            <div className="p-5 md:p-6 border-b border-slate-100 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 dark:bg-black/30">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
                                         <History className="w-5 h-5" />
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <h3 className="font-bold text-lg text-white">Full Activity Ledger</h3>
-                                            <span className="text-[10px] uppercase tracking-widest font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            <h3 className="font-black text-lg text-slate-900 dark:text-white">Full Activity Ledger</h3>
+                                            <span className="text-[10px] uppercase tracking-widest font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                                                 {filteredModalTransactions.length} Transactions
                                             </span>
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-0.5">
+                                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
                                             {seasonFilter === 'current' ? '2026/27 Season complete ledger & audit log' : 'All-time transaction history'}
                                         </p>
                                     </div>
@@ -2661,15 +2681,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     <button
                                         type="button"
                                         onClick={exportLedgerCSV}
-                                        className="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-gray-300 flex items-center gap-1.5 transition-all cursor-pointer"
+                                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                                     >
-                                        <Download className="w-3.5 h-3.5 text-emerald-400" />
+                                        <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                         <span>Export CSV</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setIsLedgerModalOpen(false)}
-                                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all cursor-pointer"
+                                        className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -2677,28 +2697,28 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </div>
 
                             {/* Search and Filters Bar */}
-                            <div className="p-4 border-b border-white/5 bg-black/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-black/20 flex flex-col sm:flex-row items-center justify-between gap-3">
                                 <div className="relative w-full sm:w-72">
-                                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <Search className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                     <input
                                         type="text"
                                         value={ledgerModalSearch}
                                         onChange={(e) => setLedgerModalSearch(e.target.value)}
                                         placeholder="Search member, receipt, or note..."
-                                        className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                                        className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                                     />
                                     {ledgerModalSearch && (
                                         <button
                                             type="button"
                                             onClick={() => setLedgerModalSearch('')}
-                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs cursor-pointer"
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:text-gray-500 dark:hover:text-white text-xs cursor-pointer"
                                         >
                                             ✕
                                         </button>
                                     )}
                                 </div>
 
-                                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 overflow-x-auto w-full sm:w-auto">
+                                <div className="flex items-center gap-1 bg-slate-200/60 dark:bg-black/40 p-1 rounded-xl border border-slate-300/80 dark:border-white/10 overflow-x-auto w-full sm:w-auto">
                                     {(['all', 'deposits', 'payouts', 'reversals'] as const).map((filterKey) => (
                                         <button
                                             key={filterKey}
@@ -2707,8 +2727,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             className={clsx(
                                                 'px-3 py-1 rounded-lg text-xs font-bold transition-all capitalize whitespace-nowrap cursor-pointer',
                                                 ledgerModalFilter === filterKey
-                                                    ? 'bg-emerald-500 text-black shadow-sm'
-                                                    : 'text-gray-400 hover:text-white'
+                                                    ? 'bg-emerald-500 text-black shadow-xs font-black'
+                                                    : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
                                             )}
                                         >
                                             {filterKey === 'all' ? 'All' : filterKey === 'deposits' ? 'Inflows / Deposits' : filterKey === 'payouts' ? 'Payouts' : 'Reversals'}
@@ -2722,8 +2742,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 {/* Desktop Table View in Modal */}
                                 <div className="hidden md:block w-full overflow-x-auto">
                                     <table className="fc-muted-table w-full min-w-[700px] text-left">
-                                        <thead className="sticky top-0 bg-[#0a100a] z-10">
-                                            <tr className="border-b border-white/10 bg-[#0a100a]">
+                                        <thead className="sticky top-0 bg-slate-50 dark:bg-[#0a100a] z-10 border-b border-slate-200 dark:border-white/10">
+                                            <tr>
                                                 <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase">RECEIPT NO.</th>
                                                 <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase">DATE / TIME</th>
                                                 <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase">DESCRIPTION</th>
@@ -2732,7 +2752,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 <th className="px-6 py-3 font-bold text-[11px] fc-meta-label tracking-widest uppercase text-right">ACTIONS</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-white/5">
+                                        <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                                             {filteredModalTransactions.length > 0 ? (
                                                 filteredModalTransactions.map((tx: any) => {
                                                     const isWalletFunding = tx.type === 'wallet_funding'
@@ -2889,7 +2909,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 </div>
 
                                 {/* Mobile Card View in Modal */}
-                                <div className="md:hidden divide-y divide-white/5">
+                                <div className="md:hidden divide-y divide-slate-100 dark:divide-white/5">
                                     {filteredModalTransactions.length > 0 ? (
                                         filteredModalTransactions.map((tx: any) => {
                                             const isWalletFunding = tx.type === 'wallet_funding'
@@ -2923,37 +2943,37 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         : (sanitizedNote || `Deposit • ${memberName}${gwTag ? ` (Funded for ${gwTag})` : ''}`);
 
                                             return (
-                                                <div key={tx.id} className="p-4 flex flex-col gap-2">
+                                                <div key={tx.id} className="p-4 flex flex-col gap-2 hover:bg-slate-50/70 dark:hover:bg-white/[0.02] transition-colors">
                                                     <div className="flex items-center justify-between">
                                                         <span className={clsx(
                                                             'text-sm font-extrabold',
-                                                            isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                                            isReversal ? 'text-amber-600 dark:text-[#FBBF24]' : ledgerDirection === '+' ? 'text-emerald-600 dark:text-[#10B981]' : 'text-amber-600 dark:text-[#FBBF24]'
                                                         )}>
                                                             {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
                                                         </span>
                                                         <div className="flex items-center gap-1.5">
                                                             {gwTag && (
-                                                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                                                                     {gwTag}
                                                                 </span>
                                                             )}
                                                             <span className={clsx(
                                                                 'text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md border',
                                                                 isReversal
-                                                                    ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
+                                                                    ? 'bg-amber-500/15 text-amber-700 dark:text-[#FBBF24] border-amber-500/30'
                                                                     : isWalletFunding || ledgerDirection === '+'
-                                                                    ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
-                                                                    : 'bg-[#FBBF24]/10 text-[#FBBF24] border-[#FBBF24]/20'
+                                                                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-[#10B981] border-emerald-500/20'
+                                                                    : 'bg-amber-500/10 text-amber-700 dark:text-[#FBBF24] border-amber-500/20'
                                                             )}>
                                                                 {statusLabel}
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="font-bold text-white text-sm">
+                                                    <div className="font-bold text-slate-900 dark:text-white text-sm">
                                                         {activityLabel}
                                                     </div>
-                                                    <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-white/5">
-                                                        <span>{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
+                                                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-gray-500 pt-1 border-t border-slate-100 dark:border-white/5">
+                                                        <span className="font-mono">{tx.receiptId || `TXN${safeTxId.substring(0, 8).toUpperCase()}`}</span>
                                                         <div className="flex items-center gap-2">
                                                             {tx.type === 'payout' && (() => {
                                                                 const isWinnerOfTx = Boolean(
@@ -2974,19 +2994,19 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                         className={clsx(
                                                                             "px-2 py-1 rounded-md border text-[9px] font-black uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer",
                                                                             isChairmanShare
-                                                                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                                                                                : "border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                                                                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                                                                                : "border-amber-400/30 bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-400/20"
                                                                         )}
                                                                         title={isChairmanShare ? "Announce Winner as Chairman" : "Share Victory Card"}
                                                                     >
                                                                         {isChairmanShare ? (
                                                                             <>
-                                                                                <Crown className="w-2.5 h-2.5 text-emerald-400" />
+                                                                                <Crown className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                                                                                 Announce
                                                                             </>
                                                                         ) : (
                                                                             <>
-                                                                                <Trophy className="w-2.5 h-2.5 text-amber-400" />
+                                                                                <Trophy className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
                                                                                 Flex
                                                                             </>
                                                                         )}
@@ -2996,7 +3016,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                             {isAdmin && (
                                                                 <button
                                                                     onClick={() => setTxToDelete(tx)}
-                                                                    className="px-2 py-1 rounded-md border border-rose-500/30 bg-rose-500/10 text-[9px] font-black uppercase tracking-wider text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer flex items-center gap-1"
+                                                                    className="px-2 py-1 rounded-md border border-rose-300 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-[9px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors cursor-pointer flex items-center gap-1"
                                                                     title="Delete ledger entry"
                                                                 >
                                                                     <Trash2 className="w-2.5 h-2.5" />
@@ -3005,7 +3025,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                             )}
                                                             <button
                                                                 onClick={() => shareTransactionReceipt(tx)}
-                                                                className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-wider text-white hover:bg-white/10 transition-colors cursor-pointer"
+                                                                className="px-2 py-1 rounded-md border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-[9px] font-black uppercase tracking-wider text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors cursor-pointer"
                                                             >
                                                                 Share
                                                             </button>
@@ -3015,7 +3035,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             );
                                         })
                                     ) : (
-                                        <div className="p-8 text-center text-gray-500">
+                                        <div className="p-8 text-center text-slate-500 dark:text-gray-500">
                                             <ReceiptText className="w-8 h-8 mx-auto mb-2 opacity-40" />
                                             <p className="text-sm">No transactions match your search</p>
                                         </div>
@@ -3024,14 +3044,14 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className="p-4 border-t border-white/10 bg-black/40 flex items-center justify-between">
-                                <span className="text-xs text-gray-400">
-                                    Total Records: <strong className="text-white">{filteredModalTransactions.length}</strong>
+                            <div className="p-4 border-t border-slate-100 dark:border-white/10 bg-slate-50 dark:bg-black/40 flex items-center justify-between">
+                                <span className="text-xs text-slate-500 dark:text-gray-400">
+                                    Total Records: <strong className="text-slate-900 dark:text-white font-black">{filteredModalTransactions.length}</strong>
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => setIsLedgerModalOpen(false)}
-                                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-all cursor-pointer"
+                                    className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-xs font-bold text-slate-800 dark:text-white transition-all cursor-pointer"
                                 >
                                     Close Ledger
                                 </button>
@@ -3043,24 +3063,24 @@ const handleRejectPendingPayout = async (payout: any) => {
                 {/* ── Sleek In-Page M-Pesa Top-Up Modal ──────────────────────────── */}
                 {showMpesaTopUpModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                        <div className="w-full max-w-md bg-[#0b1014] border border-emerald-500/30 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-200">
+                        <div className="w-full max-w-md bg-white dark:bg-[#0b1014] border border-slate-200 dark:border-emerald-500/30 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-200 text-slate-900 dark:text-white">
                             {/* Modal Header */}
-                            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                            <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.02]">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]">
                                         <Wallet className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-black text-white tracking-tight flex items-center gap-2">
+                                        <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                                             M-Pesa Wallet Top-Up
                                         </h3>
-                                        <p className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider">Instant Chama Wallet Credit</p>
+                                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Instant Chama Wallet Credit</p>
                                     </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => setShowMpesaTopUpModal(false)}
-                                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all cursor-pointer"
+                                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
@@ -3070,7 +3090,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <div className="p-5 space-y-4">
                                 {/* Quick Amount Selector */}
                                 <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 block">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-2 block">
                                         Select Amount (KES)
                                     </label>
                                     <div className="grid grid-cols-3 gap-2">
@@ -3088,8 +3108,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                     className={clsx(
                                                         "py-2.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
                                                         isSelected
-                                                            ? "bg-emerald-500 text-black border-emerald-400 font-extrabold shadow-md shadow-emerald-950"
-                                                            : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/10"
+                                                            ? "bg-emerald-500 text-black border-emerald-400 font-extrabold shadow-md shadow-emerald-950/20"
+                                                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 border-slate-200 dark:border-white/10"
                                                     )}
                                                 >
                                                     KES {amt.toLocaleString()}
@@ -3107,7 +3127,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 setTopUpCustomAmount(cleaned);
                                             }}
                                             placeholder={`Custom Amount (e.g. KES ${gameweekStake || 50})`}
-                                            className="w-full rounded-xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-400 font-bold"
+                                            className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/40 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500 font-bold"
                                         />
                                     </div>
                                 </div>
@@ -3124,26 +3144,26 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     className={clsx(
                                         "p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 group select-none",
                                         copiedPochiPhone
-                                            ? "border-emerald-400 bg-emerald-950/40 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-[1.01]"
-                                            : "border-emerald-500/25 bg-emerald-950/20 hover:bg-emerald-950/30"
+                                            ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-[1.01]"
+                                            : "border-emerald-500/25 bg-emerald-50/60 hover:bg-emerald-100/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30"
                                     )}
                                     title="Click to copy phone number"
                                 >
                                     <div>
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Chairman Pochi Destination</span>
-                                            <span className="text-[8px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-black">Tap to copy</span>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Chairman Pochi Destination</span>
+                                            <span className="text-[8px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-1.5 py-0.2 rounded font-black">Tap to copy</span>
                                         </div>
-                                        <p className="text-sm font-black text-white font-mono mt-0.5 tracking-wider">
+                                        <p className="text-sm font-black text-slate-900 dark:text-white font-mono mt-0.5 tracking-wider">
                                             {(leagueSettings as any)?.paymentDetails?.accountNumber || (leagueSettings as any)?.payoutPhone || '0728445771'}
                                         </p>
-                                        <p className="text-[10px] text-gray-400">Recipient: Brian Kiprono (Chairman)</p>
+                                        <p className="text-[10px] text-slate-600 dark:text-gray-400">Recipient: Brian Kiprono (Chairman)</p>
                                     </div>
                                     <div className={clsx(
                                         "px-2.5 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shrink-0",
                                         copiedPochiPhone
                                             ? "bg-emerald-500 text-black border-emerald-400 shadow-md font-extrabold"
-                                            : "bg-white/10 text-emerald-300 border-emerald-500/30 group-hover:bg-emerald-500/20"
+                                            : "bg-slate-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 group-hover:bg-emerald-200/50 dark:group-hover:bg-emerald-500/20"
                                     )}>
                                         {copiedPochiPhone ? 'Copied! ✓' : 'Copy'}
                                     </div>
@@ -3168,7 +3188,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 setIsPushingTopUpMpesa(false);
                                             }
                                         }}
-                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
                                     >
                                         <Wallet className="w-4 h-4" />
                                         Launch Instant M-Pesa Checkout (KES {Number(topUpCustomAmount || gameweekStake || 50).toLocaleString()})
@@ -3176,7 +3196,7 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                                     <a
                                         href="tel:*334#"
-                                        className="w-full py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+                                        className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:hover:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
                                     >
                                         Dial *334# (Pochi la Biashara)
                                     </a>
@@ -3320,37 +3340,37 @@ const handleRejectPendingPayout = async (payout: any) => {
             {/* Chairman Delete Confirmation Modal */}
             {txToDelete && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-                    <div className="relative w-full max-w-md bg-[#0F172A] border border-rose-500/30 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-white">
+                    <div className="relative w-full max-w-md bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-rose-500/30 rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-slate-900 dark:text-white">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400">
                                 <Trash2 className="w-6 h-6" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black tracking-tight text-white">Delete Ledger Entry?</h3>
-                                <p className="text-xs text-gray-400 font-medium">This will permanently remove this transaction from the league ledger.</p>
+                                <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Delete Ledger Entry?</h3>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">This will permanently remove this transaction from the league ledger.</p>
                             </div>
                         </div>
 
-                        <div className="p-4 rounded-xl bg-black/40 border border-white/5 flex flex-col gap-2 text-xs">
-                            <div className="flex justify-between items-center text-gray-400">
+                        <div className="p-4 rounded-xl bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/5 flex flex-col gap-2 text-xs">
+                            <div className="flex justify-between items-center text-slate-500 dark:text-gray-400">
                                 <span>Receipt No:</span>
-                                <span className="font-mono font-bold text-white">{txToDelete.receiptId || txToDelete.id}</span>
+                                <span className="font-mono font-bold text-slate-900 dark:text-white">{txToDelete.receiptId || txToDelete.id}</span>
                             </div>
-                            <div className="flex justify-between items-center text-gray-400">
+                            <div className="flex justify-between items-center text-slate-500 dark:text-gray-400">
                                 <span>Member:</span>
-                                <span className="font-bold text-white">{txToDelete.memberName || txToDelete.winnerName || 'Member'}</span>
+                                <span className="font-bold text-slate-900 dark:text-white">{txToDelete.memberName || txToDelete.winnerName || 'Member'}</span>
                             </div>
-                            <div className="flex justify-between items-center text-gray-400">
+                            <div className="flex justify-between items-center text-slate-500 dark:text-gray-400">
                                 <span>Amount:</span>
-                                <span className="font-bold text-emerald-400">KES {Math.abs(Number(txToDelete.amount || 0)).toLocaleString()}</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">KES {Math.abs(Number(txToDelete.amount || 0)).toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between items-center text-gray-400">
+                            <div className="flex justify-between items-center text-slate-500 dark:text-gray-400">
                                 <span>Gameweek:</span>
-                                <span className="font-bold text-amber-400">GW{txToDelete.gameweek || txToDelete.gw || 'N/A'}</span>
+                                <span className="font-bold text-amber-600 dark:text-amber-400">GW{txToDelete.gameweek || txToDelete.gw || 'N/A'}</span>
                             </div>
                         </div>
 
-                        <p className="text-xs text-rose-300/80 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2.5">
+                        <p className="text-xs text-rose-700 dark:text-rose-300/80 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-lg p-2.5">
                             Are you sure you want to delete this ledger entry? Vault calculations and member statements will be recalculated automatically.
                         </p>
 
@@ -3358,7 +3378,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <button
                                 onClick={() => setTxToDelete(null)}
                                 disabled={isDeletingTx}
-                                className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 dark:text-gray-400 dark:hover:text-white dark:bg-white/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>

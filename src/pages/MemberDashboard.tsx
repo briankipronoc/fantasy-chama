@@ -1256,10 +1256,19 @@ export default function MemberDashboard() {
             return false;
         }
 
+        const pastMaxGw = currentFplEvent?.id ? (currentFplEvent.finished ? currentFplEvent.id : currentFplEvent.id - 1) : 0;
+        const rawMdStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 5);
+        const mdStartGw = Math.max(1, rawMdStart > 5 ? 5 : (rawMdStart || 5));
+        const pastCompletedCount = pastMaxGw >= mdStartGw ? Math.max(0, pastMaxGw - mdStartGw + 1) : 0;
+        const pastConsumedStake = pastCompletedCount * gameweekStake;
+        const unspentCredit = Math.max(0, netDeposited - pastConsumedStake);
+        const currentGw = Number(currentFplEvent?.id || 1);
+
         return Boolean(
-            (gameweekStake > 0 && effectiveWallet >= gameweekStake) ||
-            (netDeposited >= gameweekStake) ||
-            (m.hasPaid && (memberInflows > 0 || gameweekStake === 0))
+            gameweekStake === 0 ||
+            (unspentCredit >= gameweekStake) ||
+            (transactions || []).some((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx) && Number(tx.gw || tx.gameweek || 0) === currentGw) ||
+            (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid))
         );
     };
 
@@ -1323,11 +1332,24 @@ export default function MemberDashboard() {
         }
     }
     const completedRounds = playedPastGws.length;
-    const maxVaultForCompleted = completedRounds * paidMembersCount * gameweekStake * vaultMultiplier;
-    // Strict ledger verified: If seasonVaultFromTxs <= 0, accumulated vault is STRICTLY 0 KES!
-    const seasonVaultAccumulated = seasonVaultFromTxs > 0
-        ? (completedRounds > 0 ? Math.min(maxVaultForCompleted, seasonVaultFromTxs) : seasonVaultFromTxs)
-        : 0;
+    // Capped member contributions sum for completed rounds (strictly matches Finances.tsx audit)
+    const cappedMemberContributionsSum = members
+        .filter((m: any) => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending && (m as any).playMode !== 'sidebets_only')
+        .reduce((sum: number, member: any) => {
+            const isMatched = (tx: any) =>
+                (member.id && (tx.memberId === member.id || tx.userId === member.id)) ||
+                (member.phone && (tx.phoneNumber === member.phone || tx.phone === member.phone)) ||
+                (member.displayName && (tx.memberName === member.displayName || tx.playerName === member.displayName));
+            const memRefunds = (transactions || []).filter(tx => isMatched(tx) && isTxRefundOrReversal(tx)).reduce((s, tx) => s + Math.abs(Number(tx.amount || 0)), 0);
+            const memInflows = (transactions || []).filter(tx => isMatched(tx) && isTxValidInflow(tx)).reduce((s, tx) => s + Number(tx.amount || 0), 0);
+            const netContributed = Math.max(0, memInflows - memRefunds);
+            const memberMaxForCompleted = completedRounds > 0 ? completedRounds * (gameweekStake || 0) : 0;
+            return sum + Math.min(memberMaxForCompleted, netContributed);
+        }, 0);
+    // Strict ledger verified: accumulated vault reflects realized completed rounds
+    const seasonVaultAccumulated = completedRounds > 0
+        ? Math.round(cappedMemberContributionsSum * vaultMultiplier)
+        : seasonVaultFromTxs;
 
     // Upcoming GW Funding Status (Red Zone)
     const isTargetGwUpcoming = Boolean(currentFplEvent?.finished || currentFplEvent?.isPreparingForNextGw);
@@ -1368,7 +1390,7 @@ export default function MemberDashboard() {
             leagueName: leagueName || 'Fantasy Chama',
             stake: gameweekStake || 50,
             vaultPercent: rules?.vault ?? 30,
-            currentVaultTotal: seasonVaultFromTxs || 0,
+            currentVaultTotal: seasonVaultAccumulated || 0,
             winner: gwWinner?.player_name ? {
                 name: gwWinner.player_name,
                 teamName: gwWinner.entry_name,
@@ -1392,7 +1414,7 @@ export default function MemberDashboard() {
             } : null,
             redZoneMembers: redZone,
         };
-    }, [members, gwWinner, currentFplEvent?.id, leagueName, gameweekStake, rules, seasonVaultFromTxs, weeklyPot, paidMembersCount, isMemberFunded]);
+    }, [members, gwWinner, currentFplEvent?.id, leagueName, gameweekStake, rules, seasonVaultAccumulated, weeklyPot, paidMembersCount, isMemberFunded]);
 
     const dismissLeagueGuide = () => {
         if (!activeLeagueId) return;
@@ -2377,7 +2399,7 @@ export default function MemberDashboard() {
                                         <div className="my-1.5">
                                             <p className="text-2xl sm:text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
                                                 {Number(rules.weekly || 0) === 0
-                                                    ? `KES ${(seasonVaultFromTxs || 0).toLocaleString()}`
+                                                    ? `KES ${(seasonVaultAccumulated || 0).toLocaleString()}`
                                                     : `KES ${(activeChampion.amount || ((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))).toLocaleString()}`}
                                             </p>
                                             <p className="text-xs text-gray-400 mt-0.5">
@@ -3351,20 +3373,20 @@ export default function MemberDashboard() {
             {/* Wallet Top-Up Modal */}
             {showTopUpModal && (
                 <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="w-full max-w-md bg-[#111820]/95 border border-[#10B981]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                    <div className="w-full max-w-md bg-white dark:bg-[#111820]/95 border border-slate-200 dark:border-[#10B981]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300 text-slate-900 dark:text-white">
                         <div className="mb-5">
                             <div className="flex items-center gap-2 mb-1">
-                                <Wallet className="w-5 h-5 text-[#10B981]" />
-                                <h3 className="text-xl font-extrabold text-white">Top Up Wallet</h3>
+                                <Wallet className="w-5 h-5 text-emerald-600 dark:text-[#10B981]" />
+                                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">Top Up Wallet</h3>
                             </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-slate-600 dark:text-gray-400">
                                 Send any amount to your wallet. Your current balance is not reduced, and the top-up is added separately once M-Pesa confirms it.
                             </p>
                         </div>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Amount to Top Up</label>
+                                <label className="block text-xs font-bold text-slate-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Amount to Top Up</label>
                                 <input
                                     type="text"
                                     inputMode="numeric"
@@ -3375,23 +3397,23 @@ export default function MemberDashboard() {
                                         const cleaned = e.target.value.replace(/[^0-9]/g, '');
                                         setTopUpAmount(cleaned === '' ? 0 : Math.min(300000, parseInt(cleaned, 10)));
                                     }}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
+                                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white font-mono text-sm placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Note for Chairman or Self</label>
+                                <label className="block text-xs font-bold text-slate-600 dark:text-gray-400 mb-2 uppercase tracking-wider">Note for Chairman or Self</label>
                                 <textarea
                                     rows={3}
                                     value={topUpNote}
                                     onChange={(e) => setTopUpNote(e.target.value)}
                                     placeholder="Optional: 'Use my GW winnings' or 'Add extra funds for next 3 GWs'"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors resize-none"
+                                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-[#10B981]/50 transition-colors resize-none"
                                 />
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                                <p>Wallet balance: <span className="font-black text-white">KES {animatedWalletBalance.toLocaleString()}</span></p>
-                                <p>Current GW stake: <span className="font-black text-white">KES {gameweekStake.toLocaleString()}</span></p>
-                                <p>Top-up amount: <span className="font-black text-[#10B981]">KES {Math.max(1, Number(topUpAmount || 0)).toLocaleString()}</span></p>
+                            <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 px-4 py-3 text-xs text-slate-600 dark:text-gray-400 space-y-1">
+                                <p>Wallet balance: <span className="font-black text-slate-900 dark:text-white">KES {animatedWalletBalance.toLocaleString()}</span></p>
+                                <p>Current GW stake: <span className="font-black text-slate-900 dark:text-white">KES {gameweekStake.toLocaleString()}</span></p>
+                                <p>Top-up amount: <span className="font-black text-emerald-600 dark:text-[#10B981]">KES {Math.max(1, Number(topUpAmount || 0)).toLocaleString()}</span></p>
                             </div>
                             <div className="flex gap-3">
                                 <button
@@ -3399,14 +3421,14 @@ export default function MemberDashboard() {
                                         setShowTopUpModal(false);
                                         setTopUpNote('');
                                     }}
-                                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                    className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-slate-200 dark:border-white/10 cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={topUpNote.trim() ? handleRequestWalletCredit : () => handleMpesaSTKPush(topUpAmount)}
                                     disabled={isSubmittingTopUp || isRequestingWalletCredit || !Number(topUpAmount || 0)}
-                                    className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="flex-1 px-4 py-3 bg-[#10B981] hover:bg-[#10B981]/90 text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     {isSubmittingTopUp || isRequestingWalletCredit ? <><Zap className="w-4 h-4 animate-pulse" /> Sending...</> : <><Banknote className="w-4 h-4" /> {topUpNote.trim() ? 'Request Credit' : 'Send STK Push'}</>}
                                 </button>
@@ -3421,15 +3443,15 @@ export default function MemberDashboard() {
             {/* Module 3B: Claim Payment Modal */}
             {showClaimModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-                    <div className="w-full max-w-md bg-[#111820]/95 border border-[#FBBF24]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                    <div className="w-full max-w-md bg-white dark:bg-[#111820]/95 border border-slate-200 dark:border-[#FBBF24]/20 rounded-3xl p-7 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300 text-slate-900 dark:text-white">
                         {claimSubmitted ? (
                             <div className="text-center py-4 space-y-4">
                                 <div className="w-14 h-14 rounded-full bg-[#FBBF24]/10 border border-[#FBBF24]/30 flex items-center justify-center mx-auto">
                                     <Check className="w-7 h-7 text-[#FBBF24]" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-extrabold text-white mb-1">Claim Submitted ✓</h3>
-                                    <p className="text-sm text-gray-400">Your claim has been logged for the Chairman's review.</p>
+                                    <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-1">Claim Submitted ✓</h3>
+                                    <p className="text-sm text-slate-600 dark:text-gray-400">Your claim has been logged for the Chairman's review.</p>
                                 </div>
                                 <button
                                     type="button"
@@ -3444,7 +3466,7 @@ export default function MemberDashboard() {
                                             `I have logged my payment claim in FantasyChama. Please confirm and update my wallet status!`;
                                         window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                                     }}
-                                    className="w-full py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,211,102,0.25)]"
+                                    className="w-full py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,211,102,0.25)] cursor-pointer"
                                 >
                                     <MessageCircle className="w-4 h-4 fill-current" /> Notify Chairman via WhatsApp
                                 </button>
@@ -3453,38 +3475,38 @@ export default function MemberDashboard() {
                             <>
                                 <div className="mb-5">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[#FBBF24] text-lg">🚨</span>
-                                        <h3 className="text-xl font-extrabold text-white">Claim Payment</h3>
+                                        <span className="text-amber-500 text-lg">🚨</span>
+                                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">Claim Payment</h3>
                                     </div>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                    <p className="text-sm text-slate-600 dark:text-gray-400">
                                         Paid via M-Pesa but still showing unpaid? Submit your receipt and the Chairman will verify it within 24h.
                                     </p>
                                 </div>
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
+                                        <label className="block text-xs font-bold text-slate-600 dark:text-gray-400 mb-2 uppercase tracking-wider">M-Pesa Receipt Code</label>
                                         <input
                                             type="text"
                                             value={claimReceiptCode}
                                             onChange={e => setClaimReceiptCode(e.target.value.toUpperCase())}
                                             placeholder="e.g. SCL90XXXXXX"
-                                            className="w-full bg-white/5 border border-[#FBBF24]/20 rounded-xl px-4 py-3 text-white font-mono text-sm placeholder-gray-600 focus:outline-none focus:border-[#FBBF24]/50 transition-colors"
+                                            className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-[#FBBF24]/20 rounded-xl px-4 py-3 text-slate-900 dark:text-white font-mono text-sm placeholder-slate-400 dark:placeholder-gray-600 focus:outline-none focus:border-[#FBBF24]/50 transition-colors"
                                         />
                                     </div>
-                                    <div className="bg-[#FBBF24]/5 border border-[#FBBF24]/15 rounded-xl p-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                                    <div className="bg-amber-50 dark:bg-[#FBBF24]/5 border border-amber-200 dark:border-[#FBBF24]/15 rounded-xl p-3 text-xs text-amber-800 dark:text-gray-400 leading-relaxed">
                                         The Chairman will receive an alert to cross-check your M-Pesa receipt with their records. False claims may result in suspension.
                                     </div>
                                     <div className="flex gap-3">
                                         <button
                                             onClick={() => setShowClaimModal(false)}
-                                            className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-600 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-white/10"
+                                            className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-400 text-sm font-bold rounded-xl transition-colors border border-slate-200 dark:border-white/10 cursor-pointer"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             onClick={handleClaimPayment}
                                             disabled={isSubmittingClaim || !claimReceiptCode.trim()}
-                                            className="flex-1 px-4 py-3 bg-[#FBBF24] hover:bg-[#eab308] text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                            className="flex-1 px-4 py-3 bg-[#FBBF24] hover:bg-[#eab308] text-black text-sm font-black rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                                         >
                                             {isSubmittingClaim ? <Zap className="w-4 h-4 animate-pulse" /> : null}
                                             {isSubmittingClaim ? 'Submitting...' : 'Submit Claim 🚨'}

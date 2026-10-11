@@ -1458,10 +1458,24 @@ export default function AdminCommandCenter() {
       return false;
     }
 
+    if (gameweekStake === 0) return true;
+
+    const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
+    const currentGw = Number(currentGwNumber || start);
+    let totalTrackedRounds = 0;
+    for (let g = start; g <= currentGw; g++) {
+      if (!forfeitedGws.includes(g)) totalTrackedRounds++;
+    }
+    const requiredDepositForCurrent = Math.max(1, totalTrackedRounds) * gameweekStake;
+    const pastCompletedCount = Math.max(0, totalTrackedRounds - 1);
+    const pastConsumedStake = pastCompletedCount * gameweekStake;
+    const unspentCredit = Math.max(0, netDeposited - pastConsumedStake);
+
     return (
-      (gameweekStake > 0 && effectiveWallet >= gameweekStake) ||
-      (netDeposited >= gameweekStake) ||
-      (member.hasPaid === true && (inflowTotal > 0 || gameweekStake === 0))
+      (unspentCredit >= gameweekStake) ||
+      (netDeposited >= requiredDepositForCurrent) ||
+      transactions.some((tx: any) => isTxValidInflow(tx) && (tx.memberId === member.id || tx.userId === member.id) && Number(tx.gw || tx.gameweek || 0) === currentGw) ||
+      (Number(member.lastPaymentGw) === currentGw && Boolean(member.hasPaid))
     );
   };
 
@@ -1614,8 +1628,28 @@ export default function AdminCommandCenter() {
     .reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
   const netInflowsFromLedger = Math.max(0, grossInflowsAllTime - totalRefundsAllTime);
 
-  // Season vault: Strict ledger-verified accumulated vault to date (prevents phantom inflation when no transactions entered)
-  const seasonVault = Math.round(netInflowsFromLedger * (rules.vault / 100));
+  const maxCompletedGw = isCurrentEventFinished && currentGwNumber ? currentGwNumber : (currentGwNumber ? currentGwNumber - 1 : 0);
+  const completedRoundsList: number[] = [];
+  for (let g = effectiveStartGw; g <= maxCompletedGw; g++) {
+    if (!forfeitedGws.includes(g)) completedRoundsList.push(g);
+  }
+  const completedRoundsCount = completedRoundsList.length;
+
+  const cappedMemberContributionsSum = uniqueMembers
+    .filter((m: any) => !isPendingMember(m) && (m as any).playMode !== "sidebets_only")
+    .reduce((sum: number, member: any) => {
+      const refundTotal = getMemberRefundTotal(member);
+      const inflowTotal = getMemberInflowTotal(member);
+      const netContributed = Math.max(0, inflowTotal - refundTotal);
+      const memberMaxForCompleted = completedRoundsCount > 0 ? completedRoundsCount * (gameweekStake || 0) : 0;
+      return sum + Math.min(memberMaxForCompleted, netContributed);
+    }, 0);
+
+  const rawVaultFromLedger = Math.round(netInflowsFromLedger * (rules.vault / 100));
+  // Season vault: Realized accumulated jackpot to date for completed rounds (matches Finances.tsx audit)
+  const seasonVault = rawVaultFromLedger > 0
+    ? (completedRoundsCount > 0 ? Math.round(cappedMemberContributionsSum * (rules.vault / 100)) : rawVaultFromLedger)
+    : 0;
   const projectedRemainingGws = Math.max(0, 38 - (currentGwNumber || firestoreGw || 1));
   const projectedRemainingGross = projectedRemainingGws * Math.max(1, activeMembersCount) * (gameweekStake || 0);
   const projectedSeasonVault = Math.round((seasonVault + (projectedRemainingGross * (rules.vault / 100))));
@@ -5466,13 +5500,13 @@ burstFrame();
 
                 {/* Dropdown Menu */}
                 {isFilterDropdownOpen && (
-                  <div className="absolute top-full mt-2 right-0 w-48 max-h-56 overflow-y-auto fc-dropdown-scroll bg-[#161d24] border border-white/10 rounded-xl shadow-2xl z-20">
+                  <div className="absolute top-full mt-2 right-0 w-48 max-h-56 overflow-y-auto fc-dropdown-scroll bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl z-20">
                     <button
                       onClick={() => {
                         setPaymentFilter("All");
                         setIsFilterDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-sm font-bold text-white hover:bg-[#1a232b] transition-colors"
+                      className="w-full text-left px-4 py-3 text-sm font-bold text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#1a232b] transition-colors cursor-pointer"
                     >
                       All Payments
                     </button>
@@ -5481,7 +5515,7 @@ burstFrame();
                         setPaymentFilter("Verified");
                         setIsFilterDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-sm font-bold text-[#10B981] hover:bg-[#10B981]/10 transition-colors"
+                      className="w-full text-left px-4 py-3 text-sm font-bold text-emerald-600 dark:text-[#10B981] hover:bg-emerald-50 dark:hover:bg-[#10B981]/10 transition-colors cursor-pointer"
                     >
                       Funded
                     </button>
@@ -5490,7 +5524,7 @@ burstFrame();
                         setPaymentFilter("Red Zone");
                         setIsFilterDropdownOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-sm font-bold text-[#FBBF24] hover:bg-[#FBBF24]/10 transition-colors"
+                      className="w-full text-left px-4 py-3 text-sm font-bold text-amber-600 dark:text-[#FBBF24] hover:bg-amber-50 dark:hover:bg-[#FBBF24]/10 transition-colors cursor-pointer"
                     >
                       Unpaid
                     </button>
@@ -5498,9 +5532,9 @@ burstFrame();
                 )}
               </div>
             </div>
-            <div className="divide-y divide-white/[0.04] min-h-[300px]">
+            <div className="divide-y divide-black/5 dark:divide-white/[0.04] min-h-[300px]">
               {filteredMembers.length === 0 ? (
-                <div className="p-12 text-center text-gray-500 font-medium text-sm">
+                <div className="p-12 text-center text-slate-500 dark:text-gray-500 font-medium text-sm">
                   No members found matching this filter.
                 </div>
               ) : (
@@ -5525,18 +5559,18 @@ burstFrame();
                   const rowOwedArrears = rowSkippedGws * gwCost;
                   const walletColor =
                     wallet <= 0
-                      ? "text-red-400"
+                      ? "text-red-500 dark:text-red-400"
                       : gwsLeft >= 2
-                        ? "text-[#10B981]"
-                        : "text-[#FBBF24]";
+                        ? "text-emerald-600 dark:text-[#10B981]"
+                        : "text-amber-600 dark:text-[#FBBF24]";
                   return (
                     <div
                       key={row.id}
                       className={clsx(
                         "px-4 py-3.5 flex flex-wrap sm:flex-nowrap items-center gap-3 transition-colors group",
                         memberHasFunding(row)
-                          ? "bg-[#10B981]/5 border-l-2 border-[#10B981]"
-                          : "hover:bg-white/[0.02] border-l-2 border-transparent",
+                          ? "bg-emerald-500/5 dark:bg-[#10B981]/5 border-l-2 border-emerald-500 dark:border-[#10B981]"
+                          : "hover:bg-slate-50/80 dark:hover:bg-white/[0.02] border-l-2 border-transparent",
                       )}
                     >
                       {/* Avatar */}
@@ -5545,7 +5579,7 @@ burstFrame();
                       {/* Name + actions */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center flex-wrap gap-1.5 mb-0.5">
-                          <span className="font-bold text-white text-sm leading-tight truncate max-w-[130px] sm:max-w-none">{row.displayName}</span>
+                          <span className="font-bold text-slate-900 dark:text-white text-sm leading-tight truncate max-w-[130px] sm:max-w-none">{row.displayName}</span>
                           {(row as any).role === "admin" && (
                             <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Admin</span>
                           )}
@@ -6194,7 +6228,7 @@ burstFrame();
                 </div>
 
                 {/* Toggle for Update Recent Activity */}
-                <div className="mb-4 p-3 bg-white/5 rounded-lg border border-white/10 flex items-center gap-3">
+                <div className="mb-4 p-3 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-white/10 flex items-center gap-3">
                   <input
                     type="checkbox"
                     checked={prefundUpdateRecentActivity}
@@ -6202,9 +6236,9 @@ burstFrame();
                     className="w-4 h-4 accent-[#FBBF24] cursor-pointer"
                     id="prefund-update-activity"
                   />
-                  <label htmlFor="prefund-update-activity" className="flex-1 cursor-pointer text-sm text-gray-300">
-                    <span className="font-bold text-white">Update Recent Activity</span>
-                    <p className="text-xs text-gray-500 mt-0.5">Log this prefund operation to notifications & league events (visible to all members)</p>
+                  <label htmlFor="prefund-update-activity" className="flex-1 cursor-pointer text-sm text-slate-700 dark:text-gray-300">
+                    <span className="font-bold text-slate-900 dark:text-white">Update Recent Activity</span>
+                    <p className="text-xs text-slate-500 dark:text-gray-500 mt-0.5">Log this prefund operation to notifications & league events (visible to all members)</p>
                   </label>
                 </div>
 
@@ -6236,17 +6270,17 @@ burstFrame();
           )}
 
         {showWalletFundModal && (
-          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="fc-prefund-panel bg-[#161d24] border border-[#10B981]/30 w-full max-w-2xl rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="fc-prefund-panel bg-white dark:bg-[#161d24] border border-slate-200 dark:border-[#10B981]/30 w-full max-w-2xl rounded-3xl p-5 sm:p-6 md:p-8 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto text-slate-900 dark:text-white">
               <div className="flex items-center justify-between gap-4 mb-6">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10B981]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-600 dark:text-[#10B981]">
                     Direct Wallet Funding
                   </p>
-                  <h3 className="text-2xl font-black text-white tracking-tight mt-1">
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
                     Fund a member wallet
                   </h3>
-                  <p className="text-gray-400 text-xs font-medium mt-1">
+                  <p className="text-slate-500 dark:text-gray-400 text-xs font-medium mt-1">
                     Record an M-Pesa prompt or cash handoff directly on the ledger.
                   </p>
                 </div>
@@ -6260,18 +6294,18 @@ burstFrame();
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label className="space-y-2 md:col-span-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-500">
                     Member
                   </span>
                   <div className="relative">
                     <select
                       value={fundTargetMemberId}
                       onChange={(e) => setFundTargetMemberId(e.target.value)}
-                      className="fc-prefund-input w-full appearance-none rounded-xl border border-gray-300 dark:border-white/10 px-3.5 py-3 pr-10 bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] cursor-pointer font-semibold shadow-sm transition-all"
+                      className="fc-prefund-input w-full appearance-none rounded-xl border border-slate-300 dark:border-white/10 px-3.5 py-3 pr-10 bg-slate-50 dark:bg-[#0d1316] text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 focus:border-[#10B981] cursor-pointer font-semibold shadow-sm transition-all"
                     >
-                      <option value="" className="bg-white dark:bg-[#0d1316] text-gray-500 dark:text-gray-400 py-1.5 font-medium">Select member</option>
+                      <option value="" className="bg-white dark:bg-[#0d1316] text-slate-500 dark:text-gray-400 py-1.5 font-medium">Select member</option>
                       {members.map((member) => (
-                        <option key={member.id} value={member.id} className="bg-white dark:bg-[#0d1316] text-gray-900 dark:text-white py-1.5 font-medium">
+                        <option key={member.id} value={member.id} className="bg-white dark:bg-[#0d1316] text-slate-900 dark:text-white py-1.5 font-medium">
                           {member.displayName}
                         </option>
                       ))}
@@ -6281,11 +6315,11 @@ burstFrame();
                 </label>
 
                 <label className="space-y-2 md:col-span-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-amber-400" /> Amount (KES)
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-amber-500" /> Amount (KES)
                   </span>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">KES</span>
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 dark:text-gray-500">KES</span>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -6296,14 +6330,14 @@ burstFrame();
                         setFundAmount(cleaned);
                       }}
                       placeholder="e.g. 500"
-                      className="fc-prefund-input w-full rounded-xl border pl-14 pr-4 py-3 text-base font-bold text-white focus:border-emerald-500"
+                      className="fc-prefund-input w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/40 pl-14 pr-4 py-3 text-base font-bold text-slate-900 dark:text-white focus:border-emerald-500"
                     />
                   </div>
                 </label>
 
                 <div className="space-y-2 md:col-span-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-                    <Wallet className="w-3.5 h-3.5 text-emerald-400" /> Funding Method
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Funding Method
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
@@ -6314,18 +6348,18 @@ burstFrame();
                       }}
                       className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3.5 cursor-pointer ${
                         fundMethod === "mpesa"
-                          ? "bg-emerald-500/15 border-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                          ? "bg-emerald-500/15 border-emerald-500 text-slate-900 dark:text-white shadow-[0_0_20px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500"
+                          : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        fundMethod === "mpesa" ? "bg-emerald-500 text-slate-950 font-black" : "bg-white/10 text-gray-400"
+                        fundMethod === "mpesa" ? "bg-emerald-500 text-slate-950 font-black" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-gray-400"
                       }`}>
                         <Smartphone className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white leading-tight">M-Pesa STK Prompt</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Send PIN prompt to phone</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">M-Pesa STK Prompt</p>
+                        <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Send PIN prompt to phone</p>
                       </div>
                     </button>
 
@@ -6337,18 +6371,18 @@ burstFrame();
                       }}
                       className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3.5 cursor-pointer ${
                         fundMethod === "cash"
-                          ? "bg-amber-500/15 border-amber-500 text-white shadow-[0_0_20px_rgba(245,158,11,0.25)] ring-1 ring-amber-500"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                          ? "bg-amber-500/15 border-amber-500 text-slate-900 dark:text-white shadow-[0_0_20px_rgba(245,158,11,0.25)] ring-1 ring-amber-500"
+                          : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        fundMethod === "cash" ? "bg-amber-500 text-slate-950 font-black" : "bg-white/10 text-gray-400"
+                        fundMethod === "cash" ? "bg-amber-500 text-slate-950 font-black" : "bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-gray-400"
                       }`}>
                         <Banknote className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white leading-tight">Cash Handoff</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Record cash / Pochi transfer</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">Cash Handoff</p>
+                        <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5">Record cash / Pochi transfer</p>
                       </div>
                     </button>
                   </div>
@@ -6356,7 +6390,7 @@ burstFrame();
 
                 {fundMethod === "mpesa" ? (
                   <label className="space-y-2 md:col-span-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-500">
                       Transaction Code for Manual Confirm
                     </span>
                     <input
@@ -6364,34 +6398,34 @@ burstFrame();
                       value={fundTransactionCode}
                       onChange={(e) => setFundTransactionCode(e.target.value.toUpperCase())}
                       placeholder="e.g. QWE123ABC"
-                      className="fc-prefund-input w-full rounded-xl border px-3 py-3"
+                      className="fc-prefund-input w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-[#0b1014] text-slate-900 dark:text-white px-3 py-3"
                     />
-                    <p className="text-[10px] text-gray-500 font-medium">
+                    <p className="text-[10px] text-slate-500 dark:text-gray-500 font-medium">
                       Send prompt first, then wait for the callback. Use manual confirm only if needed.
                     </p>
                   </label>
                 ) : (
                   <label className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-500">
                       Cash Handoff Date
                     </span>
                     <input
                       type="date"
                       value={fundCashDate}
                       onChange={(e) => setFundCashDate(e.target.value)}
-                      className="fc-prefund-input w-full rounded-xl border px-3 py-3"
+                      className="fc-prefund-input w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-[#0b1014] text-slate-900 dark:text-white px-3 py-3"
                     />
                   </label>
                 )}
 
                   {fundMethod === "mpesa" && fundPromptSent && (
-                    <div className="md:col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 font-medium">
+                    <div className="md:col-span-2 rounded-xl border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300 font-medium">
                       Prompt sent. Waiting for callback. Use Manual Confirm only if the callback does not arrive.
                     </div>
                   )}
 
                 <label className="space-y-2 md:col-span-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-500">
                     Note
                   </span>
                   <input
@@ -6399,7 +6433,7 @@ burstFrame();
                     value={fundNote}
                     onChange={(e) => setFundNote(e.target.value)}
                     placeholder="Optional note"
-                    className="fc-prefund-input w-full rounded-xl border px-3 py-3"
+                    className="fc-prefund-input w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-[#0b1014] text-slate-900 dark:text-white px-3 py-3"
                   />
                 </label>
               </div>
@@ -6451,16 +6485,16 @@ burstFrame();
 
           {/* Complete Add Member Modal */}
           {showAddMemberModal && (
-            <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-8 bg-[#0a100a]/90 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-              <div className="bg-[#161d24] border border-[#10B981]/30 w-full max-w-md rounded-3xl p-8 shadow-2xl text-left">
+            <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-8 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+              <div className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-[#10B981]/30 w-full max-w-md rounded-3xl p-8 shadow-2xl text-left text-slate-900 dark:text-white">
                 <div className="w-16 h-16 rounded-full bg-[#10B981]/10 flex items-center justify-center mb-6 border border-[#10B981]/20">
                   <UserPlus className="w-8 h-8 text-[#10B981]" />
                 </div>
 
-                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
                   Manual Enrollment
                 </h3>
-                <p className="text-gray-400 text-sm mb-6 font-medium">
+                <p className="text-slate-500 dark:text-gray-400 text-sm mb-6 font-medium">
                   Need to bypass the PIN? Fill out these details to directly add
                   a new manager to the live ledger. Math scaling will adjust
                   automatically.
@@ -6468,7 +6502,7 @@ burstFrame();
 
                 <form onSubmit={handleAddMember} className="space-y-5">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-gray-500 mb-2 uppercase tracking-widest">
                       Full Name
                     </label>
                     <input
@@ -6476,12 +6510,12 @@ burstFrame();
                       required
                       value={newMemberName}
                       onChange={(e) => setNewMemberName(e.target.value)}
-                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] outline-none"
                       placeholder="e.g. David Kariuki"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-gray-500 mb-2 uppercase tracking-widest">
                       M-Pesa Number
                     </label>
                     <input
@@ -6494,27 +6528,27 @@ burstFrame();
                           e.target.value.replace(/[^0-9]/g, "").slice(0, 10),
                         )
                       }
-                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] outline-none"
                       placeholder="e.g. 0712345678"
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                      <label className="block text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                         FPL Team Name (Optional)
                       </label>
                       <input
                         type="text"
                         value={newMemberTeam}
                         onChange={(e) => setNewMemberTeam(e.target.value)}
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] outline-none"
                         placeholder="e.g. Saka Potatoes"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
+                      <label className="block text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider flex items-center justify-between">
                         <span>FPL Team ID (Optional)</span>
-                        <span className="text-[10px] text-emerald-400 font-normal">from fantasy.premierleague.com</span>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">from fantasy.premierleague.com</span>
                       </label>
                       <input
                         type="text"
@@ -6522,17 +6556,17 @@ burstFrame();
                         value={newMemberFplId}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setNewMemberFplId(e.target.value.replace(/[^0-9]/g, ""))}
-                        className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-2.5 px-3 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none font-mono"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-3 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] outline-none font-mono"
                         placeholder="e.g. 2205131"
                       />
-                      <p className="text-[10px] text-gray-400 mt-1 leading-tight">
-                        💡 <em>In FPL app/browser, open team URL: <span className="font-mono text-amber-300">fantasy.premierleague.com/entry/<strong>XXXXXX</strong></span> — the number is their Team ID.</em>
+                      <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 leading-tight">
+                        💡 <em>In FPL app/browser, open team URL: <span className="font-mono text-amber-600 dark:text-amber-300">fantasy.premierleague.com/entry/<strong>XXXXXX</strong></span> — the number is their Team ID.</em>
                       </p>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">
+                    <label className="block text-xs font-bold text-slate-600 dark:text-gray-400 mb-2 uppercase tracking-wider">
                       Participation Mode
                     </label>
                     <div className="grid grid-cols-2 gap-2.5">
@@ -6542,14 +6576,14 @@ burstFrame();
                         className={clsx(
                           "p-3 rounded-xl border text-left transition-all cursor-pointer",
                           newMemberPlayMode === "pot"
-                            ? "bg-[#10B981]/15 border-[#10B981]/50 text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]"
-                            : "bg-[#0b1014] border-white/10 text-gray-400 hover:border-white/20"
+                            ? "bg-[#10B981]/15 border-[#10B981]/50 text-slate-900 dark:text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-[#0b1014] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-white/20"
                         )}
                       >
-                        <p className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                        <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                           <Trophy className="w-3.5 h-3.5" /> Participate
                         </p>
-                        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 leading-snug">
                           Full cash pot player. Competes for weekly & season podium prizes.
                         </p>
                       </button>
@@ -6559,14 +6593,14 @@ burstFrame();
                         className={clsx(
                           "p-3 rounded-xl border text-left transition-all cursor-pointer",
                           newMemberPlayMode === "sidebets_only"
-                            ? "bg-indigo-500/15 border-indigo-500/50 text-white shadow-[0_0_12px_rgba(99,102,241,0.15)]"
-                            : "bg-[#0b1014] border-white/10 text-gray-400 hover:border-white/20"
+                            ? "bg-indigo-500/15 border-indigo-500/50 text-slate-900 dark:text-white shadow-[0_0_12px_rgba(99,102,241,0.15)]"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-[#0b1014] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-white/20"
                         )}
                       >
-                        <p className="text-xs font-black text-indigo-400 flex items-center gap-1.5">
+                        <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                           <Eye className="w-3.5 h-3.5" /> Spectate
                         </p>
-                        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 leading-snug">
                           Free viewer on standings & 1v1 wagers only. Excluded from pot fees.
                         </p>
                       </button>
@@ -6574,7 +6608,7 @@ burstFrame();
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-widest">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-gray-500 mb-2 uppercase tracking-widest">
                       2nd FPL Entry ID (Optional)
                     </label>
                     <input
@@ -6585,16 +6619,16 @@ burstFrame();
                           e.target.value.replace(/[^0-9]/g, ""),
                         )
                       }
-                      className="w-full bg-[#0b1014] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-[#10B981] outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] outline-none"
                       placeholder="Dual team members only"
                     />
                   </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-white/10 mt-6">
+                  <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 mt-6">
                     <button
                       type="button"
                       onClick={() => setShowAddMemberModal(false)}
-                      className="flex-1 py-3.5 bg-[#0b1014] hover:bg-white/5 text-gray-400 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors border border-white/5"
+                      className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-[#0b1014] dark:hover:bg-white/5 dark:text-gray-400 font-bold uppercase tracking-widest text-xs rounded-xl transition-colors border border-slate-200 dark:border-white/5"
                     >
                       Cancel
                     </button>
@@ -6843,34 +6877,34 @@ burstFrame();
 
           {manualResolvePromise && (
             <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4">
-              <div className="w-full max-w-sm bg-[#0b1014] border border-white/10 rounded-[2rem] shadow-2xl p-6 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="w-full max-w-sm bg-white dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 animate-in slide-in-from-bottom-4 duration-300 text-slate-900 dark:text-white">
                 <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
                   <AlertCircle className="w-6 h-6 text-amber-500" />
                 </div>
-                <h3 className="text-xl font-black text-white mb-2 tracking-tight">Manual GW Resolution</h3>
-                <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Manual GW Resolution</h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400 mb-6 leading-relaxed">
                   FPL GW{manualResolvePromise.currentGw || '?'} is still ongoing or API is down. Enter the details manually to force payout.
                 </p>
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Gameweek Number</label>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-gray-500 mb-2 uppercase tracking-widest">Gameweek Number</label>
                     <input
                       type="number"
                       value={manualGwInput}
                       onFocus={(e) => e.target.select()}
                       onChange={(e) => setManualGwInput(e.target.value)}
                       placeholder="e.g. 37"
-                      className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-widest">Winner's Exact Name</label>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-gray-500 mb-2 uppercase tracking-widest">Winner's Exact Name</label>
                     <input
                       type="text"
                       value={manualWinnerInput}
                       onChange={(e) => setManualWinnerInput(e.target.value)}
                       placeholder="e.g. Kevin Sifuna"
-                      className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none"
+                      className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-500/50 outline-none"
                     />
                   </div>
                 </div>
@@ -6880,7 +6914,7 @@ burstFrame();
                       manualResolvePromise.resolve(null);
                       setManualResolvePromise(null);
                     }}
-                    className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-sm font-bold hover:bg-white/5 transition-all"
+                    className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-transparent dark:text-gray-400 dark:hover:bg-white/5 text-sm font-bold transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -6894,7 +6928,7 @@ burstFrame();
                       manualResolvePromise.resolve({ gw, winner: manualWinnerInput.trim() });
                       setManualResolvePromise(null);
                     }}
-                    className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-sm font-black transition-all"
+                    className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-sm font-black transition-all cursor-pointer"
                   >
                     Force Resolve
                   </button>
@@ -6906,12 +6940,12 @@ burstFrame();
           {/* Ops Feed Full Modal */}
           {showOpsModal && (
             <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-xl flex items-center justify-center p-4" onClick={() => setShowOpsModal(false)}>
-              <div className="w-full max-w-lg bg-[#0b1014] border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-                  <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-white">
-                    <Bell className="w-4 h-4 text-emerald-400" /> All Operations ({liveOpsEvents.length})
+              <div className="w-full max-w-lg bg-white dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-300 text-slate-900 dark:text-white" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/5">
+                  <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+                    <Bell className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> All Operations ({liveOpsEvents.length})
                   </h3>
-                  <button onClick={() => setShowOpsModal(false)} className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors text-lg font-bold">×</button>
+                  <button onClick={() => setShowOpsModal(false)} className="w-8 h-8 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5 transition-colors text-lg font-bold">×</button>
                 </div>
                 <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
                   {liveOpsEvents.map((evt: any) => {
@@ -6919,7 +6953,7 @@ burstFrame();
                     const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
                     const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
                     return (
-                      <div key={evt.id} className="flex gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                      <div key={evt.id} className="flex gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5">
                         <div className={clsx(
                           "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs",
                           isSuccess ? "bg-emerald-500/10 border border-emerald-500/20" : isWarning ? "bg-amber-500/10 border border-amber-500/20" : "bg-blue-500/10 border border-blue-500/20"
@@ -6927,9 +6961,9 @@ burstFrame();
                           {isSuccess ? '✅' : isWarning ? '⚠️' : 'ℹ️'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          {evt.title && <p className="text-xs font-bold text-white truncate">{evt.title}</p>}
-                          <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{evt.message}</p>
-                          {ts && <span className="text-[9px] font-bold text-gray-600 tracking-widest uppercase mt-1 block">{ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {ts.toLocaleDateString()}</span>}
+                          {evt.title && <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{evt.title}</p>}
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">{evt.message}</p>
+                          {ts && <span className="text-[9px] font-bold text-slate-400 dark:text-gray-600 tracking-widest uppercase mt-1 block">{ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {ts.toLocaleDateString()}</span>}
                         </div>
                       </div>
                     );

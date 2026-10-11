@@ -3005,17 +3005,54 @@ html.dark [role="dialog"] h4,
   -webkit-text-fill-color: #ffffff !important;
 }
 
-/* Modal Title & Content in Light Theme */
-[data-theme="light"] [role="dialog"] h1,
-[data-theme="light"] [role="dialog"] h2,
-[data-theme="light"] [role="dialog"] h3,
-[data-theme="light"] [role="dialog"] h4,
-html:not(.dark) [role="dialog"] h1,
-html:not(.dark) [role="dialog"] h2,
-html:not(.dark) [role="dialog"] h3,
-html:not(.dark) [role="dialog"] h4 {
+/* Modal Title & Content in Light Theme (Excludes dark modals like pitch lineup) */
+[data-theme="light"] [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h1:not(.fc-dark-modal *),
+[data-theme="light"] [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h2:not(.fc-dark-modal *),
+[data-theme="light"] [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h3:not(.fc-dark-modal *),
+[data-theme="light"] [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h4:not(.fc-dark-modal *),
+html:not(.dark) [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h1:not(.fc-dark-modal *),
+html:not(.dark) [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h2:not(.fc-dark-modal *),
+html:not(.dark) [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h3:not(.fc-dark-modal *),
+html:not(.dark) [role="dialog"]:not(.fc-dark-modal):not(:has(.fc-dark-modal)) h4:not(.fc-dark-modal *) {
   color: #0f172a !important;
   -webkit-text-fill-color: #0f172a !important;
+}
+
+/* Dedicated fc-dark-modal text contrast rules (Pitch & Lineup Views) */
+.fc-dark-modal,
+[data-theme="light"] .fc-dark-modal,
+html:not(.dark) .fc-dark-modal {
+  color: #f8fafc !important;
+}
+.fc-dark-modal h1, .fc-dark-modal h2, .fc-dark-modal h3, .fc-dark-modal h4,
+[data-theme="light"] .fc-dark-modal h1,
+[data-theme="light"] .fc-dark-modal h2,
+[data-theme="light"] .fc-dark-modal h3,
+[data-theme="light"] .fc-dark-modal h4,
+html:not(.dark) .fc-dark-modal h1,
+html:not(.dark) .fc-dark-modal h2,
+html:not(.dark) .fc-dark-modal h3,
+html:not(.dark) .fc-dark-modal h4 {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.fc-dark-modal .text-white,
+[data-theme="light"] .fc-dark-modal .text-white,
+html:not(.dark) .fc-dark-modal .text-white {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.fc-dark-modal .text-gray-300,
+[data-theme="light"] .fc-dark-modal .text-gray-300 {
+  color: #cbd5e1 !important;
+}
+.fc-dark-modal .text-gray-400,
+[data-theme="light"] .fc-dark-modal .text-gray-400 {
+  color: #94a3b8 !important;
+}
+.fc-dark-modal .text-gray-500,
+[data-theme="light"] .fc-dark-modal .text-gray-500 {
+  color: #64748b !important;
 }
 
 /* Master Invite Card & Command Board Stealth / Dark Protections */

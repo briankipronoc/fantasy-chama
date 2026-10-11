@@ -377,15 +377,15 @@ export default function TeamPicksModal({
                             </div>
 
                             {/* Bench Section */}
-                            <div className="rounded-2xl border border-white/10 bg-black/30 p-3 sm:p-4 space-y-2.5">
-                                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <div className="rounded-2xl border border-white/10 bg-black/40 p-3 sm:p-4 space-y-2.5">
+                                <div className="flex items-center justify-between border-b border-white/10 pb-2">
                                     <div className="flex items-center gap-1.5">
-                                        <Shirt className="w-3.5 h-3.5 text-gray-400" />
-                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-300">
+                                        <Shirt className="w-3.5 h-3.5 text-gray-300" />
+                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-white">
                                             Substitutes Bench
                                         </h4>
                                     </div>
-                                    <span className="text-[10px] text-gray-500 font-mono">
+                                    <span className="text-[10px] text-gray-400 font-mono font-medium">
                                         {activeChip === 'bboost' ? 'Points Counted (Bench Boost Active)' : `Points on bench: ${entryHistory?.points_on_bench || 0}`}
                                     </span>
                                 </div>
@@ -396,21 +396,21 @@ export default function TeamPicksModal({
                                         return (
                                             <div 
                                                 key={p.element}
-                                                className="p-2 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between gap-1.5"
+                                                className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] flex items-center justify-between gap-1.5 shadow-xs"
                                             >
                                                 <div className="min-w-0">
-                                                    <span className="text-[8.5px] font-black uppercase px-1 py-0.2 rounded bg-white/5 text-gray-400 border border-white/5 inline-block mb-0.5">
+                                                    <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded bg-white/10 text-emerald-300 border border-white/10 inline-block mb-1">
                                                         {idx === 0 ? 'GKP 12' : `Sub ${idx}`}
                                                     </span>
                                                     <p className="text-[11px] font-bold text-white truncate">{player?.web_name || `Player ${p.element}`}</p>
-                                                    <p className="text-[9px] text-gray-400">{player?.team_short || 'PL'}</p>
+                                                    <p className="text-[9px] text-gray-300 font-medium">{player?.team_short || 'PL'}</p>
                                                 </div>
                                                 <div className="text-right shrink-0">
                                                     <span className={clsx(
-                                                        "text-[11px] font-black px-1.5 py-0.5 rounded-md block",
+                                                        "text-[11px] font-black px-2 py-0.5 rounded-md block border",
                                                         activeChip === 'bboost'
-                                                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                                            : "bg-white/5 text-gray-300"
+                                                            ? "bg-emerald-500/25 text-emerald-300 border-emerald-500/40"
+                                                            : "bg-white/10 text-white border-white/15"
                                                     )}>
                                                         {player?.points || 0} pts
                                                     </span>
@@ -425,7 +425,7 @@ export default function TeamPicksModal({
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-3 sm:p-4 border-t border-white/5 bg-black/40 flex items-center justify-between gap-2.5">
+                <div className="p-3 sm:p-4 border-t border-white/10 bg-black/50 flex items-center justify-between gap-2.5">
                     {/* Toggle to My Team if viewing another rival */}
                     {!isViewingMyself && myTeamId && onSelectTeam ? (
                         <button
@@ -438,13 +438,13 @@ export default function TeamPicksModal({
                             <ArrowRight className="w-3 h-3 ml-0.5" />
                         </button>
                     ) : (
-                        <span className="text-[10px] text-gray-500">Official Fantasy Premier League data</span>
+                        <span className="text-[10px] text-gray-400 font-medium">Official Fantasy Premier League data</span>
                     )}
 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer ml-auto"
+                        className="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-black transition-all cursor-pointer ml-auto active:scale-95 shadow-sm"
                     >
                         Close Lineup
                     </button>

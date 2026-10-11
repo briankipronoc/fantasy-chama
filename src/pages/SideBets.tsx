@@ -967,45 +967,45 @@ export default function SideBets() {
             {/* Create Bet Modal */}
             {showCreate && (
                 <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-                    <div className="w-full max-w-md bg-[#0c1218]/95 border border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden">
+                    <div className="w-full max-w-md bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                                <Swords className="w-5 h-5 text-amber-400" />
+                                <Swords className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                             </div>
                             <div>
-                                <h3 className="fc-frosty-title text-xl font-black">Issue Challenge</h3>
-                                <p className="text-xs text-gray-400 font-medium">Head-to-head wager between managers</p>
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white">Issue Challenge</h3>
+                                <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Head-to-head wager between managers</p>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500 mb-6">Your rival must sign before the Chairman gives the green light.</p>
+                        <p className="text-xs text-slate-600 dark:text-gray-400 mb-6 font-medium">Your rival must sign before the Chairman gives the green light.</p>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">Wager Title</label>
+                                <label className="block text-[10px] font-bold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">Wager Title</label>
                                 <input
                                     type="text"
                                     value={betTitle}
                                     onChange={e => setBetTitle(e.target.value)}
                                     placeholder="e.g. Haaland vs Salah Top Scorer GW5"
-                                    className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none"
+                                    className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-amber-500/50 outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">Terms & Conditions (Optional)</label>
+                                <label className="block text-[10px] font-bold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">Terms & Conditions (Optional)</label>
                                 <textarea
                                     value={betDescription}
                                     onChange={e => setBetDescription(e.target.value)}
                                     placeholder="e.g. Captaincy points do not count, tie is refunded"
                                     rows={2}
-                                    className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:ring-1 focus:ring-amber-500/50 outline-none resize-none"
+                                    className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-amber-500/50 outline-none resize-none"
                                 />
                             </div>
                             {currentUser?.secondFplTeamId && (
                                 <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                    <label className="block text-[10px] font-bold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">
                                         Stake With Team
                                     </label>
-                                    <div className="grid grid-cols-2 gap-2 bg-[#161d24] p-1.5 rounded-xl border border-white/10">
+                                    <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-[#161d24] p-1.5 rounded-xl border border-slate-200 dark:border-white/10">
                                         <button
                                             type="button"
                                             onClick={() => setSelectedTeam('primary')}
@@ -1013,7 +1013,7 @@ export default function SideBets() {
                                                 "py-2 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
                                                 selectedTeam === 'primary'
                                                     ? "bg-amber-500 text-black shadow-sm font-black"
-                                                    : "text-gray-400 hover:text-white"
+                                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                             )}
                                         >
                                             Team 1 (Primary)
@@ -1025,13 +1025,13 @@ export default function SideBets() {
                                                 "py-2 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
                                                 selectedTeam === 'secondary'
                                                     ? "bg-amber-500 text-black shadow-sm font-black"
-                                                    : "text-gray-400 hover:text-white"
+                                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                             )}
                                         >
                                             Team 2 (Dual #{currentUser.secondFplTeamId})
                                         </button>
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mt-1 font-medium">
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 font-medium">
                                         Points scored by {selectedTeam === 'secondary' ? 'Team 2' : 'Team 1'} will determine your wager score.
                                     </p>
                                 </div>
@@ -1039,8 +1039,8 @@ export default function SideBets() {
 
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stake (KES)</label>
-                                    <span className="text-[10px] font-bold text-gray-500">
+                                    <label className="block text-[10px] font-bold text-slate-700 dark:text-gray-300 uppercase tracking-widest">Stake (KES)</label>
+                                    <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400">
                                         Your Balance: KES {(currentUser?.walletBalance || 0).toLocaleString()}
                                     </span>
                                 </div>
@@ -1054,16 +1054,16 @@ export default function SideBets() {
                                         setBetStake(cleaned);
                                     }}
                                     placeholder="500"
-                                    className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-white font-mono focus:ring-1 focus:ring-amber-500/50 outline-none"
+                                    className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white font-mono placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-amber-500/50 outline-none"
                                 />
                             </div>
 
                             {/* Settlement & Funding Method */}
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">
+                                <label className="block text-[10px] font-bold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">
                                     Settlement & Funding Method
                                 </label>
-                                <div className="grid grid-cols-2 gap-2 bg-[#161d24] p-1.5 rounded-xl border border-white/10">
+                                <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-[#161d24] p-1.5 rounded-xl border border-slate-200 dark:border-white/10">
                                     <button
                                         type="button"
                                         onClick={() => setFundingMode('post_match')}
@@ -1071,7 +1071,7 @@ export default function SideBets() {
                                             "py-2.5 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
                                             fundingMode === 'post_match'
                                                 ? "bg-amber-500 text-black font-black shadow-sm"
-                                                : "text-gray-400 hover:text-white"
+                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                         )}
                                     >
                                         <span className="block font-bold">⏳ Post-Match</span>
@@ -1084,50 +1084,50 @@ export default function SideBets() {
                                             "py-2.5 px-3 rounded-lg text-xs font-bold transition-all text-center cursor-pointer",
                                             fundingMode === 'instant_escrow'
                                                 ? "bg-amber-500 text-black font-black shadow-sm"
-                                                : "text-gray-400 hover:text-white"
+                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                         )}
                                     >
                                         <span className="block font-bold">🔒 Wallet Escrow</span>
                                         <span className="block text-[9px] font-normal opacity-80 mt-0.5">Deduct from wallet</span>
                                     </button>
                                 </div>
-                                <p className="text-[10px] text-gray-500 mt-1 font-medium">
+                                <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 font-medium">
                                     {fundingMode === 'post_match'
                                         ? 'Wager is active immediately without upfront deduction. Both managers settle from wallets upon gameweek resolution.'
                                         : 'Stakes are held in escrow immediately from manager wallets upon duel confirmation.'}
                                 </p>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-widest">Pick Rival Manager</label>
+                                <label className="block text-[10px] font-bold text-slate-700 dark:text-gray-300 mb-1.5 uppercase tracking-widest">Pick Rival Manager</label>
                                 <button
                                     type="button"
                                     onClick={() => setShowOpponentPicker(!showOpponentPicker)}
-                                    className="w-full bg-[#161d24] border border-white/10 rounded-xl py-3 px-4 text-sm text-left flex items-center justify-between"
+                                    className="w-full bg-slate-50 dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-left flex items-center justify-between text-slate-900 dark:text-white"
                                 >
-                                    <span className={selectedOpponent ? 'text-white font-bold' : 'text-gray-500'}>
+                                    <span className={selectedOpponent ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-400 dark:text-gray-500'}>
                                         {selectedOpponent 
                                             ? `${selectedOpponent.displayName}${getMemberTeamName(selectedOpponent) ? ` (${getMemberTeamName(selectedOpponent)})` : ''}` 
                                             : 'Select opponent from league...'}
                                     </span>
-                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                    <ChevronDown className="w-4 h-4 text-slate-500 dark:text-gray-400" />
                                 </button>
                                 {showOpponentPicker && (
-                                    <div className="mt-1 bg-[#161d24] border border-white/10 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-2xl">
-                                        <div className="p-2 border-b border-white/10 sticky top-0 bg-[#161d24] z-10">
+                                    <div className="mt-1 bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden max-h-56 overflow-y-auto shadow-2xl">
+                                        <div className="p-2 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white dark:bg-[#161d24] z-10">
                                             <div className="relative">
-                                                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                                <Search className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                                 <input
                                                     type="text"
                                                     value={opponentSearch}
                                                     onChange={e => setOpponentSearch(e.target.value)}
                                                     placeholder="Search manager or team..."
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-amber-500"
+                                                    className="w-full bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 outline-none focus:border-amber-500"
                                                     autoFocus
                                                 />
                                             </div>
                                         </div>
                                         {filteredOpponentMembers.length === 0 ? (
-                                            <div className="p-4 text-center text-xs text-gray-500">No managers found</div>
+                                            <div className="p-4 text-center text-xs text-slate-500 dark:text-gray-400">No managers found</div>
                                         ) : (
                                             filteredOpponentMembers.map(m => {
                                                 const mTeam = getMemberTeamName(m);
@@ -1136,16 +1136,16 @@ export default function SideBets() {
                                                         key={m.id}
                                                         type="button"
                                                         onClick={() => { setOpponentId(m.id); setShowOpponentPicker(false); setOpponentSearch(''); }}
-                                                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 flex items-center justify-between transition-colors border-b border-white/5 last:border-0"
+                                                        className="w-full text-left px-4 py-3 text-sm text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 flex items-center justify-between transition-colors border-b border-slate-100 dark:border-white/5 last:border-0"
                                                     >
                                                         <div className="flex items-center gap-3">
                                                             <UserAvatar name={m.displayName} size="xs" />
                                                             <div>
                                                                 <div className="font-bold text-xs">{m.displayName}</div>
-                                                                {mTeam && <div className="text-[10px] text-gray-400 font-medium">{mTeam}</div>}
+                                                                {mTeam && <div className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">{mTeam}</div>}
                                                             </div>
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-gray-500">
+                                                        <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400">
                                                             KES {(m.walletBalance || 0).toLocaleString()}
                                                         </span>
                                                     </button>
@@ -1157,11 +1157,11 @@ export default function SideBets() {
                             </div>
                         </div>
 
-                        <div className="flex gap-3 mt-6 pt-4 border-t border-white/5">
+                        <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-white/10">
                             <button
                                 type="button"
                                 onClick={() => { setShowCreate(false); setBetTitle(''); setBetDescription(''); setBetStake(''); setOpponentId(''); }}
-                                className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-black uppercase tracking-wider hover:bg-white/5 transition-all"
+                                className="flex-1 py-3 rounded-xl border border-slate-300 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                             >
                                 Cancel
                             </button>
@@ -1169,7 +1169,7 @@ export default function SideBets() {
                                 type="button"
                                 onClick={handleCreateBet}
                                 disabled={isSubmitting || !betTitle || !opponentId || !betStake}
-                                className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20"
+                                className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20 cursor-pointer"
                             >
                                 {isSubmitting ? 'Submitting...' : 'Send Challenge'}
                             </button>
@@ -1184,12 +1184,12 @@ export default function SideBets() {
                 if (!bet) return null;
                 return (
                     <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-                        <div className="w-full max-w-sm bg-[#0c1218] border border-white/10 rounded-[2rem] p-6 shadow-2xl">
-                            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4 text-amber-400">
+                        <div className="w-full max-w-sm bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 shadow-2xl text-slate-900 dark:text-white">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
                                 <Trophy className="w-5 h-5" />
                             </div>
-                            <h3 className="fc-frosty-title text-xl font-black mb-1">Resolve Wager</h3>
-                            <p className="text-xs text-gray-400 mb-6">
+                            <h3 className="text-xl font-black mb-1 text-slate-900 dark:text-white">Resolve Wager</h3>
+                            <p className="text-xs text-slate-600 dark:text-gray-400 mb-6 font-medium">
                                 "{bet.title}" — KES {bet.stake.toLocaleString()} will be automatically transferred from the loser to the winner's wallet.
                             </p>
                             <div className="space-y-3 mb-6">
@@ -1198,37 +1198,37 @@ export default function SideBets() {
                                     className={clsx(
                                         'w-full py-3 px-4 rounded-xl text-sm font-bold text-left border transition-all flex items-center justify-between',
                                         resolveWinnerId === bet.challenger.id
-                                            ? 'border-amber-500 bg-amber-500/10 text-amber-400 shadow-md'
-                                            : 'border-white/10 text-gray-300 hover:bg-white/5'
+                                            ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-md'
+                                            : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 bg-slate-50 dark:bg-transparent hover:bg-slate-100 dark:hover:bg-white/5'
                                     )}
                                 >
                                     <span>🏆 {bet.challenger.name} wins</span>
-                                    {resolveWinnerId === bet.challenger.id && <Check className="w-4 h-4 text-amber-400" />}
+                                    {resolveWinnerId === bet.challenger.id && <Check className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
                                 </button>
                                 <button
                                     onClick={() => setResolveWinnerId(bet.opponent.id)}
                                     className={clsx(
                                         'w-full py-3 px-4 rounded-xl text-sm font-bold text-left border transition-all flex items-center justify-between',
                                         resolveWinnerId === bet.opponent.id
-                                            ? 'border-amber-500 bg-amber-500/10 text-amber-400 shadow-md'
-                                            : 'border-white/10 text-gray-300 hover:bg-white/5'
+                                            ? 'border-amber-500 bg-amber-500/15 text-amber-600 dark:text-amber-400 shadow-md'
+                                            : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300 bg-slate-50 dark:bg-transparent hover:bg-slate-100 dark:hover:bg-white/5'
                                     )}
                                 >
                                     <span>🏆 {bet.opponent.name} wins</span>
-                                    {resolveWinnerId === bet.opponent.id && <Check className="w-4 h-4 text-amber-400" />}
+                                    {resolveWinnerId === bet.opponent.id && <Check className="w-4 h-4 text-amber-500 dark:text-amber-400" />}
                                 </button>
                             </div>
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => setResolvingBetId(null)}
-                                    className="flex-1 py-3 rounded-xl border border-white/10 text-gray-400 text-xs font-black uppercase tracking-wider hover:bg-white/5 transition-all"
+                                    className="flex-1 py-3 rounded-xl border border-slate-300 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={() => handleResolve(bet)}
                                     disabled={!resolveWinnerId}
-                                    className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20"
+                                    className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-amber-500/20 cursor-pointer"
                                 >
                                     Confirm Winner
                                 </button>
