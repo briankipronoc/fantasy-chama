@@ -1113,7 +1113,7 @@ export default function AdminSetup() {
 
                     <div>
                         <label className="block text-[10px] md:text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">
-                            Full Name <Tooltip text="Your legal name as Chairman, shown to members when they join." />
+                            Full Name <Tooltip text="Your name as Chairman, shown to members when they join." />
                         </label>
                         <div className="relative">
                             <PersonStanding className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1126,7 +1126,7 @@ export default function AdminSetup() {
                                 pattern="^[a-zA-Z][a-zA-Z'\-\s]{1,}[a-zA-Z]$"
                                 title="Please enter at least two names (e.g., Kevin Sifuna)"
                                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/5 bg-[#0b1014] text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 text-sm font-medium"
-                                placeholder="Enter your legal name"
+                                placeholder="Enter your name"
                             />
                         </div>
                     </div>
@@ -1215,7 +1215,7 @@ export default function AdminSetup() {
                 <div className="p-4 rounded-2xl bg-[#161d24]/80 border border-white/5 space-y-3 shadow-sm">
                     <div className="flex items-center gap-2 border-b border-white/5 pb-2">
                         <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black flex items-center justify-center shrink-0">2</span>
-                        <h3 className="text-xs font-black uppercase tracking-wider text-white">Verified Remittance Phone</h3>
+                        <h3 className="text-xs font-black uppercase tracking-wider text-white">Phone Number</h3>
                     </div>
 
                     <div>
@@ -1229,7 +1229,7 @@ export default function AdminSetup() {
                                 type="tel"
                                 autoComplete="tel"
                                 value={phone}
-                                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid Kenyan phone number (e.g. 0712345678 or 254...)')}
+                                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid phone number (e.g. 0712345678)')}
                                 onChange={e => {
                                     (e.target as HTMLInputElement).setCustomValidity('');
                                     setPhone(normalizeKenyanPhone(e.target.value));
@@ -1238,7 +1238,7 @@ export default function AdminSetup() {
                                     if (phone) setPhone(normalizeKenyanPhone(phone));
                                 }}
                                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/5 bg-[#0b1014] text-white placeholder:text-gray-600 focus:outline-none focus:border-[#FBBF24]/50 text-sm font-medium"
-                                placeholder="e.g. 0712345678 or 254..."
+                                placeholder="0712345678"
                             />
                         </div>
                         <p className="text-[10px] text-gray-400 mt-1 leading-tight">
@@ -1832,7 +1832,7 @@ export default function AdminSetup() {
                                     </span>
                                 </div>
                                 <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                                    {chairmanPayoutPhone || phone || "Phone on file"} · Payout Remittance Phone Locked
+                                    {chairmanPayoutPhone || phone || "Phone on file"} · Phone Number Locked
                                 </p>
                             </div>
                         </div>

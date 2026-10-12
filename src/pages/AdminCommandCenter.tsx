@@ -41,6 +41,7 @@ import {
   MessageCircle,
   Zap,
   Lock,
+  Info,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
@@ -4349,7 +4350,7 @@ burstFrame();
                           <p className="text-xs font-bold text-slate-800 dark:text-gray-200 flex items-center justify-between">
                             <span>Matches Status:</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-black">
-                              {fixtureStats?.remaining === 0 ? "All 10 Concluded" : fixtureStats?.remaining === 1 ? "1 game remaining" : `${fixtureStats?.remaining ?? 0} games remaining`}
+                              {fixtureStats?.remaining === 0 ? (fixtureStats.total ? `All ${fixtureStats.total} Concluded` : "All Concluded") : fixtureStats?.remaining === 1 ? "1 game remaining" : `${fixtureStats?.remaining ?? 0} games remaining`}
                             </span>
                           </p>
                           {fixtureStats && fixtureStats.inPlay > 0 && (
@@ -5425,17 +5426,19 @@ burstFrame();
                         const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : (evt.timestamp ? new Date(evt.timestamp) : null);
                         const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
                         const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
+                        const cleanMsg = String(evt.message || '').replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\s]+/u, '').trim();
+                        const cleanTitle = evt.title ? String(evt.title).replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\s]+/u, '').trim() : null;
                         return (
                           <div key={evt.id} className="flex gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
                             <div className={clsx(
-                              "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs",
-                              isSuccess ? "bg-emerald-500/10 border border-emerald-500/20" : isWarning ? "bg-amber-500/10 border border-amber-500/20" : "bg-blue-500/10 border border-blue-500/20"
+                              "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                              isSuccess ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400" : isWarning ? "bg-amber-500/15 border border-amber-500/30 text-amber-400" : "bg-blue-500/15 border border-blue-500/30 text-blue-400"
                             )}>
-                              {isSuccess ? '✅' : isWarning ? '⚠️' : 'ℹ️'}
+                              {isSuccess ? <CheckCircle2 className="w-4 h-4" /> : isWarning ? <AlertTriangle className="w-4 h-4" /> : <Info className="w-4 h-4" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              {evt.title && <p className="text-xs font-bold text-white truncate">{evt.title}</p>}
-                              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed line-clamp-2">{evt.message}</p>
+                              {cleanTitle && <p className="text-xs font-bold text-white truncate">{cleanTitle}</p>}
+                              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed line-clamp-2">{cleanMsg}</p>
                               {ts && <span className="text-[9px] font-bold text-gray-600 tracking-widest uppercase mt-1 block">{ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {ts.toLocaleDateString()}</span>}
                             </div>
                           </div>
@@ -7203,17 +7206,19 @@ burstFrame();
                     const ts = evt.timestamp?.toDate ? evt.timestamp.toDate() : (evt.timestamp ? new Date(evt.timestamp) : null);
                     const isSuccess = evt.type === 'success' || String(evt.message || '').startsWith('✅');
                     const isWarning = evt.type === 'warning' || String(evt.message || '').startsWith('⚠️');
+                    const cleanMsg = String(evt.message || '').replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\s]+/u, '').trim();
+                    const cleanTitle = evt.title ? String(evt.title).replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\s]+/u, '').trim() : null;
                     return (
                       <div key={evt.id} className="flex gap-3 p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5">
                         <div className={clsx(
-                          "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs",
-                          isSuccess ? "bg-emerald-500/10 border border-emerald-500/20" : isWarning ? "bg-amber-500/10 border border-amber-500/20" : "bg-blue-500/10 border border-blue-500/20"
+                          "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                          isSuccess ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : isWarning ? "bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400" : "bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400"
                         )}>
-                          {isSuccess ? '✅' : isWarning ? '⚠️' : 'ℹ️'}
+                          {isSuccess ? <CheckCircle2 className="w-4 h-4" /> : isWarning ? <AlertTriangle className="w-4 h-4" /> : <Info className="w-4 h-4" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          {evt.title && <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{evt.title}</p>}
-                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">{evt.message}</p>
+                          {cleanTitle && <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{cleanTitle}</p>}
+                          <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-0.5 leading-relaxed">{cleanMsg}</p>
                           {ts && <span className="text-[9px] font-bold text-slate-400 dark:text-gray-600 tracking-widest uppercase mt-1 block">{ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {ts.toLocaleDateString()}</span>}
                         </div>
                       </div>

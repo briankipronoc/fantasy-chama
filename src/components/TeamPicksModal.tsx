@@ -340,9 +340,9 @@ export default function TeamPicksModal({
                     ) : (
                         <>
                             {/* Visual Pitch */}
-                            <div className="relative rounded-2xl sm:rounded-3xl p-3 sm:p-5 overflow-hidden border border-emerald-500/40 dark:border-emerald-500/30 bg-gradient-to-b from-[#0a4524] via-[#08391d] to-[#062c16] shadow-2xl">
+                            <div className="relative rounded-2xl sm:rounded-3xl p-3 sm:p-5 overflow-hidden border border-emerald-500/30 dark:border-emerald-500/30 bg-gradient-to-b from-[#15803d] via-[#166534] to-[#14532d] dark:from-[#0a4524] dark:via-[#08391d] dark:to-[#062c16] shadow-xl">
                                 {/* Pitch Markings */}
-                                <div className="absolute inset-0 pointer-events-none opacity-25">
+                                <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-25">
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-16 border-b-2 border-x-2 border-white rounded-b-xl" />
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full border-2 border-white" />
                                     <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white" />
@@ -473,14 +473,14 @@ function renderPlayerCard(pick: PlayerPick, player: PlayerDetails | undefined, a
                         : posType === 3
                         ? "bg-indigo-600 border-indigo-400/50 text-white"
                         : "bg-rose-600 border-rose-400/50 text-white",
-                    isCaptain ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-[#082d18] shadow-[0_0_14px_rgba(251,191,36,0.7)]" : "",
-                    isVice && !isCaptain ? "ring-2 ring-slate-200 ring-offset-1 ring-offset-[#082d18]" : ""
+                    isCaptain ? "ring-2 ring-amber-400 ring-offset-2 ring-offset-emerald-700 dark:ring-offset-[#082d18] shadow-[0_0_14px_rgba(251,191,36,0.7)]" : "",
+                    isVice && !isCaptain ? "ring-2 ring-slate-200 ring-offset-1 ring-offset-emerald-700 dark:ring-offset-[#082d18]" : ""
                 )}>
                     <Shirt className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-current drop-shadow-sm" />
                 </div>
 
                 {/* Team Tag pill on top */}
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 py-0.2 rounded bg-black/80 text-[7.5px] font-black uppercase text-white tracking-wider border border-white/20 whitespace-nowrap">
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 py-0.2 rounded bg-slate-950/90 dark:bg-black/85 text-[7.5px] font-black uppercase text-white tracking-wider border border-white/20 whitespace-nowrap">
                     {player?.team_short || 'PL'}
                 </span>
 
@@ -498,12 +498,12 @@ function renderPlayerCard(pick: PlayerPick, player: PlayerDetails | undefined, a
             </div>
 
             {/* Name Banner & Points */}
-            <div className="w-full mt-2 px-1.5 py-1 rounded-lg bg-slate-950/90 dark:bg-black/95 backdrop-blur-md border border-white/20 shadow-md">
-                <p className="text-[10px] sm:text-[11px] font-black text-white truncate leading-tight">
+            <div className="w-full mt-2 px-1.5 py-1 rounded-lg bg-white/95 dark:bg-black/95 backdrop-blur-md border border-slate-200/90 dark:border-white/20 shadow-md">
+                <p className="text-[10px] sm:text-[11px] font-black text-slate-900 dark:text-white truncate leading-tight">
                     {player?.web_name || `Player ${pick.element}`}
                 </p>
                 <div className="flex items-center justify-center gap-1 mt-0.5">
-                    <span className="text-[9.5px] sm:text-[10px] font-black text-emerald-400 tabular-nums leading-none">
+                    <span className="text-[9.5px] sm:text-[10px] font-black text-emerald-700 dark:text-emerald-400 tabular-nums leading-none">
                         {scoredPoints} pts
                     </span>
                 </div>
