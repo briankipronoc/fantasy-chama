@@ -509,19 +509,39 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         .filter(isTxRefundOrReversal)
         .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
+    const resolvedGws = useMemo(() => {
+        const set = new Set<number>();
+        (pendingApprovals || []).forEach((p: any) => {
+            if ((p.status === 'approved' || p.status === 'settled') && Number(p.gw) > 0) {
+                set.add(Number(p.gw));
+            }
+        });
+        (transactions || []).forEach((tx: any) => {
+            if (tx.type === 'payout' && Number(tx.gw) > 0) {
+                set.add(Number(tx.gw));
+            }
+        });
+        return set;
+    }, [pendingApprovals, transactions]);
+
     const effectiveLeagueStartGw = leagueStartGw;
-    // Count active and completed playable rounds to date (includes current active round and past completed rounds)
+    // Count active and completed playable rounds to date (includes past rounds and current round ONLY if resolved)
     const playedCompletedGws = useMemo(() => {
         if (!currentGwNumber || currentGwNumber < effectiveLeagueStartGw) return [];
-        const maxTrackedGw = Math.max(effectiveLeagueStartGw, Number(currentGwNumber || effectiveLeagueStartGw));
+        const maxTrackedGw = Number(currentGwNumber);
         const list: number[] = [];
         for (let g = effectiveLeagueStartGw; g <= maxTrackedGw; g++) {
-            if (!forfeitedGws.includes(g)) {
+            if (forfeitedGws.includes(g)) continue;
+            // Past rounds in season before current GW are concluded.
+            // The active current GW is only counted as completed if it has actually been resolved!
+            if (g < maxTrackedGw) {
+                list.push(g);
+            } else if (g === maxTrackedGw && resolvedGws.has(g)) {
                 list.push(g);
             }
         }
         return list;
-    }, [currentGwNumber, effectiveLeagueStartGw, forfeitedGws]);
+    }, [currentGwNumber, effectiveLeagueStartGw, forfeitedGws, resolvedGws]);
 
     const completedGwsCount = playedCompletedGws.length;
 
@@ -882,11 +902,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const memberFundingSummary = useMemo(() => {
         const start = leagueStartGw;
         const currentGw = Number(currentGwNumber || start);
-        const playable: number[] = [];
-        for (let g = start; g <= currentGw; g++) {
-            if (!forfeitedGws.includes(g)) playable.push(g);
-        }
-        const totalCompleted = playable.length;
+        const resolvedCount = resolvedGws.size > 0 ? resolvedGws.size : playedCompletedGws.length;
         const stake = Number(gameweekStake || 0);
 
         return members
@@ -918,30 +934,32 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
                 const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
-                const effectiveMemberBalance = Math.max(0, Number(m.walletBalance || 0));
+                const rawMemberBalance = Math.max(0, Number(m.walletBalance || 0));
                 
-                // Real unspent credit: deposits remaining after past completed rounds are accounted for
-                const pastCompletedRoundsCount = Math.max(0, totalCompleted - 1);
-                const pastConsumedStake = pastCompletedRoundsCount * stake;
-                const unspentCredit = Math.max(0, totalDeposited - pastConsumedStake);
+                // Real unspent credit: deposits remaining after resolved rounds have deducted their stakes
+                const consumedStakeForResolved = isMemberSpectator ? 0 : resolvedCount * stake;
+                const netUnspentFloat = Math.max(0, totalDeposited - consumedStakeForResolved);
+                // Reconciled available float: if raw DB balance hasn't been deducted for resolved rounds, cap at netUnspentFloat
+                const reconciledWalletBalance = isMemberSpectator ? 0 : Math.min(rawMemberBalance, netUnspentFloat);
+                const unspentCredit = reconciledWalletBalance;
 
                 // Member has paid current GW if stake is 0, unspent credit covers stake, cumulative deposits cover all rounds including current,
                 // wallet covers current stake, or they made an inflow transaction explicitly tagged with the current GW, or hasPaid is true
                 const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
                     (stake === 0) ||
                     (stake > 0 && unspentCredit >= stake) ||
-                    (stake > 0 && effectiveMemberBalance >= stake) ||
-                    (stake > 0 && totalCompleted > 0 && totalDeposited >= (totalCompleted * stake)) ||
+                    (stake > 0 && reconciledWalletBalance >= stake) ||
                     (memberInflowTxs.some((tx: any) => Number(tx.gw || tx.gameweek || 0) === currentGw)) ||
                     (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid)) ||
                     Boolean(m.hasPaid)
                 );
 
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
-                const rawFundedCount = stake > 0 ? Math.floor(Math.max(totalDeposited, effectiveMemberBalance) / stake) : totalCompleted;
+                const totalRoundsTracked = Math.max(1, resolvedCount + 1);
+                const rawFundedCount = stake > 0 ? Math.floor(Math.max(totalDeposited, reconciledWalletBalance) / stake) : totalRoundsTracked;
                 const gwsFundedCount = hasPaidCurrent ? Math.max(1, rawFundedCount) : rawFundedCount;
-                const gwsSkippedCount = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0 || hasPaidCurrent) ? 0 : Math.max(0, totalCompleted - gwsFundedCount);
-                const totalOwedArrears = (isMemberSpectator || isPendingOnboarding || totalCompleted === 0) ? 0 : gwsSkippedCount * stake;
+                const gwsSkippedCount = (isMemberSpectator || isPendingOnboarding || hasPaidCurrent) ? 0 : Math.max(0, totalRoundsTracked - gwsFundedCount);
+                const totalOwedArrears = (isMemberSpectator || isPendingOnboarding) ? 0 : gwsSkippedCount * stake;
 
                 const taggedGws = Array.from(
                     new Set(
@@ -958,7 +976,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     role: m.role || 'member',
                     isSpectator: isMemberSpectator,
                     isPendingOnboarding,
-                    walletBalance: effectiveMemberBalance,
+                    walletBalance: reconciledWalletBalance,
                     hasPaidCurrent,
                     totalDeposited,
                     gwsFundedCount,
@@ -968,7 +986,39 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 };
             })
             .sort((a, b) => b.gwsSkippedCount - a.gwsSkippedCount);
-    }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake, forfeitedGws]);
+    }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake, forfeitedGws, resolvedGws, playedCompletedGws]);
+
+    // Background ledger reconciliation: sync any un-deducted member wallet balances to Firestore
+    useEffect(() => {
+        if (!isAdmin || !activeLeagueId || resolvedGws.size === 0 || members.length === 0 || (gameweekStake || 0) <= 0) return;
+        const resolvedCount = resolvedGws.size;
+        const stake = Number(gameweekStake || 0);
+
+        members.forEach(async (m: any) => {
+            if (m.isActive === false || (m as any).isEliminated || (m as any).playMode === 'sidebets_only') return;
+            const isMatchedMember = (tx: any) =>
+                (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
+                (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
+                (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
+
+            const mInflows = transactions.filter((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx));
+            const mRefunds = transactions.filter((tx: any) => isTxRefundOrReversal(tx) && isMatchedMember(tx)).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
+            const totalDep = Math.max(0, mInflows.reduce((sum, tx) => sum + Number(tx.amount || 0), 0) - mRefunds);
+            const expectedWallet = Math.max(0, totalDep - (resolvedCount * stake));
+
+            if (Number(m.walletBalance || 0) > expectedWallet) {
+                try {
+                    const mRef = doc(db, 'leagues', activeLeagueId, 'memberships', m.id);
+                    await updateDoc(mRef, {
+                        walletBalance: expectedWallet,
+                        hasPaid: expectedWallet >= stake,
+                    });
+                } catch (err) {
+                    console.warn('[finances] auto-reconciliation failed for member:', m.id, err);
+                }
+            }
+        });
+    }, [isAdmin, activeLeagueId, resolvedGws, members, transactions, gameweekStake]);
 
     const totalChamaArrears = useMemo(() => {
         return memberFundingSummary.reduce((acc, m) => acc + (m.totalOwedArrears || 0), 0);
@@ -1869,7 +1919,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             const totalContributedByAll = activeMembers.reduce((sum, m: any) => {
                                 return sum + Number(contributionByMemberId[String(m.id)] || 0);
                             }, 0);
-                            const totalWalletFloat = activeMembers.reduce((sum, m: any) => sum + Number(m.walletBalance || 0), 0);
+                            const totalWalletFloat = memberFundingSummary.reduce((sum, m: any) => sum + (Number(m.walletBalance) || 0), 0);
                             const regularCount = activeMembers.filter(m => (m as any).playMode !== 'sidebets_only').length || 1;
                             const avgPerPlayer = Math.round(totalContributedByAll / regularCount);
 
@@ -3315,7 +3365,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                         : (Number(rules.vault || 30) / 100) * paidMembers.length * (gameweekStake || 0);
                     const completedSeasonGws = playedCompletedGws.length;
 
-                    const effectiveCurrentGw = currentGwNumber || (effectiveLeagueStart + Math.max(0, completedSeasonGws - 1));
+                    const lastResolvedGw = playedCompletedGws.length > 0 
+                        ? Math.max(...playedCompletedGws) 
+                        : (effectiveLeagueStart - 1);
+                    const effectiveCurrentGw = Math.max(effectiveLeagueStart, lastResolvedGw);
 
                     // Strict ledger verified: If seasonVaultCollectedSoFar <= 0, accumulated vault is STRICTLY 0 KES!
                     const currentVault = completedSeasonGws > 0 
@@ -3328,13 +3381,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                     const chartData = Array.from({ length: totalSeasonGWs }, (_, i) => {
                         const roundGw = effectiveLeagueStart + i;
                         const isForfeitedRound = forfeitedGws.includes(roundGw);
-                        const isPastOrCurrent = roundGw <= effectiveCurrentGw;
+                        const isPastOrResolved = roundGw <= effectiveCurrentGw;
                         const isCurrentOrFuture = roundGw >= effectiveCurrentGw;
 
                         let actualVault: number | null = null;
                         let projectedVault: number | null = null;
 
-                        if (isPastOrCurrent) {
+                        if (isPastOrResolved) {
                             if (roundGw === effectiveCurrentGw) {
                                 actualVault = currentVault;
                             } else {

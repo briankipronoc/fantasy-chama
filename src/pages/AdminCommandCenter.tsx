@@ -1643,6 +1643,71 @@ export default function AdminCommandCenter() {
     return gws.length > 0 ? Math.min(...gws) : null;
   }, [pendingPayouts, transactions]);
 
+  const resolvedGwsList = useMemo(() => {
+    const set = new Set<number>();
+    pendingPayouts
+      .filter((p: any) => ['approved', 'settled'].includes(p.status) || Number(p.amount || 0) > 0)
+      .forEach((p: any) => {
+        const g = Number(p.gw);
+        if (g > 0 && Number.isFinite(g)) set.add(g);
+      });
+    transactions
+      .filter((t: any) => t.type === 'payout' || t.description?.toLowerCase().includes('gw'))
+      .forEach((t: any) => {
+        const gwMatch = t.description?.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
+        const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw);
+        if (Number.isFinite(parsed) && parsed > 0) set.add(parsed);
+      });
+    return Array.from(set).sort((a, b) => a - b);
+  }, [pendingPayouts, transactions]);
+
+  // Auto-reconcile member wallet balances against resolved rounds (e.g. GW5) if deduction was missed
+  const hasReconciledRef = useRef(false);
+  useEffect(() => {
+    if (!activeLeagueId || hasReconciledRef.current || members.length === 0 || gameweekStake <= 0 || resolvedGwsList.length === 0) return;
+    
+    const resolvedCount = resolvedGwsList.length;
+    const requiredConsumed = resolvedCount * gameweekStake;
+
+    const outOfSyncMembers = members.filter((m: any) => {
+      if (m.isActive === false || (m as any).isEliminated || (m as any).playMode === 'sidebets_only') return false;
+      const refundTotal = getMemberRefundTotal(m);
+      const inflowTotal = getMemberInflowTotal(m);
+      const netDeposited = Math.max(0, inflowTotal - refundTotal);
+      const expectedWallet = Math.max(0, netDeposited - requiredConsumed);
+      return Number(m.walletBalance || 0) > expectedWallet;
+    });
+
+    if (outOfSyncMembers.length > 0) {
+      hasReconciledRef.current = true;
+      (async () => {
+        try {
+          for (const m of outOfSyncMembers) {
+            const refundTotal = getMemberRefundTotal(m);
+            const inflowTotal = getMemberInflowTotal(m);
+            const netDeposited = Math.max(0, inflowTotal - refundTotal);
+            const expectedWallet = Math.max(0, netDeposited - requiredConsumed);
+
+            const mRef = doc(db, "leagues", activeLeagueId, "memberships", m.id);
+            await updateDoc(mRef, {
+              walletBalance: expectedWallet,
+              hasPaid: expectedWallet >= gameweekStake,
+            });
+          }
+
+          await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
+            eventType: "gw_deduction",
+            message: `Ledger reconciled: Deducted stakes for ${resolvedCount} resolved round(s) (KES ${gameweekStake} × ${outOfSyncMembers.length} members).`,
+            actor: auth.currentUser?.displayName || "System / Chairman",
+            timestamp: serverTimestamp(),
+          });
+          console.log(`[reconcile] Successfully reconciled ${outOfSyncMembers.length} member wallets for ${resolvedCount} resolved round(s).`);
+        } catch (err) {
+          console.warn("[reconcile] Failed to reconcile member wallets:", err);
+        }
+      })();
+    }
+  }, [activeLeagueId, members, transactions, resolvedGwsList, gameweekStake]);
 
   const latestApprovedPayout = useMemo(() => {
     const approved = pendingPayouts
@@ -1678,10 +1743,17 @@ export default function AdminCommandCenter() {
     .reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
   const netInflowsFromLedger = Math.max(0, grossInflowsAllTime - totalRefundsAllTime);
 
-  const maxCompletedGw = Math.max(effectiveStartGw, Number(currentGwNumber || firestoreGw || effectiveStartGw));
+  const currentGwVal = Number(currentGwNumber || firestoreGw || effectiveStartGw);
   const completedRoundsList: number[] = [];
-  for (let g = effectiveStartGw; g <= maxCompletedGw; g++) {
-    if (!forfeitedGws.includes(g)) completedRoundsList.push(g);
+  for (let g = effectiveStartGw; g <= currentGwVal; g++) {
+    if (forfeitedGws.includes(g)) continue;
+    // Past rounds in season before current GW are concluded.
+    // The active current GW is only counted as completed if it has actually been resolved!
+    if (g < currentGwVal) {
+      completedRoundsList.push(g);
+    } else if (g === currentGwVal && resolvedGwsList.includes(g)) {
+      completedRoundsList.push(g);
+    }
   }
   const completedRoundsCount = completedRoundsList.length;
 
@@ -2768,6 +2840,42 @@ export default function AdminCommandCenter() {
               timestamp: serverTimestamp(),
             });
           }
+
+          // Deduct gameweek stake from each funded member's wallet directly via Firestore
+          const fundedMembers = members.filter(
+            (m) =>
+              m.isActive !== false &&
+              !(m as any).isEliminated &&
+              !(m as any).isPending &&
+              (m as any).playMode !== "sidebets_only" &&
+              memberHasFunding(m) &&
+              gameweekStake > 0,
+          );
+          for (const m of fundedMembers) {
+            const memberRef = doc(
+              db,
+              "leagues",
+              activeLeagueId,
+              "memberships",
+              m.id,
+            );
+            const newBalance = Math.max(0, (m.walletBalance || 0) - gameweekStake);
+            await updateDoc(memberRef, {
+              walletBalance: newBalance,
+              hasPaid: newBalance >= gameweekStake,
+            });
+          }
+
+          // Record the GW deduction in league_events audit log
+          await addDoc(
+            collection(db, "leagues", activeLeagueId, "league_events"),
+            {
+              eventType: "gw_deduction",
+              message: `GW${gwNumber} stake deducted: KES ${gameweekStake} × ${fundedMembers.length} members into Season Vault. Winner: ${honoraryWinners.map(w => w.displayName).join(' & ')}.`,
+              actor: auth.currentUser?.displayName || "Chairman",
+              timestamp: serverTimestamp(),
+            },
+          );
 
           const notifsRef = collection(db, "leagues", activeLeagueId, "notifications");
           await addDoc(notifsRef, {
