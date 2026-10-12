@@ -2818,7 +2818,7 @@ export default function MemberDashboard() {
                                             ? "Gameweek Voided ⚠️"
                                             : (isSpectator
                                                 ? "Spectator & Side-Bets Only"
-                                                : (isCurrentFunded ? "Verified & Active" : (isTargetGwUpcoming ? `GW${activeFundingGw} Deposit Due` : "Action Required"))))}
+                                                : (isCurrentFunded ? "Active in Cash Pot" : (isTargetGwUpcoming ? `GW${activeFundingGw} Deposit Due` : "Action Required"))))}
                                 </h3>
                                 <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed mb-3">
                                     {isRecentWinner
@@ -2829,8 +2829,8 @@ export default function MemberDashboard() {
                                                 ? "You chose not to play the weekly and season cash pot. No weekly dues or arrears apply to you! You can freely track standings, banter, and challenge any rival to 1v1 M-Pesa cash side bets."
                                                 : (isCurrentFunded
                                                     ? (isTargetGwUpcoming
-                                                        ? `Your contribution for Gameweek ${activeFundingGw} is secured from your balance. Tweak your lineup before deadline.`
-                                                        : `Your contribution is secured. Eligible for this GW's pot. Wallet covers your next ${gameweekStake > 0 ? Math.floor(walletBalance / gameweekStake) : 0} Gameweeks.`)
+                                                        ? `Gameweek ${activeFundingGw} stake is secured from your balance. Tweak your lineup before deadline.`
+                                                        : `Your weekly stake is secured. You are actively competing for this Gameweek's cash pot and the season ladder.`)
                                                     : (isTargetGwUpcoming
                                                         ? `Upcoming GW${activeFundingGw} stake is due (KES ${gameweekStake.toLocaleString()}). Fund your wallet before the deadline to compete for the cash pot!`
                                                         : `Contribution for GW${currentFplEvent?.id || 1} pending. Please pay your KES ${gameweekStake.toLocaleString()} contribution to remain active and eligible for the cash pot.`))))}
@@ -2864,6 +2864,33 @@ export default function MemberDashboard() {
                                                 )}
                                             </p>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* High-value shortcuts when member is fully covered */}
+                                {isCurrentFunded && !isRecentWinner && !isCurrentGwVoided && !isSpectator && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-white/5">
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/sidebets')}
+                                            className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                        >
+                                            <Swords className="w-3.5 h-3.5 text-amber-500" /> Side Bets
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/standings')}
+                                            className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                        >
+                                            <Trophy className="w-3.5 h-3.5 text-amber-500" /> Standings
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate('/finances')}
+                                            className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                        >
+                                            <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Finances
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -3002,9 +3029,9 @@ export default function MemberDashboard() {
                                     </div>
                                 </div>
                             ) : null}
-                            {isCurrentFunded && !isCurrentGwVoided && (
-                                <div className="flex items-center gap-2 text-[#10B981]/70 text-xs font-bold mt-auto">
-                                    <Check className="w-4 h-4" /> Contribution confirmed
+                            {isCurrentFunded && !isCurrentGwVoided && !isRecentWinner && (
+                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-2">
+                                    <Check className="w-4 h-4" /> Season Pot Status: Eligible ✓
                                 </div>
                             )}
 

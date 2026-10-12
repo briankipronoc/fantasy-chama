@@ -676,16 +676,16 @@ export default function SideBets() {
                         className={clsx(
                             "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
                             betFilterTab === 'active'
-                                ? "bg-slate-900 text-white dark:bg-white/10 dark:text-white shadow-sm font-black border border-slate-800 dark:border-white/20"
+                                ? "bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/40 font-black shadow-xs"
                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Swords className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                        <Swords className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                         Live Duels
                         <span className={clsx(
                             "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
                             betFilterTab === 'active'
-                                ? "bg-white/20 text-white"
+                                ? "bg-amber-500/30 text-amber-900 dark:text-amber-300"
                                 : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-gray-300"
                         )}>
                             {activeBets.length}
@@ -696,13 +696,13 @@ export default function SideBets() {
                         className={clsx(
                             "px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
                             betFilterTab === 'my'
-                                ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-black shadow-xs"
+                                ? "bg-indigo-500/15 text-indigo-900 dark:text-indigo-300 border border-indigo-500/40 font-black shadow-xs"
                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                        <Flame className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         My Wagers
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-800 dark:text-indigo-300 font-bold">
                             {myActiveBets.length}
                         </span>
                     </button>

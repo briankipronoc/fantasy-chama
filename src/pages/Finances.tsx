@@ -124,11 +124,25 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [topUpCustomAmount, setTopUpCustomAmount] = useState('');
     const [copiedPochiPhone, setCopiedPochiPhone] = useState(false);
     const [isPushingTopUpMpesa, setIsPushingTopUpMpesa] = useState(false);
+    const [enableWalletTopUp, setEnableWalletTopUp] = useState<boolean>(false);
     const [txToDelete, setTxToDelete] = useState<any | null>(null);
     const [isDeletingTx, setIsDeletingTx] = useState(false);
     const [showPlayerBreakdown, setShowPlayerBreakdown] = useState(false);
     const [showPayoutsModal, setShowPayoutsModal] = useState(false);
     const [payoutsFilter, setPayoutsFilter] = useState<'all' | 'weekly' | 'season'>('all');
+
+    // Listen to global platform settings for pilot mode and wallet top up availability
+    useEffect(() => {
+        const unsub = onSnapshot(doc(db, 'platform_settings', 'global'), (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                setEnableWalletTopUp(Boolean(data?.enableWalletTopUp));
+            }
+        }, (err) => {
+            console.warn('[finances] platform_settings listener error:', err?.message || err);
+        });
+        return () => unsub();
+    }, []);
 
 
     useEffect(() => {
@@ -1567,7 +1581,10 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
-                    <section className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mb-8 items-stretch">
+                    <section className={clsx(
+                        "gap-5 md:gap-6 mb-8 items-stretch",
+                        enableWalletTopUp ? "grid grid-cols-1 md:grid-cols-2" : "max-w-xl mx-auto w-full"
+                    )}>
                         {/* Merged Card: Next Due & Total Loaded (Toggleable Tab) */}
                         <article className={clsx(
                             "fc-card rounded-2xl p-6 sm:p-7 border flex flex-col justify-between shadow-md transition-all",
@@ -1618,15 +1635,28 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 {/* Tab Body */}
                                 {personalCardTab === 'due' ? (
                                     <div>
-                                        <p className={clsx("text-2xl font-black tabular-nums", isUrgentUnpaid ? "text-rose-400" : "text-gray-900 dark:text-white")}>
-                                            {isSpectator ? "Spectator (0 KES)" : `${Number(gameweekStake || 0).toLocaleString()} KES`}
-                                        </p>
-                                        <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <p className={clsx("text-2xl sm:text-3xl font-black tabular-nums tracking-tight", isUrgentUnpaid ? "text-rose-500" : isFunded ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white")}>
+                                                {isSpectator
+                                                    ? "0 KES"
+                                                    : isFunded
+                                                        ? "0 KES"
+                                                        : `${Number(gameweekStake || 0).toLocaleString()} KES`}
+                                            </p>
+                                            {isFunded && !isSpectator && (
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                                                    Fully Covered ✓
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-slate-600 dark:text-gray-400 mt-2 font-medium">
                                             {isSpectator
                                                 ? "Playing Side Bets only · Free to view system"
-                                                : isUrgentUnpaid
-                                                    ? `⚠️ Urgent: Deadline ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} (${hoursRemaining}h left)`
-                                                    : `Deadline: ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                                                : isFunded
+                                                    ? `Current gameweek covered. Next cycle deadline: ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                                                    : isUrgentUnpaid
+                                                        ? `⚠️ Action required before ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} (${hoursRemaining}h left)`
+                                                        : `Next cycle due: ${Number(gameweekStake || 0).toLocaleString()} KES by ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
                                         </p>
                                     </div>
                                 ) : (
@@ -1679,57 +1709,59 @@ const handleRejectPendingPayout = async (payout: any) => {
                             </div>
                         </article>
 
-                        {/* Wallet Top-Up Card */}
-                        <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-white dark:bg-[#161d24] shadow-sm dark:shadow-md flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Wallet Top-Up</p>
-                                    <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                </div>
-
-                                <div className="space-y-2.5">
-                                    <input
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={cashTopUpAmount}
-                                        onFocus={(e) => e.target.select()}
-                                        onChange={(e) => {
-                                            const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
-                                            setCashTopUpAmount(cleaned);
-                                        }}
-                                        placeholder="Amount (KES)"
-                                        className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/25 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={cashTopUpNote}
-                                        onChange={(e) => setCashTopUpNote(e.target.value)}
-                                        placeholder="Optional note"
-                                        className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/25 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
-                                    />
-                                    <div className="grid grid-cols-2 gap-2 pt-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (cashTopUpAmount) setTopUpCustomAmount(cashTopUpAmount);
-                                                setShowMpesaTopUpModal(true);
-                                            }}
-                                            className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-all active:scale-95 cursor-pointer"
-                                        >
-                                            M-Pesa
-                                        </button>
-                                        <button
-                                            onClick={handleSubmitCashTopUpRequest}
-                                            disabled={isSubmittingCashTopUpRequest}
-                                            className="px-3 py-2.5 rounded-xl border border-white/15 bg-white/5 text-gray-300 hover:text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            {isSubmittingCashTopUpRequest ? '...' : 'Cash'}
-                                        </button>
+                        {/* Wallet Top-Up Card (Hidden during pilot mode / when enableWalletTopUp is false, configurable via HQ) */}
+                        {enableWalletTopUp && (
+                            <article className="fc-card fc-wallet-topup-card rounded-2xl p-5 sm:p-6 border border-emerald-500/25 bg-white dark:bg-[#161d24] shadow-sm dark:shadow-md flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Wallet Top-Up</p>
+                                        <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                     </div>
-                                    <p className="text-[10px] text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
+
+                                    <div className="space-y-2.5">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={cashTopUpAmount}
+                                            onFocus={(e) => e.target.select()}
+                                            onChange={(e) => {
+                                                const cleaned = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                                                setCashTopUpAmount(cleaned);
+                                            }}
+                                            placeholder="Amount (KES)"
+                                            className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/30 px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={cashTopUpNote}
+                                            onChange={(e) => setCashTopUpNote(e.target.value)}
+                                            placeholder="Optional note"
+                                            className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-black/30 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
+                                        />
+                                        <div className="grid grid-cols-2 gap-2 pt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (cashTopUpAmount) setTopUpCustomAmount(cashTopUpAmount);
+                                                    setShowMpesaTopUpModal(true);
+                                                }}
+                                                className="px-3 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-all active:scale-95 cursor-pointer shadow-xs"
+                                            >
+                                                M-Pesa
+                                            </button>
+                                            <button
+                                                onClick={handleSubmitCashTopUpRequest}
+                                                disabled={isSubmittingCashTopUpRequest}
+                                                className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-white/15 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                                            >
+                                                {isSubmittingCashTopUpRequest ? '...' : 'Cash'}
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 pt-1">Request after cash handoff to Chairman.</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </article>
+                            </article>
+                        )}
                     </section>
                 )}
 
@@ -2034,7 +2066,14 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
 
                     {/* Podium Grid */}
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full items-stretch">
+                    <div className={clsx(
+                        "w-full items-stretch gap-2 sm:gap-3",
+                        tiedSeasonVaultPreview.length === 1
+                            ? "flex justify-center max-w-xs sm:max-w-sm mx-auto"
+                            : tiedSeasonVaultPreview.length === 2
+                                ? "grid grid-cols-2 max-w-xl mx-auto"
+                                : "grid grid-cols-3"
+                    )}>
                         {tiedSeasonVaultPreview.slice(0, 3).map((tier: any) => {
                             const isAccrued = vaultPodiumView === 'accrued';
                             const primaryAmount = isAccrued ? (tier.accruedAmount ?? tier.amount) : (tier.projectedAmount || tier.amount);
@@ -2044,7 +2083,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <div
                                     key={`${tier.originalPlace}-${tier.player_name}`}
                                     onClick={() => setVaultPodiumView(prev => prev === 'accrued' ? 'projected' : 'accrued')}
-                                    className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs min-w-0 cursor-pointer select-none"
+                                    className={clsx(
+                                        "rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs min-w-0 cursor-pointer select-none",
+                                        tiedSeasonVaultPreview.length === 1 ? "w-full" : ""
+                                    )}
                                     title="Tap to toggle live accrued vs projected final"
                                 >
                                     <div>

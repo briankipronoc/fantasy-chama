@@ -669,7 +669,7 @@ export default function Login() {
                     await addDoc(collection(db, 'leagues', leagueId, 'notifications'), {
                         type: 'member_joined',
                         eventType: 'member_joined',
-                        title: 'New Member Self-Onboarded',
+                        title: 'New Manager Joined',
                         message: `${finalDisplayName} joined ${leagueName} (${tierLabel}).`,
                         createdAt: serverTimestamp(),
                     });

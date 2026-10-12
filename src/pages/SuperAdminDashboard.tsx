@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc, addDoc, serverTimestamp, runTransaction, limit, writeBatch, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save, RotateCcw, AlertTriangle, X, Wallet } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 import ConfirmModal from '../components/ConfirmModal';
@@ -40,6 +40,7 @@ export default function SuperAdminDashboard() {
     const [isConfirmModalLoading, setIsConfirmModalLoading] = useState(false);
     const [platformSettings, setPlatformSettings] = useState({
         isPilotMode: true,
+        enableWalletTopUp: false,
         mpesaCostPerTx: 15,
         gatewayType: 'pochi' as 'pochi' | 'paybill' | 'till',
         paybillNumber: '',
@@ -244,6 +245,7 @@ export default function SuperAdminDashboard() {
                 setPlatformSettings(prev => ({
                     ...prev,
                     isPilotMode: data.isPilotMode !== false,
+                    enableWalletTopUp: Boolean(data.enableWalletTopUp),
                     mpesaCostPerTx: Number(data.mpesaCostPerTx ?? 15),
                     gatewayType: data.gatewayType || 'pochi',
                     paybillNumber: data.paybillNumber || '',
@@ -625,7 +627,7 @@ export default function SuperAdminDashboard() {
                     </div>
 
                     {/* Inputs Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         {/* M-Pesa Sending Cost Input */}
                         <div className="bg-slate-100/80 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
                             <div>
@@ -727,6 +729,53 @@ export default function SuperAdminDashboard() {
                                         <span className="text-[9px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-300 font-bold">0% Cut</span>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* Automated In-App M-Pesa Top-Up (Daraja STK) */}
+                        <div className="bg-slate-100/80 dark:bg-black/30 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+                            <div>
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-gray-400 flex items-center gap-1.5">
+                                        <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                        In-App Top-Up Card
+                                    </label>
+                                    <span className={clsx(
+                                        "text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-md border",
+                                        platformSettings.enableWalletTopUp
+                                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                                            : "bg-slate-200 dark:bg-white/5 text-slate-600 dark:text-gray-400 border-slate-300 dark:border-white/10"
+                                    )}>
+                                        {platformSettings.enableWalletTopUp ? "Visible" : "Hidden (Pilot)"}
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-1 leading-snug">
+                                    Enable member in-app wallet top-up and Daraja M-Pesa STK prompt once API credentials are live.
+                                </p>
+                            </div>
+                            <div className="mt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setPlatformSettings(prev => ({ ...prev, enableWalletTopUp: !prev.enableWalletTopUp }))}
+                                    className={clsx(
+                                        "w-full py-2 px-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all border flex items-center justify-center gap-2 cursor-pointer shadow-xs",
+                                        platformSettings.enableWalletTopUp
+                                            ? "bg-emerald-500 text-black border-emerald-600 hover:bg-emerald-400"
+                                            : "bg-slate-200/80 dark:bg-white/5 text-slate-700 dark:text-gray-300 border-slate-300 dark:border-white/10 hover:bg-slate-300/80 dark:hover:bg-white/10"
+                                    )}
+                                >
+                                    {platformSettings.enableWalletTopUp ? (
+                                        <>
+                                            <ToggleRight className="w-4 h-4 text-black" />
+                                            <span>Active for Members</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ToggleLeft className="w-4 h-4 text-slate-500" />
+                                            <span>Hidden (Pilot Mode)</span>
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>

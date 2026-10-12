@@ -176,6 +176,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
             // 1. Group member join / onboarding notifications
             const isJoinNotif = eventType === 'member_joined' 
                 || (notif as any)?.title === 'New Member Self-Onboarded' 
+                || (notif as any)?.title === 'New Manager Joined'
                 || msg.includes('joined') && (msg.includes('Contributor') || msg.includes('Vault Only') || msg.includes('Spectator') || msg.includes('League'));
             
             if (isJoinNotif) {
@@ -269,7 +270,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                             : item.members[0];
                     return {
                         ...item,
-                        message: `🎉 ${membersList} self-onboarded to the league! (${item.count} new managers)`
+                        message: `🎉 ${membersList} joined the league! (${item.count} new managers)`
                     };
                 }
 
