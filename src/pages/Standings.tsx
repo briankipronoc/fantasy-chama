@@ -237,8 +237,8 @@ export default function Standings() {
                 };
             }
 
-            // 4. Pre-league gameweeks based on configured start GW (league commenced at GW5)
-            const effectiveStart = (leagueStartGw > 0 && leagueStartGw <= 5) ? leagueStartGw : 5;
+            // 4. Pre-league gameweeks based on configured start GW
+            const effectiveStart = Number(leagueStartGw) > 0 ? Number(leagueStartGw) : 1;
             if (effectiveStart > 1 && gw < effectiveStart) {
                 return {
                     gw,
@@ -320,7 +320,7 @@ export default function Standings() {
     }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
 
     // Effective league start configured for the chama
-    const effectiveLeagueStartGw = (leagueStartGw > 0 && leagueStartGw <= 5) ? leagueStartGw : 5;
+    const effectiveLeagueStartGw = Number(leagueStartGw) > 0 ? Number(leagueStartGw) : 1;
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');

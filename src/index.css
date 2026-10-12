@@ -2046,6 +2046,7 @@
 [data-theme="light"] .fc-member-chart,
 [data-theme="light"] .fc-member-winners,
 [data-theme="light"] .fc-member-ledger,
+[data-theme="light"] .fc-member-gw-rank-card,
 [data-theme="light"] .fc-member-feed {
   background: rgba(255, 255, 255, 0.95) !important;
   border-color: rgba(15, 23, 42, 0.12) !important;
@@ -2055,6 +2056,7 @@
 [data-theme="light"] .fc-member-chart .text-white,
 [data-theme="light"] .fc-member-winners .text-white,
 [data-theme="light"] .fc-member-ledger .text-white,
+[data-theme="light"] .fc-member-gw-rank-card .text-white,
 [data-theme="light"] .fc-member-feed .text-white {
   color: #0f172a !important;
 }

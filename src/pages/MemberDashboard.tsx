@@ -92,7 +92,6 @@ export default function MemberDashboard() {
         const raw = Number((useStore.getState().league as any)?.startGw || 1);
         return raw || 1;
     });
-    const [leagueInviteCode, setLeagueInviteCode] = useState<string>(() => (useStore.getState().league as any)?.inviteCode || '');
     const ledgerRailRef = useRef<HTMLDivElement | null>(null);
 
     // Co-Admin State
@@ -218,9 +217,6 @@ export default function MemberDashboard() {
                 if (data.startGw || data.startGameweek || data.rules?.startGw) {
                     const raw = Number(data.startGw || data.startGameweek || data.rules?.startGw || 1);
                     setLeagueStartGw(raw || 1);
-                }
-                if (data.inviteCode) {
-                    setLeagueInviteCode(String(data.inviteCode));
                 }
 
                 // Phase 29: Fetch FPL GW Winner continuously with caching and 503 resilience
@@ -842,11 +838,12 @@ export default function MemberDashboard() {
     useEffect(() => {
         if (!activeLeagueId) return;
         const hasDualTeam = Boolean(currentUser?.secondFplTeamId);
-        const shouldGuide = userLeagueCount > 1 || hasDualTeam;
+        // Only show two-teams guide if user actually has dual teams and hasn't dismissed it
+        const shouldGuide = hasDualTeam;
         const guideKey = `fc-member-league-guide-dismissed-${activeLeagueId}-${activeUserId}`;
-        const dismissed = localStorage.getItem(guideKey) === 'true';
+        const dismissed = localStorage.getItem('fc_two_teams_guide_dismissed') === 'true' || localStorage.getItem(guideKey) === 'true';
         setShowLeagueGuide(shouldGuide && !dismissed);
-    }, [activeLeagueId, activeUserId, currentUser?.secondFplTeamId, userLeagueCount]);
+    }, [activeLeagueId, activeUserId, currentUser?.secondFplTeamId]);
 
     const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToastMessage(msg);
@@ -1412,9 +1409,11 @@ export default function MemberDashboard() {
     }, [members, gwWinner, currentFplEvent?.id, leagueName, gameweekStake, rules, seasonVaultAccumulated, weeklyPot, paidMembersCount, isMemberFunded]);
 
     const dismissLeagueGuide = () => {
-        if (!activeLeagueId) return;
-        const guideKey = `fc-member-league-guide-dismissed-${activeLeagueId}-${activeUserId}`;
-        localStorage.setItem(guideKey, 'true');
+        if (activeLeagueId) {
+            const guideKey = `fc-member-league-guide-dismissed-${activeLeagueId}-${activeUserId}`;
+            localStorage.setItem(guideKey, 'true');
+        }
+        localStorage.setItem('fc_two_teams_guide_dismissed', 'true');
         setShowLeagueGuide(false);
     };
 
@@ -1460,26 +1459,6 @@ export default function MemberDashboard() {
         }
         return null;
     }, [pendingPayouts, transactions]);
-
-    const handleShareInviteCode = () => {
-        const code = leagueInviteCode || (leagueSettings as any)?.inviteCode || '';
-        if (!code) return;
-        const appUrl = window.location.origin;
-        const link = `${appUrl}/join?code=${code}`;
-        const host = currentUser?.displayName || 'The Chairman';
-        const lName = leagueName || 'our FPL Chama';
-        const message = `You're invited by ${host} to join *${lName}* on Fantasy Chama!\n\nWin weekly cash prizes and compete for the end-of-season jackpot. Points and rankings update automatically after every gameweek.\n\nJoin here: ${link}\nLeague Code: *${code}*`;
-        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-        haptics.success();
-    };
-
-    const handleCopyInviteCode = () => {
-        const code = leagueInviteCode || (leagueSettings as any)?.inviteCode || '';
-        if (!code) return;
-        navigator.clipboard.writeText(code);
-        showToast(`Copied Master Invite Code: ${code}`, 'success');
-        haptics.success();
-    };
 
     const gwWinnersLedger = useMemo(() => {
         const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isPaid?: boolean; isVoided?: boolean; isAwaitingPayment?: boolean }>();
@@ -2134,12 +2113,12 @@ export default function MemberDashboard() {
                             </div>
                         </div>
                     ) : (
-                        <div className="w-full rounded-3xl sm:rounded-[2rem] border border-amber-500/30 bg-gradient-to-br from-[#1b170c] via-[#161d24] to-[#0c1218] p-4 sm:p-6 shadow-2xl relative overflow-hidden mb-4">
+                        <div className="w-full rounded-3xl sm:rounded-[2rem] border border-amber-500/30 bg-white dark:bg-gradient-to-br dark:from-[#1b170c] dark:via-[#161d24] dark:to-[#0c1218] p-4 sm:p-6 shadow-md dark:shadow-2xl relative overflow-hidden mb-4 text-slate-900 dark:text-white">
                             <div className="absolute top-0 right-0 w-80 h-40 bg-[#FBBF24]/10 blur-[100px] pointer-events-none" />
                             <div className="absolute bottom-0 left-0 w-64 h-32 bg-emerald-500/10 blur-[80px] pointer-events-none" />
 
                             {/* Top Header Row: Matchday Pulse + Live Status + Live Standings Link */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-white/10 relative z-10">
+                            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-200 dark:border-white/10 relative z-10">
                                 <div className="flex items-center gap-2.5 flex-wrap">
                                     <span className="relative flex h-2.5 w-2.5">
                                         <span className={clsx("absolute inline-flex h-full w-full rounded-full opacity-75", isRoundFinished ? "bg-amber-400" : "animate-ping bg-emerald-500")} />
@@ -2148,23 +2127,23 @@ export default function MemberDashboard() {
                                     <span className={clsx(
                                         "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 shadow-xs border",
                                         isRoundFinished
-                                            ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                                            : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                                            : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
                                     )}>
-                                        {isRoundFinished ? <Trophy className="w-3 h-3 text-amber-500" /> : <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />}
+                                        {isRoundFinished ? <Trophy className="w-3 h-3 text-amber-500" /> : <Radio className="w-3 h-3 text-emerald-500 dark:text-emerald-400 animate-pulse" />}
                                         GW{activeChampion.event || currentFplEvent?.id || ''} • {isRoundFinished ? "Round Concluded" : "Matches in Play"}
                                     </span>
 
                                     {fixtureStats && fixtureStats.total > 0 && (
-                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full bg-white/10 text-emerald-300 border border-emerald-500/25">
+                                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
                                             ⚽ {fixtureStats.finished}/{fixtureStats.total} played
-                                            {fixtureStats.inPlay > 0 && <span className="text-amber-400 font-bold">· {fixtureStats.inPlay} live</span>}
+                                            {fixtureStats.inPlay > 0 && <span className="text-amber-600 dark:text-amber-400 font-bold">· {fixtureStats.inPlay} live</span>}
                                             {fixtureStats.remaining > 0 ? ` · ${fixtureStats.remaining} left` : ' · Final whistle'}
                                         </span>
                                     )}
 
                                     {fplLastUpdated && (
-                                        <span className="text-[10px] text-gray-400 font-medium hidden sm:inline-flex items-center gap-1">
+                                        <span className="text-[10px] text-slate-500 dark:text-gray-400 font-medium hidden sm:inline-flex items-center gap-1">
                                             <RefreshCw className="w-2.5 h-2.5" /> Synced {fplLastUpdated}
                                         </span>
                                     )}
@@ -2177,12 +2156,12 @@ export default function MemberDashboard() {
                                             haptics.selection();
                                             navigate('/standings');
                                         }}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white border border-slate-200 dark:border-white/10 text-xs font-bold transition-all active:scale-95 shadow-xs cursor-pointer"
                                         title="View complete live mini-league table"
                                     >
                                         <Trophy className="w-3.5 h-3.5 text-amber-500" />
                                         <span>Live Standings</span>
-                                        <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+                                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-gray-400" />
                                     </button>
                                     <button
                                         type="button"
@@ -2202,10 +2181,10 @@ export default function MemberDashboard() {
                             {/* 3-Tile Matchday Mini Dash Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
                                 {/* TILE 1: Live Leader & Race Margin */}
-                                <div className="rounded-2xl p-4 bg-black/40 border border-white/10 flex flex-col justify-between shadow-xs">
+                                <div className="rounded-2xl p-4 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
                                     <div>
                                         <div className="flex items-center justify-between gap-2 mb-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-[#FBBF24]">
+                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-600 dark:text-[#FBBF24]">
                                                 {isRoundFinished ? (
                                                     <><Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" /> GW{activeChampion.event || currentFplEvent?.id || ''} Champion</>
                                                 ) : (
@@ -2224,23 +2203,23 @@ export default function MemberDashboard() {
 
                                         <div className="flex items-center gap-3 my-1.5">
                                             <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
-                                                <Trophy className="w-5 h-5 text-[#FBBF24]" />
+                                                <Trophy className="w-5 h-5 text-amber-500 dark:text-[#FBBF24]" />
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="text-base sm:text-lg font-black text-white tracking-tight truncate">
+                                                <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
                                                     {activeChampion.player_name}
                                                 </h4>
-                                                <p className="text-xs text-gray-400 truncate">
+                                                <p className="text-xs text-slate-500 dark:text-gray-400 truncate">
                                                     {activeChampion.entry_name || (isRoundFinished ? 'Champion' : 'Current Leader')}
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="flex items-baseline gap-2 mt-2">
-                                            <span className="text-3xl sm:text-4xl font-black text-white tabular-nums tracking-tight">
+                                            <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
                                                 {activeChampion.event_total ?? 0}
                                             </span>
-                                            <span className="text-xs font-black uppercase tracking-wider text-[#10B981]">
+                                            <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-[#10B981]">
                                                 Live PTS
                                             </span>
                                         </div>
@@ -2259,17 +2238,17 @@ export default function MemberDashboard() {
                                             return (
                                                 <div className="mt-2 flex items-center gap-2 flex-wrap">
                                                     {isUserWinner ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                             +{activeChampion.leadMargin} pts ahead of 2nd ({activeChampion.runnerUpName || 'No. 2'})
                                                         </span>
                                                     ) : ptsBehind !== null && ptsBehind > 0 ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                                             Leader is +{ptsBehind} pts ahead of you
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                             +{activeChampion.leadMargin} pts ahead of 2nd ({activeChampion.runnerUpName || 'No. 2'})
                                                         </span>
@@ -2278,10 +2257,10 @@ export default function MemberDashboard() {
                                                         className={clsx(
                                                             "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border",
                                                             (activeChampion.leadMargin || 0) >= 15
-                                                                ? "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                                                                ? "bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-300"
                                                                 : (activeChampion.leadMargin || 0) >= 5
-                                                                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                                                                : "bg-red-500/15 border-red-500/30 text-red-300 animate-pulse"
+                                                                ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-300"
+                                                                : "bg-red-500/15 border-red-500/30 text-red-600 dark:text-red-300 animate-pulse"
                                                         )}
                                                     >
                                                         {(activeChampion.leadMargin || 0) >= 15 ? "Dominant 🚀" : (activeChampion.leadMargin || 0) >= 5 ? "Contested ⚔️" : "Nail-Biter 🔥"}
@@ -2303,15 +2282,15 @@ export default function MemberDashboard() {
 
                                         if (isUserWinner) {
                                             return (
-                                                <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-400">
+                                                <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
                                                     👑 {isRoundFinished ? `You won Gameweek ${activeChampion.event || currentFplEvent?.id || ''}!` : `You are leading Gameweek ${activeChampion.event || currentFplEvent?.id || ''}!`}
                                                 </div>
                                             );
                                         }
 
                                         return (
-                                            <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between gap-1 flex-wrap">
-                                                <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                            <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between gap-1 flex-wrap">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400">
                                                     Props ({mySentEmojis.length}/2):
                                                 </span>
                                                 <div className="flex items-center gap-1">
@@ -2327,10 +2306,10 @@ export default function MemberDashboard() {
                                                                 className={clsx(
                                                                     "w-7 h-7 rounded-lg border flex items-center justify-center text-xs transition-all shadow-xs",
                                                                     isSelected
-                                                                        ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-1 ring-amber-400/50 scale-105 cursor-pointer"
+                                                                        ? "bg-amber-500/30 border-amber-400 text-amber-600 dark:text-amber-300 ring-1 ring-amber-400/50 scale-105 cursor-pointer"
                                                                         : isLocked
-                                                                        ? "bg-white/5 border-white/5 opacity-40 cursor-not-allowed"
-                                                                        : "bg-white/5 hover:bg-amber-500/25 border-white/10 hover:border-amber-400/50 hover:scale-110 active:scale-90 cursor-pointer"
+                                                                        ? "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 opacity-40 cursor-not-allowed"
+                                                                        : "bg-slate-100 hover:bg-amber-500/15 dark:bg-white/5 dark:hover:bg-amber-500/25 border-slate-200 hover:border-amber-400/50 dark:border-white/10 hover:scale-110 active:scale-90 cursor-pointer"
                                                                 )}
                                                                 title={isSelected ? `You sent ${emoji} (Sent ✓)` : isLocked ? 'Limit of 2 props reached' : `React with ${emoji}`}
                                                             >
@@ -2345,24 +2324,24 @@ export default function MemberDashboard() {
                                 </div>
 
                                 {/* TILE 2: Matchday Clock & Fixtures */}
-                                <div className="rounded-2xl p-4 bg-black/40 border border-white/10 flex flex-col justify-between shadow-xs">
+                                <div className="rounded-2xl p-4 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
                                     <div>
                                         <div className="mb-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-0.5">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-0.5">
                                                 {currentFplEvent?.name || (currentFplEvent?.id ? `Gameweek ${currentFplEvent.id}` : 'Gameweek')}
                                             </span>
                                             <div className="flex items-center justify-between gap-2">
-                                                <p className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-white">
+                                                <p className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-900 dark:text-white">
                                                     <Clock className="w-3.5 h-3.5 text-amber-500" /> Fixtures & Schedule
                                                 </p>
-                                                <span className="text-[9px] font-black text-gray-300 tabular-nums">
+                                                <span className="text-[9px] font-black text-slate-500 dark:text-gray-300 tabular-nums">
                                                     {fixtureStats ? `${fixtureStats.finished}/${fixtureStats.total} Played` : 'FPL Live'}
                                                 </span>
                                             </div>
                                         </div>
 
                                         {/* Visual Progress Bar */}
-                                        <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden my-2.5">
+                                        <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full overflow-hidden my-2.5">
                                             <div
                                                 className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                                                 style={{ width: `${fixtureStats && fixtureStats.total > 0 ? Math.round((fixtureStats.finished / fixtureStats.total) * 100) : 0}%` }}
@@ -2370,14 +2349,14 @@ export default function MemberDashboard() {
                                         </div>
 
                                         <div className="space-y-1.5 mt-2">
-                                            <p className="text-xs font-bold text-gray-200 flex items-center justify-between">
+                                            <p className="text-xs font-bold text-slate-700 dark:text-gray-200 flex items-center justify-between">
                                                 <span>Matches Status:</span>
-                                                <span className="text-emerald-400 font-black">
+                                                <span className="text-emerald-600 dark:text-emerald-400 font-black">
                                                     {fixtureStats?.remaining === 0 ? (fixtureStats.total ? `All ${fixtureStats.total} Concluded` : "All Concluded") : fixtureStats?.remaining === 1 ? "1 game remaining" : `${fixtureStats?.remaining ?? 0} games remaining`}
                                                 </span>
                                             </p>
                                             {fixtureStats && fixtureStats.inPlay > 0 && (
-                                                <p className="text-xs font-bold text-amber-400 flex items-center justify-between">
+                                                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center justify-between">
                                                     <span>Active Right Now:</span>
                                                     <span className="font-black animate-pulse">{fixtureStats.inPlay} live in play</span>
                                                 </p>
@@ -2385,8 +2364,8 @@ export default function MemberDashboard() {
                                         </div>
 
                                         {currentFplEvent?.nextDeadlineTime && (
-                                            <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
-                                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Next GW Deadline</p>
+                                            <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Next GW Deadline</p>
                                                 <p className="font-bold text-xs mt-0.5">
                                                     {new Date(currentFplEvent.nextDeadlineTime).toLocaleDateString('en-GB', {
                                                         weekday: 'short',
@@ -2400,7 +2379,7 @@ export default function MemberDashboard() {
                                         )}
                                     </div>
 
-                                    <p className="text-[10px] text-gray-400 mt-3 pt-2.5 border-t border-white/5">
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5">
                                         {isRoundFinished
                                             ? "Official FPL points finalized. Chairman will resolve & disburse payout shortly."
                                             : "Bonus points & auto-subs lock after the final whistle."}
@@ -2408,25 +2387,25 @@ export default function MemberDashboard() {
                                 </div>
 
                                 {/* TILE 3: Pot / Vault Status & Actions */}
-                                <div className="rounded-2xl p-4 bg-black/40 border border-white/10 flex flex-col justify-between shadow-xs">
+                                <div className="rounded-2xl p-4 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
                                     <div>
                                         <div className="flex items-center justify-between gap-2 mb-2">
-                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-gray-400">
+                                            <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-slate-500 dark:text-gray-400">
                                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                                                 {Number(rules.weekly || 0) === 0 ? "Season Vault Stakes" : "Gameweek Cash Pot"}
                                             </p>
-                                            <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
                                                 {Number(rules.weekly || 0) === 0 ? "100% Vault" : "Weekly Pot"}
                                             </span>
                                         </div>
 
                                         <div className="my-1.5">
-                                            <p className="text-2xl sm:text-3xl font-black text-[#FBBF24] tabular-nums tracking-tight">
+                                            <p className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
                                                 {Number(rules.weekly || 0) === 0
                                                     ? `KES ${(seasonVaultAccumulated || 0).toLocaleString()}`
                                                     : `KES ${(activeChampion.amount || ((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))).toLocaleString()}`}
                                             </p>
-                                            <p className="text-xs text-gray-400 mt-0.5">
+                                            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
                                                 {Number(rules.weekly || 0) === 0
                                                     ? "Total Season Jackpot • All points count toward Season Grand Prize 🏆"
                                                     : `${members.filter(m => m.hasPaid && m.isActive !== false).length} active funded contributors`}
@@ -2482,47 +2461,47 @@ export default function MemberDashboard() {
                     const rank = myRankEntry >= 0 ? myRankEntry + 1 : (isRankOne ? 1 : null);
 
                     return (
-                        <div className="fc-member-gw-rank-card rounded-3xl bg-[#161d24] border border-white/5 p-4 md:p-5 flex flex-col justify-between mb-3 shadow-xl">
+                        <div className="fc-member-gw-rank-card rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 p-4 md:p-5 flex flex-col justify-between mb-3 shadow-md dark:shadow-xl text-slate-900 dark:text-white">
                             <div className="flex items-center justify-between mb-3">
-                                <h4 className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                    <Star className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Rank
+                                <h4 className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest">
+                                    <Star className="w-3.5 h-3.5 text-amber-500 dark:text-[#FBBF24]" /> Gameweek Rank
                                 </h4>
                                 {(activeChampion || gwWinner) && (
-                                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                                         {(currentFplEvent?.finished || latestApprovedPayout) ? 'Final' : 'Live'}
                                     </span>
                                 )}
                             </div>
                             <div className="rounded-2xl p-3.5 border border-emerald-500/20 bg-emerald-500/10 flex items-center justify-between">
                                 <div>
-                                    <span className="text-[9px] font-bold text-emerald-400/80 uppercase tracking-wider block mb-1">Your GW Rank</span>
+                                    <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400/80 uppercase tracking-wider block mb-1">Your GW Rank</span>
                                     <div className="flex items-center gap-2">
-                                        <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-black text-xs border border-emerald-500/30">
+                                        <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-black text-xs border border-emerald-500/30">
                                             {rank ? `#${rank}` : '--'}
                                         </span>
-                                        <span className="font-bold text-sm text-white">{currentUser?.displayName?.split(' ')[0] || 'You'}</span>
+                                        <span className="font-bold text-sm text-slate-900 dark:text-white">{currentUser?.displayName?.split(' ')[0] || 'You'}</span>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-2xl font-black text-white tabular-nums">{myPoints}</span>
-                                    <span className="text-[9px] text-gray-400 uppercase block font-bold">GW Pts</span>
+                                    <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{myPoints}</span>
+                                    <span className="text-[9px] text-slate-500 dark:text-gray-400 uppercase block font-bold">GW Pts</span>
                                 </div>
                             </div>
                             {(activeChampion || gwWinner) && (currentFplEvent?.finished || latestApprovedPayout) && (
-                                <div className="flex items-center justify-between pt-3 border-t border-white/5 text-xs mt-3">
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-white/5 text-xs mt-3">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">GW{activeChampion?.event || currentFplEvent?.id || 5} Pot Winner</span>
-                                        <span className="text-amber-300 font-bold flex items-center gap-1 text-xs">
+                                        <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">GW{activeChampion?.event || currentFplEvent?.id || 5} Pot Winner</span>
+                                        <span className="text-amber-600 dark:text-amber-300 font-bold flex items-center gap-1 text-xs">
                                             🥇 {(activeChampion || gwWinner).player_name?.split(' ')[0] || 'Winner'}
                                         </span>
                                     </div>
-                                    <span className="text-xs font-black text-white">{(activeChampion || gwWinner).event_total} pts</span>
+                                    <span className="text-xs font-black text-slate-900 dark:text-white">{(activeChampion || gwWinner).event_total} pts</span>
                                 </div>
                             )}
                             <button
                                 type="button"
                                 onClick={() => navigate('/standings')}
-                                className="w-full mt-2.5 pt-2.5 border-t border-white/5 text-[10px] font-black uppercase tracking-wider text-gray-400 hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                className="w-full mt-2.5 pt-2.5 border-t border-slate-200 dark:border-white/5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                             >
                                 <span>View Full Standings →</span>
                             </button>
@@ -2532,13 +2511,13 @@ export default function MemberDashboard() {
 
                 {/* ── Gameweek Winners Ledger (Synced with Standings) ── */}
                 {gwWinnersLedger && gwWinnersLedger.length > 0 && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 mb-3 shadow-xl">
+                    <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-4 md:p-5 mb-3 shadow-md dark:shadow-xl text-slate-900 dark:text-white">
                         <div className="flex items-center justify-between gap-3 mb-3">
                             <div>
-                                <h3 className="text-xs md:text-sm font-black text-white tracking-tight flex items-center gap-2">
-                                    <Trophy className="w-3.5 h-3.5 text-[#FBBF24]" /> Gameweek Winners Ledger
+                                <h3 className="text-xs md:text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                                    <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-[#FBBF24]" /> Gameweek Winners Ledger
                                 </h3>
-                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">Historical payouts and scheduled rounds</p>
+                                <p className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">Historical payouts and scheduled rounds</p>
                             </div>
                             <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
                                 Kickoff GW{effectiveMdStartGw}
@@ -2630,82 +2609,41 @@ export default function MemberDashboard() {
                     </div>
                 )}
 
-                {/* ── Master Invite Code Display Card (Electric Yellow in Dark & Stealth Mode) ── */}
-                {Boolean(leagueInviteCode || (leagueSettings as any)?.inviteCode) && (
-                    <div className="fc-card bg-[#161d24] border border-white/5 rounded-2xl p-4 md:p-5 mb-3 shadow-xl relative overflow-hidden">
-                        <div className="flex items-center justify-between gap-3 mb-3 relative z-10">
-                            <div className="flex items-center gap-2">
-                                <span className="text-base">🔑</span>
-                                <div>
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-amber-500 dark:text-[#FBBF24]">Master Invite Code</h4>
-                                    <p className="text-[10px] text-gray-400 font-medium">Invite new members directly to {leagueName}</p>
-                                </div>
-                            </div>
-                            <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[9px] uppercase font-bold tracking-widest rounded border border-amber-500/20">Active</span>
-                        </div>
-                        <div className="text-center py-2.5 bg-black/40 rounded-xl border border-white/5 mb-3 relative z-10">
-                            <span
-                                className="fc-master-invite-code text-3xl sm:text-4xl font-black tracking-widest block select-all !text-[#FBBF24]"
-                                style={{
-                                    color: '#FBBF24',
-                                    WebkitTextFillColor: '#FBBF24',
-                                    textShadow: '0 2px 20px rgba(251,191,36,0.45)',
-                                }}
-                            >
-                                {leagueInviteCode || (leagueSettings as any)?.inviteCode}
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2.5 relative z-10">
-                            <button
-                                onClick={handleCopyInviteCode}
-                                className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 text-xs transition-colors cursor-pointer active:scale-95"
-                            >
-                                <Copy className="w-3.5 h-3.5 text-gray-400" /> Copy Code
-                            </button>
-                            <button
-                                onClick={handleShareInviteCode}
-                                className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold rounded-xl shadow-[0_0_15px_rgba(37,211,102,0.25)] text-xs transition-colors cursor-pointer active:scale-95"
-                            >
-                                <Share2 className="w-3.5 h-3.5" /> Share WhatsApp
-                            </button>
-                        </div>
-                    </div>
-                )}
-
+                {/* ── Two Teams Setup Guide (Only shown if member actually has dual teams and hasn't dismissed it) ── */}
                 {showLeagueGuide && (
-                    <div className="rounded-2xl border border-[#10B981]/30 bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300 mb-3">
+                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-[#10B981]/10 px-4 py-3.5 animate-in fade-in slide-in-from-top-1 duration-300 mb-3 shadow-xs">
                         <div className="flex items-center justify-between gap-3 mb-2">
                             <div className="flex items-center gap-2">
-                                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#10B981]">Two Teams Setup</p>
+                                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-[#10B981]" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-[#10B981]">Two Teams Setup</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={dismissLeagueGuide}
-                                className="text-[10px] font-black uppercase tracking-widest text-[#10B981] hover:text-emerald-300 cursor-pointer"
+                                className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-[#10B981] hover:text-emerald-500 cursor-pointer"
                             >
                                 Dismiss
                             </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">League Context</p>
-                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
-                                    You are in <span className="font-black text-white">{userLeagueCount}</span> league{userLeagueCount > 1 ? 's' : ''}. Use the top switcher to choose which wallet and approvals you are viewing.
+                            <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-slate-500 dark:text-gray-400 font-black">League Context</p>
+                                <p className="text-[11px] text-slate-700 dark:text-gray-200 mt-1 leading-relaxed">
+                                    You are in <span className="font-black text-slate-900 dark:text-white">{userLeagueCount}</span> league{userLeagueCount > 1 ? 's' : ''}. Use the top switcher to choose which wallet and approvals you are viewing.
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Team Eligibility</p>
-                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
+                            <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-slate-500 dark:text-gray-400 font-black">Team Eligibility</p>
+                                <p className="text-[11px] text-slate-700 dark:text-gray-200 mt-1 leading-relaxed">
                                     {hasDualTeam
                                         ? 'Your second FPL team is active for this league, and both teams can independently win a gameweek.'
                                         : 'Only one FPL team is attached to your profile here. Add a second team from profile if your chairman allows dual mode.'}
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-2.5">
-                                <p className="text-[9px] uppercase tracking-widest text-gray-500 font-black">Your Access</p>
-                                <p className="text-[11px] text-gray-200 mt-1 leading-relaxed">
-                                    Active role in this league: <span className="font-black text-[#FBBF24] capitalize">{activeLeagueRole}</span>.
+                            <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-black/20 p-2.5">
+                                <p className="text-[9px] uppercase tracking-widest text-slate-500 dark:text-gray-400 font-black">Your Access</p>
+                                <p className="text-[11px] text-slate-700 dark:text-gray-200 mt-1 leading-relaxed">
+                                    Active role in this league: <span className="font-black text-amber-600 dark:text-[#FBBF24] capitalize">{activeLeagueRole}</span>.
                                     {activeLeagueRole === 'admin' || activeLeagueRole === 'co-chair' ? ' You can approve governance actions tied to this circle.' : ' Governance actions stay read-only in member mode.'}
                                 </p>
                             </div>
@@ -2911,11 +2849,11 @@ export default function MemberDashboard() {
                     {currentUser && (
                         <div className={clsx(
                             "fc-member-status-card",
-                            "w-full rounded-[1.5rem] p-5 border relative overflow-hidden shadow-xl border-white/5 shadow-black/50 flex flex-col justify-between",
-                            isRecentWinner ? "bg-[#1c272c] border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
-                                (isCurrentGwVoided ? "bg-amber-500/5 border-amber-500/20" :
-                                    (isSpectator ? "bg-indigo-500/5 border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.08)]" :
-                                        (isCurrentFunded ? "bg-[#10B981]/5 border-[#10B981]/20" : "bg-red-500/5 border-red-500/20")))
+                            "w-full rounded-[1.5rem] p-5 border relative overflow-hidden shadow-md dark:shadow-xl flex flex-col justify-between",
+                            isRecentWinner ? "bg-amber-500/5 dark:bg-[#1c272c] border-amber-400/40 dark:border-[#FBBF24]/50 shadow-[0_0_30px_rgba(251,191,36,0.12)]" :
+                                (isCurrentGwVoided ? "bg-amber-500/5 dark:bg-amber-500/5 border-amber-500/20" :
+                                    (isSpectator ? "bg-indigo-50 dark:bg-indigo-500/5 border-indigo-200 dark:border-indigo-500/20 shadow-[0_0_30px_rgba(99,102,241,0.08)]" :
+                                        (isCurrentFunded ? "bg-white dark:bg-[#121920] border-emerald-500/25 dark:border-[#10B981]/20" : "bg-white dark:bg-[#121920] border-red-400/25 dark:border-red-500/20")))
                         )}>
                             {isRecentWinner && (
                                 <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-[#FBBF24] to-transparent" />
@@ -2924,19 +2862,19 @@ export default function MemberDashboard() {
                                 {/* Status Label */}
                                 <span className={clsx(
                                     "text-[10px] font-bold tracking-widest uppercase flex items-center gap-1.5 mb-2",
-                                    isRecentWinner ? "text-[#FBBF24]" :
-                                        (isCurrentGwVoided ? "text-amber-400" :
-                                            (isSpectator ? "text-indigo-400" : (isCurrentFunded ? "text-[#10B981]" : "text-red-400")))
+                                    isRecentWinner ? "text-amber-600 dark:text-[#FBBF24]" :
+                                        (isCurrentGwVoided ? "text-amber-600 dark:text-amber-400" :
+                                            (isSpectator ? "text-indigo-600 dark:text-indigo-400" : (isCurrentFunded ? "text-emerald-700 dark:text-[#10B981]" : "text-rose-600 dark:text-red-400")))
                                 )}>
                                     <span className={clsx(
                                         "w-1.5 h-1.5 rounded-full animate-pulse",
-                                        isRecentWinner ? "bg-[#FBBF24]" :
-                                            (isCurrentGwVoided ? "bg-amber-400" :
-                                                (isSpectator ? "bg-indigo-400" : (isCurrentFunded ? "bg-[#10B981]" : "bg-red-500")))
+                                        isRecentWinner ? "bg-amber-500 dark:bg-[#FBBF24]" :
+                                            (isCurrentGwVoided ? "bg-amber-500 dark:bg-amber-400" :
+                                                (isSpectator ? "bg-indigo-500 dark:bg-indigo-400" : (isCurrentFunded ? "bg-emerald-500 dark:bg-[#10B981]" : "bg-red-500")))
                                     )} />
                                     {isSpectator ? "Spectator & Side-Bets Active" : (isTargetGwUpcoming ? `Upcoming GW${activeFundingGw} Status` : "Your Gameweek Status")}
                                 </span>
-                                <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-[#FBBF24]" : (isSpectator ? "text-indigo-300" : "text-white"))}>
+                                <h3 className={clsx("text-xl font-black tracking-tight mb-1.5", isRecentWinner ? "text-amber-600 dark:text-[#FBBF24]" : (isSpectator ? "text-indigo-700 dark:text-indigo-300" : "text-slate-900 dark:text-white"))}>
                                     {isRecentWinner
                                         ? "Champion of the Week 🏆"
                                         : (isCurrentGwVoided
@@ -2945,7 +2883,7 @@ export default function MemberDashboard() {
                                                 ? "Spectator & Side-Bets Only"
                                                 : (isCurrentFunded ? "Verified & Active" : (isTargetGwUpcoming ? `GW${activeFundingGw} Deposit Due` : "Action Required"))))}
                                 </h3>
-                                <p className="text-xs text-gray-400 leading-relaxed mb-3">
+                                <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed mb-3">
                                     {isRecentWinner
                                         ? "Incredible! You secured the highest points this GW. Payout processing."
                                         : (isCurrentGwVoided
@@ -2963,23 +2901,23 @@ export default function MemberDashboard() {
 
                                 {/* Wallet coverage info pill */}
                                 {!isSpectator && !isCurrentGwVoided && (
-                                    <div className="bg-black/30 rounded-xl p-3 border border-white/5 space-y-1 mb-3">
+                                    <div className="bg-slate-50 dark:bg-black/30 rounded-xl p-3 border border-slate-200 dark:border-white/5 space-y-1 mb-3">
                                         <div className="flex items-center justify-between text-[11px]">
-                                            <span className="text-gray-400 font-medium">Gameweek Stake</span>
-                                            <span className="font-bold text-white tabular-nums">
+                                            <span className="text-slate-500 dark:text-gray-400 font-medium">Gameweek Stake</span>
+                                            <span className="font-bold text-slate-900 dark:text-white tabular-nums">
                                                 KES {gameweekStake.toLocaleString()}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between text-xs font-semibold">
-                                            <span className="text-gray-300">
+                                            <span className="text-slate-700 dark:text-gray-300">
                                                 {isCurrentFunded ? `Secured: KES ${gameweekStake.toLocaleString()}` : `Due: KES ${gameweekStake.toLocaleString()}`}
                                             </span>
-                                            <span className="text-gray-400 text-[11px]">
-                                                Wallet: <strong className="text-white">KES {animatedWalletBalance.toLocaleString()}</strong>
+                                            <span className="text-slate-500 dark:text-gray-400 text-[11px]">
+                                                Wallet: <strong className="text-slate-900 dark:text-white">KES {animatedWalletBalance.toLocaleString()}</strong>
                                             </span>
                                         </div>
                                         {gameweekStake > 0 && walletBalance >= gameweekStake && (
-                                            <p className="text-[10px] text-emerald-400/90 font-medium">
+                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400/90 font-medium">
                                                 {isTargetGwUpcoming && walletBalance >= 2 * gameweekStake ? (
                                                     `Auto-covers ${Math.floor(walletBalance / gameweekStake) - 1} upcoming round${Math.floor(walletBalance / gameweekStake) - 1 > 1 ? 's' : ''} (GW${activeFundingGw} → GW${activeFundingGw + Math.floor(walletBalance / gameweekStake) - 2})`
                                                 ) : !isTargetGwUpcoming ? (
@@ -3018,37 +2956,37 @@ export default function MemberDashboard() {
                             ) : !isCurrentFunded && !isCurrentGwVoided ? (
                                 <div className="flex flex-col gap-2 mt-auto">
                                     <div className="flex items-baseline justify-center gap-1.5 mb-2 mt-1">
-                                        <span className="text-3xl font-black text-white tracking-tight tabular-nums">
+                                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight tabular-nums">
                                             {gameweekStake.toLocaleString()}
                                         </span>
-                                        <span className="text-white text-xs font-bold tracking-widest uppercase">KES</span>
+                                        <span className="text-slate-500 dark:text-gray-400 text-xs font-bold tracking-widest uppercase">KES</span>
                                     </div>
                                     <button
                                         onClick={() => {
                                             setShowPochiInstructions(!showPochiInstructions);
                                             haptics.selection();
                                         }}
-                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
+                                        className="w-full px-4 py-2.5 rounded-xl font-bold text-sm bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
                                     >
                                         <Banknote className="w-5 h-5 group-hover:-rotate-6 transition-transform" />
                                         Pay via Pochi La Biashara
                                     </button>
 
                                     {showPochiInstructions && (
-                                        <div className="bg-[#141a21] border border-[#FBBF24]/30 rounded-2xl p-4 text-left animate-in fade-in zoom-in-95 duration-200 mt-2 shadow-2xl space-y-3.5">
-                                            <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
-                                                <p className="text-[11px] font-black text-[#FBBF24] uppercase tracking-widest flex items-center gap-1.5">
-                                                    <Smartphone className="w-3.5 h-3.5 text-[#FBBF24]" /> Pochi La Biashara
+                                        <div className="bg-white dark:bg-[#141a21] border border-amber-500/30 dark:border-[#FBBF24]/30 rounded-2xl p-4 text-left animate-in fade-in zoom-in-95 duration-200 mt-2 shadow-2xl space-y-3.5 text-slate-900 dark:text-white">
+                                            <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-white/5 pb-2">
+                                                <p className="text-[11px] font-black text-amber-600 dark:text-[#FBBF24] uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Smartphone className="w-3.5 h-3.5 text-amber-500 dark:text-[#FBBF24]" /> Pochi La Biashara
                                                 </p>
-                                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                                                     Direct Transfer
                                                 </span>
                                             </div>
 
                                             {/* Highlighted Pastable / Hold to copy number box */}
-                                            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 flex items-center justify-between gap-3 shadow-inner">
+                                            <div className="rounded-xl border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 p-3 flex items-center justify-between gap-3 shadow-inner">
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[9px] font-black uppercase tracking-wider text-emerald-400 mb-0.5">
+                                                    <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-0.5">
                                                         Chairman Pochi # (Tap / Hold to copy)
                                                     </p>
                                                     <input
@@ -3057,7 +2995,7 @@ export default function MemberDashboard() {
                                                         value={payoutDestinationPhone}
                                                         onClick={handleCopyPochiNumber}
                                                         title="Tap to copy or long press to select"
-                                                        className="w-full bg-transparent text-lg sm:text-xl font-black text-white font-mono tracking-wider select-all cursor-pointer focus:outline-hidden p-0 border-none m-0"
+                                                        className="w-full bg-transparent text-lg sm:text-xl font-black text-slate-900 dark:text-white font-mono tracking-wider select-all cursor-pointer focus:outline-hidden p-0 border-none m-0"
                                                     />
                                                 </div>
                                                 <button
@@ -3066,8 +3004,8 @@ export default function MemberDashboard() {
                                                     className={clsx(
                                                         "px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95 shadow-md",
                                                         copiedPochi
-                                                            ? "bg-emerald-400 text-black border border-emerald-300 font-extrabold"
-                                                            : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40"
+                                                            ? "bg-emerald-500 text-white font-extrabold"
+                                                            : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40"
                                                     )}
                                                 >
                                                     {copiedPochi ? <><Check className="w-3.5 h-3.5" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
@@ -3075,12 +3013,12 @@ export default function MemberDashboard() {
                                             </div>
 
                                             {/* Simple Step Directions */}
-                                            <div className="rounded-xl bg-black/30 border border-white/5 p-3">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Instructions</p>
-                                                <ol className="text-xs text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-amber-400/80 marker:font-bold">
+                                            <div className="rounded-xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/5 p-3">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Instructions</p>
+                                                <ol className="text-xs text-slate-700 dark:text-gray-300 space-y-1.5 pl-4 list-decimal marker:text-amber-500 dark:marker:text-amber-400/80 marker:font-bold">
                                                     <li>Go to M-Pesa Menu &gt; <strong>Pochi La Biashara</strong></li>
-                                                    <li>Paste/Enter Number: <strong className="text-white font-mono select-all">{payoutDestinationPhone}</strong></li>
-                                                    <li>Amount: <strong className="text-emerald-400">KES {gameweekStake.toLocaleString()}</strong></li>
+                                                    <li>Paste/Enter Number: <strong className="text-slate-900 dark:text-white font-mono select-all">{payoutDestinationPhone}</strong></li>
+                                                    <li>Amount: <strong className="text-emerald-600 dark:text-emerald-400">KES {gameweekStake.toLocaleString()}</strong></li>
                                                     <li>Enter M-Pesa PIN &amp; confirm</li>
                                                 </ol>
                                             </div>
