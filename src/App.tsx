@@ -93,7 +93,10 @@ const RouteLoader = () => (
 // Renders the correct dashboard based on role — used inside the AppLayout
 const DashboardRenderer = () => {
   const role = useStore(state => state.role);
-  const activeLeagueId = useStore(state => state.activeLeagueId) || localStorage.getItem('activeLeagueId') || 'default';
+  const activeLeagueId = useStore(state => state.activeLeagueId) || localStorage.getItem('activeLeagueId');
+  if (!role || !activeLeagueId) {
+    return <RouteLoader />;
+  }
   return role === 'admin' ? <AdminCommandCenter key={`admin-${activeLeagueId}`} /> : <MemberDashboard key={`member-${activeLeagueId}`} />;
 };
 

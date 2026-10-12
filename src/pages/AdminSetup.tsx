@@ -213,16 +213,22 @@ export default function AdminSetup() {
     // Multi-tier FPL league and standings fetcher with fallback proxies
     const fetchFplLeagueData = async (inputStr: string) => {
         if (!inputStr) return;
-        let numericId = inputStr.trim();
-        const match = numericId.match(/leagues\/(\d+)/) || numericId.match(/(\d{4,9})/);
-        if (match && match[1]) {
-            numericId = match[1];
-        } else {
-            numericId = numericId.replace(/[^0-9]/g, '');
+        const cleanInput = inputStr.trim();
+        if (cleanInput.includes('auto-join')) {
+            setFplFetchStatus('error');
+            toast.error(
+                'That is an FPL invite link (auto-join). Please enter your numeric League ID from your standings URL (e.g. 123456)',
+                { duration: 6000 }
+            );
+            return;
         }
 
+        const match = cleanInput.match(/leagues\/(\d+)/) || cleanInput.match(/(\d{4,9})/);
+        let numericId = match && match[1] ? match[1] : cleanInput.replace(/[^0-9]/g, '');
+
         if (numericId.length < 4) {
-            setFplFetchStatus('idle');
+            setFplFetchStatus('error');
+            toast.error('Please enter a valid numeric FPL League ID (e.g. 123456 or paste standings link)');
             return;
         }
 
@@ -369,14 +375,14 @@ export default function AdminSetup() {
         : getPresetDistribution(effectiveSeasonWinnersCount);
 
     const totalMonthlyPool = monthlyFee * normalizedEstimatedMembers;
-    // Pilot phase calculation: Only M-Pesa transaction fees (1.5%) are deducted for payouts.
-    // Platform fee (5%) and Chairman kickback (3.5%) are configured but temporarily waived for pilot.
+    // Pilot phase calculation: 100% of member contributions go directly to weekly pots & season vault!
+    // Platform fee (5%) and Chairman kickback (3.5%) code is preserved but waived during pilot.
     const isPilotPhase = true;
     const chairmanCut = isPilotPhase ? 0 : Math.round(totalMonthlyPool * 0.035);
-    const mpesaFee = Math.round(totalMonthlyPool * 0.015);
+    const mpesaFee = isPilotPhase ? 0 : Math.round(totalMonthlyPool * 0.015);
     const platformCut = isPilotPhase ? 0 : Math.round(totalMonthlyPool * 0.05);
     const escrowFee = chairmanCut + mpesaFee + platformCut;
-    const netPool = totalMonthlyPool - escrowFee;
+    const netPool = isPilotPhase ? totalMonthlyPool : (totalMonthlyPool - escrowFee);
 
     const weeklyPrize = Math.round(netPool * (weeklyPrizePercent / 100));
     const grandVault = netPool - weeklyPrize;
@@ -1303,7 +1309,7 @@ export default function AdminSetup() {
                         <div className="bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4 space-y-2.5">
                             <div className="flex items-center justify-between">
                                 <label className="block text-[10px] md:text-xs font-black text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                                    <span>Paste FPL League Link or ID (Recommended)</span>
+                                    <span>Paste FPL League Standings Link or Numeric ID (Recommended)</span>
                                 </label>
                                 <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">1-Click Auto-Fill</span>
                             </div>
@@ -1312,24 +1318,37 @@ export default function AdminSetup() {
                                     type="text"
                                     value={fplLeagueId}
                                     onChange={e => {
-                                        let val = e.target.value.trim();
-                                        const match = val.match(/leagues\/(\d+)/) || val.match(/(\d{4,9})/);
-                                        if (match && match[1]) {
-                                            val = match[1];
+                                        const raw = e.target.value.trim();
+                                        if (raw.includes('auto-join')) {
+                                            toast.error(
+                                                'That is an FPL invite link (auto-join). Please enter your numeric League ID from your standings URL (e.g. 123456)',
+                                                { duration: 6000 }
+                                            );
+                                            return;
                                         }
-                                        setFplLeagueId(val);
-                                        if (val.replace(/[^0-9]/g, '').length >= 4) {
-                                            fetchFplLeagueData(val);
+                                        const match = raw.match(/leagues\/(\d+)/) || raw.match(/(\d{4,9})/);
+                                        const numericVal = match && match[1] ? match[1] : raw.replace(/[^0-9]/g, '');
+                                        setFplLeagueId(numericVal);
+                                        if (numericVal.length >= 4) {
+                                            fetchFplLeagueData(numericVal);
                                         }
                                     }}
                                     onPaste={e => {
                                         const pasted = e.clipboardData.getData('text');
                                         if (pasted) {
+                                            if (pasted.includes('auto-join')) {
+                                                e.preventDefault();
+                                                toast.error(
+                                                    'That is an FPL invite link (auto-join). Please enter your numeric League ID from your standings URL (e.g. 123456)',
+                                                    { duration: 6000 }
+                                                );
+                                                return;
+                                            }
                                             setTimeout(() => fetchFplLeagueData(pasted), 50);
                                         }
                                     }}
                                     className={clsx(inputClasses, "flex-1")}
-                                    placeholder="e.g. https://fantasy.premierleague.com/leagues/2205131/standings/c or 2205131"
+                                    placeholder="e.g. 123456 or https://fantasy.premierleague.com/leagues/123456/standings"
                                 />
                                 <button
                                     type="button"
@@ -1668,18 +1687,6 @@ export default function AdminSetup() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* Bottom Metric Pills for Split */}
-                        <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/5">
-                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-3 border-l-2 border-l-[#22c55e]">
-                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Weekly Payout</p>
-                                <h4 className="text-lg font-bold text-white tabular-nums">KES {weeklyPrize.toLocaleString()}</h4>
-                            </div>
-                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-3 border-l-2 border-l-[#FBBF24]">
-                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-0.5">Grand Vault</p>
-                                <h4 className="text-lg font-bold text-white tabular-nums">KES {grandVault.toLocaleString()}</h4>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Right Card: Pot Totals Live Preview with Next Action */}
@@ -1694,35 +1701,39 @@ export default function AdminSetup() {
                                     </div>
                                 </div>
                                 <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                                    Pilot Phase
+                                    Pilot: 100% to Pots
                                 </span>
                             </div>
 
                             {/* Pot Cards Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                                <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5">
+                                <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5 border-l-2 border-l-[#22c55e]">
                                     <div className="w-9 h-9 rounded-xl bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center shrink-0">
                                         <Trophy className="w-4 h-4 text-[#22c55e]" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Est. Weekly Pot</p>
+                                        <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Weekly Pot / Round</p>
                                         <h4 className="text-lg font-black text-white tabular-nums tracking-tight">KES {weeklyPrize.toLocaleString()}</h4>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5">
+                                <div className="flex items-center gap-3 bg-[#161d24] p-3.5 rounded-xl border border-white/5 border-l-2 border-l-[#FBBF24]">
                                     <div className="w-9 h-9 rounded-xl bg-[#FBBF24]/15 border border-[#FBBF24]/30 flex items-center justify-center shrink-0">
                                         <Shield className="w-4 h-4 text-[#FBBF24]" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Est. Season Vault</p>
+                                        <p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Full Season Vault</p>
                                         <h4 className="text-lg font-black text-[#FBBF24] tabular-nums tracking-tight">KES {(grandVault * 38).toLocaleString()}</h4>
+                                        <p className="text-[9px] text-gray-500 font-mono">KES {grandVault.toLocaleString()}/GW × 38 GWs</p>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Season Projections List */}
                             <div className="pt-3 border-t border-white/5 space-y-2">
-                                <h4 className="text-[10px] uppercase tracking-widest font-black text-gray-400">Season Podium Allocations</h4>
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-[10px] uppercase tracking-widest font-black text-gray-400">Season Podium Allocations</h4>
+                                    <span className="text-[9px] text-amber-400 font-mono font-bold">From KES {(grandVault * 38).toLocaleString()} Vault</span>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {effectiveSeasonDistribution.map((percent, idx) => (
                                         <div key={idx} className="flex justify-between items-center bg-[#161d24]/60 px-3 py-2 rounded-xl border border-white/5 text-xs">
@@ -1730,34 +1741,19 @@ export default function AdminSetup() {
                                                 <span className={clsx("min-w-[24px] text-center inline-block font-black px-1.5 py-0.5 rounded text-[10px]", idx === 0 ? "bg-[#FBBF24]/20 text-[#FBBF24]" : "bg-white/10 text-gray-400")}>#{idx + 1}</span>
                                                 {idx === 0 ? 'Champion' : `Tier ${idx + 1}`}
                                             </span>
-                                            <span className="font-black tabular-nums text-white">KES {((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[9px] text-gray-400 font-normal">({percent}%)</span></span>
+                                            <span className="font-black tabular-nums text-white">KES {Math.round((grandVault * 38) * (percent / 100)).toLocaleString()} <span className="text-[9px] text-gray-400 font-normal">({percent}%)</span></span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Transparent Pilot Fee Breakdown */}
-                            <div className="mt-4 pt-3 border-t border-white/5 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <h4 className="text-[10px] uppercase tracking-widest font-black text-gray-400 flex items-center gap-1.5">
-                                        <Shield className="w-3 h-3 text-emerald-400" /> Transparent Fee Structure
-                                    </h4>
-                                    <span className="text-[9px] font-mono text-emerald-400 font-bold">Pilot: 98.5% Net to Members</span>
+                            {/* Pilot Guarantee Note (Zero Platform Fees during Pilot) */}
+                            <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    <span className="text-[10px] text-emerald-300 font-bold">Pilot Guarantee: 100% of member money directly funds cash pots</span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
-                                        <p className="text-[9px] text-emerald-300 font-bold uppercase">Net Pot</p>
-                                        <p className="text-sm font-black text-emerald-400">98.5%</p>
-                                    </div>
-                                    <div className="p-2 rounded-xl bg-[#161d24] border border-white/5">
-                                        <p className="text-[9px] text-gray-400 font-bold uppercase">M-Pesa API</p>
-                                        <p className="text-sm font-black text-white">1.5%</p>
-                                    </div>
-                                    <div className="p-2 rounded-xl bg-white/[0.02] border border-white/5">
-                                        <p className="text-[9px] text-gray-500 font-bold uppercase">Platform/Kickback</p>
-                                        <p className="text-sm font-black text-gray-400">0% (Waived)</p>
-                                    </div>
-                                </div>
+                                <span className="text-[9px] text-emerald-400 font-black font-mono">0% Fees Waived</span>
                             </div>
                         </div>
 
@@ -1800,16 +1796,20 @@ export default function AdminSetup() {
             <div className="max-w-4xl mx-auto bg-[#151c18] border border-white/5 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3.5">
                 <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
                     <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center justify-center shrink-0">1</span>
-                        <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Chairman Squad Claim & Account</h3>
+                        <span className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black flex items-center justify-center shrink-0">1</span>
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Chairman Account & Signatory</h3>
                     </div>
                     {chairmanFplSquad ? (
                         <span className="text-[10px] text-[#10B981] font-semibold bg-[#10B981]/15 border border-[#10B981]/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                            <Check className="w-3 h-3 text-[#10B981]" /> Squad Linked
+                            <Check className="w-3 h-3 text-[#10B981]" /> Squad Linked: {chairmanFplSquad.entryName}
                         </span>
-                    ) : (
+                    ) : fplStandings.length > 0 ? (
                         <span className="text-[10px] text-[#FBBF24] font-semibold bg-[#FBBF24]/15 border border-[#FBBF24]/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
                             ⚠️ Select Your Squad
+                        </span>
+                    ) : (
+                        <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                            👑 Primary Admin
                         </span>
                     )}
                 </div>
@@ -1819,7 +1819,9 @@ export default function AdminSetup() {
                     "p-3.5 sm:p-4 rounded-xl border transition-all space-y-3",
                     chairmanFplSquad
                         ? "bg-[#10B981]/10 border-[#10B981]/30"
-                        : "bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                        : fplStandings.length > 0
+                        ? "bg-amber-500/10 border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                        : "bg-[#161d24]/90 border-white/10"
                 )}>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -1828,41 +1830,50 @@ export default function AdminSetup() {
                                 <div className="flex items-center gap-2">
                                     <p className="font-semibold text-sm text-white leading-tight">{effectiveManagerName}</p>
                                     <span className="text-[9px] font-semibold text-[#FBBF24] uppercase tracking-wider px-2 py-0.5 bg-[#FBBF24]/20 border border-[#FBBF24]/30 rounded">
-                                        👑 League Admin
+                                        👑 League Chairman
                                     </span>
                                 </div>
                                 <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                                    {chairmanPayoutPhone || phone || "Phone on file"} · Phone Number Locked
+                                    {chairmanPayoutPhone || phone || "07..."} · Treasury Signatory Phone Locked
                                 </p>
                             </div>
                         </div>
 
-                        {/* Prominent Selector Dropdown */}
-                        <div className="w-full md:w-80 shrink-0 space-y-1">
-                            <label className="block text-[11px] font-semibold text-amber-300 uppercase tracking-wider">
-                                {chairmanFplSquad ? `Linked Squad (${effectiveManagerName})` : "👉 Which of these squads is yours?"}
-                            </label>
-                            <div className="relative">
-                                <select
-                                    value={chairmanFplSquad?.entry || ''}
-                                    onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
-                                    className={clsx(
-                                        "w-full appearance-none rounded-xl py-2.5 pl-3.5 pr-10 text-xs focus:outline-none cursor-pointer font-semibold border transition-all shadow-sm",
-                                        chairmanFplSquad
-                                            ? "bg-white dark:bg-[#111820] border-emerald-500/50 dark:border-[#10B981]/50 text-gray-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                                            : "bg-white dark:bg-[#111820] border-amber-500 dark:border-[#FBBF24] text-gray-900 dark:text-white focus:border-amber-500 ring-2 ring-amber-500/20"
-                                    )}
-                                >
-                                    <option value="" className="bg-white dark:bg-[#0f1720] text-gray-700 dark:text-gray-300 py-1.5 font-medium">🛡️ Pure Admin (Non-Playing, no squad)</option>
-                                    {fplStandings.map((s) => (
-                                        <option key={s.entry} value={s.entry} className="bg-white dark:bg-[#0f1720] text-gray-900 dark:text-white py-1.5 font-medium">
-                                            ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                        {fplStandings.length > 0 ? (
+                            /* Prominent Selector Dropdown */
+                            <div className="w-full md:w-80 shrink-0 space-y-1">
+                                <label className="block text-[11px] font-semibold text-amber-300 uppercase tracking-wider">
+                                    {chairmanFplSquad ? `Linked Squad (${effectiveManagerName})` : "👉 Which of these squads is yours?"}
+                                </label>
+                                <div className="relative">
+                                    <select
+                                        value={chairmanFplSquad?.entry || ''}
+                                        onChange={(e) => handleSelectChairmanSquad(e.target.value ? Number(e.target.value) : null)}
+                                        className={clsx(
+                                            "w-full appearance-none rounded-xl py-2.5 pl-3.5 pr-10 text-xs focus:outline-none cursor-pointer font-semibold border transition-all shadow-sm",
+                                            chairmanFplSquad
+                                                ? "bg-white dark:bg-[#111820] border-emerald-500/50 dark:border-[#10B981]/50 text-gray-900 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                                                : "bg-white dark:bg-[#111820] border-amber-500 dark:border-[#FBBF24] text-gray-900 dark:text-white focus:border-amber-500 ring-2 ring-amber-500/20"
+                                        )}
+                                    >
+                                        <option value="" className="bg-white dark:bg-[#0f1720] text-gray-700 dark:text-gray-300 py-1.5 font-medium">🛡️ Pure Admin (Non-Playing, no squad)</option>
+                                        {fplStandings.map((s) => (
+                                            <option key={s.entry} value={s.entry} className="bg-white dark:bg-[#0f1720] text-gray-900 dark:text-white py-1.5 font-medium">
+                                                ⚽ {s.entry_name} — {s.player_name} (#{s.entry})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="text-right shrink-0">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                                    Non-Playing / Self-Onboarding
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {chairmanFplSquad ? (
@@ -1879,9 +1890,13 @@ export default function AdminSetup() {
                                 Switch to Non-Playing
                             </button>
                         </div>
-                    ) : (
+                    ) : fplStandings.length > 0 ? (
                         <p className="text-[11px] text-gray-300 leading-tight">
                             💡 <strong>Team Selection:</strong> If you manage one of the imported squads, select it above so your gameweek points and payouts are tracked automatically. If you only administer the league without a team, leave it as <em>Pure Admin</em>.
+                        </p>
+                    ) : (
+                        <p className="text-[11px] text-gray-400 leading-tight">
+                            💡 <strong>FPL Squad Sync:</strong> If you have an FPL league numeric ID, you can sync teams below. Otherwise, proceed with <strong>Self-Onboarding</strong> so your friends claim their teams via your WhatsApp invite link!
                         </p>
                     )}
                 </div>
@@ -2186,21 +2201,21 @@ export default function AdminSetup() {
                     })}
 
                     {members.length === 0 && (
-                        <div className="text-center py-8 px-4 border border-dashed border-white/15 bg-white/[0.02] rounded-2xl space-y-4">
+                        <div className="text-center py-6 px-4 border border-dashed border-white/15 bg-white/[0.02] rounded-2xl space-y-3.5">
                             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
                                 <Users className="w-6 h-6" />
                             </div>
                             <div>
                                 <p className="text-base font-bold text-white">
-                                    {fplLeagueId ? `Sync Squads from FPL League #${fplLeagueId}` : "No Members Added Yet"}
+                                    {fplLeagueId && /^\d+$/.test(fplLeagueId) ? `Sync Squads from FPL League #${fplLeagueId}` : "Squads Not Synced Yet"}
                                 </p>
                                 <p className="text-xs text-gray-400 max-w-md mx-auto mt-1">
-                                    {fplLeagueId
-                                        ? "Click below to immediately connect to Premier League servers and pull all manager squads into this circle."
-                                        : "Paste your FPL league link in Step 2, or add members manually using the button above."}
+                                    {fplLeagueId && /^\d+$/.test(fplLeagueId)
+                                        ? "Connect to Premier League servers and pull all manager squads into this circle."
+                                        : "Enter your numeric FPL League ID below to import all squads, or proceed with Self-Onboarding."}
                                 </p>
                             </div>
-                            {fplLeagueId && (
+                            {fplLeagueId && /^\d+$/.test(fplLeagueId) ? (
                                 <button
                                     type="button"
                                     onClick={() => fetchFplLeagueData(fplLeagueId)}
@@ -2218,6 +2233,29 @@ export default function AdminSetup() {
                                         </>
                                     )}
                                 </button>
+                            ) : (
+                                <div className="max-w-xs mx-auto flex gap-2 pt-1">
+                                    <input
+                                        type="text"
+                                        placeholder="Numeric FPL ID (e.g. 123456)"
+                                        value={fplLeagueId}
+                                        onChange={e => {
+                                            const raw = e.target.value.trim();
+                                            const match = raw.match(/leagues\/(\d+)/) || raw.match(/(\d{4,9})/);
+                                            const numericVal = match && match[1] ? match[1] : raw.replace(/[^0-9]/g, '');
+                                            setFplLeagueId(numericVal);
+                                        }}
+                                        className={clsx(inputClasses, "text-xs py-2")}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => fetchFplLeagueData(fplLeagueId)}
+                                        disabled={!fplLeagueId || !/^\d+$/.test(fplLeagueId) || fplFetchStatus === 'loading'}
+                                        className="px-4 py-2 bg-[#22c55e] hover:bg-[#1fbb59] text-black font-bold text-xs rounded-xl disabled:opacity-50 shrink-0 cursor-pointer"
+                                    >
+                                        {fplFetchStatus === 'loading' ? 'Syncing...' : 'Sync'}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
@@ -2542,19 +2580,39 @@ export default function AdminSetup() {
     );
 
     const renderStep5 = () => (
-        <div className="flex flex-col items-center justify-center space-y-4 animate-in zoom-in-95 duration-500 h-full py-4 sm:py-6 max-w-md mx-auto w-full">
-            <div className="text-center mb-2">
-                <div className="inline-flex items-center justify-center p-3 bg-[#22c55e]/20 rounded-full mb-3">
-                    <Check className="w-8 h-8 text-[#22c55e]" />
+        <div className="flex flex-col items-center justify-center space-y-4 animate-in zoom-in-95 duration-500 h-full py-4 sm:py-6 max-w-lg mx-auto w-full px-2">
+            {/* Celebratory Congratulatory Header */}
+            <div className="text-center mb-1">
+                <div className="inline-flex items-center justify-center p-3.5 bg-gradient-to-tr from-emerald-500/20 via-amber-500/20 to-emerald-500/20 rounded-2xl border border-emerald-500/30 mb-3 shadow-[0_0_30px_rgba(16,185,129,0.25)]">
+                    <Trophy className="w-8 h-8 text-[#FBBF24] animate-bounce" />
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black mb-1 tracking-tight text-white">League Created Successfully!</h2>
-                <p className="text-gray-400 max-w-sm mx-auto text-xs sm:text-sm">
-                    Your league economy is live. Share your Master Invite Code or link so managers claim their squads.
+                <h2 className="text-2xl sm:text-3xl font-black mb-1.5 tracking-tight text-white">
+                    Congratulations, Chairman {effectiveManagerName}! 🎉
+                </h2>
+                <p className="text-gray-300 max-w-md mx-auto text-xs sm:text-sm leading-relaxed">
+                    <strong className="text-emerald-400 font-bold">{leagueName || 'Your League'}</strong> is officially configured. All ledger smart accounts are active and ready for gameweek pots.
                 </p>
             </div>
 
-            {/* 1. Master Invite Code */}
-            <div className="bg-[#151c18] border border-amber-500/30 p-5 sm:p-6 rounded-2xl w-full text-center shadow-[0_0_50px_rgba(251,191,36,0.15)] relative overflow-hidden space-y-1">
+            {/* League Snapshot Micro-Card */}
+            <div className="w-full bg-[#161d24]/80 border border-white/10 rounded-2xl p-3.5 flex items-center justify-between text-xs gap-2">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black shrink-0">
+                        KES
+                    </div>
+                    <div>
+                        <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Stake & Allocation</p>
+                        <p className="font-bold text-white text-xs">KES {monthlyFee}/GW · {weeklyPrizePercent}% Weekly / {100 - weeklyPrizePercent}% Vault</p>
+                    </div>
+                </div>
+                <div className="text-right shrink-0">
+                    <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider block">Signatory</span>
+                    <span className="font-mono text-[11px] text-gray-300 font-semibold">{chairmanPayoutPhone || phone}</span>
+                </div>
+            </div>
+
+            {/* 1. Master Invite Code Box */}
+            <div className="bg-[#151c18] border border-amber-500/40 p-5 rounded-2xl w-full text-center shadow-[0_0_50px_rgba(251,191,36,0.18)] relative overflow-hidden space-y-1">
                 <div className="flex items-center justify-center gap-1.5 mb-1">
                     <span className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-black flex items-center justify-center">1</span>
                     <p
@@ -2569,7 +2627,9 @@ export default function AdminSetup() {
                     </p>
                 </div>
                 <h1
-                    className="text-4xl sm:text-5xl font-black font-mono tracking-widest text-amber-400 tabular-nums select-all"
+                    className="text-4xl sm:text-5xl font-black font-mono tracking-widest text-amber-400 tabular-nums select-all cursor-pointer active:scale-95 transition-transform"
+                    onClick={handleCopyOnlyCode}
+                    title="Click to copy code"
                     style={{
                         background: 'linear-gradient(135deg, #FDE68A 0%, #FBBF24 50%, #D97706 100%)',
                         WebkitBackgroundClip: 'text',
@@ -2579,62 +2639,85 @@ export default function AdminSetup() {
                 >
                     {generatedCode.slice(0, 3)} {generatedCode.slice(3, 6)}
                 </h1>
+                <p className="text-[10px] text-gray-400 mt-1">Tap code to copy or share WhatsApp preview below</p>
             </div>
 
-            {/* 2. Instant Sharing Actions */}
-            <div className="w-full space-y-2.5">
-                <div className="flex items-center gap-1.5 px-1">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-black flex items-center justify-center">2</span>
-                    <p className="text-xs font-black uppercase tracking-wider text-white">Dispatch to WhatsApp Group</p>
+            {/* Rich WhatsApp Share Preview Card (Realistic Mockup) */}
+            <div className="w-full bg-[#111b21] border border-[#25d366]/30 rounded-2xl p-3.5 space-y-2.5 shadow-lg">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[#25d366]/20 border border-[#25d366]/30 text-[#25d366] text-xs font-black flex items-center justify-center">2</span>
+                        <span className="text-xs font-bold text-[#25d366] uppercase tracking-wider flex items-center gap-1.5">
+                            <Share2 className="w-3.5 h-3.5" /> WhatsApp Invite Thumbnail Preview
+                        </span>
+                    </div>
+                    <span className="text-[9px] text-gray-400 font-mono">Auto-generated</span>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={handleShareWhatsApp}
-                    className="w-full bg-[#22c55e] hover:bg-[#1fbb59] text-[#0A0E17] font-black text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(34,197,94,0.15)] cursor-pointer"
-                >
-                    <Share2 className="w-5 h-5" />
-                    {copied ? "Opening WhatsApp..." : "Share on WhatsApp"}
-                </button>
+                {/* WhatsApp Chat Bubble Card Simulation */}
+                <div className="bg-[#1f2c34] border border-white/5 rounded-xl p-3 flex gap-3 items-center">
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-md">
+                        <Trophy className="w-7 h-7 text-slate-950 font-black" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h4 className="font-extrabold text-white text-xs truncate">
+                            🏆 Join {leagueName || 'Premier Chama'} on Fantasy Chama
+                        </h4>
+                        <p className="text-[11px] text-gray-300 mt-0.5 line-clamp-2">
+                            Stake: KES {monthlyFee}/GW · Weekly cash payouts & season grand vault! Use code <strong className="text-amber-400 font-mono">{generatedCode}</strong> to claim your squad.
+                        </p>
+                        <p className="text-[10px] text-[#25d366] font-mono mt-1 font-semibold truncate">
+                            fantasychama.com/join?code={generatedCode}
+                        </p>
+                    </div>
+                </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                {/* Action Buttons */}
+                <div className="space-y-2 pt-1">
                     <button
                         type="button"
-                        onClick={handleCopyInviteLink}
-                        className="bg-[#161d24] border border-white/10 hover:border-white/20 text-white font-bold py-2.5 px-2 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={handleShareWhatsApp}
+                        className="w-full bg-[#25d366] hover:bg-[#20ba59] active:scale-[0.98] text-[#0A0E17] font-black text-sm sm:text-base py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)] cursor-pointer"
                     >
-                        <Copy className="w-3.5 h-3.5 text-[#10B981]" />
-                        {copiedLink ? "Link Copied!" : "Copy Invite Link"}
+                        <Share2 className="w-5 h-5" />
+                        {copied ? "Opening WhatsApp..." : "Share to WhatsApp Group"}
                     </button>
-                    <button
-                        type="button"
-                        onClick={handleCopyOnlyCode}
-                        className="bg-[#161d24] border border-white/10 hover:border-white/20 text-white font-bold py-2.5 px-2 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                        <Smartphone className="w-3.5 h-3.5 text-[#FBBF24]" />
-                        {copiedCode ? "Code Copied!" : "Copy Code Only"}
-                    </button>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={handleCopyInviteLink}
+                            className="bg-[#161d24] border border-white/10 hover:border-white/20 active:scale-95 text-white font-bold py-2.5 px-2 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                            <Copy className="w-3.5 h-3.5 text-[#10B981]" />
+                            {copiedLink ? "Link Copied!" : "Copy Invite Link"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCopyOnlyCode}
+                            className="bg-[#161d24] border border-white/10 hover:border-white/20 active:scale-95 text-white font-bold py-2.5 px-2 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                            <Smartphone className="w-3.5 h-3.5 text-[#FBBF24]" />
+                            {copiedCode ? "Code Copied!" : "Copy Code Only"}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* 3. Enter Command Center */}
+            {/* 3. Launch Command Center */}
             <div className="w-full space-y-2 pt-2 border-t border-white/5">
-                <div className="flex items-center gap-1.5 px-1">
-                    <span className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-black flex items-center justify-center">3</span>
-                    <p className="text-xs font-black uppercase tracking-wider text-white">League Administration</p>
-                </div>
-
                 <button
                     type="button"
                     onClick={() => navigate('/dashboard', { replace: true })}
-                    className="w-full bg-[#161d24] border border-white/10 hover:border-white/20 text-white font-bold py-3.5 rounded-xl transition-all shadow-md cursor-pointer hover:bg-white/5"
+                    className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-emerald-500/25 cursor-pointer flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
-                    Enter Chairman Command Center →
+                    <span>Launch Chairman Command Center</span>
+                    <ArrowRight className="w-5 h-5" />
                 </button>
 
-                <p className="text-[10px] text-[#22c55e] border border-[#22c55e]/20 bg-[#22c55e]/5 p-2 rounded text-center">
-                    <Shield className="w-3 h-3 inline-block mr-1 -mt-0.5" />
-                    Ledger contracts secured and active on Firebase.
+                <p className="text-[10px] text-gray-400 text-center flex items-center justify-center gap-1.5">
+                    <Shield className="w-3 h-3 text-emerald-400" />
+                    Non-custodial escrow · Instant M-Pesa payouts · Ledger active on Firebase
                 </p>
             </div>
         </div>

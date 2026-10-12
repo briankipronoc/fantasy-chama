@@ -125,6 +125,7 @@ export const useStore = create<AppState>((set) => ({
             localStorage.removeItem('activeUserId');
             localStorage.removeItem('fc-role');
             localStorage.removeItem('role');
+            sessionStorage.clear();
         } catch {}
 
         // Reset state
@@ -132,7 +133,12 @@ export const useStore = create<AppState>((set) => ({
             set({ role: null, league: null, members: [], transactions: [] });
         } catch {}
 
-        // Sign out from Firebase Auth safely
+        // Immediately redirect to /login before async network signOut to prevent partial-state render crashes
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+            window.location.replace('/login');
+        }
+
+        // Sign out from Firebase Auth safely in background
         try {
             await signOut(auth);
         } catch (err: any) {

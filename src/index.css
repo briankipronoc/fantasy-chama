@@ -20,6 +20,9 @@
     --fc-toast-color: #f1f5f9;
     --fc-toast-border: rgba(16, 185, 129, 0.4);
     --fc-toast-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+    --fc-toast-error-bg: #1a0d0d;
+    --fc-toast-error-color: #fee2e2;
+    --fc-toast-error-border: rgba(239, 68, 68, 0.5);
     --fc-slider-track: #1e293b;
     --fc-slider-border: rgba(255, 255, 255, 0.12);
   }
@@ -29,6 +32,9 @@
     --fc-toast-color: #0f172a;
     --fc-toast-border: rgba(16, 185, 129, 0.45);
     --fc-toast-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+    --fc-toast-error-bg: #fef2f2;
+    --fc-toast-error-color: #991b1b;
+    --fc-toast-error-border: rgba(239, 68, 68, 0.35);
     --fc-slider-track: #e2e8f0;
     --fc-slider-border: rgba(15, 23, 42, 0.16);
   }

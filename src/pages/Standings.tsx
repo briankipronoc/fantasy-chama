@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2 } from 'lucide-react';
+import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
 import { db } from '../firebase';
@@ -882,32 +883,36 @@ export default function Standings() {
                 </div>
 
                 {/* Stats Cards */}
-                {/* Quick Fix Inline FPL ID Linker */}
-                {role === 'admin' && (!dbFplLeagueId || (error && !isFplMaintenance)) && (
-                    <div className="fc-card bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 w-full">
+                {/* Quick Fix Inline FPL ID Linker (only when existing league has error) */}
+                {role === 'admin' && Boolean(dbFplLeagueId) && Boolean(error) && !isFplMaintenance && (
+                    <div className="fc-card bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4 w-full">
                         <div className="w-full md:flex-1 min-w-0">
-                            <h3 className="font-bold text-[#10B981] flex items-center gap-2 mb-1 text-sm sm:text-base">
-                                <Zap className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> {error ? 'Update FPL League Link' : 'Link Official FPL League'}
+                            <h3 className="font-bold text-emerald-600 dark:text-[#10B981] flex items-center gap-2 mb-1 text-sm sm:text-base">
+                                <Zap className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" /> Update FPL League Link
                             </h3>
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 break-words">Paste your full FPL Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
+                            <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-300 break-words">Paste your numeric FPL League ID or Standings URL (e.g. fantasy.premierleague.com/leagues/123456/standings).</p>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto shrink-0">
                             <input
                                 type="text"
-                                placeholder="Paste Standings URL..."
+                                placeholder="Paste Standings URL or ID..."
                                 value={inputFplLeagueId}
                                 onChange={(e) => {
-                                    let val = e.target.value.trim();
-                                    const match = val.match(/leagues\/(\d+)\/standings/);
-                                    if (match && match[1]) val = match[1];
-                                    setInputFplLeagueId(val.replace(/\D/g, ''));
+                                    const raw = e.target.value.trim();
+                                    if (raw.includes('auto-join')) {
+                                        toast.error('That is an FPL invite link (auto-join). Please enter your numeric League ID from your standings page.');
+                                        return;
+                                    }
+                                    const match = raw.match(/leagues\/(\d+)/) || raw.match(/(\d{4,9})/);
+                                    const val = match && match[1] ? match[1] : raw.replace(/\D/g, '');
+                                    setInputFplLeagueId(val);
                                 }}
-                                className="w-full sm:w-64 bg-[#161d24] border border-[#10B981]/30 rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#10B981]"
+                                className="w-full sm:w-64 bg-white dark:bg-[#161d24] border border-slate-300 dark:border-[#10B981]/30 rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-emerald-500"
                             />
                             <button
                                 onClick={handleSaveFplId}
                                 disabled={isSavingFplId || !inputFplLeagueId}
-                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors text-xs sm:text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)] w-full sm:w-auto shrink-0 cursor-pointer"
+                                className="bg-[#10B981] text-black px-4 py-2 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#10B981]/90 disabled:opacity-50 transition-colors text-xs sm:text-sm shadow-md w-full sm:w-auto shrink-0 cursor-pointer"
                             >
                                 <Save className="w-4 h-4" /> Save Link
                             </button>
@@ -1054,60 +1059,72 @@ export default function Standings() {
 
                 {/* Standings — responsive card list */}
                 {!dbFplLeagueId ? (
-                    <div className="fc-card w-full bg-[#161d24] border border-amber-500/20 p-8 md:p-12 rounded-[2rem] text-center relative overflow-hidden mt-6 shadow-2xl">
-                        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
+                    <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-slate-200 dark:border-amber-500/20 p-6 sm:p-10 md:p-12 rounded-[2rem] text-center relative overflow-hidden mt-6 shadow-xl transition-colors">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-500 dark:text-amber-400 flex items-center justify-center mx-auto mb-4">
                             <Trophy className="w-8 h-8" />
                         </div>
-                        <h3 className="text-xl md:text-2xl font-black text-white mb-2">No FPL League Linked Yet</h3>
-                        <p className="text-sm text-gray-400 max-w-lg mx-auto leading-relaxed mb-6">
+                        <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-2">No FPL League Linked Yet</h3>
+                        <p className="text-sm text-slate-600 dark:text-gray-300 max-w-lg mx-auto leading-relaxed mb-6">
                             Connect your Fantasy Premier League mini-league ID so FantasyChama can pull live weekly scores, rank managers, and calculate the pot winners.
                         </p>
                         {role === 'admin' ? (
-                            <div className="max-w-md mx-auto space-y-3">
+                            <div className="max-w-md mx-auto space-y-4">
                                 <div className="flex flex-col sm:flex-row gap-2">
                                     <input
                                         type="text"
-                                        placeholder="Paste FPL Standings URL or ID..."
+                                        placeholder="Paste FPL Standings URL or numeric ID..."
                                         value={inputFplLeagueId}
                                         onChange={(e) => {
-                                            let val = e.target.value.trim();
-                                            const match = val.match(/leagues\/(\d+)\/standings/);
-                                            if (match && match[1]) val = match[1];
-                                            setInputFplLeagueId(val.replace(/\D/g, ''));
+                                            const raw = e.target.value.trim();
+                                            if (raw.includes('auto-join')) {
+                                                toast.error('That is an FPL invite link (auto-join). Please enter your numeric League ID from your standings page URL.', { duration: 6000 });
+                                                return;
+                                            }
+                                            const match = raw.match(/leagues\/(\d+)/) || raw.match(/(\d{4,9})/);
+                                            const val = match && match[1] ? match[1] : raw.replace(/\D/g, '');
+                                            setInputFplLeagueId(val);
                                         }}
-                                        className="flex-1 bg-[#0b1014] border border-white/15 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 w-full"
+                                        className="flex-1 bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/15 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 w-full"
                                     />
                                     <button
                                         onClick={handleSaveFplId}
                                         disabled={isSavingFplId || !inputFplLeagueId}
-                                        className="bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs sm:text-sm transition-all w-full sm:w-auto shrink-0 cursor-pointer"
+                                        className="bg-[#10B981] hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs sm:text-sm transition-all w-full sm:w-auto shrink-0 cursor-pointer shadow-md"
                                     >
                                         {isSavingFplId ? 'Saving...' : 'Link League'}
                                     </button>
                                 </div>
-                                <p className="text-[11px] text-gray-500">
-                                    Find your ID in the URL on fantasy.premierleague.com (e.g. /leagues/<strong>123456</strong>/standings)
-                                </p>
+                                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 text-left text-xs space-y-1.5">
+                                    <p className="font-bold text-slate-800 dark:text-slate-200 text-[11px] flex items-center gap-1.5">
+                                        <Info className="w-3.5 h-3.5 text-amber-500" />
+                                        How to find your numeric FPL League ID:
+                                    </p>
+                                    <ol className="text-[11px] text-slate-600 dark:text-gray-400 list-decimal list-inside space-y-1 leading-relaxed">
+                                        <li>Open <strong>fantasy.premierleague.com</strong> in your browser</li>
+                                        <li>Go to <strong>Leagues & Cups</strong> → Click your Mini-League name</li>
+                                        <li>Copy the number from your browser address bar: <code className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">/leagues/<strong>123456</strong>/standings</code></li>
+                                    </ol>
+                                </div>
                             </div>
                         ) : (
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 text-xs font-bold">
                                 ⏳ Waiting for Chairman to link the FPL League Code
                             </div>
                         )}
                     </div>
                 ) : error ? (
                     isFplMaintenance ? (
-                        <div className="fc-card w-full bg-[#161d24] border border-amber-500/25 p-8 sm:p-10 rounded-[2rem] text-center relative overflow-hidden mt-6 shadow-2xl">
+                        <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-amber-500/25 p-8 sm:p-10 rounded-[2rem] text-center relative overflow-hidden mt-6 shadow-2xl">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/10 blur-[100px] pointer-events-none" />
-                            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]">
-                                <RefreshCw className="w-7 h-7 animate-spin text-amber-400" />
+                            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-500 dark:text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+                                <RefreshCw className="w-7 h-7 animate-spin text-amber-500 dark:text-amber-400" />
                             </div>
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-3">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider mb-3">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                 Chama & Vault Secured
                             </div>
-                            <h3 className="text-xl sm:text-2xl font-black text-white mb-2 tracking-tight">Official FPL Servers Updating</h3>
-                            <p className="text-sm text-gray-300 max-w-md mx-auto leading-relaxed mb-6">
+                            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Official FPL Servers Updating</h3>
+                            <p className="text-sm text-slate-600 dark:text-gray-300 max-w-md mx-auto leading-relaxed mb-6">
                                 Official Premier League servers are currently crunching matchday scores and bonus points, or undergoing scheduled maintenance. Your chama records and escrow pot are completely safe and will refresh live here automatically once Premier League servers finish updating.
                             </p>
                             <button

@@ -272,9 +272,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     },
                     error: {
                         style: {
-                            background: 'var(--fc-toast-bg, #1a0d0d)',
-                            color: 'var(--fc-toast-color, #f8fafc)',
-                            border: '1px solid rgba(239,68,68,0.5)',
+                            background: 'var(--fc-toast-error-bg, #1a0d0d)',
+                            color: 'var(--fc-toast-error-color, #fee2e2)',
+                            border: '1px solid var(--fc-toast-error-border, rgba(239,68,68,0.5))',
                             whiteSpace: 'normal',
                             wordBreak: 'normal',
                             overflowWrap: 'break-word',
