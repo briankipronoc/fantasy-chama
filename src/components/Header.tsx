@@ -627,16 +627,16 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                     className={clsx(
                                                         "fc-notif-item p-3.5 rounded-2xl border transition-all group flex gap-3 cursor-pointer outline-none relative overflow-hidden",
                                                         isRead
-                                                            ? "bg-slate-100/70 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-80 hover:opacity-100 hover:bg-slate-200/60 dark:hover:bg-white/[0.04]"
+                                                            ? "bg-slate-50 dark:bg-white/[0.02] border-slate-200/80 dark:border-white/5 opacity-75 hover:opacity-100 hover:bg-slate-100/70 dark:hover:bg-white/[0.04]"
                                                             : isWinner
-                                                                ? "bg-amber-50/95 dark:bg-gradient-to-r dark:from-[#FBBF24]/20 dark:via-[#161d24] dark:to-[#161d24] border-[#FBBF24] dark:border-[#FBBF24]/40 shadow-[0_4px_20px_rgba(251,191,36,0.18)]"
+                                                                ? "bg-amber-500/[0.08] dark:bg-amber-500/[0.12] border-amber-300 dark:border-amber-500/40 shadow-sm"
                                                                 : isFinancial
-                                                                    ? "bg-emerald-50/90 dark:bg-gradient-to-r dark:from-emerald-500/15 dark:via-[#161d24] dark:to-[#161d24] border-emerald-300 dark:border-emerald-500/30 shadow-[0_4px_16px_rgba(16,185,129,0.08)]"
+                                                                    ? "bg-emerald-500/[0.07] dark:bg-emerald-500/[0.1] border-emerald-300 dark:border-emerald-500/35 shadow-sm"
                                                                     : isWarning
-                                                                        ? "bg-red-50/90 dark:bg-gradient-to-r dark:from-red-500/15 dark:via-[#161d24] dark:to-[#161d24] border-red-300 dark:border-red-500/30 shadow-[0_4px_16px_rgba(239,68,68,0.08)]"
+                                                                        ? "bg-red-500/[0.07] dark:bg-red-500/[0.1] border-red-300 dark:border-red-500/35 shadow-sm"
                                                                         : isProps
-                                                                            ? "bg-indigo-50/90 dark:bg-gradient-to-r dark:from-indigo-500/15 dark:via-[#161d24] dark:to-[#161d24] border-indigo-300 dark:border-indigo-500/30"
-                                                                            : "bg-emerald-50/90 dark:bg-[#161d24] border-emerald-300 dark:border-white/10 hover:border-emerald-500/40"
+                                                                            ? "bg-indigo-500/[0.07] dark:bg-indigo-500/[0.1] border-indigo-300 dark:border-indigo-500/35 shadow-sm"
+                                                                            : "bg-slate-50 dark:bg-[#161d24] border-slate-200 dark:border-white/10 hover:border-emerald-500/40"
                                                     )}
                                                 >
                                                     <div className="fc-notif-icon mt-1 flex-shrink-0">

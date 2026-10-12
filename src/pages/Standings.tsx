@@ -104,7 +104,8 @@ export default function Standings() {
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
-    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('season');
+    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('gw');
+    const [leagueGameweekStake, setLeagueGameweekStake] = useState<number>(0);
     const [leagueRules, setLeagueRules] = useState<any>({});
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
@@ -166,13 +167,15 @@ export default function Standings() {
         const isSeasonOnlyLeague = Number(mergedRules.vault ?? 0) === 100 || Number(mergedRules.weekly ?? 0) === 0 || mergedRules.payoutMode === 'season_only';
         const weeklyPercent = isSeasonOnlyLeague ? 0 : (Number(mergedRules.weekly || 70) / 100);
         const stakeVal = Number(
+            leagueGameweekStake ||
             mergedRules.gameweekStake ||
             (league as any)?.gameweekStake ||
+            (league as any)?.rules?.gameweekStake ||
             (league as any)?.monthlyFee ||
             50
         );
 
-        // Active non-eliminated funded Chama members from results
+        // Active non-eliminated Chama members from results
         const norm = (s: string) => String(s || '').toLowerCase().trim();
         const activeChamaResults = (standingsData || []).filter((r: any) => {
             const dbMember = members.find((m: any) => {
@@ -185,8 +188,7 @@ export default function Standings() {
             if (dbMember.isActive === false) return false;
             if ((dbMember as any)?.isEliminated === true) return false;
             if ((dbMember as any)?.playMode === 'sidebets_only') return false;
-            const isFunded = dbMember.hasPaid === true || (stakeVal > 0 && (Number(dbMember.walletBalance || 0)) >= stakeVal);
-            return isFunded;
+            return true;
         });
         const sortedActiveResults = [...activeChamaResults].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
         const topScore = Number(sortedActiveResults[0]?.event_total || 0);
@@ -370,6 +372,11 @@ export default function Standings() {
                         if (lData.chairmanId) setChairmanId(lData.chairmanId);
                         if (lData.coAdminId) setCoAdminId(lData.coAdminId);
                         if (lData.rules) setLeagueRules(lData.rules);
+                        if (lData.gameweekStake) {
+                            setLeagueGameweekStake(Number(lData.gameweekStake));
+                        } else if (lData.monthlyFee) {
+                            setLeagueGameweekStake(Number(lData.monthlyFee));
+                        }
                         if (lData.forfeitedGws) setForfeitedGws(lData.forfeitedGws);
                         if (lData.startGw) {
                             setLeagueStartGw(Number(lData.startGw));
@@ -1337,21 +1344,38 @@ export default function Standings() {
 
                                         {/* Stats Row (Row 2 on Mobile, Col 9-12 on Desktop) */}
                                         <div className="flex items-center justify-between md:contents mt-3 md:mt-0 pt-3 md:pt-0 border-t border-slate-200 dark:border-white/5 md:border-0 w-full">
-                                            <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">GW Pts</span>
-                                                <span className={clsx(
-                                                    'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
-                                                    isGwWinnerRow
-                                                        ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
-                                                        : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-slate-200 border-slate-200 dark:border-white/5'
-                                                )}>
-                                                    {row.event_total}
-                                                </span>
-                                            </div>
-                                            <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">Total</span>
-                                                <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">{Number(row.total || 0).toLocaleString()}</div>
-                                            </div>
+                                            {isSeasonView ? (
+                                                <>
+                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-1 md:order-2">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FBBF24] md:hidden mb-1.5">Season Total</span>
+                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg md:bg-transparent md:border-0 md:p-0">{Number(row.total || 0).toLocaleString()}</div>
+                                                    </div>
+                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-2 md:order-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">GW Pts</span>
+                                                        <span className="px-2 py-0.5 font-bold rounded-lg text-xs tabular-nums border text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5">
+                                                            {row.event_total}
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 md:hidden mb-1.5">GW Pts</span>
+                                                        <span className={clsx(
+                                                            'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
+                                                            isGwWinnerRow || rankNum === 1
+                                                                ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                                                                : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-slate-200 border-slate-200 dark:border-white/5'
+                                                        )}>
+                                                            {row.event_total}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">Total</span>
+                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">{Number(row.total || 0).toLocaleString()}</div>
+                                                    </div>
+                                                </>
+                                            )}
                                             <div className="md:col-span-2 flex justify-end md:justify-end items-center w-28 md:w-auto">
                                                 {isSpectator ? (
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-indigo-300 border-indigo-500/30 bg-indigo-500/15 flex items-center gap-1">

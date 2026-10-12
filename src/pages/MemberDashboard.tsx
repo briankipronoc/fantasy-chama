@@ -637,7 +637,6 @@ export default function MemberDashboard() {
         }
 
         const norm = (s: string) => String(s || '').toLowerCase().trim();
-        const effectiveStake = Number(gameweekStake || 0);
 
         // Match each FPL entry to a Chama member — covers fplTeamId, secondFplTeamId, and fuzzy name
         const matchMember = (r: any) => members.find((m: any) => {
@@ -656,19 +655,8 @@ export default function MemberDashboard() {
 
         setFplStandings(chamaResults);
 
-        // GW Winner — prioritize funded members, but in 100% Season Vault leagues or when funding isn't toggled, fallback to all active members
-        const isSeasonPotOnly = Number(rules?.weekly || 0) === 0;
-        const fundedResults = chamaResults.filter((r: any) => {
-            const dbMember = matchMember(r);
-            if (!dbMember) return false;
-            if (dbMember.isActive === false || (dbMember as any).isEliminated === true) return false;
-            const isFunded = dbMember.hasPaid === true || (effectiveStake > 0 && Number(dbMember.walletBalance || 0) >= effectiveStake);
-            return isFunded;
-        });
-
-        const candidatePool = isSeasonPotOnly
-            ? (chamaResults.length > 0 ? chamaResults : rawFplStandings)
-            : (fundedResults.length > 0 ? fundedResults : (chamaResults.length > 0 ? chamaResults : rawFplStandings));
+        // GW Winner & Live Leader — rank by event_total among active Chama members
+        const candidatePool = chamaResults.length > 0 ? chamaResults : rawFplStandings;
 
         if (candidatePool.length >= 1 && Number(candidatePool[0]?.event_total || 0) > 0) {
             const topScore = Number(candidatePool[0]?.event_total || 0);
@@ -2056,7 +2044,7 @@ export default function MemberDashboard() {
                                 <h3 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
                                     {isRoundFinished ? `Congratulations, ${firstName}!` : `Keep Pushing, ${firstName}!`}
                                 </h3>
-                                <p className="fc-gw-winner-subline text-sm font-bold text-gray-200 mt-1">
+                                <p className="fc-gw-winner-subline text-sm font-bold text-slate-700 dark:text-gray-200 mt-1">
                                     {isRoundFinished ? (
                                         <>You scored <span className="text-[#10B981] font-black">{activeChampion.event_total} pts</span> — the highest in the league this week.</>
                                     ) : (
@@ -2085,7 +2073,7 @@ export default function MemberDashboard() {
                                     {Number(rules.weekly || 0) === 0 ? 'Vault Round' : (isRoundFinished ? 'Your Payout' : 'Projected Payout')}
                                 </p>
                                 <p className="text-xl sm:text-2xl font-black text-[#FBBF24] tabular-nums">
-                                    {Number(rules.weekly || 0) === 0 ? '100% Vaulted' : (activeChampion.amount ? `KES ${activeChampion.amount.toLocaleString()}` : `KES ${((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100)).toLocaleString()}`)}
+                                    {Number(rules.weekly || 0) === 0 ? '100% Vaulted' : (activeChampion.amount ? `KES ${activeChampion.amount.toLocaleString()}` : `KES ${Math.round(weeklyPot).toLocaleString()}`)}
                                 </p>
                             </div>
                             {/* Phase 8: Flex on WhatsApp */}
@@ -2268,6 +2256,15 @@ export default function MemberDashboard() {
                                                 </div>
                                             );
                                         })()}
+
+                                        {myGwScore !== null && (
+                                            <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-xs">
+                                                <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">Your GW Score</span>
+                                                <span className="font-black text-slate-900 dark:text-white tabular-nums">
+                                                    {myGwScore} pts {myGwRank && <span className="text-emerald-600 dark:text-emerald-400 font-bold ml-1">· Rank #{myGwRank}</span>}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Member / Props Area */}
@@ -2447,67 +2444,7 @@ export default function MemberDashboard() {
                     )
                 ) : null}
 
-                {/* ── Gameweek Rank Snapshot (Above 1v1 Side Bets) ── */}
-                {(() => {
-                    const topScore = fplStandings.length > 0 ? Number(fplStandings[0]?.event_total ?? 0) : 0;
-                    const myRankEntry = fplStandings.findIndex((e: any) =>
-                        (currentUser?.fplTeamId && Number(e.entry) === Number(currentUser.fplTeamId)) ||
-                        (currentUser?.secondFplTeamId && Number(e.entry) === Number(currentUser.secondFplTeamId)) ||
-                        currentUser?.displayName?.toLowerCase().includes(e.player_name?.toLowerCase())
-                    );
-                    const myEntry = myRankEntry >= 0 ? fplStandings[myRankEntry] : null;
-                    const myPoints = Number(myEntry?.event_total ?? (currentUser as any)?.gwPoints ?? 0);
-                    const isRankOne = (myPoints === topScore && topScore > 0) || myRankEntry === 0 || isRecentWinner || isCurrentUserGwWinner;
-                    const rank = myRankEntry >= 0 ? myRankEntry + 1 : (isRankOne ? 1 : null);
 
-                    return (
-                        <div className="fc-member-gw-rank-card rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 p-4 md:p-5 flex flex-col justify-between mb-3 shadow-md dark:shadow-xl text-slate-900 dark:text-white">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest">
-                                    <Star className="w-3.5 h-3.5 text-amber-500 dark:text-[#FBBF24]" /> Gameweek Rank
-                                </h4>
-                                {(activeChampion || gwWinner) && (
-                                    <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                                        {(currentFplEvent?.finished || latestApprovedPayout) ? 'Final' : 'Live'}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="rounded-2xl p-3.5 border border-emerald-500/20 bg-emerald-500/10 flex items-center justify-between">
-                                <div>
-                                    <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400/80 uppercase tracking-wider block mb-1">Your GW Rank</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-black text-xs border border-emerald-500/30">
-                                            {rank ? `#${rank}` : '--'}
-                                        </span>
-                                        <span className="font-bold text-sm text-slate-900 dark:text-white">{currentUser?.displayName?.split(' ')[0] || 'You'}</span>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums">{myPoints}</span>
-                                    <span className="text-[9px] text-slate-500 dark:text-gray-400 uppercase block font-bold">GW Pts</span>
-                                </div>
-                            </div>
-                            {(activeChampion || gwWinner) && (currentFplEvent?.finished || latestApprovedPayout) && (
-                                <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-white/5 text-xs mt-3">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">GW{activeChampion?.event || currentFplEvent?.id || 5} Pot Winner</span>
-                                        <span className="text-amber-600 dark:text-amber-300 font-bold flex items-center gap-1 text-xs">
-                                            🥇 {(activeChampion || gwWinner).player_name?.split(' ')[0] || 'Winner'}
-                                        </span>
-                                    </div>
-                                    <span className="text-xs font-black text-slate-900 dark:text-white">{(activeChampion || gwWinner).event_total} pts</span>
-                                </div>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => navigate('/standings')}
-                                className="w-full mt-2.5 pt-2.5 border-t border-slate-200 dark:border-white/5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                            >
-                                <span>View Full Standings →</span>
-                            </button>
-                        </div>
-                    );
-                })()}
 
                 {/* ── Gameweek Winners Ledger (Synced with Standings) ── */}
                 {gwWinnersLedger && gwWinnersLedger.length > 0 && (

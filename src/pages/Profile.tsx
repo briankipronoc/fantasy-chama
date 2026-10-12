@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, HelpCircle, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
+import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, getDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -91,6 +91,10 @@ export default function Profile() {
     const [isRetiring, setIsRetiring] = useState(false);
     const [showDeleteLeagueModal, setShowDeleteLeagueModal] = useState(false);
     const [isDeletingLeague, setIsDeletingLeague] = useState(false);
+    const [isLeagueSettingsExpanded, setIsLeagueSettingsExpanded] = useState(false);
+    const [showMembersModal, setShowMembersModal] = useState(false);
+    const [showDangerZoneModal, setShowDangerZoneModal] = useState(false);
+    const [showSessionModal, setShowSessionModal] = useState(false);
 
     const isMemberFunded = (m: any) =>
         m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
@@ -1134,8 +1138,39 @@ export default function Profile() {
                 </div>
             </div>
 
-            {/* Rule Modification Form */}
-            <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
+            {/* Quick summary strip */}
+            <div className="flex flex-wrap items-center gap-2 mb-3.5 text-[11px] font-bold">
+                <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300">
+                    Stake: <strong className="text-emerald-600 dark:text-emerald-400">KES {gameweekStake.toLocaleString()}</strong>
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300">
+                    Split: <strong className="text-amber-600 dark:text-amber-400">{weeklyPrizePercent}% Weekly / {100 - weeklyPrizePercent}% Vault</strong>
+                </span>
+                <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300">
+                    Winners: <strong className="text-amber-600 dark:text-amber-400">Top {seasonWinnersCount}</strong>
+                </span>
+            </div>
+
+            {/* Expand / Collapse Button */}
+            <button
+                type="button"
+                onClick={() => {
+                    haptics.selection();
+                    setIsLeagueSettingsExpanded(!isLeagueSettingsExpanded);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-between border border-slate-200 dark:border-white/10 transition-all cursor-pointer mb-2"
+            >
+                <span className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-500" />
+                    {isLeagueSettingsExpanded ? 'Hide League Configuration' : 'Expand League Settings & Rules'}
+                </span>
+                <ChevronDown className={clsx("w-4 h-4 transition-transform duration-300 text-slate-400", isLeagueSettingsExpanded && "rotate-180")} />
+            </button>
+
+            {isLeagueSettingsExpanded && (
+                <div className="pt-3 border-t border-slate-200 dark:border-white/10 animate-in fade-in duration-300">
+                    {/* Rule Modification Form */}
+                    <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
                 <div>
                     <div className="flex justify-between items-center mb-1.5">
                         <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -1409,12 +1444,14 @@ export default function Profile() {
                         </button>
                     </div>
                 )}
-            </form>
+                    </form>
+                </div>
+            )}
         </div>
     );
 
-    const renderOwnershipAndDangerZoneCard = () => (
-        <div className="fc-card w-full bg-gradient-to-br from-rose-50/70 via-white to-red-50/50 dark:from-[#161418] dark:via-[#1a1317] dark:to-[#1e1014] border border-rose-200/80 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
+    const renderOwnershipAndDangerZoneCard = (extraClassName = '') => (
+        <div className={clsx("fc-card w-full bg-gradient-to-br from-rose-50/70 via-white to-red-50/50 dark:from-[#161418] dark:via-[#1a1317] dark:to-[#1e1014] border border-rose-200/80 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl", extraClassName)}>
             {/* Header with two-row title & pill controls below */}
             <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-rose-200/50 dark:border-white/5">
                 <div className="flex items-start gap-2.5">
@@ -1533,25 +1570,191 @@ export default function Profile() {
         </div>
     );
 
+    const renderSessionDetailsContent = () => (
+        <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Account ID */}
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
+                        <Fingerprint className="w-3.5 h-3.5 text-slate-400" /> Your Authenticated ID
+                    </span>
+                    <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
+                        <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                            {auth.currentUser?.uid || "None"}
+                        </span>
+                        {auth.currentUser?.uid && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(auth.currentUser?.uid || '');
+                                    toast.success('Account ID copied!');
+                                }}
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-emerald-500 transition cursor-pointer shrink-0"
+                                title="Copy Account ID"
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Role */}
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
+                        <Key className="w-3.5 h-3.5 text-emerald-500" /> Assigned Role
+                    </span>
+                    <div className="flex items-center justify-between bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
+                        <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400">
+                            {chairmanId && auth.currentUser?.uid === chairmanId ? 'Chairman (Owner)' : (coAdminId && auth.currentUser?.uid === coAdminId ? 'Co-Chair' : 'Member')}
+                        </span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    </div>
+                </div>
+
+                {/* Chairman ID */}
+                {chairmanId && (
+                    <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-500" /> Chairman ID
+                        </span>
+                        <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
+                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                {chairmanId}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(chairmanId || '');
+                                    toast.success('Chairman ID copied!');
+                                }}
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-amber-500 transition cursor-pointer shrink-0"
+                                title="Copy Chairman ID"
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Co-Chair ID */}
+                {coAdminId && (
+                    <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
+                        <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
+                            <ShieldCheck className="w-3.5 h-3.5 text-blue-500" /> Co-Chair ID
+                        </span>
+                        <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
+                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                {coAdminId}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(coAdminId || '');
+                                    toast.success('Co-Chair ID copied!');
+                                }}
+                                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-500 transition cursor-pointer shrink-0"
+                                title="Copy Co-Chair ID"
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed font-medium">
+                These cryptographic keys are used to enforce security rules in Firebase Firestore. They guarantee that only verified administrators can initiate payouts or alter league configurations.
+            </p>
+        </div>
+    );
+
+    const renderThemeSelector = () => (
+        <div className="fc-card w-full bg-white dark:bg-gradient-to-br dark:from-[#0f141a] dark:to-[#080c10] border border-slate-200 dark:border-white/10 p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col shadow-xl text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between gap-3 mb-3.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <div>
+                        <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white leading-tight">
+                            Interface & Theme
+                        </h2>
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Personalize visual aesthetics and display</p>
+                    </div>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                    {theme === 'stealth' ? 'Stealth OLED' : theme === 'dark' ? 'Dark' : theme === 'light' ? 'Light' : 'System OS'}
+                </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                    { key: 'dark', label: 'Dark Mode', icon: '🌙' },
+                    { key: 'stealth', label: 'Stealth Mode', icon: '🛡️' },
+                    { key: 'system', label: 'System Auto', icon: '💻' },
+                    { key: 'light', label: 'Light Mode', icon: '☀️' },
+                ].map((t) => {
+                    const isSelected = theme === t.key;
+                    return (
+                        <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => {
+                                haptics.selection();
+                                setTheme(t.key as any);
+                                toast.success(`${t.label} activated`);
+                            }}
+                            className={clsx(
+                                "p-3 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer select-none active:scale-95 min-h-[64px]",
+                                isSelected
+                                    ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
+                                    : "bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+                            )}
+                        >
+                            <div className="flex items-center justify-between w-full mb-1">
+                                <span className="text-xl sm:text-2xl leading-none drop-shadow-xs">{t.icon}</span>
+                                {isSelected ? (
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400">Active</span>
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10B981] animate-pulse" />
+                                    </div>
+                                ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-white/20" />
+                                )}
+                            </div>
+                            <div>
+                                <p className={clsx(
+                                    "text-xs sm:text-sm font-black tracking-tight leading-tight",
+                                    isSelected ? "text-emerald-700 dark:text-emerald-300 font-extrabold" : "text-slate-800 dark:text-white"
+                                )}>
+                                    {t.label}
+                                </p>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+
     return (
-        <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-white relative overflow-hidden bg-transparent">
+        <div className="fc-profile-page min-h-[100dvh] p-5 md:p-10 w-full animate-in fade-in duration-500 pb-6 lg:pb-8 font-sans text-slate-900 dark:text-white relative overflow-hidden bg-transparent">
             <div className="absolute inset-0 pointer-events-none opacity-75">
                 <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-emerald-500/12 blur-3xl" />
             </div>
-            <div className="max-w-6xl mx-auto space-y-10">
+            <div className="max-w-6xl mx-auto space-y-8">
                 <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity · League · Controls" hideCountdown={true} />
 
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 md:gap-6 items-start">
-                    <div className={clsx(
-                        "flex flex-col gap-4",
-                        isAdminView ? 'xl:col-span-7' : 'xl:col-span-12'
-                    )}>
+                {/* Top Section: Personal Details + League Governance side-by-side on desktop */}
+                <div className={clsx(
+                    "grid gap-5 md:gap-6 items-start",
+                    isAdminView ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
+                )}>
                     {/* Member View (Personal Settings) */}
                     <div className={clsx(
                         "fc-profile-details-card fc-card border p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col transition-all duration-500",
                         !hasPaid && !isAdminView
                             ? 'bg-red-950/40 border-red-500/40 shadow-[0_0_40px_rgba(239,68,68,0.08)]'
-                            : 'bg-[#161d24] border-white/5'
+                            : 'bg-white dark:bg-[#161d24] border-slate-200 dark:border-white/5 shadow-xl text-slate-900 dark:text-white'
                     )}>
                         {/* Phone missing banner - self-registration prompt */}
                         {!hasPaid && !isAdminView && (
@@ -1571,7 +1774,7 @@ export default function Profile() {
                         )}
                         <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
                             <div>
-                                <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-white">
+                                <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
                                     <User className="w-5 h-5 text-[#10B981]" /> Personal Details
                                 </h2>
                                 <p className="text-[11px] text-gray-600 dark:text-gray-400 font-medium mt-1 max-w-xl leading-relaxed">
@@ -1594,7 +1797,7 @@ export default function Profile() {
                         </div>
 
                         <div className="flex flex-col gap-4 items-stretch">
-                            <div className="flex flex-col sm:flex-row items-center justify-start gap-4 p-4 rounded-2xl bg-black/20 border border-white/5">
+                            <div className="flex flex-col sm:flex-row items-center justify-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5">
                                 <div className="relative group shrink-0">
                                     <UserAvatar name={displayName || 'Manager'} photoUrl={photoUrl} size="xl" className="ring-2 ring-emerald-500/30 shadow-lg" />
                                     {isCompressingPhoto && (
@@ -1633,9 +1836,9 @@ export default function Profile() {
                                             </button>
                                         )}
                                     </div>
-                                    <p className="text-[10px] text-gray-400 font-medium">
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
                                         {photoCompressStats ? (
-                                            <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                            <span className="text-emerald-500 dark:text-emerald-400 font-bold flex items-center gap-1">
                                                 <Sparkles className="w-3 h-3" /> Auto-compressed: {photoCompressStats}
                                             </span>
                                         ) : (
@@ -1647,7 +1850,7 @@ export default function Profile() {
 
                             <form onSubmit={handleSaveMember} className="grid grid-cols-1 gap-3.5 items-start w-full">
                                 <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-widest">
+                                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-widest">
                                         Display Name
                                     </label>
                                     <input
@@ -1660,14 +1863,14 @@ export default function Profile() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-widest">
+                                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-widest">
                                         M-Pesa Phone Number
                                     </label>
                                     <input
                                         type="tel"
                                         value={phoneNumber}
                                         onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                                        className="fc-input"
+                                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-900 dark:text-white focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all outline-none font-medium placeholder:text-slate-400 dark:placeholder:text-gray-600"
                                         placeholder="e.g. 0712345678"
                                     />
                                     {!phoneNumber ? (
@@ -1680,7 +1883,7 @@ export default function Profile() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-widest">
+                                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-widest">
                                         Link FPL Team
                                     </label>
                                     {isFetchingFpl ? (
@@ -1719,8 +1922,8 @@ export default function Profile() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
-                                        <Mail className="w-3 h-3" /> Email Address
+                                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Mail className="w-3.5 h-3.5" /> Email Address
                                     </label>
                                     <input
                                         type="email"
@@ -1729,12 +1932,12 @@ export default function Profile() {
                                         className="w-full bg-slate-100 dark:bg-[#0b1014] border border-slate-200 dark:border-white/10 rounded-xl py-3 px-4 text-sm text-slate-500 dark:text-gray-400 outline-none font-medium cursor-not-allowed opacity-60"
                                         placeholder="Loading..."
                                     />
-                                    <p className="text-[10px] text-gray-600 font-medium mt-1.5 leading-relaxed">Managed by Firebase Auth. Cannot be changed here.</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-1.5 leading-relaxed">Managed by Firebase Auth. Cannot be changed here.</p>
                                 </div>
 
                                 {/* Participation Mode Selector */}
                                 <div>
-                                    <label className="block text-[10px] md:text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
+                                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1.5">
                                         <Trophy className="w-3 h-3 text-amber-500 dark:text-amber-400" /> Chama Participation Mode
                                     </label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1789,303 +1992,250 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* Mobile View: League Governance comes directly below Personal Details */}
-                    {isAdminView && (
-                        <div className="xl:hidden w-full flex flex-col gap-4">
-                            {renderLeagueGovernance()}
+                    {/* League Governance: Clean, compact top display for Chairman */}
+                    {isAdminView && renderLeagueGovernance()}
+                </div>
+
+                {/* Executive Controls & Hub: 4 Compact Action Tiles */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                {isAdminView ? 'Executive Controls & Hub' : 'Chama Hub & Utilities'}
+                            </h3>
+                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                Quick access to roster, rules, security, and credentials
+                            </p>
                         </div>
-                    )}
+                    </div>
 
-                    {/* Active Members / Chama Directory — Balanced in Column */}
-                    {renderActiveMembersStrip('w-full')}
+                    <div className={clsx(
+                        "grid gap-3 sm:gap-4",
+                        isAdminView ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"
+                    )}>
+                        {/* Tile 1: Members Directory */}
+                        <div
+                            onClick={() => {
+                                haptics.selection();
+                                setShowMembersModal(true);
+                            }}
+                            className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                        >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                                    <Users className="w-5 h-5" />
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    {activeMembersCount} Members
+                                </span>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                    Active Members
+                                </h4>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                    View roster, activation status & pending onboarding
+                                </p>
+                            </div>
+                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                <span>Manage Roster</span>
+                                <span>→</span>
+                            </div>
+                        </div>
 
-                    {/* Chama Guides & Constitution Card — Directly above Account & Session Details */}
-                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#161d24] dark:to-[#0f141a] border border-slate-200 dark:border-emerald-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.15)]">
-                                    <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        {/* Tile 2: Succession & League Controls (Admin only) */}
+                        {isAdminView && (
+                            <div
+                                onClick={() => {
+                                    haptics.selection();
+                                    setShowDangerZoneModal(true);
+                                }}
+                                className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-rose-200/80 dark:border-rose-500/25 hover:border-rose-400 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                            >
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform">
+                                        <ShieldAlert className="w-5 h-5" />
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                        Admin
+                                    </span>
                                 </div>
                                 <div>
-                                    <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Chama Guides & Constitution
-                                    </h2>
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Official league governance, manual, rules, and FAQ</p>
+                                    <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                                        Succession & Controls
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                        Transfer chairmanship or permanently delete league
+                                    </p>
+                                </div>
+                                <div className="mt-3 pt-2.5 border-t border-rose-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                                    <span>Open Controls</span>
+                                    <span>→</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tile 3: Chama Constitution & Docs */}
+                        <div
+                            onClick={() => {
+                                haptics.selection();
+                                setShowDocsModal(true);
+                            }}
+                            className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-amber-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                        >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                                    <BookOpen className="w-5 h-5" />
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                    Guide
+                                </span>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                    Chama Constitution
+                                </h4>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                    Official rulebook, payout schedule & FAQ manual
+                                </p>
+                            </div>
+                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                                <span>Read Manual</span>
+                                <span>→</span>
+                            </div>
+                        </div>
+
+                        {/* Tile 4: Account & Security */}
+                        <div
+                            onClick={() => {
+                                haptics.selection();
+                                setShowSessionModal(true);
+                            }}
+                            className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-blue-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                        >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                    <Fingerprint className="w-5 h-5" />
+                                </div>
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                    Security
+                                </span>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                    Session Credentials
+                                </h4>
+                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                    Authenticated UID, Chairman ID & access tokens
+                                </p>
+                            </div>
+                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                                <span>View Credentials</span>
+                                <span>→</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Theme switcher */}
+                    {renderThemeSelector()}
+                </div>
+            </div>
+
+            {/* Members Directory Modal */}
+            {showMembersModal && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-sm z-20">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                                    <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        Active Members Directory
+                                    </h3>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                        {activeMembersCount} registered managers · Click members to manage
+                                    </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={() => { haptics.selection(); setShowDocsModal(true); }}
-                                className="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                                onClick={() => { haptics.selection(); setShowMembersModal(false); }}
+                                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
                             >
-                                <HelpCircle className="w-3.5 h-3.5" /> Read Documentation
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
+                        {renderActiveMembersStrip('!border-0 !shadow-none !bg-transparent !p-0')}
                     </div>
+                </div>,
+                document.body
+            )}
 
-                    {/* ── Theme & Interface Appearance (Premium & Polished) ── */}
-                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#0f141a] dark:to-[#080c10] border border-slate-200 dark:border-white/10 p-4 sm:p-5 rounded-3xl relative overflow-hidden flex flex-col shadow-xl">
-                        <div className="flex items-center justify-between gap-3 mb-3.5">
+            {/* Danger Zone / Succession Modal */}
+            {showDangerZoneModal && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#161d24] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] p-5 sm:p-7 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-rose-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-sm z-20">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
+                                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white leading-tight">
-                                        Interface & Theme
-                                    </h2>
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Personalize visual aesthetics and display</p>
+                                    <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        Succession & League Controls
+                                    </h3>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                        Transfer ownership or delete the entire chama
+                                    </p>
                                 </div>
                             </div>
-                            <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                                {theme === 'stealth' ? 'Stealth OLED' : theme === 'dark' ? 'Dark' : theme === 'light' ? 'Light' : 'System OS'}
-                            </span>
+                            <button
+                                type="button"
+                                onClick={() => { haptics.selection(); setShowDangerZoneModal(false); }}
+                                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-
-                        {/* Interactive Theme Cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-1">
-                            {[
-                                { key: 'dark', label: 'Dark Mode', icon: '🌙' },
-                                { key: 'stealth', label: 'Stealth Mode', icon: '🛡️' },
-                                { key: 'system', label: 'System Auto', icon: '💻' },
-                                { key: 'light', label: 'Light Mode', icon: '☀️' },
-                            ].map((t) => {
-                                const isSelected = theme === t.key;
-                                return (
-                                    <button
-                                        key={t.key}
-                                        type="button"
-                                        onClick={() => {
-                                            haptics.selection();
-                                            setTheme(t.key as any);
-                                            toast.success(`${t.label} activated`);
-                                        }}
-                                        className={clsx(
-                                            "p-3 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between cursor-pointer select-none active:scale-95 min-h-[68px]",
-                                            isSelected
-                                                ? "bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500 shadow-md ring-2 ring-emerald-500/30"
-                                                : "bg-white/80 dark:bg-white/[0.03] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
-                                        )}
-                                    >
-                                        <div className="flex items-center justify-between w-full mb-1">
-                                            <span className="text-xl sm:text-2xl leading-none drop-shadow-xs">{t.icon}</span>
-                                            {isSelected ? (
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400">Active</span>
-                                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10B981] animate-pulse" />
-                                                </div>
-                                            ) : (
-                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-white/20" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className={clsx(
-                                                "text-xs sm:text-sm font-black tracking-tight leading-tight",
-                                                isSelected ? "text-emerald-700 dark:text-emerald-300 font-extrabold" : "text-slate-800 dark:text-white"
-                                            )}>
-                                                {t.label}
-                                            </p>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        {renderOwnershipAndDangerZoneCard('!border-0 !shadow-none !bg-transparent !p-0')}
                     </div>
+                </div>,
+                document.body
+            )}
 
-                    {/* ── Account, Security & Session Center ── */}
-                    <div className="fc-card w-full bg-slate-50 dark:bg-gradient-to-br dark:from-[#121920] dark:to-[#0b1014] border border-slate-200 dark:border-emerald-500/20 p-4 md:p-5 rounded-2xl relative overflow-hidden flex flex-col shadow-lg">
-                        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                            <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                                    <Activity className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            {/* Session Credentials Modal */}
+            {showSessionModal && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                                    <Fingerprint className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Account & Session Details
-                                    </h2>
-                                    <p className="text-[9px] text-slate-500 dark:text-gray-400 font-medium">Session security and authenticated credentials</p>
+                                    <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        Account & Session Credentials
+                                    </h3>
+                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                        Cryptographic identifiers and authenticated session details
+                                    </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                {isSuperAdmin && (
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate('/hq')}
-                                        className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-500/15 border border-emerald-500/40 rounded-full text-emerald-700 dark:text-emerald-400 hover:text-white hover:bg-emerald-600 transition-all font-black text-[9px] uppercase tracking-widest cursor-pointer"
-                                        title="Access Super Admin HQ"
-                                    >
-                                        <Shield className="w-3 h-3" /> HQ
-                                    </button>
-                                )}
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Active
-                                </span>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => { haptics.selection(); setShowSessionModal(false); }}
+                                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
-
-                        {isAdminView ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {/* Account ID */}
-                                <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/30 p-2.5 flex flex-col justify-between">
-                                    <div className="flex items-center justify-between gap-1 mb-1">
-                                        <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                            <Fingerprint className="w-3 h-3 text-slate-400" /> Your ID
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-1 bg-slate-100 dark:bg-[#090d11] px-2 py-1 rounded-lg border border-slate-200/60 dark:border-white/5">
-                                        <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
-                                            {auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}
-                                        </span>
-                                        {auth.currentUser?.uid && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(auth.currentUser?.uid || '');
-                                                    toast.success('Account ID copied!');
-                                                }}
-                                                className="p-0.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-400 hover:text-white transition cursor-pointer shrink-0"
-                                                title="Copy Account ID"
-                                            >
-                                                <Copy className="w-2.5 h-2.5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Chairman ID */}
-                                <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/30 p-2.5 flex flex-col justify-between">
-                                    <div className="flex items-center justify-between gap-1 mb-1">
-                                        <span className="text-[9px] font-bold text-amber-500 flex items-center gap-1">
-                                            <ShieldAlert className="w-3 h-3 text-amber-500" /> Chairman ID
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-1 bg-slate-100 dark:bg-[#090d11] px-2 py-1 rounded-lg border border-slate-200/60 dark:border-white/5">
-                                        <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
-                                            {chairmanId ? `•••${chairmanId.slice(-6)}` : "Unset"}
-                                        </span>
-                                        {chairmanId && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(chairmanId || '');
-                                                    toast.success('Chairman ID copied!');
-                                                }}
-                                                className="p-0.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-400 hover:text-white transition cursor-pointer shrink-0"
-                                                title="Copy Chairman ID"
-                                            >
-                                                <Copy className="w-2.5 h-2.5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Co-Chair ID */}
-                                <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/30 p-2.5 flex flex-col justify-between">
-                                    <div className="flex items-center justify-between gap-1 mb-1">
-                                        <span className="text-[9px] font-bold text-emerald-500 flex items-center gap-1">
-                                            <ShieldCheck className="w-3 h-3 text-emerald-500" /> Co-Chair ID
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-1 bg-slate-100 dark:bg-[#090d11] px-2 py-1 rounded-lg border border-slate-200/60 dark:border-white/5">
-                                        <span className="text-[10px] font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
-                                            {coAdminId ? `•••${coAdminId.slice(-6)}` : "None"}
-                                        </span>
-                                        {coAdminId && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(coAdminId || '');
-                                                    toast.success('Co-Chair ID copied!');
-                                                }}
-                                                className="p-0.5 hover:bg-slate-200 dark:hover:bg-white/10 rounded text-slate-400 hover:text-white transition cursor-pointer shrink-0"
-                                                title="Copy Co-Chair ID"
-                                            >
-                                                <Copy className="w-2.5 h-2.5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Your Role */}
-                                <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/30 p-2.5 flex flex-col justify-between">
-                                    <div className="flex items-center justify-between gap-1 mb-1">
-                                        <span className="text-[9px] font-bold text-emerald-500 flex items-center gap-1">
-                                            <Key className="w-3 h-3 text-emerald-500" /> Your Role
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-[#090d11] px-2 py-1 rounded-lg border border-slate-200/60 dark:border-white/5">
-                                        <span className="text-[10px] font-black text-emerald-400">
-                                            {chairmanId && auth.currentUser?.uid === chairmanId ? 'Chairman' : (coAdminId && auth.currentUser?.uid === coAdminId ? 'Co-Chair' : 'Admin')}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {/* Account ID for Member */}
-                                <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/30 p-2.5 flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <Fingerprint className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                        <div className="min-w-0">
-                                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Account ID</p>
-                                            <p className="text-xs font-mono font-bold text-slate-200 truncate">
-                                                {auth.currentUser?.uid ? `•••${auth.currentUser.uid.slice(-6)}` : "None"}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {auth.currentUser?.uid && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(auth.currentUser?.uid || '');
-                                                toast.success('Account ID copied!');
-                                            }}
-                                            className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition cursor-pointer shrink-0"
-                                            title="Copy Account ID"
-                                        >
-                                            <Copy className="w-3 h-3" />
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Role & Status */}
-                                <div className="rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-black/30 p-2.5 flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <Key className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                        <div>
-                                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Status</p>
-                                            <p className="text-xs font-bold text-white">
-                                                {playMode === 'sidebets_only' ? 'Spectator (Side-Bets Only)' : 'Verified Chama Contender'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        Active
-                                    </span>
-                                </div>
-                            </div>
-                        )}
+                        {renderSessionDetailsContent()}
                     </div>
-
-                    {/* Mobile View: Chairman Retirement and Delete League Cards at the very end */}
-                    {/* Mobile View: Chairman Lifecycle & Danger Zone */}
-                    {isAdminView && (
-                        <div className="xl:hidden w-full flex flex-col gap-4">
-                            {renderOwnershipAndDangerZoneCard()}
-                        </div>
-                    )}
-                </div>
-
-                {/* Desktop Right Column: League Governance, Lifecycle & Danger Zone */}
-                {isAdminView && (
-                    <div className="hidden xl:flex xl:col-span-5 flex-col gap-4">
-                        {renderLeagueGovernance()}
-                        {renderOwnershipAndDangerZoneCard()}
-                    </div>
-                )}
-                </div>
-            </div>
+                </div>,
+                document.body
+            )}
 
             {/* Warning Modal */}
             <ConfirmModal
