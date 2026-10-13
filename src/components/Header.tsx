@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
 import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles, Wallet } from 'lucide-react';
@@ -14,9 +14,8 @@ import UserAvatar from './UserAvatar';
 import { haptics } from '../utils/haptics';
 import { auth } from '../firebase';
 
-export default function Header({ role, title, subtitle, hideCountdown, hideExtraControls }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean, hideExtraControls?: boolean }) {
+export default function Header({ role, title, subtitle, hideCountdown, hideExtraControls: _hideExtraControls }: { role: string, title?: string | React.ReactNode, subtitle?: string | React.ReactNode, hideCountdown?: boolean, hideExtraControls?: boolean }) {
     const activeUserId = localStorage.getItem('activeUserId') || 'current-user-fallback-id';
-    const shouldHideExtraControls = Boolean(hideExtraControls || role === 'member' || subtitle === 'Member Hub');
     const members = useStore(state => state.members);
     const logout = useStore(state => state.logout);
     const realActiveUser = members.find(m => m.id === activeUserId)?.id || members[0]?.id || activeUserId;
@@ -61,11 +60,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const currentUid = !isAnonymousAuth ? currentUser?.uid : null;
     const currentAuthEmail = !isAnonymousAuth ? currentUser?.email?.toLowerCase() : null;
 
-    const isSuperAdmin = Boolean(
-        (!isAnonymousAuth && currentUid === import.meta.env.VITE_SUPER_ADMIN_UID) ||
-        activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
-        currentAuthEmail === 'cbrian@kabarak.ac.ke'
-    );
+
 
     // Strictly verify if the user has authenticated as the Chairman via Firebase Auth (Email/Password)
     const isEmailAuthenticatedChairman = Boolean(
@@ -296,9 +291,9 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const unreadSystemCount = systemNotifs.filter(n => !n.readBy?.includes(realActiveUser)).length;
 
     return (
-        <div className="flex flex-col gap-2.5 mb-5 md:mb-7 w-full relative z-50">
-            {/* Row 1: League Title/Hub on the left, League Switcher directly to the right */}
-            <div className="flex items-center justify-between gap-3 w-full">
+        <div className="flex flex-col gap-2 mb-2.5 md:mb-3.5 w-full relative z-50">
+            {/* Row 1: League Title/Hub on the left, Header Controls on the right */}
+            <div className="flex items-start justify-between gap-3 w-full">
                 <div className={clsx('fc-header-stage flex items-center gap-3 md:gap-4 min-w-0 flex-1', headerMotion)}>
                     <UserAvatar name={fullDisplayName} size="lg" />
                     <div className="min-w-0 flex-1">
@@ -358,21 +353,86 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                     </div>
                 </div>
 
-                {/* League Switcher & Notifications Bell directly to the right of the League Title */}
-                <div className="shrink-0 flex items-center gap-2">
-                    {isSuperAdmin && (
-                        <Link
-                            to="/hq"
-                            onClick={() => haptics.selection()}
-                            className="hidden md:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500 hover:text-white text-emerald-700 dark:text-emerald-300 transition-all font-black text-xs uppercase tracking-wider shadow-[0_0_14px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer shrink-0"
-                            title="Platform Master HQ & Backend Finances"
+                {/* Right Column: Line 1 (Theme + 3 Leagues + GW Timer), Line 2 (Eye + Bell) */}
+                <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    {/* Line 1: Theme, Leagues Switcher, GW Timer on one single horizontal row */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+                        {/* Theme Toggle Pill */}
+                        <div className="relative hidden md:block" ref={themeMenuRef}>
+                            {!isThemeMenuOpen ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsThemeMenuOpen(true)}
+                                    className="fc-theme-toggle-pill flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100/90 dark:bg-white/[0.06] hover:bg-slate-200/80 dark:hover:bg-white/[0.1] border border-slate-200 dark:border-white/10 shadow-xs transition-all text-slate-700 dark:text-gray-300 active:scale-95 cursor-pointer"
+                                    title={`Theme: ${currentTheme === 'system' ? 'OS / System' : currentTheme === 'dark' ? 'Dark' : 'Light'} (Click to change)`}
+                                    aria-label="Change theme"
+                                >
+                                    {currentTheme === 'dark' ? (
+                                        <Moon className="w-3.5 h-3.5 text-slate-400" />
+                                    ) : currentTheme === 'light' ? (
+                                        <Sun className="w-3.5 h-3.5 text-amber-500" />
+                                    ) : (
+                                        <Laptop className="w-3.5 h-3.5 text-emerald-500" />
+                                    )}
+                                    <span className="text-[10px] font-black uppercase tracking-wider">
+                                        {currentTheme === 'system' ? 'OS' : currentTheme}
+                                    </span>
+                                </button>
+                            ) : (
+                                <div className="fc-theme-toggle-expanded flex items-center rounded-full p-0.5 gap-0.5 bg-slate-100/95 dark:bg-[#161d24] border border-slate-300 dark:border-white/15 shadow-lg animate-in zoom-in-95 duration-150">
+                                    {(['dark', 'system', 'light'] as const).map((mode) => (
+                                        <button
+                                            key={mode}
+                                            type="button"
+                                            onClick={() => {
+                                                setTheme(mode);
+                                                setIsThemeMenuOpen(false);
+                                            }}
+                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                                                currentTheme === mode
+                                                    ? mode === 'dark' 
+                                                        ? 'bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/40'
+                                                        : mode === 'light' 
+                                                            ? 'bg-white dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 border border-slate-200 dark:border-amber-400/30 shadow-xs'
+                                                            : 'bg-white dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-emerald-500/30 shadow-xs'
+                                                    : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                                            }`}
+                                            title={mode === 'dark' ? 'Matte Dark Mode' : mode === 'light' ? 'Light Theme' : 'Default OS'}
+                                            aria-label={`Set theme to ${mode}`}
+                                        >
+                                            {mode === 'dark' ? (
+                                                <Moon className="w-3 h-3 text-slate-300" />
+                                            ) : mode === 'light' ? (
+                                                <Sun className="w-3 h-3 text-amber-500" />
+                                            ) : (
+                                                <Laptop className="w-3 h-3 text-emerald-500" />
+                                            )}
+                                            <span className="text-[9px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Leagues Dropdown */}
+                        <LeagueSwitcher variant="header" />
+
+                        {/* GW Timer on the same line */}
+                        {!hideCountdown && <DeadlineCountdown />}
+                    </div>
+
+                    {/* Line 2: Stealth Eye + Notification Bell right below */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 justify-end" ref={dropdownRef}>
+                        {/* Stealth Mode Toggle */}
+                        <button
+                            onClick={toggleStealthMode}
+                            className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
+                            title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
                         >
-                            <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>HQ</span>
-                        </Link>
-                    )}
-                    <LeagueSwitcher variant="header" />
-                    {shouldHideExtraControls && (
+                            {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+                        </button>
+
+                        {/* Notifications Bell */}
                         <div className="relative">
                             <button
                                 onClick={handleBellClick}
@@ -391,115 +451,23 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                 )}
                             </button>
                         </div>
-                    )}
-                </div>
-            </div>
 
-            {/* Row 2: Action Icons neatly right-aligned below the League Switcher (Admins only) */}
-            {!shouldHideExtraControls && (
-                <div className="flex flex-wrap items-center justify-end gap-2 md:gap-2.5 w-full" ref={dropdownRef}>
-
-                    {/* Theme Toggle — Single compact oval pill that expands on click */}
-                    <div className="relative hidden md:block" ref={themeMenuRef}>
-                        {!isThemeMenuOpen ? (
-                            <button
-                                type="button"
-                                onClick={() => setIsThemeMenuOpen(true)}
-                                className="fc-theme-toggle-pill flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100/90 dark:bg-white/[0.06] hover:bg-slate-200/80 dark:hover:bg-white/[0.1] border border-slate-200 dark:border-white/10 shadow-xs transition-all text-slate-700 dark:text-gray-300 active:scale-95 cursor-pointer"
-                                title={`Theme: ${currentTheme === 'system' ? 'OS / System' : currentTheme === 'dark' ? 'Dark' : 'Light'} (Click to change)`}
-                                aria-label="Change theme"
-                            >
-                                {currentTheme === 'dark' ? (
-                                    <Moon className="w-3.5 h-3.5 text-slate-400" />
-                                ) : currentTheme === 'light' ? (
-                                    <Sun className="w-3.5 h-3.5 text-amber-500" />
-                                ) : (
-                                    <Laptop className="w-3.5 h-3.5 text-emerald-500" />
-                                )}
-                                <span className="text-[10px] font-black uppercase tracking-wider">
-                                    {currentTheme === 'system' ? 'OS' : currentTheme}
-                                </span>
-                            </button>
-                        ) : (
-                            <div className="fc-theme-toggle-expanded flex items-center rounded-full p-0.5 gap-0.5 bg-slate-100/95 dark:bg-[#161d24] border border-slate-300 dark:border-white/15 shadow-lg animate-in zoom-in-95 duration-150">
-                                {(['dark', 'system', 'light'] as const).map((mode) => (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        onClick={() => {
-                                            setTheme(mode);
-                                            setIsThemeMenuOpen(false);
-                                        }}
-                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                                            currentTheme === mode
-                                                ? mode === 'dark' 
-                                                    ? 'bg-slate-900 dark:bg-slate-800 text-white shadow-sm border border-slate-700/40'
-                                                    : mode === 'light' 
-                                                        ? 'bg-white dark:bg-amber-400/20 text-amber-800 dark:text-amber-300 border border-slate-200 dark:border-amber-400/30 shadow-xs'
-                                                        : 'bg-white dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-slate-200 dark:border-emerald-500/30 shadow-xs'
-                                                : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                                        }`}
-                                        title={mode === 'dark' ? 'Matte Dark Mode' : mode === 'light' ? 'Light Theme' : 'Default OS'}
-                                        aria-label={`Set theme to ${mode}`}
-                                    >
-                                        {mode === 'dark' ? (
-                                            <Moon className="w-3 h-3 text-slate-300" />
-                                        ) : mode === 'light' ? (
-                                            <Sun className="w-3 h-3 text-amber-500" />
-                                        ) : (
-                                            <Laptop className="w-3 h-3 text-emerald-500" />
-                                        )}
-                                        <span className="text-[9px] font-bold tracking-tight">{mode === 'system' ? 'OS' : mode}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Stealth Mode Toggle */}
-                    <button
-                        onClick={toggleStealthMode}
-                        className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95"
-                        title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
-                    >
-                        {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
-                    </button>
-
-                    {/* Notifications Bell */}
-                    <div className="relative">
+                        {/* Mobile Quick Sign Out */}
                         <button
-                            onClick={handleBellClick}
-                            className={clsx(
-                                "p-2 sm:p-2.5 border rounded-xl transition-all active:scale-95",
-                                isDropdownOpen
-                                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
-                                    : "bg-slate-100/80 dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                            )}
+                            onClick={async () => {
+                                haptics.selection();
+                                try { await logout(); } catch {}
+                                window.location.replace('/login');
+                            }}
+                            className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
+                            title="Sign Out"
+                            aria-label="Sign Out"
                         >
-                            <Bell className={clsx("w-4 h-4 sm:w-5 sm:h-5 transition-transform", (unreadPersonalCount + unreadSystemCount) > 0 && "fc-bell-shake text-amber-500 dark:text-amber-400")} />
-                            {(unreadPersonalCount + unreadSystemCount) > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] bg-amber-500 rounded-full border-2 border-white dark:border-[#0b1014] flex items-center justify-center animate-pulse">
-                                    <span className="text-[9px] font-black text-black tabular-nums leading-none">{unreadPersonalCount + unreadSystemCount > 9 ? '9+' : unreadPersonalCount + unreadSystemCount}</span>
-                                </span>
-                            )}
+                            <LogOut className="w-5 h-5" />
                         </button>
                     </div>
-
-                    {/* Mobile Quick Sign Out */}
-                    <button
-                        onClick={async () => {
-                            haptics.selection();
-                            try { await logout(); } catch {}
-                            window.location.replace('/login');
-                        }}
-                        className="sm:hidden p-2.5 border border-white/5 rounded-xl text-gray-500 hover:text-red-400 hover:border-red-500/20 bg-[#161d24] transition-all active:scale-95 cursor-pointer"
-                        title="Sign Out"
-                        aria-label="Sign Out"
-                    >
-                        <LogOut className="w-5 h-5" />
-                    </button>
                 </div>
-            )}
+            </div>
 
             {/* Dropdown */}
             {isDropdownOpen && typeof document !== 'undefined' && createPortal(
@@ -754,13 +722,6 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                         </div>,
                         document.body
                     )}
-
-            {/* GW Deadline Timer positioned neatly under action icons */}
-            {!hideCountdown && (
-                <div className="flex items-center justify-end w-full">
-                    <DeadlineCountdown />
-                </div>
-            )}
 
             {/* League Constitution Modal */}
             <LeagueRulesModal

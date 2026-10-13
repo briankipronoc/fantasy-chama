@@ -3816,15 +3816,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 ))}
                             </div>
 
-                            <div className="pt-2 border-t border-slate-100 dark:border-white/10">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPlayerBreakdown(false)}
-                                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-bold text-slate-700 dark:text-white transition-colors cursor-pointer"
-                                >
-                                    Close
-                                </button>
-                            </div>
+
                         </div>
                     </div>
                 );
@@ -3983,15 +3975,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 )}
                             </div>
 
-                            <div className="pt-2 border-t border-slate-100 dark:border-white/10">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPayoutsModal(false)}
-                                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-xs font-bold text-slate-700 dark:text-white transition-colors cursor-pointer"
-                                >
-                                    Close
-                                </button>
-                            </div>
+
                         </div>
                     </div>
                 );

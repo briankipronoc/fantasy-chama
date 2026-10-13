@@ -5,7 +5,7 @@ import {
     updateDoc, doc, arrayUnion, increment, getDoc
 } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
-import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History, AlertTriangle, Target } from 'lucide-react';
+import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History, AlertTriangle, Target, Bot, Bell, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import Header from '../components/Header';
@@ -615,6 +615,155 @@ export default function SideBets() {
         }
     };
 
+    const handleSmartVerify = async (bet: SideBet) => {
+        toast.loading('🤖 Checking FPL live matchday statistics...', { id: `verify-${bet.id}` });
+        try {
+            const fplLeagueId = (league as any)?.fplLeagueId;
+            let standings: any[] = [];
+            if (fplLeagueId) {
+                const cached = localStorage.getItem(`fpl_standings_${fplLeagueId}`);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    standings = Array.isArray(parsed?.data) ? parsed.data : Array.isArray(parsed) ? parsed : [];
+                }
+            }
+
+            const titleLower = bet.title.toLowerCase();
+            const descLower = (bet.description || '').toLowerCase();
+            const combined = `${titleLower} ${descLower}`;
+
+            // Check if this is a Manager H2H Matchday duel (comparing FPL gameweek scores)
+            const isH2hScoreDuel = /point|beat|score|gameweek|gw|matchday/i.test(combined) && !/haaland|salah|palmer|saka|son|clean\s*sheet/i.test(combined);
+
+            if (isH2hScoreDuel && standings.length > 0) {
+                const norm = (s: string) => String(s || '').toLowerCase().trim();
+                const challengerRow = standings.find((r: any) => 
+                    norm(r.player_name).includes(norm(bet.challenger.name)) || 
+                    norm(bet.challenger.name).includes(norm(r.player_name))
+                );
+                const opponentRow = standings.find((r: any) => 
+                    norm(r.player_name).includes(norm(bet.opponent.name)) || 
+                    norm(bet.opponent.name).includes(norm(r.player_name))
+                );
+
+                if (challengerRow && opponentRow) {
+                    const cScore = Number(challengerRow.event_total || 0);
+                    const oScore = Number(opponentRow.event_total || 0);
+
+                    if (cScore > oScore) {
+                        toast.success(`🤖 Auto-Verified: ${bet.challenger.name} scored ${cScore} pts vs ${bet.opponent.name} (${oScore} pts)!`, { id: `verify-${bet.id}` });
+                        await executeAutoResolve(bet, bet.challenger.id, bet.challenger.name, `${bet.challenger.name} scored ${cScore} pts vs ${oScore} pts`);
+                        return;
+                    } else if (oScore > cScore) {
+                        toast.success(`🤖 Auto-Verified: ${bet.opponent.name} scored ${oScore} pts vs ${bet.challenger.name} (${cScore} pts)!`, { id: `verify-${bet.id}` });
+                        await executeAutoResolve(bet, bet.opponent.id, bet.opponent.name, `${bet.opponent.name} scored ${oScore} pts vs ${cScore} pts`);
+                        return;
+                    } else {
+                        toast('🤝 Auto-Check: Scores are currently tied! Awaiting final bonus point lock or Chairman review.', { id: `verify-${bet.id}`, icon: '🤝', duration: 4000 });
+                        return;
+                    }
+                }
+            }
+
+            if (/blank/i.test(combined)) {
+                toast('🤖 FPL Live Tracker: Player blank duel monitored. Awaiting final whistle to confirm official bonus and clean sheet points.', { id: `verify-${bet.id}`, icon: '⏳', duration: 4500 });
+                return;
+            }
+
+            toast('🤖 Smart Tracker Active: Matchday in progress. Auto-resolution will finalize on final whistle, or tap "Nudge Chairman" to alert him!', { id: `verify-${bet.id}`, icon: 'ℹ️', duration: 5000 });
+        } catch (_e) {
+            toast.error('Smart verification encountered an error. You can nudge Chairman to resolve manually.', { id: `verify-${bet.id}` });
+        }
+    };
+
+    const executeAutoResolve = async (bet: SideBet, autoWinnerId: string, autoWinnerName: string, reason: string) => {
+        if (!activeLeagueId) return;
+        const isChallenger = autoWinnerId === bet.challenger.id;
+        const loserId = isChallenger ? bet.opponent.id : bet.challenger.id;
+        const loser = members.find(m => m.id === loserId);
+        const loserName = loser?.displayName || (loser as any)?.name || 'Opponent';
+        const numStake = Number(bet.stake || 0);
+
+        try {
+            const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
+            await updateDoc(betRef, {
+                status: 'resolved',
+                winnerId: autoWinnerId,
+                winnerName: autoWinnerName,
+                resolvedAt: serverTimestamp(),
+            });
+
+            const winnerRef = doc(db, 'leagues', activeLeagueId, 'memberships', autoWinnerId);
+            const loserRef = doc(db, 'leagues', activeLeagueId, 'memberships', loserId);
+
+            if (bet.fundingMode === 'instant_escrow') {
+                const totalPot = numStake * 2;
+                await updateDoc(winnerRef, { walletBalance: increment(totalPot) });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_payout',
+                    category: 'sidebet',
+                    amount: totalPot,
+                    memberId: autoWinnerId,
+                    memberName: autoWinnerName,
+                    opponentId: loserId,
+                    opponentName: loserName,
+                    note: `Smart Auto-Settled Pot: "${bet.title}" (${reason})`,
+                    receiptId: `AUTO_SB_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+            } else {
+                const loserSnap = await getDoc(loserRef);
+                if (loserSnap.exists()) {
+                    await updateDoc(loserRef, { walletBalance: increment(-numStake) });
+                }
+                const winnerSnap = await getDoc(winnerRef);
+                if (winnerSnap.exists()) {
+                    await updateDoc(winnerRef, { walletBalance: increment(numStake) });
+                }
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_payout',
+                    category: 'sidebet',
+                    amount: numStake,
+                    memberId: autoWinnerId,
+                    memberName: autoWinnerName,
+                    opponentId: loserId,
+                    opponentName: loserName,
+                    note: `Smart Post-Match Settle: "${bet.title}" (${reason})`,
+                    receiptId: `AUTO_SB_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+            }
+
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                eventType: 'sidebet_resolved',
+                message: `🤖 Smart Duel Settled: ${autoWinnerName} won "${bet.title}" against ${loserName}! (${reason})`,
+                timestamp: serverTimestamp(),
+            });
+
+            toast.success(`🏆 Duel settled! ${autoWinnerName} wins KES ${(bet.fundingMode === 'instant_escrow' ? numStake * 2 : numStake).toLocaleString()}!`);
+        } catch (err: any) {
+            console.error('Auto resolve failed:', err);
+            toast.error('Failed to complete auto-settlement.');
+        }
+    };
+
+    const handleNudgeChairman = async (bet: SideBet) => {
+        if (!activeLeagueId) return;
+        try {
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                type: 'warning',
+                message: `🔔 Duel Nudge: ${currentUser?.displayName || 'Manager'} requests resolution for "${bet.title}" (Pot: KES ${(bet.stake * 2).toLocaleString()}).`,
+                timestamp: serverTimestamp(),
+                readBy: [],
+            });
+            toast.success('Chairman nudged via Chama notification!');
+            const text = `Hi Chairman, please verify & settle our Chama side bet "${bet.title}" on FantasyChama: https://fantasy-chama.vercel.app/side-bets`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        } catch {
+            toast.error('Failed to nudge Chairman.');
+        }
+    };
+
     const handleResolve = async (bet: SideBet) => {
         if (!activeLeagueId || !isAdmin) return;
         if (!resolveWinnerId) {
@@ -895,30 +1044,67 @@ export default function SideBets() {
                                 </div>
                             </div>
 
-                            {/* Card 3: Milestone / Goal Progress Tracker (e.g. Haaland 20 Goals Target) */}
-                            <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                                        <Target className="w-3 h-3 text-indigo-500" /> Milestone Watch
-                                    </span>
-                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
-                                        GW38 Season Target
-                                    </span>
-                                </div>
-                                <div>
-                                    <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200">
-                                        <span>Haaland 20 Goals Duel</span>
-                                        <span className="text-indigo-600 dark:text-indigo-400 font-mono">14 / 20</span>
+                            {/* Card 3: Milestone / Goal Progress Tracker (Dynamic or Interactive Template) */}
+                            {(() => {
+                                const activeMilestoneBet = activeBets.find(b => 
+                                    /goal|target|milestone|score|blank|clean\s*sheet|haaland|salah|palmer|saka|son|watkins|isak/i.test(b.title)
+                                );
+                                return (
+                                    <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
+                                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
+                                                <Target className="w-3 h-3 text-indigo-500" /> Milestone Watch
+                                            </span>
+                                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                                                {activeMilestoneBet ? 'Active Duel' : 'GW38 Target (Tap to Use)'}
+                                            </span>
+                                        </div>
+                                        {activeMilestoneBet ? (
+                                            <div>
+                                                <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200">
+                                                    <span className="truncate max-w-[170px]">{activeMilestoneBet.title}</span>
+                                                    <span className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">KES {(activeMilestoneBet.stake * 2).toLocaleString()} Pot</span>
+                                                </div>
+                                                <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full mt-1.5 overflow-hidden">
+                                                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-500 animate-pulse" style={{ width: '65%' }} />
+                                                </div>
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
+                                                    <span>{activeMilestoneBet.challenger.name} vs {activeMilestoneBet.opponent.name}</span>
+                                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                                        Auto-Tracking FPL 🤖
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                onClick={() => {
+                                                    setBetTitle('Haaland 20 Goals Duel');
+                                                    setBetDescription('Challenger backs Erling Haaland to hit 20 Premier League goals this season.');
+                                                    setFundingMode('instant_escrow');
+                                                    setShowCreate(true);
+                                                }}
+                                                className="cursor-pointer group select-none"
+                                                title="Click to challenge a manager with this milestone template"
+                                            >
+                                                <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200 group-hover:text-indigo-500 transition-colors">
+                                                    <span>Haaland 20 Goals Duel</span>
+                                                    <span className="text-indigo-600 dark:text-indigo-400 font-mono">14 / 20</span>
+                                                </div>
+                                                <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full mt-1.5 overflow-hidden">
+                                                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: '70%' }} />
+                                                </div>
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between items-center">
+                                                    <span>70% Completed</span>
+                                                    <span className="font-bold text-amber-600 dark:text-amber-400 group-hover:underline flex items-center gap-0.5">
+                                                        ⚡ Tap to Setup Duel
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full mt-1.5 overflow-hidden">
-                                        <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: '70%' }} />
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
-                                        <span>70% Completed</span>
-                                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">FPL Auto-Tracked 🤖</span>
-                                    </p>
-                                </div>
-                            </div>
+                                );
+                            })()}
                         </div>
                     );
                 })()}
@@ -1129,6 +1315,8 @@ export default function SideBets() {
                                         onAgreeCancel={() => handleAgreeCancel(bet)}
                                         onDeclineCancel={() => handleDeclineCancel(bet)}
                                         onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
+                                        onSmartVerify={() => handleSmartVerify(bet)}
+                                        onNudgeChairman={() => handleNudgeChairman(bet)}
                                         getStatusBadge={getStatusBadge}
                                     />
                                 ))}
@@ -1169,6 +1357,8 @@ export default function SideBets() {
                                             onAgreeCancel={() => handleAgreeCancel(bet)}
                                             onDeclineCancel={() => handleDeclineCancel(bet)}
                                             onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
+                                            onSmartVerify={() => handleSmartVerify(bet)}
+                                            onNudgeChairman={() => handleNudgeChairman(bet)}
                                             getStatusBadge={getStatusBadge}
                                         />
                                     ))}
@@ -1205,6 +1395,8 @@ export default function SideBets() {
                                             onAgreeCancel={() => handleAgreeCancel(bet)}
                                             onDeclineCancel={() => handleDeclineCancel(bet)}
                                             onWithdrawCancelRequest={() => handleWithdrawCancelRequest(bet)}
+                                            onSmartVerify={() => handleSmartVerify(bet)}
+                                            onNudgeChairman={() => handleNudgeChairman(bet)}
                                             getStatusBadge={getStatusBadge}
                                         />
                                     ))}
@@ -1227,6 +1419,16 @@ export default function SideBets() {
             {showCreate && (
                 <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
                     <div className="w-full max-w-md bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
+                        {/* Uniform Modal Top-Right X */}
+                        <button
+                            type="button"
+                            onClick={() => { setShowCreate(false); setBetTitle(''); setBetDescription(''); setBetStake(''); setOpponentId(''); }}
+                            className="absolute top-6 right-6 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer"
+                            aria-label="Close"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
                         <div className="flex items-center gap-3 mb-2">
                             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
                                 <Swords className="w-5 h-5 text-amber-500 dark:text-amber-400" />
@@ -1236,7 +1438,34 @@ export default function SideBets() {
                                 <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Head-to-head wager between managers</p>
                             </div>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-gray-400 mb-6 font-medium">Your rival must sign before the Chairman gives the green light.</p>
+                        <p className="text-xs text-slate-600 dark:text-gray-400 mb-4 font-medium">Your rival must sign before the Chairman gives the green light.</p>
+
+                        {/* Quick Template Chips */}
+                        <div className="mb-4">
+                            <span className="block text-[10px] font-black text-slate-500 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-amber-500" /> Example Side Bet Ideas
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                                {[
+                                    { title: 'Haaland to blank GW8', desc: 'Erling Haaland scores 0 goals and 0 assists in GW8.' },
+                                    { title: 'Haaland 20 Goals Duel', desc: 'Erling Haaland reaches 20 Premier League goals in 2026.' },
+                                    { title: 'GW Matchday Points Duel', desc: 'Higher FPL points in current gameweek takes the pot.' },
+                                    { title: 'Arsenal Clean Sheet GW8', desc: 'Arsenal defense maintains a clean sheet in GW8.' },
+                                ].map((tpl) => (
+                                    <button
+                                        key={tpl.title}
+                                        type="button"
+                                        onClick={() => {
+                                            setBetTitle(tpl.title);
+                                            setBetDescription(tpl.desc);
+                                        }}
+                                        className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[10px] font-bold transition-colors cursor-pointer"
+                                    >
+                                        ⚡ {tpl.title}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
                         <div className="space-y-4">
                             <div>
@@ -1333,8 +1562,8 @@ export default function SideBets() {
                                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                         )}
                                     >
-                                        <span className="block font-bold">⏳ Post-Match</span>
-                                        <span className="block text-[9px] font-normal opacity-80 mt-0.5">Settle on GW end</span>
+                                        <span className="block font-bold">⏳ Settle After Final Whistle</span>
+                                        <span className="block text-[9px] font-normal opacity-80 mt-0.5">Pay after game finishes</span>
                                     </button>
                                     <button
                                         type="button"
@@ -1346,14 +1575,14 @@ export default function SideBets() {
                                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                         )}
                                     >
-                                        <span className="block font-bold">🔒 Wallet Escrow</span>
-                                        <span className="block text-[9px] font-normal opacity-80 mt-0.5">Deduct from wallet</span>
+                                        <span className="block font-bold">🔒 Wallet Escrow Hold</span>
+                                        <span className="block text-[9px] font-normal opacity-80 mt-0.5">Deduct & lock stake now</span>
                                     </button>
                                 </div>
                                 <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-1 font-medium">
                                     {fundingMode === 'post_match'
-                                        ? 'Wager is active immediately without upfront deduction. Both managers settle from wallets upon gameweek resolution.'
-                                        : 'Stakes are held in escrow immediately from manager wallets upon duel confirmation.'}
+                                        ? 'Wager is active immediately with 0 upfront deduction. Loser pays winner pot after final whistle via wallet debit, M-Pesa prompt, or cash handoff.'
+                                        : 'Stakes are held in wallet escrow immediately upon duel confirmation and auto-credited to the winner upon resolution.'}
                                 </p>
                             </div>
                             <div>
@@ -1443,7 +1672,17 @@ export default function SideBets() {
                 if (!bet) return null;
                 return (
                     <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-                        <div className="w-full max-w-sm bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 shadow-2xl text-slate-900 dark:text-white">
+                        <div className="w-full max-w-sm bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 shadow-2xl relative text-slate-900 dark:text-white">
+                            {/* Uniform Modal Top-Right X */}
+                            <button
+                                type="button"
+                                onClick={() => setResolvingBetId(null)}
+                                className="absolute top-6 right-6 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer"
+                                aria-label="Close"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
                             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
                                 <Trophy className="w-5 h-5" />
                             </div>
@@ -1535,6 +1774,8 @@ interface BetCardProps {
     onAgreeCancel?: () => void;
     onDeclineCancel?: () => void;
     onWithdrawCancelRequest?: () => void;
+    onSmartVerify?: () => void;
+    onNudgeChairman?: () => void;
     getStatusBadge: (bet: SideBet) => JSX.Element | undefined;
 }
 
@@ -1554,6 +1795,8 @@ function BetCard({
     onAgreeCancel,
     onDeclineCancel,
     onWithdrawCancelRequest,
+    onSmartVerify,
+    onNudgeChairman,
     getStatusBadge
 }: BetCardProps) {
     const isChallenger = bet.challenger.id === currentUserId;
@@ -1622,9 +1865,9 @@ function BetCard({
                             "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ml-1",
                             bet.fundingMode === 'instant_escrow'
                                 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                                : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10"
+                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
                         )}>
-                            {bet.fundingMode === 'instant_escrow' ? '🔒 Escrow' : '⏳ Post-Match'}
+                            {bet.fundingMode === 'instant_escrow' ? '🔒 Wallet Escrow' : '⏳ Settle After Final Whistle'}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1639,6 +1882,21 @@ function BetCard({
                             </span>
                         )}
                     </div>
+                </div>
+
+                {/* Settlement Mechanism Banner */}
+                <div className="mb-4 p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 text-[11px] text-slate-600 dark:text-gray-400 leading-relaxed">
+                    {bet.fundingMode === 'instant_escrow' ? (
+                        <span className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-black">🔒 Wallet Escrow:</span>
+                            <span>KES {bet.stake.toLocaleString()} is locked from each manager's wallet. Total KES {(bet.stake * 2).toLocaleString()} pot automatically credited to winner upon outcome.</span>
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-amber-600 dark:text-amber-400 font-black">⏳ Settle After Final Whistle:</span>
+                            <span>No upfront lock. Winner claims KES {(bet.stake * 2).toLocaleString()} pot ({bet.stake.toLocaleString()} each) from loser via wallet debit, M-Pesa prompt, or cash handoff.</span>
+                        </span>
+                    )}
                 </div>
 
                 {/* Mutual Cancellation Banner */}
@@ -1743,6 +2001,30 @@ function BetCard({
                             <X className="w-3.5 h-3.5" /> Decline
                         </button>
                     </>
+                )}
+
+                {/* Smart Outcome Auto-Verification & Autonomous Resolution */}
+                {bet.status === 'active' && onSmartVerify && (
+                    <button
+                        type="button"
+                        onClick={onSmartVerify}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs"
+                        title="Check live FPL stats and auto-resolve without waiting for manual intervention"
+                    >
+                        <Bot className="w-3.5 h-3.5 text-indigo-500" /> Auto-Verify Outcome
+                    </button>
+                )}
+
+                {/* Nudge Chairman to Resolve */}
+                {isParticipant && bet.status === 'active' && onNudgeChairman && (
+                    <button
+                        type="button"
+                        onClick={onNudgeChairman}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all active:scale-95 cursor-pointer"
+                        title="Nudge Chairman to review and confirm this wager"
+                    >
+                        <Bell className="w-3.5 h-3.5 text-amber-500" /> Nudge Chairman
+                    </button>
                 )}
 
                 {/* Chairman can resolve active bets */}

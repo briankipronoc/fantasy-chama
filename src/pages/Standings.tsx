@@ -104,7 +104,7 @@ export default function Standings() {
     const [isSavingFplId, setIsSavingFplId] = useState(false);
     const [currentEvent, setCurrentEvent] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState(false);
-    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('gw');
+    const [heroRankView, setHeroRankView] = useState<'gw' | 'season'>('season');
     const [leagueGameweekStake, setLeagueGameweekStake] = useState<number>(0);
     const [leagueRules, setLeagueRules] = useState<any>({});
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
@@ -1292,13 +1292,67 @@ export default function Standings() {
                     )
                 ) : (
                     <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
+                        {/* Table Controls Bar: Toggle between Overall Season and GW Round */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-200 dark:border-white/5 bg-slate-50/70 dark:bg-black/20">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400">Sort Standings:</span>
+                                <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/80 dark:bg-white/5 border border-slate-300 dark:border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setHeroRankView('season'); }}
+                                        className={clsx(
+                                            "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                                            heroRankView === 'season'
+                                                ? "bg-amber-400 dark:bg-[#FBBF24] text-slate-950 shadow-sm"
+                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                        )}
+                                    >
+                                        <span>🏆 Overall Total</span>
+                                        {heroRankView === 'season' && <span className="text-[10px]">▼</span>}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
+                                        className={clsx(
+                                            "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                                            heroRankView === 'gw'
+                                                ? "bg-amber-400 dark:bg-[#FBBF24] text-slate-950 shadow-sm"
+                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                        )}
+                                    >
+                                        <span>⚡ GW Round</span>
+                                        {heroRankView === 'gw' && <span className="text-[10px]">▼</span>}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="text-[11px] font-semibold text-slate-500 dark:text-gray-400">
+                                {heroRankView === 'season'
+                                    ? 'Sorted by cumulative season points (Vault Leader #1)'
+                                    : `Sorted by GW${currentEvent || ''} round points (Weekly Pot Winner)`}
+                            </div>
+                        </div>
+
                         {/* Desktop table header — hidden on mobile */}
-                        <div className="hidden md:grid grid-cols-12 gap-2 px-5 py-3 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/20 text-[10px] font-black text-emerald-600 dark:text-[#10B981] uppercase tracking-widest">
+                        <div className="hidden md:grid grid-cols-12 gap-2 px-5 py-3 border-b border-slate-200 dark:border-white/5 bg-slate-100/60 dark:bg-black/40 text-[10px] font-black text-emerald-600 dark:text-[#10B981] uppercase tracking-widest select-none">
                             <div className="col-span-1">Rank</div>
                             <div className="col-span-4">Member</div>
                             <div className="col-span-3">FPL Team</div>
-                            <div className="col-span-1 text-center">GW</div>
-                            <div className="col-span-1 text-center">{standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1 ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'}</div>
+                            <button
+                                type="button"
+                                onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
+                                className={clsx("col-span-1 text-center flex items-center justify-center gap-1 cursor-pointer transition-colors", heroRankView === 'gw' ? 'text-amber-500 dark:text-[#FBBF24] font-black' : 'hover:text-slate-900 dark:hover:text-white')}
+                                title="Sort by Gameweek round points"
+                            >
+                                GW {heroRankView === 'gw' && '▼'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { haptics.selection(); setHeroRankView('season'); }}
+                                className={clsx("col-span-1 text-center flex items-center justify-center gap-1 cursor-pointer transition-colors", heroRankView === 'season' ? 'text-amber-500 dark:text-[#FBBF24] font-black' : 'hover:text-slate-900 dark:hover:text-white')}
+                                title="Sort by Total season points"
+                            >
+                                {standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1 ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'} {heroRankView === 'season' && '▼'}
+                            </button>
                             <div className="col-span-2 text-right">Status</div>
                         </div>
                         {/* Rows */}
@@ -1819,8 +1873,15 @@ export default function Standings() {
                                 </span>
                             </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
-                            {topSeasonLeaders.slice(0, 3).map((leader: any, idx: number) => {
+                        <div className={clsx(
+                            "w-full",
+                            topSeasonLeaders.length === 1
+                                ? "flex justify-center max-w-sm mx-auto"
+                                : topSeasonLeaders.length === 2
+                                ? "grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-w-xl mx-auto"
+                                : "grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3"
+                        )}>
+                            {topSeasonLeaders.map((leader: any, idx: number) => {
                                 const leaderRank = Number(leader.calculatedRank || idx + 1);
                                 const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
                                 const isLeaderFunded = isMemberEligibleWinner(leader);

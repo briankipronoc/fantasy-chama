@@ -3905,7 +3905,7 @@ burstFrame();
           <span className="leading-snug">{toastMessage}</span>
         </div>
 
-        <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8 pb-6 lg:pb-8">
+        <div className="relative z-10 w-full max-w-[1440px] mx-auto px-4 md:px-8 py-3.5 md:py-5 space-y-3.5 md:space-y-4 pb-6 lg:pb-8">
           {/* Top Header */}
           <Header
             role="admin"
@@ -6599,9 +6599,10 @@ burstFrame();
                 </div>
                 <button
                   onClick={() => setShowWalletFundModal(false)}
-                  className="fc-modal-secondary px-3 py-2 rounded-lg border text-xs font-bold"
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer"
+                  aria-label="Close"
                 >
-                  Close
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 

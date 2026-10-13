@@ -371,48 +371,22 @@ export default function TeamPicksModal({
                                 </div>
                             </div>
 
-                            {/* Bench Section */}
-                            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-black/40 p-3 sm:p-4 space-y-2.5 shadow-xs">
-                                <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2">
+                            {/* Bench Section with Green Pitch View and Full Jerseys */}
+                            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-[#14532d] via-[#166534] to-[#14532d] dark:from-[#0a4524] dark:via-[#08391d] dark:to-[#062c16] p-3 sm:p-4 space-y-3 shadow-xl relative overflow-hidden">
+                                <div className="flex items-center justify-between border-b border-white/20 pb-2 relative z-10">
                                     <div className="flex items-center gap-1.5">
-                                        <Shirt className="w-3.5 h-3.5 text-slate-600 dark:text-gray-300" />
-                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        <Shirt className="w-3.5 h-3.5 text-emerald-300" />
+                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-white">
                                             Substitutes Bench
                                         </h4>
                                     </div>
-                                    <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono font-medium">
+                                    <span className="text-[10px] text-emerald-200/90 font-mono font-bold">
                                         {activeChip === 'bboost' ? 'Points Counted (Bench Boost Active)' : `Points on bench: ${entryHistory?.points_on_bench || 0}`}
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    {bench.map((p, idx) => {
-                                        const player = playersMap[p.element];
-                                        return (
-                                            <div 
-                                                key={p.element}
-                                                className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] flex items-center justify-between gap-1.5 shadow-xs"
-                                            >
-                                                <div className="min-w-0">
-                                                    <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/10 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-white/10 inline-block mb-1">
-                                                        {idx === 0 ? 'GKP 12' : `Sub ${idx}`}
-                                                    </span>
-                                                    <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{player?.web_name || `Player ${p.element}`}</p>
-                                                    <p className="text-[9px] text-slate-500 dark:text-gray-300 font-medium">{player?.team_short || 'PL'}</p>
-                                                </div>
-                                                <div className="text-right shrink-0">
-                                                    <span className={clsx(
-                                                        "text-[11px] font-black px-2 py-0.5 rounded-md block border",
-                                                        activeChip === 'bboost'
-                                                            ? "bg-emerald-500/25 text-emerald-800 dark:text-emerald-300 border-emerald-500/40"
-                                                            : "bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white border-slate-200 dark:border-white/15"
-                                                    )}>
-                                                        {player?.points || 0} pts
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                <div className="flex justify-center gap-2 sm:gap-4 flex-wrap relative z-10 pt-1">
+                                    {bench.map(p => renderPlayerCard(p, playersMap[p.element], activeChip))}
                                 </div>
                             </div>
                         </>
@@ -435,14 +409,6 @@ export default function TeamPicksModal({
                     ) : (
                         <span className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">Official Fantasy Premier League data</span>
                     )}
-
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white/15 dark:hover:bg-white/25 border border-slate-900 dark:border-white/20 text-white text-xs font-black transition-all cursor-pointer ml-auto active:scale-95 shadow-sm"
-                    >
-                        Close Lineup
-                    </button>
                 </div>
             </div>
         </div>
