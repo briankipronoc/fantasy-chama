@@ -408,7 +408,7 @@ export default function Profile() {
 
     // Red Zone: is current user unpaid?
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
-    const hasPaid = currentMember?.hasPaid ?? true; // default true to avoid false red on load
+    const hasPaid = currentMember ? isMemberFunded(currentMember) : true; // default true to avoid false red on load
     const isAdminView = role === 'admin';
 
     const handleSaveMember = async (e: React.FormEvent) => {
@@ -1040,9 +1040,9 @@ export default function Profile() {
                                     )}
                                     {!isChairman && !isValidCoChair && (
                                         <span className={clsx("text-[8px] font-black uppercase tracking-wider block px-1.5 py-0.5 rounded-md",
-                                            !isActive ? "text-gray-400 dark:text-gray-600 bg-gray-500/10" : (member.hasPaid ? "text-emerald-600 dark:text-[#10B981] bg-emerald-500/10 border border-emerald-500/20" : "text-red-500 bg-red-500/10 border border-red-500/20")
+                                            !isActive ? "text-gray-400 dark:text-gray-600 bg-gray-500/10" : (isMemberFunded(member) ? "text-emerald-600 dark:text-[#10B981] bg-emerald-500/10 border border-emerald-500/20" : "text-red-500 bg-red-500/10 border border-red-500/20")
                                         )}>
-                                            {!isActive ? "Inactive" : (member.hasPaid ? "Funded" : "Red Zone")}
+                                            {!isActive ? "Inactive" : (isMemberFunded(member) ? "Funded" : "Red Zone")}
                                         </span>
                                     )}
                                 </div>

@@ -360,16 +360,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         };
     }, [activeLeagueId, role, activeUserId, memberPhone]);
 
-    const redZoneMembers = useMemo(() => {
-        return members.filter((m: any) => 
-            m.role !== 'admin' && 
-            m.isActive !== false && 
-            (m as any).playMode !== 'sidebets_only' && 
-            !m.hasPaid && 
-            Number(m.walletBalance || 0) < Number(gameweekStake || 50)
-        );
-    }, [members, gameweekStake]);
-
     const pendingAwaitingPayouts = useMemo(() => {
         return (pendingApprovals || []).filter((p: any) => p.status === 'awaiting_approval');
     }, [pendingApprovals]);
@@ -1013,6 +1003,16 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             .sort((a, b) => b.gwsSkippedCount - a.gwsSkippedCount);
     }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake, forfeitedGws, resolvedGws, playedCompletedGws]);
 
+    const redZoneMembers = useMemo(() => {
+        return memberFundingSummary.filter((m: any) => 
+            m.role !== 'admin' && 
+            !m.isSpectator && 
+            !m.isPendingOnboarding && 
+            !m.hasPaidCurrent &&
+            Number(m.walletBalance || 0) < Number(gameweekStake || 50)
+        );
+    }, [memberFundingSummary, gameweekStake]);
+
     // Background ledger reconciliation: sync any un-deducted member wallet balances to Firestore
     useEffect(() => {
         if (!isAdmin || !activeLeagueId || resolvedGws.size === 0 || members.length === 0 || (gameweekStake || 0) <= 0) return;
@@ -1626,6 +1626,8 @@ const handleRejectPendingPayout = async (payout: any) => {
                                 <button
                                     type="button"
                                     onClick={() => {
+                                        setIsAuditExpanded(true);
+                                        setFundingAuditFilter('skipped');
                                         const el = document.getElementById('arrears-audit-section');
                                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                                     }}
@@ -2240,7 +2242,7 @@ const handleRejectPendingPayout = async (payout: any) => {
 
 
                 {/* Member Gameweek Funding & Arrears Audit */}
-                <section className="fc-card mb-8 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151c18] overflow-hidden shadow-xl">
+                <section id="arrears-audit-section" className="fc-card mb-8 rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#151c18] overflow-hidden shadow-xl">
                     <div className="p-5 md:p-6 border-b border-slate-100 dark:border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-start sm:items-center gap-3">
                             <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 mt-1 sm:mt-0">
