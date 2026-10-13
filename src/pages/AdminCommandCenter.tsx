@@ -42,6 +42,9 @@ import {
   Zap,
   Lock,
   Info,
+  Edit3,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import PotVaultSwapper from "../components/PotVaultSwapper";
 import ChamaBanterSlipModal, { BanterSlipData } from "../components/ChamaBanterSlipModal";
@@ -5861,47 +5864,70 @@ burstFrame();
                             </div>
                           )}
                         </div>
-                        <div className="text-[11px] text-gray-500 flex items-center gap-2 flex-wrap">
-                          <span className="font-mono">{row.phone || '—'}</span>
-                          <span className="text-white/20">•</span>
-                          <span className="text-emerald-400 font-semibold" title="Total net receipts received from this player">
-                            Received: <strong className="font-mono font-bold text-emerald-300">KES {netDeposited.toLocaleString()}</strong>
+                        {/* Meta strip */}
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                          <span className="font-mono text-[11px] text-slate-600 dark:text-gray-400">{row.phone || '—'}</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-500/20" title="Total net receipts received from this player">
+                            Received: <strong className="font-mono font-bold">KES {netDeposited.toLocaleString()}</strong>
                           </span>
-                          <span className="text-white/20">•</span>
-                          {row.id !== activeUserId && row.id !== chairmanId && (row as any).role !== "chairman" && (row as any).authUid !== auth.currentUser?.uid && (
-                            <>
-                              <button onClick={() => handleToggleAdmin(row.id, (row as any).role)} className="hover:text-white transition-colors">
-                                {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
-                              </button>
-                              <span className="text-white/20">•</span>
-                            </>
-                          )}
-                          <button onClick={() => openEditMemberModal(row)} className="hover:text-[#FBBF24] transition-colors">✏️ Edit</button>
-                          <span className="text-white/20">•</span>
+                        </div>
+
+                        {/* Action buttons bar */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
                           <button
                             type="button"
                             onClick={() => {
                               openWalletFundModal(row.id);
                               if (rowOwedArrears > 0) setFundAmount(String(rowOwedArrears));
                             }}
-                            className="text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-black transition-all cursor-pointer active:scale-95 shadow-xs"
                             title="Credit member wallet (Cash or M-Pesa receipt)"
                           >
-                            💰 Top Up
+                            <Plus className="w-3 h-3 text-emerald-500" />
+                            <span>Top Up</span>
                           </button>
-                          <span className="text-white/20">•</span>
+
                           <button
+                            type="button"
+                            onClick={() => openEditMemberModal(row)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10 text-[10px] font-bold transition-all cursor-pointer"
+                          >
+                            <Edit3 className="w-3 h-3 text-amber-500" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => handleToggleSpectator(row.id, (row as any).playMode)}
                             className={clsx(
-                              "transition-colors",
-                              (row as any).playMode === "sidebets_only" ? "text-indigo-400 hover:text-indigo-300 font-bold" : "hover:text-indigo-400"
+                              "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer",
+                              (row as any).playMode === "sidebets_only"
+                                ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/25"
+                                : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-400 border border-slate-200 dark:border-white/10"
                             )}
                             title={(row as any).playMode === "sidebets_only" ? "Switch member to Weekly & Season Cash Pot" : "Set member as Spectator (1v1 side bets only)"}
                           >
                             {(row as any).playMode === "sidebets_only" ? "Switch to Pot" : "Make Spectator"}
                           </button>
-                          <span className="text-white/20">•</span>
-                          <button onClick={() => handleDeleteMember(row.id, row.displayName)} className="text-red-400/80 hover:text-red-300 transition-colors">🗑️ Remove</button>
+
+                          {row.id !== activeUserId && row.id !== chairmanId && (row as any).role !== "chairman" && (row as any).authUid !== auth.currentUser?.uid && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAdmin(row.id, (row as any).role)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-400 border border-slate-200 dark:border-white/10 text-[10px] font-bold transition-all cursor-pointer"
+                            >
+                              {(row as any).role === "admin" ? "Revoke Admin" : "Make Admin"}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMember(row.id, row.displayName)}
+                            className="inline-flex items-center justify-center p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 text-[10px] font-bold transition-all cursor-pointer"
+                            title="Remove member"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
 

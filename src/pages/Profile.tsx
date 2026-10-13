@@ -91,7 +91,7 @@ export default function Profile() {
     const [isRetiring, setIsRetiring] = useState(false);
     const [showDeleteLeagueModal, setShowDeleteLeagueModal] = useState(false);
     const [isDeletingLeague, setIsDeletingLeague] = useState(false);
-    const [isLeagueSettingsExpanded, setIsLeagueSettingsExpanded] = useState(false);
+    const [showLeagueSettingsModal, setShowLeagueSettingsModal] = useState(false);
     const [showMembersModal, setShowMembersModal] = useState(false);
     const [showDangerZoneModal, setShowDangerZoneModal] = useState(false);
     const [showSessionModal, setShowSessionModal] = useState(false);
@@ -546,6 +546,7 @@ export default function Profile() {
             toast.success('League rules & name updated successfully!');
             // Re-lock after save
             setIsFinancialsLocked(true);
+            setShowLeagueSettingsModal(false);
         } catch (error) {
             toast.error('Could not save league settings.');
             console.error(error);
@@ -1151,26 +1152,28 @@ export default function Profile() {
                 </span>
             </div>
 
-            {/* Expand / Collapse Button */}
+            {/* Configure League Settings Modal Trigger */}
             <button
                 type="button"
                 onClick={() => {
                     haptics.selection();
-                    setIsLeagueSettingsExpanded(!isLeagueSettingsExpanded);
+                    setShowLeagueSettingsModal(true);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-between border border-slate-200 dark:border-white/10 transition-all cursor-pointer mb-2"
+                className="w-full py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-between border border-slate-200 dark:border-white/10 transition-all cursor-pointer mb-2 active:scale-[0.98] group"
             >
                 <span className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-amber-500" />
-                    {isLeagueSettingsExpanded ? 'Hide League Configuration' : 'Expand League Settings & Rules'}
+                    <Trophy className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+                    <span>League Settings & Constitution Rules</span>
                 </span>
-                <ChevronDown className={clsx("w-4 h-4 transition-transform duration-300 text-slate-400", isLeagueSettingsExpanded && "rotate-180")} />
+                <span className="text-amber-600 dark:text-[#FBBF24] font-black text-xs flex items-center gap-1">
+                    Configure →
+                </span>
             </button>
+        </div>
+    );
 
-            {isLeagueSettingsExpanded && (
-                <div className="pt-3 border-t border-slate-200 dark:border-white/10 animate-in fade-in duration-300">
-                    {/* Rule Modification Form */}
-                    <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
+    const renderLeagueSettingsForm = () => (
+        <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
                 <div>
                     <div className="flex justify-between items-center mb-1.5">
                         <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -1445,9 +1448,42 @@ export default function Profile() {
                     </div>
                 )}
                     </form>
+    );
+
+    const renderLeagueSettingsModal = () => (
+        showLeagueSettingsModal && createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden">
+                    <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-[#161d24]/95 backdrop-blur-sm shrink-0 sticky top-0 z-20">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                                <Trophy className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                    League Settings & Rules
+                                </h3>
+                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                    Financials, kickoff gameweek, prize splits & co-chair
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => { haptics.selection(); setShowLeagueSettingsModal(false); }}
+                            className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+                        {renderLeagueSettingsForm()}
+                    </div>
                 </div>
-            )}
-        </div>
+            </div>,
+            document.body
+        )
     );
 
     const renderOwnershipAndDangerZoneCard = (extraClassName = '') => (
@@ -2143,12 +2179,12 @@ export default function Profile() {
 
             {/* Members Directory Modal */}
             {showMembersModal && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-sm z-20">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                                    <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs">
+                                    <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
@@ -2173,14 +2209,17 @@ export default function Profile() {
                 document.body
             )}
 
+            {/* League Settings & Rules Modal */}
+            {renderLeagueSettingsModal()}
+
             {/* Danger Zone / Succession Modal */}
             {showDangerZoneModal && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#161d24] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] p-5 sm:p-7 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-rose-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#161d24]/95 backdrop-blur-sm z-20">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#121820] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] p-5 sm:p-7 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-rose-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
-                                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                                <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shadow-xs">
+                                    <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
@@ -2207,12 +2246,12 @@ export default function Profile() {
 
             {/* Session Credentials Modal */}
             {showSessionModal && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-                                    <Fingerprint className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shadow-xs">
+                                    <Fingerprint className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">

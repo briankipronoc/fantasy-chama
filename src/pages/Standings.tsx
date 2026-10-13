@@ -746,23 +746,17 @@ export default function Standings() {
 
     const isMemberEligibleWinner = (row: any) => {
         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
-        if (!matched) return false;
-        if (matched.isActive === false) return false;
-        if ((matched as any).isEliminated === true) return false;
-        if ((matched as any).playMode === 'sidebets_only') return false;
-        const stake = Number(
-            leagueRules?.gameweekStake ||
-            (league as any)?.gameweekStake ||
-            (league as any)?.rules?.gameweekStake ||
-            (league as any)?.monthlyFee ||
-            0
-        );
-        const bal = Number(matched.walletBalance || 0);
-        return matched.hasPaid === true || bal > 0 || (stake > 0 && bal >= stake);
+        if (matched) {
+            if (matched.isActive === false) return false;
+            if ((matched as any).isEliminated === true) return false;
+            if ((matched as any).playMode === 'sidebets_only') return false;
+        }
+        return true;
     };
 
     const eligibleGwStandings = standingsData.filter(isMemberEligibleWinner);
-    const maxEligibleGwScore = eligibleGwStandings.reduce((max, r) => Math.max(max, Number(r.event_total || 0)), 0);
+    const candidatePool = eligibleGwStandings.length > 0 ? eligibleGwStandings : standingsData;
+    const maxEligibleGwScore = candidatePool.reduce((max, r) => Math.max(max, Number(r.event_total || 0)), 0);
 
     const mergedRules = { ...((league as any)?.rules || {}), ...(leagueRules || {}) };
     const configuredSeasonWinnersCount = Math.max(1, Number(mergedRules.seasonWinnersCount || 3));
@@ -1335,15 +1329,17 @@ export default function Standings() {
                                     (matchedMember.hasPaid === true || memberBalance > 0 || (stake > 0 && memberBalance >= stake))
                                 );
                                 const isGwWinnerRow = Boolean(
-                                    isFunded &&
+                                    !isSpectator &&
                                     maxEligibleGwScore > 0 &&
                                     Number(row.event_total) === maxEligibleGwScore
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const isSeasonView = heroRankView === 'season';
                                 const displaySeasonTotal = isCleanSlateActive ? Number(row.cleanTotal ?? (row.total - (row.preDeduction || 0))) : Number(row.total || 0);
-                                const isSeasonLeader = isSeasonView && rankNum === 1;
-                                const isDoubleCrown = isSeasonLeader && isGwWinnerRow;
+                                const maxSeasonScore = Math.max(...filteredRows.map((r: any) => Number(r.seasonCompareScore || 0)), 0);
+                                const isOverallSeasonLeader = !isSpectator && maxSeasonScore > 0 && Number(row.seasonCompareScore) === maxSeasonScore;
+                                const isSeasonLeader = isSeasonView ? rankNum === 1 : isOverallSeasonLeader;
+                                const isDoubleCrown = isOverallSeasonLeader && isGwWinnerRow;
                                 const medal = isSeasonView
                                     ? (rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null)
                                     : (rankNum === 1 ? '🥇' : null);
@@ -1459,7 +1455,7 @@ export default function Standings() {
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 md:hidden mb-1.5">GW Pts</span>
                                                         <span className={clsx(
                                                             'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
-                                                            isGwWinnerRow || rankNum === 1
+                                                            isGwWinnerRow
                                                                 ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
                                                                 : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-slate-200 border-slate-200 dark:border-white/5'
                                                         )}>
