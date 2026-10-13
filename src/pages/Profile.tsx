@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
+import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Crown, Camera, Loader2, Sparkles, Phone, Check } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, getDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -87,10 +87,8 @@ export default function Profile() {
     const [chairmanId, setChairmanId] = useState<string | null>(null);
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
-    const [dangerZoneTab, setDangerZoneTab] = useState<'succession' | 'delete'>('succession');
     const [pendingPhoneMap, setPendingPhoneMap] = useState<Record<string, string>>({});
     const [isSavingPendingPhone, setIsSavingPendingPhone] = useState<string | null>(null);
-    const [showPendingOnboarding, setShowPendingOnboarding] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState<{ id: string; name: string } | null>(null);
     const [isDeletingMember, setIsDeletingMember] = useState(false);
     const [showDocsModal, setShowDocsModal] = useState(false);
@@ -104,6 +102,7 @@ export default function Profile() {
     const [showMembersModal, setShowMembersModal] = useState(false);
     const [showDangerZoneModal, setShowDangerZoneModal] = useState(false);
     const [showSessionModal, setShowSessionModal] = useState(false);
+    const [membersModalTab, setMembersModalTab] = useState<'all' | 'pending' | 'funded' | 'redzone' | 'inactive'>('all');
 
     const isMemberFunded = (m: any) =>
         m.hasPaid === true || (gameweekStake > 0 && (m.walletBalance || 0) >= gameweekStake);
@@ -821,295 +820,58 @@ export default function Profile() {
         }
     };
 
-    const renderActiveMembersStrip = (extraClassName = '') => {
-        // Funded members are considered active regardless of phone status
-        // Only show as "Pending Onboarding" if they have no phone AND are not funded
-        const pendingMembers = members.filter((m: any) => isMemberPending(m));
-        const filteredPendingMembers = pendingMembers.filter((m: any) => {
-            if (!onboardingSearch.trim()) return true;
-            const q = onboardingSearch.toLowerCase();
-            return (m.displayName || '').toLowerCase().includes(q) ||
-                   (m.fplTeamName || '').toLowerCase().includes(q);
-        });
-        const directoryMembers = members.filter((m: any) => !isMemberPending(m));
-        return (
-        <div className={clsx(
-            "fc-active-members-card fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden h-fit shadow-xl text-slate-900 dark:text-white",
-            extraClassName
-        )}>
-            {!extraClassName && (
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div>
-                        <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-slate-900 dark:text-white">
-                            <Users className="w-5 h-5 text-[#10B981]" /> Active Members
-                        </h2>
-                        <p className="text-slate-500 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest">Chama Members</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {pendingMembers.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    haptics.selection();
-                                    setShowPendingOnboarding(true);
-                                }}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)] group active:scale-95"
-                                title="Click to view and onboard pending FPL members"
-                            >
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                </span>
-                                <span>{pendingMembers.length} Pending Onboarding</span>
-                            </button>
-                        )}
-                        <span className="bg-slate-100 dark:bg-[#0b1014] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
-                            {activeMembersCount}
-                        </span>
-                    </div>
-                </div>
-            )}
+    const handleActivatePendingMember = async (m: any) => {
+        const rawPhone = pendingPhoneMap[m.id] !== undefined ? pendingPhoneMap[m.id] : (m.phoneNumber || m.phone || '');
+        const phone = rawPhone.trim();
+        if (!phone || phone.length < 9) {
+            toast.error('Enter a valid phone number (at least 9 digits)');
+            return;
+        }
+        setIsSavingPendingPhone(m.id);
+        try {
+            const { doc: docFn, updateDoc: updateDocFn, deleteDoc: deleteDocFn } = await import('firebase/firestore');
+            const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            
+            // Check if an existing member matches name or squad
+            const existingActive = members.find((existing: any) => 
+                existing.id !== m.id &&
+                ((norm(existing.displayName) && norm(existing.displayName) === norm(m.displayName)) ||
+                 (norm((existing as any).fplTeamName) && norm((existing as any).fplTeamName) === norm(m.fplTeamName)) ||
+                 (norm((existing as any).teamName) && norm((existing as any).teamName) === norm(m.fplTeamName)))
+            );
 
-            {/* Centered Interactive Modal: FPL Sync • Pending Onboarding */}
-            {showPendingOnboarding && pendingMembers.length > 0 && typeof document !== 'undefined' && createPortal(
-                <div
-                    className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-                    onClick={() => setShowPendingOnboarding(false)}
-                >
-                    <div
-                        className="relative w-full max-w-xl bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-emerald-500/30 rounded-[2rem] shadow-2xl p-5 md:p-6 my-auto flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-white/10 shrink-0">
-                            <div className="flex items-center gap-2.5">
-                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <div>
-                                    <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white">
-                                        🔗 FPL Sync • Pending Onboarding
-                                    </h3>
-                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider mt-0.5">
-                                        {pendingMembers.length} Members to Activate
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleShare}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
-                                >
-                                    <Share2 className="w-3 h-3" /> Share Code ({inviteCode || '------'})
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPendingOnboarding(false)}
-                                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
-                                    aria-label="Close"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <p className="text-xs text-slate-600 dark:text-slate-300 my-3 font-medium leading-relaxed shrink-0">
-                            Add M-Pesa phone numbers to imported FPL players to complete onboarding and activate them on the league ledger. Or share the code so members can join directly.
-                        </p>
-
-                        {/* Search Bar for Member Matching */}
-                        <div className="relative mb-3 shrink-0">
-                            <Search className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                            <input
-                                type="text"
-                                value={onboardingSearch}
-                                onChange={(e) => setOnboardingSearch(e.target.value)}
-                                placeholder="Search member name or FPL team..."
-                                className="w-full pl-10 pr-12 py-2.5 bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-500 focus:border-emerald-500 focus:outline-none transition-all"
-                            />
-                            {onboardingSearch && (
-                                <button
-                                    type="button"
-                                    onClick={() => setOnboardingSearch('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white uppercase font-bold"
-                                >
-                                    Clear
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Scrollable Members List */}
-                        <div className="space-y-2.5 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                            {filteredPendingMembers.length === 0 ? (
-                                <div className="text-center py-8 text-slate-400 dark:text-gray-500 text-xs font-medium">
-                                    No pending members match "{onboardingSearch}"
-                                </div>
-                            ) : (
-                                filteredPendingMembers.map((m: any) => (
-                                <div key={m.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#141b22] border border-slate-200 dark:border-white/10 hover:border-emerald-500/40 transition-all">
-                                    <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                                        <UserAvatar name={m.displayName} size="md" />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-black text-slate-900 dark:text-white break-words leading-tight">{m.displayName}</p>
-                                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold break-words mt-0.5">
-                                                {m.fplTeamName || 'FPL Team'} <span className="text-slate-500 dark:text-slate-400">· Pending Phone</span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                                        <input
-                                            type="tel"
-                                            value={pendingPhoneMap[m.id] || m.phoneNumber || ''}
-                                            onChange={e => setPendingPhoneMap(prev => ({ ...prev, [m.id]: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) }))}
-                                            placeholder="07XXXXXXXX"
-                                            className="flex-1 sm:w-36 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/15 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-white font-mono focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={async () => {
-                                                const phone = pendingPhoneMap[m.id] || m.phoneNumber;
-                                                if (!phone || phone.length < 9) {
-                                                    toast.error('Enter a valid phone number (at least 9 digits)');
-                                                    return;
-                                                }
-                                                setIsSavingPendingPhone(m.id);
-                                                try {
-                                                    const { doc: docFn, updateDoc: updateDocFn, deleteDoc: deleteDocFn } = await import('firebase/firestore');
-                                                    const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                                                    
-                                                    // Check if an existing member matches name or squad
-                                                    const existingActive = members.find((existing: any) => 
-                                                        existing.id !== m.id &&
-                                                        ((norm(existing.displayName) && norm(existing.displayName) === norm(m.displayName)) ||
-                                                         (norm((existing as any).fplTeamName) && norm((existing as any).fplTeamName) === norm(m.fplTeamName)) ||
-                                                         (norm((existing as any).teamName) && norm((existing as any).teamName) === norm(m.fplTeamName)))
-                                                    );
-
-                                                    if (existingActive) {
-                                                        const combinedPaid = Boolean(existingActive.hasPaid || m.hasPaid);
-                                                        const combinedBalance = Math.max(Number(existingActive.walletBalance || 0), Number(m.walletBalance || 0));
-                                                        await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', existingActive.id), {
-                                                            phoneNumber: phone,
-                                                            phone: phone,
-                                                            fplTeamId: m.fplTeamId || existingActive.fplTeamId || null,
-                                                            fplTeamName: m.fplTeamName || (existingActive as any).fplTeamName || null,
-                                                            isPending: false,
-                                                            isActive: true,
-                                                            hasPaid: combinedPaid,
-                                                            walletBalance: combinedBalance,
-                                                        });
-                                                        await deleteDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id));
-                                                    } else {
-                                                        await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
-                                                            phoneNumber: phone,
-                                                            phone: phone,
-                                                            isPending: false,
-                                                            isActive: true,
-                                                        });
-                                                    }
-                                                    haptics.success();
-                                                    toast.success(`${m.displayName} activated!`);
-                                                } catch (_e) {
-                                                    toast.error('Failed to save. Try again.');
-                                                } finally {
-                                                    setIsSavingPendingPhone(null);
-                                                }
-                                            }}
-                                            disabled={isSavingPendingPhone === m.id || !((pendingPhoneMap[m.id] || m.phoneNumber)?.length >= 9)}
-                                            className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 text-black text-xs font-black transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-                                        >
-                                            {isSavingPendingPhone === m.id ? (
-                                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                            ) : (
-                                                '✓ Activate'
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            )))}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-
-            <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3">
-                {[...directoryMembers]
-                    .sort((a, b) => {
-                        const aInactive = a.isActive === false ? 1 : 0;
-                        const bInactive = b.isActive === false ? 1 : 0;
-                        if (aInactive !== bInactive) return aInactive - bInactive;
-                        return String(a.displayName || '').localeCompare(String(b.displayName || ''));
-                    })
-                    .map(member => {
-                    const memberId = String(member.id || '');
-                    const isActive = member.isActive !== false;
-                    const isChairman = !!chairmanId && memberId === String(chairmanId);
-                    const isValidCoChair = !!coAdminId
-                        && memberId === String(coAdminId)
-                        && !isChairman
-                        && isActive
-                        && (member.role === 'co-chair' || member.role === 'admin');
-                    const rawName = String(member.displayName || 'Member').trim();
-                    const formattedName = rawName.length > 22 ? `${rawName.slice(0, 20)}...` : rawName;
-
-                    return (
-                        <div key={memberId || `member-${member.displayName}`} className="fc-active-member-tile group relative w-full min-h-[86px] sm:min-h-[90px] h-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0f151a] p-2 flex flex-col items-center justify-center gap-1.5 shadow-xs hover:border-emerald-500/40 dark:hover:border-white/20 transition-all">
-                            <UserAvatar name={member.displayName} size="xs" />
-                            <div className="text-center flex flex-col items-center gap-0.5 w-full min-w-0">
-                                <span
-                                    title={rawName}
-                                    className={clsx(
-                                        "text-[10.5px] sm:text-[11px] font-bold block w-full px-1 overflow-hidden text-ellipsis whitespace-nowrap text-center",
-                                        !isActive ? "text-gray-400 line-through" : "text-slate-800 dark:text-white"
-                                    )}
-                                >
-                                    {formattedName}
-                                </span>
-                                <div className="flex flex-col items-center justify-center">
-                                    {isChairman && (
-                                        <span className="bg-[#FBBF24]/10 text-amber-600 dark:text-[#FBBF24] text-[7.5px] px-1.5 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
-                                            <ShieldAlert className="w-2 h-2" /> Chairman
-                                        </span>
-                                    )}
-                                    {isValidCoChair && (
-                                        <span className="bg-[#3B82F6]/10 text-blue-600 dark:text-[#3B82F6] text-[7.5px] px-1.5 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
-                                            <ShieldCheck className="w-2 h-2" /> Co-Chair
-                                        </span>
-                                    )}
-                                    {!isChairman && !isValidCoChair && (
-                                        <span className={clsx("text-[8px] font-black uppercase tracking-wider block px-1.5 py-0.5 rounded-md",
-                                            !isActive ? "text-gray-400 dark:text-gray-600 bg-gray-500/10" : (isMemberFunded(member) ? "text-emerald-600 dark:text-[#10B981] bg-emerald-500/10 border border-emerald-500/20" : "text-red-500 bg-red-500/10 border border-red-500/20")
-                                        )}>
-                                            {!isActive ? "Inactive" : (isMemberFunded(member) ? "Funded" : "Red Zone")}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            {isAdminView && memberId !== activeUserId && (
-                                <div className="absolute -top-1 -right-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <button
-                                        onClick={() => handleToggleActive(memberId, isActive)}
-                                        className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-full p-1 shadow-md hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-                                        title={isActive ? "Deactivate User" : "Reactivate User"}
-                                    >
-                                        {isActive ? <UserMinus className="w-2.5 h-2.5 text-amber-500" /> : <UserPlus className="w-2.5 h-2.5 text-emerald-600 dark:text-[#10B981]" />}
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteMember(memberId, member.displayName)}
-                                        className="bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-full p-1 shadow-md hover:bg-red-50 dark:hover:bg-red-500/20 hover:border-red-300 dark:hover:border-red-500/40 cursor-pointer"
-                                        title="Permanently remove user from league"
-                                    >
-                                        <Trash2 className="w-2.5 h-2.5 text-red-500 dark:text-red-400" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
+            if (existingActive) {
+                const combinedPaid = Boolean(existingActive.hasPaid || m.hasPaid);
+                const combinedBalance = Math.max(Number(existingActive.walletBalance || 0), Number(m.walletBalance || 0));
+                await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', existingActive.id), {
+                    phoneNumber: phone,
+                    phone: phone,
+                    fplTeamId: m.fplTeamId || existingActive.fplTeamId || null,
+                    fplTeamName: m.fplTeamName || (existingActive as any).fplTeamName || null,
+                    isPending: false,
+                    isActive: true,
+                    hasPaid: combinedPaid,
+                    walletBalance: combinedBalance,
+                });
+                await deleteDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id));
+            } else {
+                await updateDocFn(docFn(db, 'leagues', activeLeagueId!, 'memberships', m.id), {
+                    phoneNumber: phone,
+                    phone: phone,
+                    isPending: false,
+                    isActive: true,
+                });
+            }
+            haptics.success();
+            toast.success(`${m.displayName} activated on roster!`);
+        } catch (_e) {
+            toast.error('Failed to activate member. Try again.');
+        } finally {
+            setIsSavingPendingPhone(null);
+        }
     };
+
+
 
     const renderLeagueGovernance = () => (
         <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-amber-300/70 dark:border-amber-500/20 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl text-slate-900 dark:text-white">
@@ -1542,76 +1304,102 @@ export default function Profile() {
         )
     );
 
-    const renderOwnershipAndDangerZoneCard = (extraClassName = '') => (
-        <div className={clsx("fc-card w-full bg-gradient-to-br from-rose-50/70 via-white to-red-50/50 dark:from-[#161418] dark:via-[#1a1317] dark:to-[#1e1014] border border-rose-200/80 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl", extraClassName)}>
-            {/* Tab controls */}
-            <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit shrink-0 mb-4">
-                <button
-                    type="button"
-                    onClick={() => { haptics.selection(); setDangerZoneTab('succession'); }}
-                    className={clsx(
-                        "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
-                        dangerZoneTab === 'succession'
-                            ? "bg-rose-500 text-white shadow-sm"
-                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                    )}
-                >
-                    <Crown className="w-3.5 h-3.5" /> Succession
-                </button>
-                <button
-                    type="button"
-                    onClick={() => { haptics.selection(); setDangerZoneTab('delete'); }}
-                    className={clsx(
-                        "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
-                        dangerZoneTab === 'delete'
-                            ? "bg-red-600 text-white shadow-sm"
-                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                    )}
-                >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete League
-                </button>
-            </div>
+    const renderOwnershipAndDangerZoneCard = (extraClassName = '') => {
+        const coChairMember = members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId));
+        const chairmanMember = members.find(m => m.id === chairmanId || (m.authUid && m.authUid === chairmanId)) || currentUser;
 
-            {dangerZoneTab === 'succession' ? (
-                <div className="space-y-3 animate-in fade-in duration-200">
-                    <p className="text-xs text-slate-600 dark:text-gray-400 font-medium">
-                        Step down and safely transfer chairmanship to your Co-Chair or select an eligible manager.
-                    </p>
-                    {coAdminId && (
-                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-                            <div className="min-w-0">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Designated Successor (Co-Chair)</p>
-                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                    {members.find(m => m.id === coAdminId || (m.authUid && m.authUid === coAdminId))?.displayName || 'Active Co-Chair'}
-                                </p>
+        return (
+            <div className={clsx("w-full space-y-5 text-slate-900 dark:text-white", extraClassName)}>
+                {/* 1. Current Leadership Status Header */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <UserAvatar name={chairmanMember?.displayName || 'Chairman'} size="md" />
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                    <Crown className="w-2.5 h-2.5" /> Current Chairman
+                                </span>
+                                <span className="text-xs font-mono text-slate-500 dark:text-gray-400">
+                                    {chairmanMember?.phone || chairmanMember?.phoneNumber || 'No phone'}
+                                </span>
+                            </div>
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white mt-1">
+                                {chairmanMember?.displayName || 'Active Chairman'}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                                Primary signatory & league owner
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-white/10 pt-3 sm:pt-0 sm:pl-4">
+                        <div>
+                            <span className="text-[9px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block">
+                                Designated Co-Chair
+                            </span>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                {coChairMember ? coChairMember.displayName : 'None Assigned'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Leadership Succession Card */}
+                <div className="p-5 rounded-2xl bg-white dark:bg-[#111822] border border-slate-200 dark:border-white/10 shadow-xs space-y-4">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                1. Transfer League Chairmanship
+                            </h4>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                            Step down as Chairman and safely transfer all management privileges (payout sign-offs, roster controls, and league settings) to an active manager.
+                        </p>
+                    </div>
+
+                    {coChairMember && (
+                        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                                        Designated Successor (Co-Chair)
+                                    </p>
+                                    <p className="text-xs font-bold text-slate-900 dark:text-white">
+                                        {coChairMember.displayName} ({coChairMember.fplTeamName || (coChairMember as any).teamName || 'FPL Squad'})
+                                    </p>
+                                </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setSelectedSuccessorId(coAdminId);
+                                    setSelectedSuccessorId(coChairMember.id);
                                     setShowRetireModal(true);
                                 }}
-                                className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-black transition active:scale-95 shrink-0 shadow-xs cursor-pointer"
                             >
                                 Pass to Co-Chair →
                             </button>
                         </div>
                     )}
 
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-700 dark:text-gray-400 uppercase tracking-widest block mb-1.5">
-                            Or Transfer Chairmanship to Any Manager:
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest block">
+                            Or Select Any Active Manager:
                         </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2.5">
                             <select
                                 value={selectedSuccessorId}
                                 onChange={(e) => setSelectedSuccessorId(e.target.value)}
-                                className="flex-1 bg-white dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 shadow-xs transition-colors"
+                                className="flex-1 bg-slate-50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
                             >
-                                <option value="" className="bg-white dark:bg-[#0c1218] text-slate-500 dark:text-gray-400">-- Choose New Chairman --</option>
+                                <option value="" className="bg-white dark:bg-[#0c1218] text-slate-500 dark:text-gray-400">
+                                    -- Choose Successor Manager --
+                                </option>
                                 {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.isActive !== false).map(m => (
                                     <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-slate-900 dark:text-white">
-                                        {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
+                                        {m.displayName} {((m as any).fplTeamName || m.teamName) ? `· ${((m as any).fplTeamName || m.teamName)}` : ''} {m.id === coAdminId ? '👑 Co-Chair' : ''}
                                     </option>
                                 ))}
                             </select>
@@ -1619,17 +1407,24 @@ export default function Profile() {
                                 type="button"
                                 disabled={!selectedSuccessorId}
                                 onClick={() => setShowRetireModal(true)}
-                                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:bg-slate-200 dark:disabled:bg-white/10 disabled:text-slate-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed text-white text-xs font-black transition active:scale-95 shrink-0 shadow-sm cursor-pointer"
+                                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-black text-xs font-black transition active:scale-95 shrink-0 shadow-xs cursor-pointer"
                             >
-                                Transfer Role
+                                Transfer Role →
                             </button>
                         </div>
                     </div>
                 </div>
-            ) : (
-                <div className="space-y-3 animate-in fade-in duration-200">
-                    <p className="text-xs text-slate-600 dark:text-red-200/80 leading-relaxed font-medium">
-                        Once deleted, all gameweek records, member registrations, pots, and settings for <strong className="text-slate-900 dark:text-white">{leagueName || 'this league'}</strong> will be permanently removed. This action cannot be reversed.
+
+                {/* 3. Danger Zone: Dissolve League Card */}
+                <div className="p-5 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-500/30 space-y-3">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                            2. Danger Zone • Dissolve League (Irreversible)
+                        </h4>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-rose-200/80 leading-relaxed font-medium">
+                        Permanently erases all gameweek transaction history, member roster registrations, pot balances, and custom rules for <strong className="text-slate-900 dark:text-white">{leagueName || 'this league'}</strong>. This action cannot be reversed.
                     </p>
                     <button
                         type="button"
@@ -1637,109 +1432,169 @@ export default function Profile() {
                             haptics.warning();
                             setShowDeleteLeagueModal(true);
                         }}
-                        className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-md shadow-red-500/20 flex items-center justify-center gap-2 cursor-pointer border border-red-500"
+                        className="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition active:scale-95 shadow-xs flex items-center justify-center gap-2 cursor-pointer border border-red-500"
                     >
-                        <Trash2 className="w-4 h-4" /> Delete League Permanently
+                        <Trash2 className="w-3.5 h-3.5" /> Delete League Permanently
                     </button>
                 </div>
-            )}
-        </div>
-    );
+            </div>
+        );
+    };
 
     const renderSessionDetailsContent = () => (
-        <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Account ID */}
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
-                        <Fingerprint className="w-3.5 h-3.5 text-slate-400" /> Your Authenticated ID
-                    </span>
-                    <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
-                        <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
-                            {auth.currentUser?.uid || "None"}
-                        </span>
-                        {auth.currentUser?.uid && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(auth.currentUser?.uid || '');
-                                    toast.success('Account ID copied!');
-                                }}
-                                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-emerald-500 transition cursor-pointer shrink-0"
-                                title="Copy Account ID"
-                            >
-                                <Copy className="w-3.5 h-3.5" />
-                            </button>
-                        )}
+        <div className="space-y-4 text-slate-900 dark:text-white">
+            {/* Identity Banner */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <UserAvatar name={currentUser?.displayName || 'User'} size="md" />
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                                {currentUser?.displayName || 'Authenticated Manager'}
+                            </h4>
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Verified Auth
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5 font-mono">
+                            {currentUser?.phone || currentUser?.phoneNumber || 'No phone attached'}
+                        </p>
                     </div>
                 </div>
-
-                {/* Role */}
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
-                        <Key className="w-3.5 h-3.5 text-emerald-500" /> Assigned Role
+                <div className="text-right self-start sm:self-auto">
+                    <span className="text-[10px] font-mono text-slate-400 dark:text-gray-500">
+                        TLS 1.3 · Firebase Auth
                     </span>
-                    <div className="flex items-center justify-between bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
-                        <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400">
-                            {chairmanId && auth.currentUser?.uid === chairmanId ? 'Chairman (Owner)' : (coAdminId && auth.currentUser?.uid === coAdminId ? 'Co-Chair' : 'Member')}
-                        </span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    </div>
                 </div>
-
-                {/* Chairman ID */}
-                {chairmanId && (
-                    <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
-                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
-                            <ShieldAlert className="w-3.5 h-3.5 text-amber-500" /> Chairman ID
-                        </span>
-                        <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
-                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
-                                {chairmanId}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(chairmanId || '');
-                                    toast.success('Chairman ID copied!');
-                                }}
-                                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-amber-500 transition cursor-pointer shrink-0"
-                                title="Copy Chairman ID"
-                            >
-                                <Copy className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Co-Chair ID */}
-                {coAdminId && (
-                    <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/30 p-3.5 flex flex-col justify-between">
-                        <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
-                            <ShieldCheck className="w-3.5 h-3.5 text-blue-500" /> Co-Chair ID
-                        </span>
-                        <div className="flex items-center justify-between gap-1.5 bg-white dark:bg-[#090d11] px-3 py-2 rounded-xl border border-slate-200/80 dark:border-white/5">
-                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
-                                {coAdminId}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(coAdminId || '');
-                                    toast.success('Co-Chair ID copied!');
-                                }}
-                                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-blue-500 transition cursor-pointer shrink-0"
-                                title="Copy Co-Chair ID"
-                            >
-                                <Copy className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
-            <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed font-medium">
-                These cryptographic keys are used to enforce security rules in Firebase Firestore. They guarantee that only verified administrators can initiate payouts or alter league configurations.
-            </p>
+
+            {/* 2x2 Cryptographic Credentials Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Account UID */}
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111822] p-4 flex flex-col justify-between shadow-xs">
+                    <div>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 uppercase tracking-wider mb-2">
+                            <Fingerprint className="w-3.5 h-3.5 text-blue-500" /> Authenticated User ID (UID)
+                        </span>
+                        <div className="flex items-center justify-between gap-1.5 bg-slate-50 dark:bg-black/40 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                {auth.currentUser?.uid || "Anonymous Session"}
+                            </span>
+                            {auth.currentUser?.uid && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(auth.currentUser?.uid || '');
+                                        toast.success('Account UID copied!');
+                                    }}
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-emerald-500 transition cursor-pointer shrink-0"
+                                    title="Copy Account UID"
+                                >
+                                    <Copy className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-[9.5px] text-slate-400 dark:text-gray-500 mt-2">
+                        Immutable cryptographic identity generated by Firebase Authentication.
+                    </p>
+                </div>
+
+                {/* 2. Security Role & Privileges */}
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111822] p-4 flex flex-col justify-between shadow-xs">
+                    <div>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider mb-2">
+                            <Key className="w-3.5 h-3.5 text-emerald-500" /> Security Access Role
+                        </span>
+                        <div className="flex items-center justify-between bg-slate-50 dark:bg-black/40 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                            <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                                {chairmanId && auth.currentUser?.uid === chairmanId ? (
+                                    <>
+                                        <Crown className="w-3 h-3 text-amber-500" /> Chairman (Super-Admin)
+                                    </>
+                                ) : (coAdminId && auth.currentUser?.uid === coAdminId ? (
+                                    <>
+                                        <ShieldCheck className="w-3 h-3 text-blue-500" /> Co-Chair Signatory
+                                    </>
+                                ) : (
+                                    'League Member'
+                                ))}
+                            </span>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        </div>
+                    </div>
+                    <p className="text-[9.5px] text-slate-400 dark:text-gray-500 mt-2">
+                        Grants dual-signatory authorization for ledger payouts and rule governance.
+                    </p>
+                </div>
+
+                {/* 3. Active Multi-Tenant League ID */}
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111822] p-4 flex flex-col justify-between shadow-xs">
+                    <div>
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5 uppercase tracking-wider mb-2">
+                            <Trophy className="w-3.5 h-3.5 text-amber-500" /> Multi-Tenant League ID
+                        </span>
+                        <div className="flex items-center justify-between gap-1.5 bg-slate-50 dark:bg-black/40 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                {activeLeagueId || 'None'}
+                            </span>
+                            {activeLeagueId && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(activeLeagueId);
+                                        toast.success('League ID copied!');
+                                    }}
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-amber-500 transition cursor-pointer shrink-0"
+                                    title="Copy League ID"
+                                >
+                                    <Copy className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-[9.5px] text-slate-400 dark:text-gray-500 mt-2">
+                        Firestore partitioned multi-tenant namespace partition for this chama.
+                    </p>
+                </div>
+
+                {/* 4. Public Invite Code */}
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#111822] p-4 flex flex-col justify-between shadow-xs">
+                    <div>
+                        <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5 uppercase tracking-wider mb-2">
+                            <Share2 className="w-3.5 h-3.5 text-purple-500" /> Master Invite Code
+                        </span>
+                        <div className="flex items-center justify-between gap-1.5 bg-slate-50 dark:bg-black/40 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/5">
+                            <span className="text-xs font-mono font-black tracking-widest text-slate-800 dark:text-slate-200 select-all">
+                                {inviteCode || '------'}
+                            </span>
+                            {inviteCode && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(inviteCode);
+                                        toast.success('Invite code copied!');
+                                    }}
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg text-slate-400 hover:text-purple-500 transition cursor-pointer shrink-0"
+                                    title="Copy Invite Code"
+                                >
+                                    <Copy className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <p className="text-[9.5px] text-slate-400 dark:text-gray-500 mt-2">
+                        Public onboarding key for manager self-registration and team linking.
+                    </p>
+                </div>
+            </div>
+
+            {/* Security Audit Explanation */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5">
+                <p className="text-[11px] text-slate-600 dark:text-gray-400 leading-relaxed font-medium">
+                    🛡️ <strong className="text-slate-900 dark:text-white">Firestore Security Rules V2 Protection:</strong> These cryptographic keys are strictly enforced on all database reads and writes. Only authenticated administrators with matching UIDs can approve payouts or adjust league parameters.
+                </p>
+            </div>
         </div>
     );
 
@@ -2085,12 +1940,12 @@ export default function Profile() {
                                                 <Users className="w-4 h-4" />
                                             </div>
                                             <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                                {activeMembersCount} Members
+                                                {members.length} Members
                                             </span>
                                         </div>
                                         <div>
                                             <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                                Active Members
+                                                Members
                                             </h4>
                                             <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
                                                 Roster, activation status & onboarding
@@ -2224,13 +2079,13 @@ export default function Profile() {
                                     <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
                                         <Users className="w-5 h-5" />
                                     </div>
-                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                        {activeMembersCount} Members
+                                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        {members.length} Members
                                     </span>
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                        Active Members
+                                        Members
                                     </h4>
                                     <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
                                         View roster & member status
@@ -2310,50 +2165,382 @@ export default function Profile() {
             </div>
 
             {/* Members Directory Modal */}
-            {showMembersModal && createPortal(
-                <div 
-                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-                    onClick={() => setShowMembersModal(false)}
-                >
+            {showMembersModal && (() => {
+                const pendingCount = members.filter((m: any) => isMemberPending(m)).length;
+                const fundedCount = members.filter((m: any) => m.isActive !== false && isMemberFunded(m)).length;
+                const redZoneCount = members.filter((m: any) => m.isActive !== false && !isMemberFunded(m) && !isMemberPending(m)).length;
+                const inactiveCount = members.filter((m: any) => m.isActive === false).length;
+
+                const searchLower = onboardingSearch.toLowerCase().trim();
+                const filteredMembers = members.filter((m: any) => {
+                    if (membersModalTab === 'pending' && !isMemberPending(m)) return false;
+                    if (membersModalTab === 'funded' && (m.isActive === false || !isMemberFunded(m))) return false;
+                    if (membersModalTab === 'redzone' && (m.isActive === false || isMemberFunded(m) || isMemberPending(m))) return false;
+                    if (membersModalTab === 'inactive' && m.isActive !== false) return false;
+
+                    if (searchLower) {
+                        const name = String(m.displayName || '').toLowerCase();
+                        const squad = String(m.fplTeamName || m.teamName || '').toLowerCase();
+                        const phone = String(m.phone || m.phoneNumber || '').toLowerCase();
+                        return name.includes(searchLower) || squad.includes(searchLower) || phone.includes(searchLower);
+                    }
+                    return true;
+                }).sort((a: any, b: any) => {
+                    const aPending = isMemberPending(a) ? 0 : 1;
+                    const bPending = isMemberPending(b) ? 0 : 1;
+                    if (aPending !== bPending) return aPending - bPending;
+                    const aActive = a.isActive === false ? 1 : 0;
+                    const bActive = b.isActive === false ? 1 : 0;
+                    if (aActive !== bActive) return aActive - bActive;
+                    return String(a.displayName || '').localeCompare(String(b.displayName || ''));
+                });
+
+                return createPortal(
                     <div 
-                        className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                        onClick={() => setShowMembersModal(false)}
                     >
-                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs shrink-0">
-                                    <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                            ACTIVE MEMBERS ROSTER
-                                        </h3>
-                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                                            {activeMembersCount} Active Members
-                                        </span>
+                        <div 
+                            className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs shrink-0">
+                                        <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                     </div>
-                                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
-                                        Roster directory, activation status, wallet top ups & onboarding
-                                    </p>
+                                    <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                                MEMBERS DIRECTORY &amp; ONBOARDING
+                                            </h3>
+                                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                                {members.length} Members
+                                            </span>
+                                            {pendingCount > 0 && (
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1.5 animate-pulse">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                    {pendingCount} to Onboard
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                                            Roster management, M-Pesa phone onboarding, self-onboard invite code &amp; member controls
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => { haptics.selection(); setShowMembersModal(false); }}
+                                    className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer active:scale-95 shrink-0"
+                                    aria-label="Close"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+                                {/* Self-Onboarding Master Code Hero */}
+                                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-transparent border border-amber-500/25 dark:border-amber-500/20 shadow-xs">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <Key className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                                    Master Invite Code (Self-Onboarding)
+                                                </h4>
+                                            </div>
+                                            <p className="text-[11px] text-slate-600 dark:text-gray-400 font-medium leading-relaxed">
+                                                Share this code or invite link so members can log in and self-onboard directly to their team.
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                            <div className="px-3.5 py-2 rounded-xl bg-white dark:bg-black/50 border border-amber-500/40 text-amber-600 dark:text-amber-400 font-mono font-black text-sm tracking-widest shadow-inner flex items-center gap-2.5">
+                                                <span>{inviteCode || '------'}</span>
+                                                {inviteCode && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(inviteCode);
+                                                            toast.success('Invite code copied!');
+                                                        }}
+                                                        className="p-1 hover:bg-amber-500/20 rounded transition-colors text-amber-600 dark:text-amber-400"
+                                                        title="Copy Code"
+                                                    >
+                                                        <Copy className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleCopy}
+                                                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 text-slate-500" />
+                                                <span>Copy Invite</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleShare}
+                                                className="px-3 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
+                                            >
+                                                <Share2 className="w-3.5 h-3.5" />
+                                                <span>WhatsApp</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Filter Tabs and Search Bar */}
+                                <div className="space-y-3">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                        {/* Tabs */}
+                                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                                            {[
+                                                { id: 'all', label: 'All', count: members.length },
+                                                { id: 'pending', label: 'Needs Phone', count: pendingCount, highlight: pendingCount > 0 },
+                                                { id: 'funded', label: 'Funded', count: fundedCount },
+                                                { id: 'redzone', label: 'Red Zone', count: redZoneCount },
+                                                { id: 'inactive', label: 'Inactive', count: inactiveCount },
+                                            ].map((tab) => (
+                                                <button
+                                                    key={tab.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        haptics.selection();
+                                                        setMembersModalTab(tab.id as any);
+                                                    }}
+                                                    className={clsx(
+                                                        "px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5",
+                                                        membersModalTab === tab.id
+                                                            ? "bg-emerald-600 text-white shadow-sm"
+                                                            : tab.highlight
+                                                            ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
+                                                            : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-white/10"
+                                                    )}
+                                                >
+                                                    <span>{tab.label}</span>
+                                                    <span className={clsx(
+                                                        "px-1.5 py-0.2 rounded-md text-[10px]",
+                                                        membersModalTab === tab.id
+                                                            ? "bg-white/20 text-white"
+                                                            : "bg-black/10 dark:bg-white/10"
+                                                    )}>
+                                                        {tab.count}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Search Input */}
+                                        <div className="relative min-w-[220px]">
+                                            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={onboardingSearch}
+                                                onChange={(e) => setOnboardingSearch(e.target.value)}
+                                                placeholder="Search name, squad, phone..."
+                                                className="w-full pl-8 pr-7 py-1.5 rounded-xl text-xs bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                                            />
+                                            {onboardingSearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOnboardingSearch('')}
+                                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Members List */}
+                                <div className="space-y-2.5">
+                                    {filteredMembers.length === 0 ? (
+                                        <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400">
+                                            <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                                            <p className="text-sm font-bold">No members found</p>
+                                            <p className="text-xs mt-0.5">Try adjusting your search query or selected tab.</p>
+                                        </div>
+                                    ) : (
+                                        filteredMembers.map((member: any) => {
+                                            const memberId = String(member.id || '');
+                                            const isActive = member.isActive !== false;
+                                            const isChairman = !!chairmanId && memberId === String(chairmanId);
+                                            const isValidCoChair = !!coAdminId && memberId === String(coAdminId) && !isChairman && isActive;
+                                            const isPending = isMemberPending(member);
+                                            const isFunded = isMemberFunded(member);
+                                            const rawName = String(member.displayName || 'Member').trim();
+                                            const squadName = member.fplTeamName || member.teamName;
+                                            const memberPhone = member.phoneNumber || member.phone || '';
+                                            const hasPhone = Boolean(memberPhone && String(memberPhone).trim().length >= 9);
+                                            const currentInputPhone = pendingPhoneMap[memberId] !== undefined ? pendingPhoneMap[memberId] : memberPhone;
+
+                                            return (
+                                                <div
+                                                    key={memberId || `mem-${rawName}`}
+                                                    className={clsx(
+                                                        "p-4 rounded-2xl border transition-all duration-200",
+                                                        !isActive
+                                                            ? "bg-slate-100/50 dark:bg-black/20 border-slate-200 dark:border-white/5 opacity-65"
+                                                            : isPending
+                                                            ? "bg-amber-50/60 dark:bg-amber-500/[0.04] border-amber-500/30 shadow-xs"
+                                                            : "bg-slate-50/80 dark:bg-[#161d24] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-xs"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                        {/* Identity */}
+                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                            <UserAvatar name={member.displayName} size="sm" />
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className={clsx(
+                                                                        "text-sm font-bold truncate",
+                                                                        !isActive ? "line-through text-slate-400 dark:text-gray-500" : "text-slate-900 dark:text-white"
+                                                                    )}>
+                                                                        {rawName}
+                                                                    </span>
+                                                                    {isChairman && (
+                                                                        <span className="bg-[#FBBF24]/15 text-amber-700 dark:text-[#FBBF24] text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-1">
+                                                                            <Crown className="w-2.5 h-2.5" /> Chairman
+                                                                        </span>
+                                                                    )}
+                                                                    {isValidCoChair && (
+                                                                        <span className="bg-[#3B82F6]/15 text-blue-700 dark:text-[#3B82F6] text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-1">
+                                                                            <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
+                                                                        </span>
+                                                                    )}
+                                                                    {!isChairman && !isValidCoChair && (
+                                                                        <span className={clsx(
+                                                                            "text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border",
+                                                                            !isActive
+                                                                                ? "bg-slate-200/60 text-slate-500 dark:bg-white/5 dark:text-gray-500 border-transparent"
+                                                                                : isPending
+                                                                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                                                                : isFunded
+                                                                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                                                                : "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30"
+                                                                        )}>
+                                                                            {!isActive ? "Inactive" : isPending ? "Needs Phone" : isFunded ? "Funded" : "Red Zone"}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {squadName && (
+                                                                    <p className="text-xs text-slate-500 dark:text-gray-400 truncate mt-0.5 font-medium">
+                                                                        🏆 {squadName}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Executive Actions (Deactivate & Delete) */}
+                                                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                                            {!isChairman ? (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleToggleActive(memberId, isActive)}
+                                                                        className={clsx(
+                                                                            "px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 border",
+                                                                            isActive
+                                                                                ? "bg-slate-100 hover:bg-amber-500/15 text-slate-700 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 border-slate-200 dark:border-white/10 hover:border-amber-500/30 dark:bg-white/5"
+                                                                                : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                                                        )}
+                                                                        title={isActive ? "Deactivate member" : "Reactivate member"}
+                                                                    >
+                                                                        {isActive ? (
+                                                                            <>
+                                                                                <UserMinus className="w-3.5 h-3.5" />
+                                                                                <span>Deactivate</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <UserPlus className="w-3.5 h-3.5" />
+                                                                                <span>Reactivate</span>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDeleteMember(memberId, rawName)}
+                                                                        className="p-1.5 sm:p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:border-rose-500/40 transition-all cursor-pointer active:scale-95"
+                                                                        title="Remove member permanently"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                                                                    <Crown className="w-3 h-3" /> Chairman
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Chairman Onboarding: Phone input or verified display */}
+                                                    <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5">
+                                                        {!hasPhone || isPending ? (
+                                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                                                <div className="relative flex-1">
+                                                                    <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-amber-500" />
+                                                                    <input
+                                                                        type="tel"
+                                                                        value={currentInputPhone}
+                                                                        onChange={(e) => setPendingPhoneMap(prev => ({ ...prev, [memberId]: e.target.value }))}
+                                                                        placeholder="Enter phone (07XXXXXXXX or +254...)"
+                                                                        className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#0b1014] border border-amber-500/40 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500/30"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isSavingPendingPhone === memberId}
+                                                                    onClick={() => handleActivatePendingMember(member)}
+                                                                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50 shrink-0"
+                                                                >
+                                                                    {isSavingPendingPhone === memberId ? (
+                                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                    ) : (
+                                                                        <Check className="w-3.5 h-3.5" />
+                                                                    )}
+                                                                    <span>{isPending ? 'Activate & Link' : 'Save Phone'}</span>
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-2 text-slate-600 dark:text-gray-300 font-mono">
+                                                                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                                                                    <span>{memberPhone}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(memberPhone);
+                                                                            toast.success('Phone copied!');
+                                                                        }}
+                                                                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+                                                                        title="Copy phone"
+                                                                    >
+                                                                        <Copy className="w-3 h-3" />
+                                                                    </button>
+                                                                </div>
+                                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                                                                    Verified Phone
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => { haptics.selection(); setShowMembersModal(false); }}
-                                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer active:scale-95 shrink-0"
-                                aria-label="Close"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
                         </div>
-                        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto flex-1">
-                            {renderActiveMembersStrip('!border-0 !shadow-none !bg-transparent !p-0')}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+                    </div>,
+                    document.body
+                );
+            })()}
 
             {/* League Settings & Rules Modal */}
             {renderLeagueSettingsModal()}

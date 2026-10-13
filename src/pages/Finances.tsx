@@ -63,6 +63,15 @@ const fetchFplStandings = async (leagueId: number) => {
     throw new Error(lastError);
 };
 
+export const toMillis = (value: any): number | null => {
+    if (!value) return null;
+    if (typeof value?.toDate === 'function') return value.toDate().getTime();
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === 'number') return value;
+    const parsed = Date.parse(String(value));
+    return Number.isNaN(parsed) ? null : parsed;
+};
+
 export default function Finances() {
     const navigate = useNavigate();
     const activeLeagueId = localStorage.getItem('activeLeagueId');
@@ -770,14 +779,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const projectedWeeklyPayoutFormula = `${paidMembers.length} × KES ${Number(gameweekStake || 0).toLocaleString()} × ${Number(rules.weekly || 0).toFixed(0)}% = KES ${Number(projectedWeeklyPayout || 0).toLocaleString()}`;
     const projectedSeasonCollections = projectedSeasonVault;
     const projectedSeasonCollectionsFormula = `(Collected KES ${Number(seasonCollectedSoFarGross || 0).toLocaleString()} + Join-aware remaining KES ${Number(projectedRemainingCollectionsGross || 0).toLocaleString()}) × ${Number(rules.vault || 0).toFixed(0)}% = KES ${Number(projectedSeasonCollections || 0).toLocaleString()}`;
-    const toMillis = (value: any): number | null => {
-        if (!value) return null;
-        if (typeof value?.toDate === 'function') return value.toDate().getTime();
-        if (value instanceof Date) return value.getTime();
-        if (typeof value === 'number') return value;
-        const parsed = Date.parse(String(value));
-        return Number.isNaN(parsed) ? null : parsed;
-    };
+
 
     const payoutTransactions = useMemo(() => {
         return transactions.filter((t) => {

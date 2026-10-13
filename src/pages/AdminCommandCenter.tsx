@@ -4979,7 +4979,7 @@ burstFrame();
                           "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                           pendingApprovalsCount > 0
                             ? "border-amber-400 bg-amber-100/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/50"
-                            : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
+                            : "border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/70 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] stealth:hover:bg-[#0c1218] dark:hover:border-white/20"
                         )}
                         onClick={() => {
                           if (pendingApprovalsCount > 0) {
@@ -5022,7 +5022,7 @@ burstFrame();
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       redZoneMembers.length > 0
                         ? "border-rose-400 bg-rose-100/80 dark:border-rose-400 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:border-rose-300 shadow-[0_0_24px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/50"
-                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
+                        : "border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/70 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] stealth:hover:bg-[#0c1218] dark:hover:border-white/20"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -5033,13 +5033,18 @@ burstFrame();
                     title="Tap to view Red Zone members"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-black tracking-wider text-rose-700 dark:text-rose-300 group-hover:text-rose-800 dark:group-hover:text-rose-200 transition-colors">
+                      <p className={clsx(
+                        "text-[10.5px] uppercase font-black tracking-wider transition-colors",
+                        redZoneMembers.length > 0
+                          ? "text-rose-700 dark:text-rose-300 group-hover:text-rose-800 dark:group-hover:text-rose-200"
+                          : "text-slate-500 dark:text-slate-400 stealth:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
+                      )}>
                         Red Zone
                       </p>
                       {redZoneMembers.length > 0 ? (
                         <span className="w-2.5 h-2.5 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse shadow-[0_0_10px_#FB7185]" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                       )}
                     </div>
                     <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
@@ -5047,7 +5052,7 @@ burstFrame();
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-bold truncate",
-                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-500 dark:text-gray-400"
+                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-emerald-600 dark:text-emerald-400 font-extrabold"
                     )}>
                       {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
                     </span>
@@ -5059,7 +5064,7 @@ burstFrame();
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       pendingDisputes.length > 0
                         ? "border-cyan-400 bg-cyan-100/80 dark:border-cyan-400 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/50"
-                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
+                        : "border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/70 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] stealth:hover:bg-[#0c1218] dark:hover:border-white/20"
                     )}
                     onClick={() => {
                       setActiveTab("finance");
@@ -5094,10 +5099,10 @@ burstFrame();
                     className={clsx(
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       gwAlreadySettled
-                        ? "border-emerald-300/80 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-[#111822] hover:bg-emerald-100/60 dark:hover:bg-[#151f2c] dark:hover:border-emerald-500/50"
+                        ? "border-emerald-300/80 dark:border-emerald-500/30 stealth:border-emerald-500/20 bg-emerald-50/50 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-emerald-100/60 dark:hover:bg-[#151f2c] dark:hover:border-emerald-500/50"
                         : isCurrentEventFinished
                         ? "border-amber-300 bg-amber-50/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100/90 dark:hover:border-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/40"
-                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
+                        : "border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/70 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] stealth:hover:bg-[#0c1218] dark:hover:border-white/20"
                     )}
                     onClick={() => {
                       if (gwAlreadySettled) {
