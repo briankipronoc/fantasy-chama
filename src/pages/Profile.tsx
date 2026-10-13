@@ -2372,25 +2372,30 @@ export default function Profile() {
             {/* Members Directory Modal */}
             {showMembersModal && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs">
+                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs">
                                     <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Active Members Directory
-                                    </h3>
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                                        {activeMembersCount} registered managers · Click members to manage
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            Active Members Directory
+                                        </h3>
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                            {activeMembersCount} Roster Members
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
+                                        Roster management, activation status, wallet top ups & onboarding
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => { haptics.selection(); setShowMembersModal(false); }}
-                                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -2407,25 +2412,30 @@ export default function Profile() {
             {/* Danger Zone / Succession Modal */}
             {showDangerZoneModal && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#121820] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] p-5 sm:p-7 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-rose-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shadow-xs">
+                    <div className="bg-white dark:bg-[#121820] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] p-5 sm:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-4 mb-5 border-b border-rose-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shadow-xs">
                                     <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Succession & League Controls
-                                    </h3>
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                                        Transfer ownership or delete the entire chama
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            Succession & League Governance
+                                        </h3>
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                            Admin Only
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
+                                        Step down, transfer chairmanship to a manager, or dissolve the league
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => { haptics.selection(); setShowDangerZoneModal(false); }}
-                                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -2439,25 +2449,30 @@ export default function Profile() {
             {/* Session Credentials Modal */}
             {showSessionModal && createPortal(
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-7 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
-                            <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shadow-xs">
+                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
+                        <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shadow-xs">
                                     <Fingerprint className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                        Account & Session Credentials
-                                    </h3>
-                                    <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                                        Cryptographic identifiers and authenticated session details
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            Account & Session Security
+                                        </h3>
+                                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
+                                            Verified Session
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
+                                        Cryptographic identifiers, authenticated UID, and security audit details
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => { haptics.selection(); setShowSessionModal(false); }}
-                                className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>

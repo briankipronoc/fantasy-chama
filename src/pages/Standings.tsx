@@ -696,45 +696,49 @@ export default function Standings() {
         const eNorm = norm(entryName);
         const eId = Number(entryId || 0);
 
-        // Gather all candidates matching FPL ID, player name, or squad name
+        // Gather candidates with strict matching (FPL Entry ID or exact matching name)
         const candidates = members.filter(m => {
             const mFplId = Number(m.fplTeamId || (m as any).fplEntryId || 0);
             if (eId && mFplId && mFplId === eId) return true;
 
             const dNorm = norm(m.displayName);
-            if (dNorm && (pNorm === dNorm || eNorm === dNorm || pNorm.includes(dNorm) || dNorm.includes(pNorm))) return true;
+            if (dNorm && (pNorm === dNorm || eNorm === dNorm)) return true;
 
             const tNorm = norm((m as any).teamName || (m as any).fplTeamName || '');
-            if (tNorm && (eNorm === tNorm || eNorm.includes(tNorm) || tNorm.includes(eNorm))) return true;
+            if (tNorm && (eNorm === tNorm || pNorm === tNorm)) return true;
 
             return false;
         });
 
         if (candidates.length === 0) return undefined;
 
-        // Sort candidates so the most complete / active / funded record is base
+        // Prioritize fully onboarded members over un-onboarded imports
         const sorted = [...candidates].sort((a, b) => {
-            const aFunded = (a.hasPaid || Number(a.walletBalance || 0) > 0) ? 20 : 0;
-            const bFunded = (b.hasPaid || Number(b.walletBalance || 0) > 0) ? 20 : 0;
-            const aActive = a.isActive !== false ? 10 : 0;
-            const bActive = b.isActive !== false ? 10 : 0;
+            const aOnboarded = (a.phone || (a as any).phoneNumber) && a.isPending !== true ? 20 : 0;
+            const bOnboarded = (b.phone || (b as any).phoneNumber) && b.isPending !== true ? 20 : 0;
+            const aFunded = (a.hasPaid || Number(a.walletBalance || 0) > 0) ? 10 : 0;
+            const bFunded = (b.hasPaid || Number(b.walletBalance || 0) > 0) ? 10 : 0;
             const aFpl = (Number(a.fplTeamId || 0) === eId) ? 5 : 0;
             const bFpl = (Number(b.fplTeamId || 0) === eId) ? 5 : 0;
-            const scoreDiff = (bFunded + bActive + bFpl) - (aFunded + aActive + aFpl);
-            if (scoreDiff !== 0) return scoreDiff;
-            return Number(b.walletBalance || 0) - Number(a.walletBalance || 0);
+            return (bOnboarded + bFunded + bFpl) - (aOnboarded + aFunded + aFpl);
         });
 
         const best = sorted[0];
-        const anyFunded = candidates.some(c => c.hasPaid === true || Number(c.walletBalance || 0) > 0);
-        const maxBalance = Math.max(...candidates.map(c => Number(c.walletBalance || 0)));
-        const anyActive = candidates.some(c => c.isActive !== false);
+        const isPending = Boolean(!best || best.isPending === true || (!best.phone && !(best as any).phoneNumber));
+        if (isPending) {
+            return {
+                ...best,
+                hasPaid: false,
+                walletBalance: 0,
+                isActive: false,
+            };
+        }
 
         return {
             ...best,
-            hasPaid: Boolean(best.hasPaid || anyFunded),
-            walletBalance: Math.max(Number(best.walletBalance || 0), maxBalance),
-            isActive: anyActive,
+            hasPaid: Boolean(best.hasPaid),
+            walletBalance: Number(best.walletBalance || 0),
+            isActive: best.isActive !== false,
         };
     };
 
@@ -821,6 +825,9 @@ export default function Standings() {
     };
 
     const isMemberEligibleWinner = (row: any) => {
+        if (effectiveLeagueStartGw > 1 && Number(currentEvent || 1) < effectiveLeagueStartGw) {
+            return false;
+        }
         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
         if (!matched) return false;
         if (matched.isActive === false) return false;

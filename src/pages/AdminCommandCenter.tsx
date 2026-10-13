@@ -24,6 +24,7 @@ import {
   UserPlus,
   Bell,
   ShieldCheck,
+  Shield,
   Download,
   ShieldAlert,
   AlertCircle,
@@ -549,6 +550,13 @@ export default function AdminCommandCenter() {
       amount: number,
     ) =>
       `Gameweek finalized: ${winner} tops GW${gw} with ${points} pts. Payout KES ${amount.toLocaleString()} is queued.`,
+    payoutDisbursed: (
+      winner: string,
+      amount: number,
+      gw: number,
+      method: string,
+    ) =>
+      `🏆 GW${gw} Champion Paid: KES ${amount.toLocaleString()} disbursed to ${winner} via ${method.toUpperCase()}!`,
   };
 
   const handleInitializeOperations = () => {
@@ -776,7 +784,8 @@ export default function AdminCommandCenter() {
           if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
           if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
           const db = norm(m.displayName);
-          return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || "").includes(db);
+          if (!db || db.length < 3) return false;
+          return norm(r.player_name) === db || norm(r.entry_name || "") === db;
         });
         return { entry: r, member: dbMember };
       })
@@ -789,7 +798,8 @@ export default function AdminCommandCenter() {
         if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
         if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
         const db = norm(m.displayName);
-        return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || "").includes(db);
+        if (!db || db.length < 3) return false;
+        return norm(r.player_name) === db || norm(r.entry_name || "") === db;
       });
       if (!dbMember) return false;
       if (dbMember.isActive === false || (dbMember as any).isEliminated === true) return false;
@@ -797,10 +807,10 @@ export default function AdminCommandCenter() {
       return isFunded;
     });
 
-    // 3. Determine candidate pool (onboarded Chama members only)
+    // 3. Determine candidate pool (onboarded & funded Chama members only)
     const candidatePool = isSeasonPotOnly
       ? chamaResults
-      : (fundedResults.length > 0 ? fundedResults : chamaResults);
+      : fundedResults;
 
     if (candidatePool.length >= 1) {
       const sorted = [...candidatePool].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
@@ -820,7 +830,7 @@ export default function AdminCommandCenter() {
     } else {
       setGwWinner(null);
     }
-  }, [rawFplStandings, members, gameweekStake, rules?.weekly]);
+  }, [rawFplStandings, members, gameweekStake, rules?.weekly, leagueSettings?.startGw, startGw, currentGwNumber]);
 
   // Auto-cleanup duplicate member docs in Firestore (e.g. chairman registered both as admin and member)
   useEffect(() => {
@@ -1872,7 +1882,7 @@ export default function AdminCommandCenter() {
   const isCoChairSession = (!!coAdminId && (coAdminId === activeUserId || (auth.currentUser?.uid && coAdminId === auth.currentUser.uid))) || (currentMember?.role === "co-chair");
   // highRiskTwoWeekMisses available via members.filter(...) if needed in future
   const sortedPendingPayouts = [...pendingPayouts]
-    .filter((p: any) => p.status === "awaiting_approval")
+    .filter((p: any) => p.status === "awaiting_approval" && (!p.gw || Number(p.gw) >= effectiveStartGw))
     .sort((a: any, b: any) => {
       const aTs = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
       const bTs = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
@@ -2734,6 +2744,15 @@ export default function AdminCommandCenter() {
         gwNumber = 1;
       }
 
+      // Check if this is a pre-season round
+      const effectiveStart = Math.max(1, Number(leagueSettings?.startGw || startGw || 1));
+      if (effectiveStart > 1 && Number(gwNumber) < effectiveStart) {
+        showToast(`Cannot resolve GW${gwNumber}. Chama season officially begins at GW${effectiveStart}.`);
+        setShowResolveModal(false);
+        setIsResolving(false);
+        return;
+      }
+
       // 2. Check if this GW has already been resolved in pending_payouts
       const pendingPayoutQ = query(
         collection(db, "leagues", activeLeagueId, "pending_payouts"),
@@ -3068,40 +3087,132 @@ burstFrame();
           approvalPending: true,
         }));
       } else {
-        // No Co-Chair? Chairman becomes maker-checker and signs the pending payout from the same queue.
+        // No Co-Chair? Sole Chairman authority — execute & disburse payout directly without maker-checker
         const pendingPayoutsRef = collection(db, "leagues", activeLeagueId, "pending_payouts");
         const rawSplit = winners.length > 0 ? Number((weeklyPot / winners.length).toFixed(0)) : 0;
         const { gross, fee, net } = calculateNetPayout(rawSplit);
+        const cashHandoffDate = new Date().toISOString().slice(0, 10);
+
         for (const w of winners) {
+          if (payoutMethod === "mpesa" && w.phone) {
+            const payoutApiUrl = getApiBaseUrl();
+            if (payoutApiUrl) {
+              try {
+                await secureApiPost(`${payoutApiUrl}/api/mpesa/b2c`, {
+                  phone: w.phone,
+                  amount: net,
+                  winnerName: w.displayName,
+                  remarks: `FantasyChama GW${gwNumber} Payout`,
+                  userId: w.id,
+                  leagueId: activeLeagueId,
+                  gw: Number(gwNumber || 0),
+                  points: winningPoints,
+                });
+              } catch (apiErr: any) {
+                console.warn("[payout] M-Pesa B2C auto-dispatch note:", apiErr);
+              }
+            }
+          }
+
+          // Record as approved payout
           await addDoc(pendingPayoutsRef, {
             winnerId: w.id,
             winnerName: w.displayName + (winners.length > 1 ? " (Tie)" : ""),
-            winnerPhone: w.phone,
+            winnerPhone: w.phone || null,
             amount: net,
             grossAmount: gross,
             feeAmount: fee,
             points: winningPoints,
             gw: gwNumber,
-            status: "awaiting_approval",
+            status: "approved",
             method: payoutMethod,
+            cashHandoffDate: payoutMethod === "cash" ? cashHandoffDate : null,
+            approvedBy: requestedBy,
             requestedBy,
             approvalTarget: "chairman",
+            approvedAt: serverTimestamp(),
+            timestamp: serverTimestamp(),
+          });
+
+          // Write to immutable transactions ledger
+          await addDoc(collection(db, "leagues", activeLeagueId, "transactions"), {
+            type: "payout",
+            amount: net,
+            grossAmount: gross,
+            feeAmount: fee,
+            method: payoutMethod,
+            feeBreakdown: fee > 0 ? `Gross KES ${gross.toLocaleString()} less KES ${fee} fee = KES ${net.toLocaleString()}` : undefined,
+            winnerName: w.displayName + (winners.length > 1 ? " (Tie)" : ""),
+            winnerId: w.id,
+            winnerPhone: w.phone || null,
+            points: winningPoints,
+            gw: Number(gwNumber || 0),
+            receiptId: payoutMethod === "cash"
+              ? `CASH_GW${Number(gwNumber || 0)}_${Date.now().toString().slice(-6)}`
+              : `MPESA_GW${Number(gwNumber || 0)}_${Date.now().toString().slice(-6)}`,
+            cashHandoffDate: payoutMethod === "cash" ? cashHandoffDate : null,
             timestamp: serverTimestamp(),
           });
         }
 
+        // Deduct gameweek stake from each funded member's wallet directly via Firestore
+        const fundedMembers = members.filter(
+          (m) =>
+            m.isActive !== false &&
+            !(m as any).isEliminated &&
+            !(m as any).isPending &&
+            (m as any).playMode !== "sidebets_only" &&
+            memberHasFunding(m) &&
+            gameweekStake > 0,
+        );
+        for (const m of fundedMembers) {
+          const memberRef = doc(
+            db,
+            "leagues",
+            activeLeagueId,
+            "memberships",
+            m.id,
+          );
+          const newBalance = Math.max(0, (m.walletBalance || 0) - gameweekStake);
+          await updateDoc(memberRef, {
+            walletBalance: newBalance,
+            hasPaid: newBalance >= gameweekStake,
+          });
+        }
+
+        // Record the GW deduction in league_events audit log
+        await addDoc(
+          collection(db, "leagues", activeLeagueId, "league_events"),
+          {
+            eventType: "gw_deduction",
+            message: `GW${gwNumber} stake deducted: KES ${gameweekStake} × ${fundedMembers.length} members. Winner: ${winners.map(w => w.displayName).join(' & ')} (${payoutMethod}).`,
+            actor: requestedBy,
+            timestamp: serverTimestamp(),
+          },
+        );
+
+        // Update league document
+        await updateDoc(doc(db, "leagues", activeLeagueId), {
+          lastSettledGw: Number(gwNumber || 0),
+          isGwSettled: true,
+          gwSettledAt: serverTimestamp(),
+        });
+
+        // Notify Everyone
         await addDoc(
           collection(db, "leagues", activeLeagueId, "notifications"),
           {
-            type: "warning",
-            message: notices.payoutQueuedChairman(
+            type: "transactionSuccess",
+            isWinnerEvent: true,
+            winnerId: winner.id,
+            message: notices.payoutDisbursed(
               winner.displayName,
-              weeklyPot,
-              winningPoints,
+              net,
+              gwNumber,
+              payoutMethod,
             ),
             timestamp: serverTimestamp(),
             readBy: [],
-            targetMemberId: activeUserId,
           },
         );
 
@@ -3109,7 +3220,7 @@ burstFrame();
           collection(db, "leagues", activeLeagueId, "league_events"),
           {
             eventType: "resolution",
-            message: `GW${gwNumber} payout queued for Chairman approval — ${winner.displayName} (${winningPoints} pts).`,
+            message: `GW${gwNumber} resolved & pot disbursed — ${winners.map(w => w.displayName).join(' & ')} (${winningPoints} pts).`,
             actor: requestedBy,
             timestamp: serverTimestamp(),
           },
@@ -3127,14 +3238,23 @@ burstFrame();
         setShowResolveModal(false);
         haptics.celebrate();
         showToast(
-          `🏆 GW${gwNumber} Champion Crowned! Opening WhatsApp Victory Card...`,
+          `🏆 GW${gwNumber} Champion Crowned & Pot Disbursed! Opening WhatsApp Victory Card...`,
         );
         setShowChairmanFlexModal(true);
         triggerResolutionPulse();
+        const endTime = Date.now() + 3000;
+        const burstFrame = () => {
+          confetti({ particleCount: 8, angle: 60, spread: 65, origin: { x: 0, y: 0.75 }, colors: ['#10B981','#FBBF24','#FFFFFF'] });
+          confetti({ particleCount: 8, angle: 120, spread: 65, origin: { x: 1, y: 0.75 }, colors: ['#10B981','#FBBF24','#FFFFFF'] });
+          if (Date.now() < endTime) requestAnimationFrame(burstFrame);
+        };
+        burstFrame();
         setActionTimeline((prev) => ({
           ...prev,
           resolved: true,
-          approvalPending: true,
+          approvalPending: false,
+          payoutSent: true,
+          confirmed: true,
         }));
       }
     } catch (error) {
@@ -4037,7 +4157,7 @@ burstFrame();
           </div>
 
           {/* Dual Signatory Maker/Checker Queue (Prominently Placed at Top of Admin Command Center) */}
-          {sortedPendingPayouts.length > 0 && (
+          {hasValidCoChair && sortedPendingPayouts.length > 0 && (
             <section
               id="pending-payout-queue"
               className="rounded-3xl bg-white/95 dark:bg-[#121820]/95 backdrop-blur-xl border-2 border-amber-400 dark:border-amber-400/50 p-4 sm:p-6 shadow-2xl space-y-4 mb-3 animate-in fade-in slide-in-from-top-4 duration-300"
@@ -4316,7 +4436,6 @@ burstFrame();
                 gwAlreadySettled ||
                 (latestApprovedPayout && Number(latestApprovedPayout.gw) === currentGwNumber)
               );
-              const hasAnySettledGws = Boolean(earliestResolvedGw || latestApprovedPayout);
 
               const isSeasonPotOnly = Number(rules.weekly || 0) === 0;
               const fundedActiveMembers = members.filter((m) => memberHasFunding(m) && m.isActive !== false && (m as any).playMode !== 'sidebets_only');
@@ -4335,23 +4454,31 @@ burstFrame();
                 (latestApprovedPayout && Number(latestApprovedPayout.gw) === Number(currentGwNumber)) ||
                 (fixtureStats && fixtureStats.total > 0 && fixtureStats.remaining === 0)
               );
-              const isCelebrationWindowActive = Boolean(
-                isRoundConcluded &&
-                (finishedAtStored ? hoursSinceFinished <= 48 : true) &&
-                hoursUntilNextDeadline > 36
-              );
-              const isPreLeagueRound = !hasAnySettledGws && !isResolved && !gwAlreadySettled && Boolean((currentGwNumber || 0) < effectiveStartGw);
+              const isPreLeagueRound = Boolean(effectiveStartGw > 1 && (Number(currentGwNumber || 1) < effectiveStartGw));
+              const isCelebrationWindowActive = isPreLeagueRound
+                ? false
+                : Boolean(
+                    isRoundConcluded &&
+                    (finishedAtStored ? hoursSinceFinished <= 48 : true) &&
+                    hoursUntilNextDeadline > 36
+                  );
 
               // Live leader: during live in-play matches (!isRoundConcluded), gwWinner from live standings is strictly authoritative!
-              const leaderName = (!isRoundConcluded || !authoritativePayout)
+              const leaderName = isPreLeagueRound
+                ? null
+                : (!isRoundConcluded || !authoritativePayout)
                 ? (gwWinner?.player_name || authoritativePayout?.winnerName || resolvedMember?.displayName || null)
                 : (authoritativePayout?.winnerName || resolvedMember?.displayName || gwWinner?.player_name || null);
 
-              const leaderTeam = (!isRoundConcluded || !authoritativePayout)
+              const leaderTeam = isPreLeagueRound
+                ? null
+                : (!isRoundConcluded || !authoritativePayout)
                 ? (gwWinner?.entry_name || (resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || null)
                 : ((resolvedMember as any)?.fplTeamName || resolvedMember?.teamName || gwWinner?.entry_name || null);
 
-              const leaderPoints = (!isRoundConcluded || !authoritativePayout)
+              const leaderPoints = isPreLeagueRound
+                ? null
+                : (!isRoundConcluded || !authoritativePayout)
                 ? (gwWinner?.event_total !== undefined ? gwWinner.event_total : (authoritativePayout?.points ?? null))
                 : (authoritativePayout?.points !== undefined ? authoritativePayout.points : (gwWinner?.event_total !== undefined ? gwWinner.event_total : null));
 
@@ -4482,7 +4609,9 @@ burstFrame();
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <p className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-amber-600 dark:text-[#FBBF24]">
-                            {isCelebrationWindowActive ? (
+                            {isPreLeagueRound ? (
+                              <><Shield className="w-3.5 h-3.5 text-blue-500" /> Pre-Season Setup</>
+                            ) : isCelebrationWindowActive ? (
                               <><Star className="w-3.5 h-3.5 fill-[#FBBF24] text-[#FBBF24]" /> GW{currentGwNumber || effectiveStartGw || 5} Champion</>
                             ) : (
                               <><Zap className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" /> {isRoundConcluded ? `GW${currentGwNumber || 5} Final Leader` : `GW${currentGwNumber || 5} Live Leader`}</>
@@ -4491,12 +4620,14 @@ burstFrame();
                           <span
                             className={clsx(
                               "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
-                              isRoundConcluded
+                              isPreLeagueRound
+                                ? "bg-blue-100 text-blue-800 border-blue-300 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-400"
+                                : isRoundConcluded
                                 ? "bg-amber-100 text-amber-800 border-amber-300 dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]"
                                 : "bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-400"
                             )}
                           >
-                            {isRoundConcluded ? "Final" : (fixtureStats && fixtureStats.remaining > 0 ? `${fixtureStats.remaining} left` : "In Play")}
+                            {isPreLeagueRound ? `Kickoff GW${effectiveStartGw}` : isRoundConcluded ? "Final" : (fixtureStats && fixtureStats.remaining > 0 ? `${fixtureStats.remaining} left` : "In Play")}
                           </span>
                         </div>
 
@@ -4549,7 +4680,11 @@ burstFrame();
                         ) : (
                           <div className="py-4 text-center">
                             <p className="text-xs font-bold text-slate-500 dark:text-gray-400">
-                              {isFplStandingsLoading ? "Syncing live matchday standings..." : "Awaiting Gameweek Leader..."}
+                              {isPreLeagueRound
+                                ? `Pre-Season Setup • Official Kickoff at GW${effectiveStartGw}`
+                                : isFplStandingsLoading
+                                ? "Syncing live matchday standings..."
+                                : "Awaiting Gameweek Leader..."}
                             </p>
                           </div>
                         )}
@@ -4836,45 +4971,50 @@ burstFrame();
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5 sm:gap-3.5 w-full">
                   {/* 1. Approve Payouts */}
-                  <div
-                    className={clsx(
-                      "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
-                      sortedPendingPayouts.length > 0
-                        ? "border-amber-400 bg-amber-100/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/50"
-                        : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
-                    )}
-                    onClick={() => {
-                      if (sortedPendingPayouts.length > 0) {
-                        setActiveTab("dashboard");
-                        setTimeout(() => scrollToSection("pending-payout-queue"), 100);
-                        showToast("Viewing pending payout approvals.");
-                      } else {
-                        setActiveTab("dashboard");
-                        showToast("All payouts are up to date! 0 approvals pending.");
-                      }
-                    }}
-                    title="Tap to review payout approvals"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10.5px] uppercase font-black tracking-wider text-amber-700 dark:text-amber-300 group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors">
-                        Payouts
-                      </p>
-                      {sortedPendingPayouts.length > 0 ? (
-                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse shadow-[0_0_10px_#FBBF24]" />
-                      ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      )}
-                    </div>
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
-                      {sortedPendingPayouts.length}
-                    </p>
-                    <span className={clsx(
-                      "text-[9.5px] font-bold truncate",
-                      sortedPendingPayouts.length > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-gray-400"
-                    )}>
-                      {sortedPendingPayouts.length > 0 ? "Action required" : "All cleared ✓"}
-                    </span>
-                  </div>
+                  {(() => {
+                    const pendingApprovalsCount = hasValidCoChair ? sortedPendingPayouts.length : 0;
+                    return (
+                      <div
+                        className={clsx(
+                          "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
+                          pendingApprovalsCount > 0
+                            ? "border-amber-400 bg-amber-100/80 dark:border-amber-400 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:border-amber-300 shadow-[0_0_24px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/50"
+                            : "border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#111822] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] dark:hover:border-white/20"
+                        )}
+                        onClick={() => {
+                          if (pendingApprovalsCount > 0) {
+                            setActiveTab("dashboard");
+                            setTimeout(() => scrollToSection("pending-payout-queue"), 100);
+                            showToast("Viewing pending payout approvals.");
+                          } else {
+                            setActiveTab("dashboard");
+                            showToast("All payouts are up to date! 0 approvals pending.");
+                          }
+                        }}
+                        title="Tap to review payout approvals"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10.5px] uppercase font-black tracking-wider text-amber-700 dark:text-amber-300 group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors">
+                            Payouts
+                          </p>
+                          {pendingApprovalsCount > 0 ? (
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse shadow-[0_0_10px_#FBBF24]" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          )}
+                        </div>
+                        <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
+                          {pendingApprovalsCount}
+                        </p>
+                        <span className={clsx(
+                          "text-[9.5px] font-bold truncate",
+                          pendingApprovalsCount > 0 ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-gray-400"
+                        )}>
+                          {pendingApprovalsCount > 0 ? "Action required" : "All cleared ✓"}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* 2. Red Zone Follow-ups */}
                   <div

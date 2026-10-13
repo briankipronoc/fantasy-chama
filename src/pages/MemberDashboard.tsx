@@ -652,12 +652,13 @@ export default function MemberDashboard() {
             return;
         }
 
-        // Match each FPL entry to a Chama member — covers fplTeamId, secondFplTeamId, and fuzzy name
+        // Match each FPL entry to a Chama member — strict check against FPL ID or exact name
         const matchMember = (r: any) => members.find((m: any) => {
             if (m.fplTeamId && Number(m.fplTeamId) === Number(r.entry)) return true;
             if (m.secondFplTeamId && Number(m.secondFplTeamId) === Number(r.entry)) return true;
             const db = norm(m.displayName);
-            return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || '').includes(db);
+            if (!db || db.length < 3) return false;
+            return norm(r.player_name) === db || norm(r.entry_name || '') === db;
         });
 
         // GW Standings card — show ALL active, onboarded, non-spectator Chama members
@@ -669,8 +670,13 @@ export default function MemberDashboard() {
 
         setFplStandings(chamaResults);
 
-        // GW Winner & Live Leader — rank by event_total among active Chama members only
-        const candidatePool = chamaResults;
+        // GW Winner & Live Leader — only funded, active Chama members can win the pot
+        const fundedChamaResults = chamaResults.filter((entry: any) => {
+            const member = matchMember(entry);
+            if (!member) return false;
+            return Boolean(member.hasPaid === true || (Number(gameweekStake || 0) > 0 && Number(member.walletBalance || 0) >= Number(gameweekStake || 0)));
+        });
+        const candidatePool = Number(rules.weekly || 70) === 0 ? chamaResults : fundedChamaResults;
 
         if (candidatePool.length >= 1 && Number(candidatePool[0]?.event_total || 0) > 0) {
             const topScore = Number(candidatePool[0]?.event_total || 0);

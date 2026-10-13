@@ -420,6 +420,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Array.from(new Set([...fromSettings, ...fromPayouts])).map(Number);
     }, [leagueSettings, pendingApprovals]);
 
+    const currentSeasonTransactions = useMemo(() => {
+        return (transactions || []).filter((t: any) => {
+            if (lastResetAtMs) {
+                const txTime = toMillis(t.timestamp);
+                if (txTime && txTime < lastResetAtMs) return false;
+            }
+            const txGw = Number(t.gw || t.gameweek || 0);
+            if (txGw > 0 && txGw < leagueStartGw) return false;
+            return true;
+        });
+    }, [transactions, lastResetAtMs, leagueStartGw]);
+
     const isMemberFunded = (m: any) => {
         if (!m || m.isActive === false || (m as any).isEliminated || (m as any).isPending) return false;
         if ((m as any).playMode === 'sidebets_only') return false;
@@ -429,12 +441,12 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
             (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
 
-        const refundTotal = (transactions || []).filter((tx: any) => {
+        const refundTotal = (currentSeasonTransactions || []).filter((tx: any) => {
             if (!isMatchedMember(tx)) return false;
             return isTxRefundOrReversal(tx);
         }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
-        const memberInflows = (transactions || []).filter((tx: any) => {
+        const memberInflows = (currentSeasonTransactions || []).filter((tx: any) => {
             if (!isTxValidInflow(tx)) return false;
             return isMatchedMember(tx);
         }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
@@ -457,11 +469,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         return Boolean(
             (gameweekStake || 0) === 0 ||
             (unspentCredit >= (gameweekStake || 0)) ||
-            (Number((m as any).walletBalance || 0) >= (gameweekStake || 0)) ||
             (netDeposited >= totalRounds * (gameweekStake || 0)) ||
-            (transactions || []).some((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx) && Number(tx.gw || tx.gameweek || 0) === currentGw) ||
-            (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid)) ||
-            Boolean(m.hasPaid)
+            (currentSeasonTransactions || []).some((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx) && Number(tx.gw || tx.gameweek || 0) === currentGw)
         );
     };
 
@@ -902,7 +911,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         if (validDepositTxs.length > 0 || reversalTotal > 0) {
             return Math.max(0, txDepositSum);
         }
-        return Math.max(0, Number((currentUser as any)?.totalDeposited || 0) - reversalTotal);
+        return lastResetAtMs ? 0 : Math.max(0, Number((currentUser as any)?.totalDeposited || 0) - reversalTotal);
     }, [transactions, currentUser, lastResetAtMs, currentSeasonStartMs]);
 
 
@@ -928,8 +937,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const isPendingOnboarding = Boolean(m.isPending === true || (!m.phone && !m.phoneNumber));
                 const isMemberSpectator = (m as any).playMode === 'sidebets_only';
 
-                // Identify all deposit / inflow transactions associated with this member
-                const memberInflowTxs = transactions.filter((tx: any) => {
+                // Identify all deposit / inflow transactions associated with this member in the current season cycle
+                const memberInflowTxs = (currentSeasonTransactions || []).filter((tx: any) => {
                     if (!isTxValidInflow(tx)) return false;
                     return (
                         (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
@@ -944,31 +953,28 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                     (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
                     (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
 
-                const refundTotal = transactions.filter((tx: any) => {
+                const refundTotal = (currentSeasonTransactions || []).filter((tx: any) => {
                     if (!isMatchedMember(tx)) return false;
                     return isTxRefundOrReversal(tx);
                 }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
 
                 const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
-                const rawMemberBalance = Math.max(0, Number(m.walletBalance || 0));
                 
                 // Real unspent credit: deposits remaining after resolved rounds have deducted their stakes
                 const consumedStakeForResolved = isMemberSpectator ? 0 : resolvedCount * stake;
                 const netUnspentFloat = Math.max(0, totalDeposited - consumedStakeForResolved);
-                // Reconciled available float: Authoritative float derived from net deposits minus resolved round stakes
-                const reconciledWalletBalance = isMemberSpectator ? 0 : (totalDeposited > 0 ? netUnspentFloat : rawMemberBalance);
+                // Reconciled available float: Authoritative float derived from verified current season deposits
+                const reconciledWalletBalance = isMemberSpectator ? 0 : (totalDeposited > 0 ? netUnspentFloat : 0);
                 const unspentCredit = reconciledWalletBalance;
 
                 // Member has paid current GW if stake is 0, unspent credit covers stake, cumulative deposits cover all rounds including current,
-                // wallet covers current stake, or they made an inflow transaction explicitly tagged with the current GW, or hasPaid is true
+                // or they made an inflow transaction explicitly tagged with the current GW
                 const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
                     (stake === 0) ||
+                    (stake > 0 && totalDeposited >= (resolvedCount + 1) * stake) ||
                     (stake > 0 && unspentCredit >= stake) ||
-                    (stake > 0 && reconciledWalletBalance >= stake) ||
-                    (memberInflowTxs.some((tx: any) => Number(tx.gw || tx.gameweek || 0) === currentGw)) ||
-                    (Number((m as any).lastPaymentGw) === currentGw && Boolean(m.hasPaid)) ||
-                    Boolean(m.hasPaid)
+                    (memberInflowTxs.some((tx: any) => Number(tx.gw || tx.gameweek || 0) === currentGw))
                 );
 
                 // In Chama play, each GW played costs 1x stake. Total GWs funded all-time based on contributions:
@@ -1003,7 +1009,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 };
             })
             .sort((a, b) => b.gwsSkippedCount - a.gwsSkippedCount);
-    }, [members, transactions, leagueStartGw, currentGwNumber, gameweekStake, forfeitedGws, resolvedGws, playedCompletedGws]);
+    }, [members, currentSeasonTransactions, leagueStartGw, currentGwNumber, gameweekStake, forfeitedGws, resolvedGws, playedCompletedGws]);
 
     const redZoneMembers = useMemo(() => {
         return memberFundingSummary.filter((m: any) => 

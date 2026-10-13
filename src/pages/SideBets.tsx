@@ -1014,31 +1014,7 @@ export default function SideBets() {
                                 </div>
                             </div>
 
-                            {/* Card 2: Live Duels Escrow Liquidity */}
-                            <div className="fc-card rounded-2xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/30 p-4 flex flex-col justify-between shadow-md">
-                                <div className="flex items-center justify-between gap-2 mb-2">
-                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                        <Swords className="w-3 h-3 text-emerald-500" /> Active Pot
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
-                                        {activeBets.length} Active Duel{activeBets.length === 1 ? '' : 's'}
-                                    </span>
-                                </div>
-                                <div>
-                                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
-                                        KES {totalEscrowPot.toLocaleString()}
-                                    </p>
-                                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
-                                        Locked in wallet escrow & post-match duels
-                                    </p>
-                                </div>
-                                <div className="mt-3 pt-2 border-t border-emerald-500/20 flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                                    <span>Auto-Settlement Ready</span>
-                                    <span>Escrow Verified ✓</span>
-                                </div>
-                            </div>
-
-                            {/* Card 3: Milestone & Prop Watch Types */}
+                            {/* Card 2: Milestone & Prop Watch Types */}
                             <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-white dark:via-[#161d24] to-indigo-500/5 dark:to-[#0c1218] border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                     <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
@@ -1094,6 +1070,30 @@ export default function SideBets() {
                                             <span className="font-semibold text-amber-600 dark:text-amber-400">Direct whistle settlement</span>
                                         </p>
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Card 3: Live Duels Escrow Liquidity */}
+                            <div className="fc-card rounded-2xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/30 p-4 flex flex-col justify-between shadow-md">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                        <Swords className="w-3 h-3 text-emerald-500" /> Active Pot
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                                        {activeBets.length} Active Duel{activeBets.length === 1 ? '' : 's'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                        KES {totalEscrowPot.toLocaleString()}
+                                    </p>
+                                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
+                                        Locked in wallet escrow & post-match duels
+                                    </p>
+                                </div>
+                                <div className="mt-3 pt-2 border-t border-emerald-500/20 flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                    <span>Auto-Settlement Ready</span>
+                                    <span>Escrow Verified ✓</span>
                                 </div>
                             </div>
                         </div>
@@ -1408,8 +1408,8 @@ export default function SideBets() {
 
             {/* Create Bet Modal */}
             {showCreate && (
-                <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-                    <div className="w-full max-w-md bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
+                <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5">
+                    <div className="w-full max-w-2xl sm:max-w-2xl md:max-w-3xl max-h-[92vh] overflow-y-auto bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 md:p-8 shadow-2xl relative text-slate-900 dark:text-white">
                         {/* Uniform Modal Top-Right X */}
                         <button
                             type="button"
@@ -1667,8 +1667,8 @@ export default function SideBets() {
                 const bet = bets.find(b => b.id === resolvingBetId);
                 if (!bet) return null;
                 return (
-                    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4">
-                        <div className="w-full max-w-sm bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 shadow-2xl relative text-slate-900 dark:text-white">
+                    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-5">
+                        <div className="w-full max-w-lg bg-white dark:bg-[#0c1218] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 sm:p-7 shadow-2xl relative text-slate-900 dark:text-white">
                             {/* Uniform Modal Top-Right X */}
                             <button
                                 type="button"
