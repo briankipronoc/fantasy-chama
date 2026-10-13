@@ -1072,7 +1072,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const seasonDepositedTotal = Math.max(0, seasonCollectedSoFarGross);
 
     const activeChamaMembers = useMemo(() => {
-        return memberFundingSummary.filter(m => !m.isSpectator);
+        return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding);
     }, [memberFundingSummary]);
 
     const currentGwExpectedWeekly = activeChamaMembers.length * (gameweekStake || 0);
@@ -1961,7 +1961,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                                         )}
                                                     >
-                                                        End-Season Vault
+                                                        End-Season
                                                     </button>
                                                 </div>
                                             )}
@@ -1989,7 +1989,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                                         )}
                                                     >
-                                                        End-Season Vault
+                                                        End-Season
                                                     </button>
                                                 </div>
                                             )}

@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles, Wallet } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, ShieldCheck, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles, Wallet } from 'lucide-react';
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
@@ -32,8 +32,18 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
     const themeMenuRef = useRef<HTMLDivElement>(null);
     const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
     const { theme: currentTheme, setTheme } = useTheme();
     const [headerMotion, setHeaderMotion] = useState('');
+    const isSuperAdminUser = Boolean(
+        auth.currentUser?.email?.toLowerCase() === 'cbrian@kabarak.ac.ke' ||
+        auth.currentUser?.uid === import.meta.env.VITE_SUPER_ADMIN_UID ||
+        (typeof localStorage !== 'undefined' && (
+            localStorage.getItem('activeUserId') === import.meta.env.VITE_SUPER_ADMIN_UID ||
+            localStorage.getItem('isSuperAdmin') === 'true'
+        )) ||
+        role === 'admin'
+    );
 
     useEffect(() => {
         if (!isThemeMenuOpen) return;
@@ -413,6 +423,22 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                 </div>
                             )}
                         </div>
+
+                        {/* SuperAdmin HQ Pill */}
+                        {isSuperAdminUser && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    haptics.selection();
+                                    navigate('/hq');
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 border border-purple-500/30 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                                title="SuperAdmin HQ Telemetry"
+                            >
+                                <ShieldCheck className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                                <span>HQ</span>
+                            </button>
+                        )}
 
                         {/* Leagues Dropdown */}
                         <LeagueSwitcher variant="header" />

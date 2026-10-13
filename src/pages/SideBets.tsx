@@ -1039,13 +1039,13 @@ export default function SideBets() {
                             </div>
 
                             {/* Card 3: Milestone & Prop Watch Types */}
-                            <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
+                            <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-white dark:via-[#161d24] to-indigo-500/5 dark:to-[#0c1218] border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                     <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                                        <Target className="w-3 h-3 text-indigo-500" /> Milestone & Prop Watch
+                                        <Target className="w-3 h-3 text-indigo-500" /> Challenge Ideas & Props
                                     </span>
                                     <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
-                                        Tap to Duel ⚡
+                                        Examples · Tap to Customize ⚡
                                     </span>
                                 </div>
 
@@ -1053,44 +1053,44 @@ export default function SideBets() {
                                     {/* Type 1: Milestone Target (Has progress bar) */}
                                     <div
                                         onClick={() => {
-                                            setBetTitle('Haaland 20 Goals Duel');
-                                            setBetDescription('Challenger backs Erling Haaland to hit 20 Premier League goals in the 2026/27 season.');
+                                            setBetTitle('Player Milestone Target');
+                                            setBetDescription('Back a player or team milestone target across the season (e.g. 20 goals, 15 assists, 10 clean sheets). Auto-tracked via official FPL data with Chairman verification.');
                                             setShowCreate(true);
                                         }}
-                                        className="p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all cursor-pointer group"
-                                        title="Click to challenge with Haaland 20 Goals Milestone"
+                                        className="p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all cursor-pointer group"
+                                        title="Click to customize a Progressive Milestone Challenge"
                                     >
                                         <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200 group-hover:text-indigo-500 transition-colors">
-                                            <span className="truncate">🎯 Haaland 20 Goals Target</span>
-                                            <span className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px] shrink-0">14 / 20</span>
+                                            <span className="truncate">🎯 Milestone Target (e.g. 20 Goals)</span>
+                                            <span className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px] shrink-0 font-bold">Target Tracker</span>
                                         </div>
-                                        <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full mt-1 overflow-hidden">
+                                        <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full mt-1.5 overflow-hidden">
                                             <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: '70%' }} />
                                         </div>
                                         <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mt-1">
-                                            <span>70% • Progressive Target</span>
+                                            <span>Progressive Cumulative Target</span>
                                             <span className="font-semibold text-indigo-600 dark:text-indigo-400">Auto-Tracked FPL 🤖</span>
                                         </div>
                                     </div>
 
-                                    {/* Type 2: Binary Proposition Bet (YES/NO - NO progress bar) */}
+                                    {/* Type 2: Single Match Prop (Yes / No Outcome) */}
                                     <div
                                         onClick={() => {
-                                            setBetTitle('Haaland to blank GW8');
-                                            setBetDescription('Erling Haaland to score 0 goals and 0 assists in GW8 (Binary Yes/No wager).');
+                                            setBetTitle('Single Match Prop (Yes / No)');
+                                            setBetDescription('Back a single match or player outcome (e.g. clean sheet, goal, blank). Settles directly at the final whistle via official match statistics.');
                                             setShowCreate(true);
                                         }}
-                                        className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all cursor-pointer group"
-                                        title="Click to challenge with Haaland to blank GW8 Prop Bet"
+                                        className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all cursor-pointer group"
+                                        title="Click to customize a Single Match Prop Challenge"
                                     >
                                         <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-500 transition-colors">
-                                            <span className="truncate">🎲 Haaland to blank GW8</span>
+                                            <span className="truncate">🎲 Single Match Prop (Yes / No)</span>
                                             <span className="text-[9px] uppercase tracking-wider font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                                                YES / NO Binary
+                                                Single Match Outcome
                                             </span>
                                         </div>
-                                        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1 flex items-center justify-between">
-                                            <span>Single match outcome</span>
+                                        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-center justify-between">
+                                            <span>Yes / No Match Event</span>
                                             <span className="font-semibold text-amber-600 dark:text-amber-400">Direct whistle settlement</span>
                                         </p>
                                     </div>
@@ -1434,13 +1434,13 @@ export default function SideBets() {
                         {/* Quick Template Chips */}
                         <div className="mb-4">
                             <span className="block text-[10px] font-black text-slate-500 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1">
-                                <Sparkles className="w-3 h-3 text-amber-500" /> Side Bet Types & Templates
+                                <Sparkles className="w-3 h-3 text-amber-500" /> Challenge Templates & Ideas
                             </span>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-wrap gap-1.5 mb-2.5">
                                 {[
-                                    { tag: 'Points', title: 'Next GW Points Duel', desc: 'Higher official FPL points in the next gameweek takes the pot.' },
-                                    { tag: 'Milestone', title: 'Haaland 20 Goals Duel', desc: 'Challenger backs Erling Haaland to reach 20 Premier League goals in 2026/27.' },
-                                    { tag: 'Yes/No', title: 'Haaland to blank GW8', desc: 'Erling Haaland scores 0 goals and 0 assists in GW8 (Binary Yes/No outcome).' },
+                                    { tag: 'Points', title: 'Next GW Points Duel', desc: 'Higher official FPL score in the upcoming gameweek takes the pot.' },
+                                    { tag: 'Milestone', title: 'Haaland 20 Goals Target', desc: 'Back Erling Haaland to hit 20 Premier League goals this season. Auto-tracked with Chairman verification.' },
+                                    { tag: 'Yes/No', title: 'Haaland to blank GW8', desc: 'Erling Haaland scores 0 goals and 0 assists in GW8 (Single match Yes/No outcome).' },
                                     { tag: 'Prop', title: 'Arsenal Clean Sheet GW8', desc: 'Arsenal defense maintains a clean sheet in GW8.' },
                                 ].map((tpl) => (
                                     <button
@@ -1456,6 +1456,10 @@ export default function SideBets() {
                                         <span>{tpl.title}</span>
                                     </button>
                                 ))}
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-[10px] text-slate-600 dark:text-gray-400 flex items-start gap-2">
+                                <span className="text-amber-500 font-bold shrink-0">💡</span>
+                                <span>You can challenge on <strong>any player or match outcome</strong>. FPL points & stats are auto-tracked, and the Chairman can manually settle with 1 tap if external details cannot be fetched.</span>
                             </div>
                         </div>
 

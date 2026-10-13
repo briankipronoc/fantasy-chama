@@ -2222,38 +2222,6 @@ export default function Profile() {
                                             <span>→</span>
                                         </div>
                                     </div>
-
-                                    {/* Tile 5: SuperAdmin HQ */}
-                                    {isSuperAdminUser && (
-                                        <div
-                                            onClick={() => {
-                                                haptics.selection();
-                                                navigate('/hq');
-                                            }}
-                                            className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] border border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
-                                        >
-                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                                <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                                                    <ShieldCheck className="w-4 h-4" />
-                                                </div>
-                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                                    HQ
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                                                    SuperAdmin HQ
-                                                </h4>
-                                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                                    Platform telemetry & all leagues
-                                                </p>
-                                            </div>
-                                            <div className="mt-2.5 pt-2 border-t border-purple-500/20 flex items-center justify-between text-[10px] font-bold text-purple-600 dark:text-purple-400">
-                                                <span>Open HQ</span>
-                                                <span>→</span>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2364,38 +2332,6 @@ export default function Profile() {
                                     <span>→</span>
                                 </div>
                             </div>
-
-                            {/* Member Tile 4: SuperAdmin HQ */}
-                            {isSuperAdminUser && (
-                                <div
-                                    onClick={() => {
-                                        haptics.selection();
-                                        navigate('/hq');
-                                    }}
-                                    className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-purple-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] border border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
-                                >
-                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                                            <ShieldCheck className="w-5 h-5" />
-                                        </div>
-                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                            HQ
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                                            SuperAdmin HQ
-                                        </h4>
-                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                            Platform telemetry & all leagues
-                                        </p>
-                                    </div>
-                                    <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex items-center justify-between text-[11px] font-bold text-purple-600 dark:text-purple-400">
-                                        <span>Open HQ</span>
-                                        <span>→</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 )}

@@ -1,6 +1,6 @@
 // src/components/DeadlineCountdown.tsx
 import { useState, useEffect, useMemo } from 'react';
-import { Clock, Flame } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { haptics } from '../utils/haptics';
 import BanterNudgeModal from './BanterNudgeModal';
@@ -17,7 +17,6 @@ export default function DeadlineCountdown({
   gameweekStake,
 }: DeadlineCountdownProps) {
   const members = useStore((state) => state.members);
-  const role = useStore((state) => state.role);
   const league = useStore((state) => state.league);
 
   const effectiveLeagueName = leagueName || league?.name || 'FantasyChama';
@@ -108,11 +107,13 @@ export default function DeadlineCountdown({
     });
   }, [nextEvent?.deadline_time]);
 
-  // Filter unpaid members
+  // Filter unpaid members (only onboarded members with phone number/active profile)
   const unpaidMembers = useMemo(() => {
     return members.filter((m) => {
+      const isPending = Boolean(m.isPending === true || (!m.phone && !(m as any).phoneNumber));
+      if (isPending) return false;
       const isFunded = m.hasPaid === true || (effectiveStake > 0 && (m.walletBalance || 0) >= effectiveStake);
-      return !isFunded && m.isActive !== false && m.role !== 'admin';
+      return !isFunded && m.isActive !== false && m.role !== 'admin' && (m as any).playMode !== 'sidebets_only';
     });
   }, [members, effectiveStake]);
 
@@ -137,13 +138,6 @@ export default function DeadlineCountdown({
             <strong className="text-slate-900 dark:text-white">GW{liveEvent.id}</strong>
             <span className="font-sans font-black uppercase text-[10px] tracking-wider text-emerald-600 dark:text-emerald-400">is LIVE</span>
           </span>
-
-          {unpaidMembers.length > 0 && role === 'admin' && (
-            <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-              <Flame className="w-2.5 h-2.5" />
-              {unpaidMembers.length} unpaid
-            </span>
-          )}
         </button>
 
         <BanterNudgeModal
@@ -206,13 +200,6 @@ export default function DeadlineCountdown({
           <strong className="text-slate-900 dark:text-white">GW{nextEvent.id}:</strong>
           <span>{countdownString}</span>
         </span>
-
-        {unpaidMembers.length > 0 && role === 'admin' && (
-          <span className="hidden sm:inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-            <Flame className="w-2.5 h-2.5" />
-            {unpaidMembers.length} unpaid
-          </span>
-        )}
       </button>
 
       {/* Banter Nudge Modal */}

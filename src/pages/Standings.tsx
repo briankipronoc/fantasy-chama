@@ -823,7 +823,7 @@ export default function Standings() {
 
 
     const isPendingMember = (m: any) =>
-        Boolean(m && m.isPending === true && !m.hasPaid && Number(m.walletBalance || 0) <= 0);
+        Boolean(m && (m.isPending === true || (!m.phone && !(m as any).phoneNumber)));
 
     const hasEverFunded = (m: any) =>
         Boolean(
@@ -1563,9 +1563,9 @@ export default function Standings() {
                                                         <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
                                                         </span>
-                                                    ) : (matchedMember as any)?.isPending ? (
-                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-amber-500 dark:text-amber-400 border-amber-500/25 bg-amber-500/10 flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Pending Onboarding
+                                                    ) : (!matchedMember || (matchedMember as any)?.isPending || (!matchedMember.phone && !(matchedMember as any).phoneNumber)) ? (
+                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-slate-500 dark:text-gray-400 border-slate-300 dark:border-white/10 bg-slate-100 dark:bg-white/5 flex items-center gap-1" title="Manager has not completed onboarding with phone number. Ineligible for Pot.">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Pending Onboarding · Ineligible for Pot
                                                         </span>
                                                     ) : (
                                                         <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-amber-500 dark:text-amber-400 border-amber-500/25 bg-amber-500/10 flex items-center gap-1">

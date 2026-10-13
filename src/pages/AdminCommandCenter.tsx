@@ -1296,6 +1296,23 @@ export default function AdminCommandCenter() {
   ) => {
     if (!activeLeagueId) return;
     try {
+      const nextPaid = !currentStatus;
+      const stake = Number(gameweekStake || 0);
+
+      // Optimistic instant state update for smooth and snappy UI toggle
+      useStore.setState((state) => ({
+        members: state.members.map((m: any) => {
+          if (m.id !== memberId) return m;
+          const currentBal = Number(m.walletBalance || 0);
+          const newBal = nextPaid ? Math.max(stake, currentBal + stake) : Math.max(0, currentBal - stake);
+          return {
+            ...m,
+            hasPaid: nextPaid,
+            walletBalance: newBal,
+          };
+        }),
+      }));
+
       await togglePaymentStatusGlobal(
         activeLeagueId,
         memberId,
@@ -1538,12 +1555,15 @@ export default function AdminCommandCenter() {
     if (isPendingMember(member)) return false;
     if (isMemberSpectator(member)) return false;
 
-    const refundTotal = getMemberRefundTotal(member);
-    const inflowTotal = getMemberInflowTotal(member);
-    const netDeposited = Math.max(0, inflowTotal - refundTotal);
     const effectiveWallet = Math.max(0, Number(member.walletBalance || 0));
 
     if (gameweekStake === 0) return true;
+    if (member.hasPaid === true) return true;
+    if (effectiveWallet >= gameweekStake) return true;
+
+    const refundTotal = getMemberRefundTotal(member);
+    const inflowTotal = getMemberInflowTotal(member);
+    const netDeposited = Math.max(0, inflowTotal - refundTotal);
 
     const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
     const currentGw = Number(currentGwNumber || start);
@@ -2349,14 +2369,44 @@ export default function AdminCommandCenter() {
     try {
       const targetGw = Number(cleanSlateTargetGw) || 10;
       
-      // 1. Reset all memberships
       const membershipsRef = collection(db, 'leagues', activeLeagueId, 'memberships');
       const membersSnap = await getDocs(membershipsRef);
+
+      // 1. Snapshot archive to SuperAdmin HQ collection before total purge
+      try {
+        const prevMembers = membersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const prevTxsSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'transactions'));
+        const prevTxs = prevTxsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const prevNotifsSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'notifications'));
+        const prevNotifs = prevNotifsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        await addDoc(collection(db, 'hq_clean_slate_archives'), {
+          leagueId: activeLeagueId,
+          leagueName: (leagueSettings as any)?.name || (leagueSettings as any)?.leagueName || 'League',
+          targetGw,
+          archivedAt: serverTimestamp(),
+          archivedAtMs: Date.now(),
+          archivedBy: localStorage.getItem('activeUserId') || auth.currentUser?.uid || 'chairman',
+          totalMembers: prevMembers.length,
+          totalTransactions: prevTxs.length,
+          totalNotifications: prevNotifs.length,
+          totalFloatDefunded: prevMembers.reduce((sum: number, m: any) => sum + Number(m.walletBalance || 0), 0),
+          members: prevMembers,
+          transactions: prevTxs,
+          notifications: prevNotifs,
+        });
+      } catch (archiveErr) {
+        console.warn('[clean-slate] Snapshot archiving failed (proceeding with purge):', archiveErr);
+      }
+
+      // 2. Defund and reset all memberships
       const batch = writeBatch(db);
       membersSnap.docs.forEach((mDoc) => {
         batch.update(mDoc.ref, {
           walletBalance: 0,
           hasPaid: false,
+          paymentStatus: 'unpaid',
+          isFunded: false,
           paymentStreak: 0,
           missedGameweeks: 0,
           lastPaymentGw: null,
@@ -2379,7 +2429,7 @@ export default function AdminCommandCenter() {
       });
       await batch.commit();
 
-      // 2. Clear subcollections in safe chunked batches
+      // 3. Clear subcollections in safe chunked batches (including notifications and disputes)
       const subcollections = [
         'transactions',
         'side_bets',
@@ -2388,7 +2438,10 @@ export default function AdminCommandCenter() {
         'pending_payouts',
         'wallet_topup_requests',
         'payouts',
-        'league_events'
+        'league_events',
+        'notifications',
+        'disputes',
+        'wallet_requests'
       ];
       for (const sub of subcollections) {
         try {
@@ -2410,13 +2463,20 @@ export default function AdminCommandCenter() {
       setPendingPayouts([]);
       setTransactions([]);
       useStore.setState((state) => ({
-        members: state.members.map((m: any) => ({ ...m, walletBalance: 0, hasPaid: false, joinedAtGw: targetGw }))
+        members: state.members.map((m: any) => ({
+          ...m,
+          walletBalance: 0,
+          hasPaid: false,
+          paymentStatus: 'unpaid',
+          joinedAtGw: targetGw
+        })),
+        transactions: [],
       }));
 
-      // 3. Post notification
+      // 4. Post fresh clean slate notification
       await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
         type: 'info',
-        message: `🔄 Clean Slate Activated: All wallet balances and transactions reset. Season officially starting from Gameweek ${targetGw}!`,
+        message: `🔄 Clean Slate Activated: All wallet balances defunded to KES 0 and transactions reset. Season officially starting from Gameweek ${targetGw}!`,
         timestamp: serverTimestamp(),
         readBy: [],
       });
@@ -5751,8 +5811,10 @@ burstFrame();
               <div className="fc-card rounded-2xl p-4 sm:p-5 border border-amber-300/30 dark:border-[#FBBF24]/20 bg-gradient-to-br from-amber-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] flex items-center justify-between shadow-md">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-[#FBBF24]">Total Members</p>
-                  <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">{members.length}</p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Registered in league</p>
+                  <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">{uniqueMembers.length}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    {uniqueMembers.filter(m => !isPendingMember(m)).length} onboarded · {uniqueMembers.filter(isPendingMember).length} pending
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-2xl bg-[#FBBF24]/10 border border-[#FBBF24]/20 flex items-center justify-center text-amber-500 dark:text-[#FBBF24]">
                   <Users className="w-5 h-5" />
@@ -5763,7 +5825,7 @@ burstFrame();
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Funded / Active</p>
                   <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">
-                    {members.filter(m => memberHasFunding(m)).length}
+                    {uniqueMembers.filter(m => !isPendingMember(m) && memberHasFunding(m)).length}
                   </p>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Eligible for GW pot</p>
                 </div>
@@ -5776,9 +5838,11 @@ burstFrame();
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Pending Deposit</p>
                   <p className="text-2xl font-black tabular-nums text-gray-900 dark:text-white mt-1">
-                    {members.filter(m => !memberHasFunding(m)).length}
+                    {uniqueMembers.filter(m => !isPendingMember(m) && !memberHasFunding(m) && (m as any).playMode !== 'sidebets_only').length}
                   </p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Top-up required</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    {uniqueMembers.filter(m => !isPendingMember(m) && !memberHasFunding(m) && (m as any).playMode !== 'sidebets_only').length > 0 ? 'Top-up required' : 'All onboarded funded'}
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400">
                   <Clock className="w-5 h-5" />
@@ -5873,7 +5937,10 @@ burstFrame();
                   const gwCost = gameweekStake;
                   const resolvedRoundsCount = resolvedGwsList.length;
                   const unspentDepositFloat = Math.max(0, netDeposited - (resolvedRoundsCount * gwCost));
-                  const wallet = netDeposited > 0 ? unspentDepositFloat : rawWallet;
+                  // Authoritative wallet balance from member record or net unspent deposit float
+                  const wallet = (row as any).walletBalance !== undefined && (row as any).walletBalance !== null
+                    ? rawWallet
+                    : (netDeposited > 0 ? unspentDepositFloat : rawWallet);
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                   const isRowSpectator = (row as any).playMode === "sidebets_only";
                   const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
@@ -5884,7 +5951,7 @@ burstFrame();
                     if (!forfeitedGws.includes(g)) playableRounds.push(g);
                   }
                   const totalCompletedOrCurrent = playableRounds.length;
-                  const rowHasPaidCurrent = memberHasFunding(row);
+                  const rowHasPaidCurrent = Boolean(row.hasPaid || (gwCost > 0 && wallet >= gwCost) || memberHasFunding(row));
                   
                   // In Chama play, purchasing power includes total net deposits plus current wallet
                   const totalContributed = Math.max(netDeposited, wallet);
@@ -7165,8 +7232,17 @@ burstFrame();
                 </div>
 
                 <div className="p-6 space-y-4">
-                  <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/20 text-xs text-rose-800 dark:text-red-300 leading-relaxed font-medium">
-                    <span className="font-black text-rose-900 dark:text-red-200">⚠️ Warning:</span> This will reset all member wallet balances to <span className="font-black text-rose-900 dark:text-white">KES 0</span>, reset all payment statuses to unpaid, and clear all transactions, wagers, and payouts on the ledger. Member squads, phone numbers, and WhatsApp links are safely preserved.
+                  <div className="p-4 rounded-2xl bg-rose-50 dark:bg-red-500/10 border border-rose-200 dark:border-red-500/30 text-xs text-rose-800 dark:text-red-300 leading-relaxed font-medium space-y-1.5 shadow-inner">
+                    <p className="font-black text-rose-900 dark:text-red-200 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                      CRITICAL SEVERITY: TOTAL LEAGUE PURGE &amp; WALLET DEFUND
+                    </p>
+                    <p>
+                      Executing Clean Slate <strong className="text-rose-900 dark:text-white">permanently wipes and defunds all member wallets to KES 0</strong>, clears all deposit and payout records, cancels pending wagers, and deletes user notifications.
+                    </p>
+                    <p className="text-[10px] text-rose-700 dark:text-red-400 font-bold">
+                      🛡️ A full backup snapshot is archived to SuperAdmin HQ for administrative audit, but all active ledger balances are dead and reset to Gameweek {cleanSlateTargetGw}.
+                    </p>
                   </div>
 
                   <div>

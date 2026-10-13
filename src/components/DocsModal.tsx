@@ -131,8 +131,8 @@ export default function DocsModal({ isOpen, onClose }: DocsModalProps) {
               <BookOpen className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">Help &amp; Documentation</h2>
-              <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Complete guides, formulas, and operating playbooks</p>
+              <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">Chama Constitution &amp; Playbook</h2>
+              <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Official rulebook, payout schedule &amp; operating playbooks</p>
             </div>
           </div>
           <button

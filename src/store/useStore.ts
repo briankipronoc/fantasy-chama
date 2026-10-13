@@ -227,7 +227,10 @@ export const useStore = create<AppState>((set) => ({
                         const existing = deduplicatedMap.get(existingKey)!;
                         const existingActive = existing.isActive !== false;
                         const mActive = m.isActive !== false;
-                        const preferM = (!existingActive && mActive) || (m.hasPaid && !existing.hasPaid) || (Number(m.walletBalance || 0) > Number(existing.walletBalance || 0)) || (Boolean(m.phone || (m as any).phoneNumber) && !existing.phone && !(existing as any).phoneNumber);
+                        // Prefer member with registered phone / auth UID over unlinked FPL placeholder
+                        const mHasIdentity = Boolean(m.phone || (m as any).phoneNumber || (m as any).authUid);
+                        const exHasIdentity = Boolean(existing.phone || (existing as any).phoneNumber || (existing as any).authUid);
+                        const preferM = (!existingActive && mActive) || (mHasIdentity && !exHasIdentity);
                         const primary = preferM ? m : existing;
                         const secondary = preferM ? existing : m;
 
@@ -237,8 +240,8 @@ export const useStore = create<AppState>((set) => ({
                             id: (primary.phone || (primary as any).phoneNumber) ? primary.id : (secondary.id || primary.id),
                             phone: primary.phone || secondary.phone || (primary as any).phoneNumber || (secondary as any).phoneNumber || undefined,
                             role: (existing.role === 'admin' || m.role === 'admin') ? 'admin' : (existing.role === 'co-chair' || m.role === 'co-chair') ? 'co-chair' : primary.role,
-                            hasPaid: Boolean(existing.hasPaid || m.hasPaid),
-                            walletBalance: Math.max(Number(existing.walletBalance || 0), Number(m.walletBalance || 0)),
+                            hasPaid: primary.hasPaid !== undefined ? Boolean(primary.hasPaid) : Boolean(secondary.hasPaid),
+                            walletBalance: Number(primary.walletBalance !== undefined ? primary.walletBalance : (secondary.walletBalance || 0)),
                             // If either record is active, member is ACTIVE
                             isActive: existing.isActive !== false || m.isActive !== false,
                             isPending: Boolean(existing.isPending && m.isPending && !existing.phone && !m.phone && !(existing as any).phoneNumber && !(m as any).phoneNumber),

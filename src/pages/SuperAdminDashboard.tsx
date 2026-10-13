@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { collection, collectionGroup, query, orderBy, onSnapshot, getDocs, doc, updateDoc, addDoc, serverTimestamp, runTransaction, limit, writeBatch, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save, RotateCcw, AlertTriangle, X, Wallet } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Activity, Banknote, Shield, Zap, Eye, EyeOff, BarChart3, CheckCircle, Power, ShieldAlert, Check, Download, ArrowUpRight, Sliders, ToggleLeft, ToggleRight, CreditCard, Save, RotateCcw, AlertTriangle, X, Wallet, Archive } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import clsx from 'clsx';
 import ConfirmModal from '../components/ConfirmModal';
@@ -15,7 +15,10 @@ export default function SuperAdminDashboard() {
     const [treasuryEvents, setTreasuryEvents] = useState<any[]>([]);
     const [leagues, setLeagues] = useState<any[]>([]);
     const [stealthMode, setStealthMode] = useState(false);
-    const [activeTab, setActiveTab] = useState<'overview' | 'leagues' | 'ledger' | 'settlements'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'leagues' | 'ledger' | 'settlements' | 'archives'>('overview');
+    const [cleanSlateArchives, setCleanSlateArchives] = useState<any[]>([]);
+    const [selectedArchive, setSelectedArchive] = useState<any | null>(null);
+    const [archiveDetailTab, setArchiveDetailTab] = useState<'members' | 'transactions' | 'notifications'>('members');
     const [stats, setStats] = useState({
         totalGrossVolume: 0,
         totalPlatformRev: 0,
@@ -67,6 +70,38 @@ export default function SuperAdminDashboard() {
         try {
             const leagueId = selectedLeagueForReset.id;
             const targetGw = Number(resetTargetGw) || 10;
+
+            // 0. Backup / Archive entire league state to HQ Clean Slate Archives for compliance & records
+            try {
+                const preMembersSnap = await getDocs(collection(db, 'leagues', leagueId, 'memberships'));
+                const txSnap = await getDocs(collection(db, 'leagues', leagueId, 'transactions'));
+                const notifsSnap = await getDocs(collection(db, 'leagues', leagueId, 'notifications'));
+                const sideBetsSnap = await getDocs(collection(db, 'leagues', leagueId, 'side_bets'));
+                const payoutsSnap = await getDocs(collection(db, 'leagues', leagueId, 'payouts'));
+                const archiveRef = doc(collection(db, 'hq_clean_slate_archives'));
+                await setDoc(archiveRef, {
+                    archivedAt: new Date().toISOString(),
+                    archivedBy: 'SuperAdmin HQ',
+                    targetGameweek: targetGw,
+                    leagueId,
+                    leagueName: selectedLeagueForReset.leagueName || leagueId,
+                    stats: {
+                        membersCount: preMembersSnap.docs.length,
+                        defundedCount: preMembersSnap.docs.filter(d => (d.data().walletBalance || 0) > 0).length,
+                        transactionsArchived: txSnap.docs.length,
+                        notificationsArchived: notifsSnap.docs.length,
+                        sideBetsArchived: sideBetsSnap.docs.length,
+                        payoutsArchived: payoutsSnap.docs.length,
+                    },
+                    membersSnapshot: preMembersSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+                    transactions: txSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+                    notifications: notifsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+                    sideBets: sideBetsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+                    payouts: payoutsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+                });
+            } catch (archiveErr) {
+                console.warn('[hq-clean-slate] Could not save archive snapshot:', archiveErr);
+            }
 
             // 1. Reset all memberships
             const membersSnap = await getDocs(collection(db, 'leagues', leagueId, 'memberships'));
@@ -259,6 +294,29 @@ export default function SuperAdminDashboard() {
         });
         return () => unsub();
     }, [isAuthorized]);
+
+    // Fetch Clean Slate Archives
+    useEffect(() => {
+        if (!isAuthorized) return;
+        const q = query(collection(db, 'hq_clean_slate_archives'), orderBy('archivedAt', 'desc'), limit(50));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            setCleanSlateArchives(list);
+        }, (err) => {
+            console.warn('[hq] Clean slate archives listener failed:', err);
+        });
+        return () => unsubscribe();
+    }, [isAuthorized]);
+
+    const handleExportArchiveJson = (archive: any) => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(archive, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `clean_slate_archive_gw${archive.targetGameweek || 'reset'}_${archive.archivedAt?.slice(0, 10) || 'snapshot'}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    };
 
     const handleSavePlatformSettings = async () => {
         setIsSavingSettings(true);
@@ -856,11 +914,11 @@ export default function SuperAdminDashboard() {
                 )}
 
                 {/* Tab Navigation */}
-                <div className="fc-hq-tabbar flex gap-1 p-1 rounded-xl w-fit">
-                    {(['overview', 'settlements', 'leagues', 'ledger'] as const).map(tab => (
+                <div className="fc-hq-tabbar flex gap-1 p-1 rounded-xl w-fit flex-wrap">
+                    {(['overview', 'settlements', 'leagues', 'ledger', 'archives'] as const).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)}
                             className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === tab ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-600 hover:text-gray-600 dark:text-gray-400'}`}>
-                            {tab}
+                            {tab === 'archives' ? 'Clean Slate Archives' : tab}
                         </button>
                     ))}
                 </div>
@@ -1090,11 +1148,269 @@ export default function SuperAdminDashboard() {
                     </div>
                 )}
 
+                {/* Clean Slate Archives (Company Records & Export) */}
+                {(activeTab === 'archives' || activeTab === 'overview') && (
+                    <div className="fc-hq-panel rounded-xl overflow-hidden shadow-2xl">
+                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between gap-3">
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                                    <Archive className="w-3.5 h-3.5 text-amber-400" /> Clean Slate Historical Archives
+                                </h3>
+                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                    Permanent audit snapshots saved before every Clean Slate purge. Defunded wallet balances, transactions, and notifications are archived here for company records and member disclosure.
+                                </p>
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-0.5 rounded">
+                                {cleanSlateArchives.length} recorded
+                            </span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm whitespace-nowrap">
+                                <thead className="bg-black/20 text-[9px] uppercase font-black tracking-widest text-gray-500">
+                                    <tr>
+                                        <th className="px-5 py-3">Archive Timestamp</th>
+                                        <th className="px-5 py-3">Archived By</th>
+                                        <th className="px-5 py-3">Target GW</th>
+                                        <th className="px-5 py-3 text-right">Members</th>
+                                        <th className="px-5 py-3 text-right">Transactions</th>
+                                        <th className="px-5 py-3 text-right">Notifications</th>
+                                        <th className="px-5 py-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/2">
+                                    {cleanSlateArchives.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-12 text-center text-gray-600 text-xs font-bold uppercase tracking-widest">
+                                                <Archive className="w-6 h-6 mx-auto mb-2 text-gray-700" />
+                                                No clean slate archives recorded yet. Archives are automatically saved whenever a league reset is triggered.
+                                            </td>
+                                        </tr>
+                                    ) : cleanSlateArchives.map((arc: any) => {
+                                        const dt = arc.archivedAt ? new Date(arc.archivedAt) : new Date();
+                                        return (
+                                            <tr key={arc.id} className="hover:bg-white/4 transition-colors">
+                                                <td className="px-5 py-3.5">
+                                                    <p className="font-bold text-gray-200 text-xs">{dt.toLocaleDateString()}</p>
+                                                    <p className="text-[10px] text-gray-500 font-mono">{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                                                </td>
+                                                <td className="px-5 py-3.5 text-xs text-amber-400 font-bold">
+                                                    {arc.archivedBy || 'Chairman'}
+                                                </td>
+                                                <td className="px-5 py-3.5 text-xs font-mono text-gray-300">
+                                                    GW {arc.targetGameweek ?? 'N/A'}
+                                                </td>
+                                                <td className="px-5 py-3.5 text-right font-bold text-xs text-rose-400">
+                                                    {arc.stats?.defundedCount ?? (arc.membersSnapshot?.length ?? 0)} defunded
+                                                </td>
+                                                <td className="px-5 py-3.5 text-right text-xs text-gray-400 font-mono">
+                                                    {arc.stats?.transactionsArchived ?? (arc.transactions?.length ?? 0)}
+                                                </td>
+                                                <td className="px-5 py-3.5 text-right text-xs text-gray-400 font-mono">
+                                                    {arc.stats?.notificationsArchived ?? (arc.notifications?.length ?? 0)}
+                                                </td>
+                                                <td className="px-5 py-3.5 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => { setSelectedArchive(arc); setArchiveDetailTab('members'); }}
+                                                            className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 transition-all cursor-pointer"
+                                                        >
+                                                            Inspect Details
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleExportArchiveJson(arc)}
+                                                            className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all flex items-center gap-1 cursor-pointer"
+                                                            title="Download entire snapshot JSON to share or audit"
+                                                        >
+                                                            <Download className="w-3 h-3" /> Export JSON
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
                 {/* Footer */}
                 <footer className="text-center text-[10px] text-gray-700 font-mono uppercase tracking-widest py-4 border-t border-white/3">
                     FantasyChama HQ • Platform Analytics • Phase 8 • {new Date().getFullYear()}
                 </footer>
             </div>
+
+            {/* Archive Details Modal */}
+            {selectedArchive && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="fc-hq-panel w-full max-w-4xl max-h-[88vh] rounded-3xl border border-white/10 flex flex-col overflow-hidden shadow-2xl">
+                        {/* Modal Header */}
+                        <div className="p-5 md:p-6 border-b border-white/10 flex items-center justify-between gap-4">
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <Archive className="w-5 h-5 text-amber-400" />
+                                    <h3 className="text-lg font-black text-white">
+                                        Clean Slate Archive · GW {selectedArchive.targetGameweek}
+                                    </h3>
+                                    <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                        By {selectedArchive.archivedBy || 'Chairman'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Snapshot recorded on {new Date(selectedArchive.archivedAt).toLocaleString()}.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => handleExportArchiveJson(selectedArchive)}
+                                    className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-400 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                    <Download className="w-3.5 h-3.5" /> Download JSON
+                                </button>
+                                <button
+                                    onClick={() => setSelectedArchive(null)}
+                                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all cursor-pointer"
+                                    aria-label="Close"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Subtabs */}
+                        <div className="flex gap-2 px-6 pt-3 border-b border-white/5 bg-black/20">
+                            <button
+                                onClick={() => setArchiveDetailTab('members')}
+                                className={clsx(
+                                    "pb-2.5 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                                    archiveDetailTab === 'members'
+                                        ? "text-emerald-400 border-emerald-400"
+                                        : "text-gray-500 border-transparent hover:text-gray-300"
+                                )}
+                            >
+                                Members Snapshot ({selectedArchive.membersSnapshot?.length || 0})
+                            </button>
+                            <button
+                                onClick={() => setArchiveDetailTab('transactions')}
+                                className={clsx(
+                                    "pb-2.5 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                                    archiveDetailTab === 'transactions'
+                                        ? "text-emerald-400 border-emerald-400"
+                                        : "text-gray-500 border-transparent hover:text-gray-300"
+                                )}
+                            >
+                                Purged Transactions ({selectedArchive.transactions?.length || 0})
+                            </button>
+                            <button
+                                onClick={() => setArchiveDetailTab('notifications')}
+                                className={clsx(
+                                    "pb-2.5 px-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer",
+                                    archiveDetailTab === 'notifications'
+                                        ? "text-emerald-400 border-emerald-400"
+                                        : "text-gray-500 border-transparent hover:text-gray-300"
+                                )}
+                            >
+                                Purged Notifications ({selectedArchive.notifications?.length || 0})
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 overflow-y-auto max-h-[60vh] space-y-4">
+                            {archiveDetailTab === 'members' && (
+                                <div className="space-y-2">
+                                    <p className="text-[11px] text-gray-400 mb-2">Pre-purge balances and registration states before defunding:</p>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-xs whitespace-nowrap">
+                                            <thead className="bg-white/5 text-[9px] uppercase font-black tracking-widest text-gray-500">
+                                                <tr>
+                                                    <th className="px-4 py-2">Manager Name</th>
+                                                    <th className="px-4 py-2">Phone</th>
+                                                    <th className="px-4 py-2">FPL Team</th>
+                                                    <th className="px-4 py-2 text-right">Prior Wallet</th>
+                                                    <th className="px-4 py-2 text-right">Payment Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5 font-mono">
+                                                {(selectedArchive.membersSnapshot || []).map((m: any, idx: number) => (
+                                                    <tr key={m.id || idx} className="hover:bg-white/2">
+                                                        <td className="px-4 py-2.5 font-bold text-gray-200">{m.name || m.managerName || 'Anonymous'}</td>
+                                                        <td className="px-4 py-2.5 text-gray-400">{m.phone || 'No phone'}</td>
+                                                        <td className="px-4 py-2.5 text-gray-400">{m.teamName || m.entryName || '-'}</td>
+                                                        <td className="px-4 py-2.5 text-right font-bold text-amber-400">
+                                                            KES {Number(m.walletBalance || 0).toLocaleString()}
+                                                        </td>
+                                                        <td className="px-4 py-2.5 text-right">
+                                                            <span className={clsx(
+                                                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                                                m.hasPaid ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"
+                                                            )}>
+                                                                {m.paymentStatus || (m.hasPaid ? 'PAID' : 'UNPAID')}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {archiveDetailTab === 'transactions' && (
+                                <div className="space-y-2">
+                                    <p className="text-[11px] text-gray-400 mb-2">Purged ledger transactions snapshot:</p>
+                                    {(selectedArchive.transactions || []).length === 0 ? (
+                                        <p className="text-xs text-gray-500 py-6 text-center">No transactions were present at time of wipe.</p>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left text-xs whitespace-nowrap">
+                                                <thead className="bg-white/5 text-[9px] uppercase font-black tracking-widest text-gray-500">
+                                                    <tr>
+                                                        <th className="px-4 py-2">Type</th>
+                                                        <th className="px-4 py-2">User / Phone</th>
+                                                        <th className="px-4 py-2">Description</th>
+                                                        <th className="px-4 py-2 text-right">Amount</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5 font-mono">
+                                                    {selectedArchive.transactions.map((tx: any, idx: number) => (
+                                                        <tr key={tx.id || idx} className="hover:bg-white/2">
+                                                            <td className="px-4 py-2.5 uppercase font-bold text-gray-300 text-[10px]">{tx.type || 'tx'}</td>
+                                                            <td className="px-4 py-2.5 text-gray-400">{tx.phone || tx.userId || '-'}</td>
+                                                            <td className="px-4 py-2.5 text-gray-300 max-w-xs truncate">{tx.description || tx.reference || '-'}</td>
+                                                            <td className="px-4 py-2.5 text-right font-bold text-emerald-400">KES {Number(tx.amount || 0).toLocaleString()}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {archiveDetailTab === 'notifications' && (
+                                <div className="space-y-2">
+                                    <p className="text-[11px] text-gray-400 mb-2">Purged historical notifications:</p>
+                                    {(selectedArchive.notifications || []).length === 0 ? (
+                                        <p className="text-xs text-gray-500 py-6 text-center">No notifications were present at time of wipe.</p>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            {selectedArchive.notifications.map((n: any, idx: number) => (
+                                                <div key={n.id || idx} className="p-3 rounded-xl bg-white/2 border border-white/5 text-xs text-gray-300">
+                                                    <div className="flex items-center justify-between text-[10px] text-gray-500 mb-1 font-mono">
+                                                        <span className="uppercase font-bold text-amber-400">{n.type || 'info'}</span>
+                                                        <span>{n.timestamp?.toDate ? n.timestamp.toDate().toLocaleString() : (n.timestamp ? String(n.timestamp) : '')}</span>
+                                                    </div>
+                                                    <p>{n.message || n.text || JSON.stringify(n)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Custom Confirm Modal (Eliminates browser localhost alerts) */}
             <ConfirmModal
