@@ -148,6 +148,7 @@ export default function AdminSetup() {
     const [customWinnerRatios, setCustomWinnerRatios] = useState<string[]>(['50', '30', '20']);
     const [estimatedMembers, setEstimatedMembers] = useState(5);
     const [allowMultipleTeams, setAllowMultipleTeams] = useState(false); // dual-team league toggle
+    const [pointsMode, setPointsMode] = useState<'from_kickoff' | 'cumulative'>('from_kickoff');
     // Step 3: Members
     const [members, setMembers] = useState<{ displayName: string; phone: string; secondFplTeamId?: number; fplEntryId?: number; fplTeamName?: string }[]>([]);
     const [newMemberName, setNewMemberName] = useState('');
@@ -643,6 +644,8 @@ export default function AdminSetup() {
         }
 
         setAllowMultipleTeams(localStorage.getItem('fc-setup-allowMultipleTeams') === 'true');
+        const savedPointsMode = localStorage.getItem('fc-setup-pointsMode');
+        if (savedPointsMode === 'from_kickoff' || savedPointsMode === 'cumulative') setPointsMode(savedPointsMode);
     }, []);
 
     useEffect(() => {
@@ -667,6 +670,7 @@ export default function AdminSetup() {
     useEffect(() => { localStorage.setItem('fc-setup-customWinnerRatios', JSON.stringify(customWinnerRatios)); }, [customWinnerRatios]);
     useEffect(() => { localStorage.setItem('fc-setup-estimatedMembers', String(estimatedMembers)); }, [estimatedMembers]);
     useEffect(() => { localStorage.setItem('fc-setup-allowMultipleTeams', String(allowMultipleTeams)); }, [allowMultipleTeams]);
+    useEffect(() => { localStorage.setItem('fc-setup-pointsMode', pointsMode); }, [pointsMode]);
 
     useEffect(() => {
         if (members.length > 0) {
@@ -777,6 +781,7 @@ export default function AdminSetup() {
                 chairmanEmail: cleanEmail,
                 allowMultipleTeams,
                 startGw: null, // Will be set once we know current GW from FPL (auto-populated on first load)
+                pointsMode: pointsMode || 'from_kickoff',
                 rules: {
                     weekly: weeklyPrizePercent,
                     vault: 100 - weeklyPrizePercent,
@@ -923,7 +928,7 @@ export default function AdminSetup() {
                 'fc-setup-chairmanPayoutPhone', 'fc-setup-leagueName', 'fc-setup-fplLeagueId',
                 'fc-setup-monthlyFee', 'fc-setup-weeklyPrizePercent', 'fc-setup-seasonWinnersCount',
                 'fc-setup-seasonWinnersMode', 'fc-setup-customWinnerCount', 'fc-setup-customWinnerRatios',
-                'fc-setup-estimatedMembers', 'fc-setup-allowMultipleTeams',
+                'fc-setup-estimatedMembers', 'fc-setup-allowMultipleTeams', 'fc-setup-pointsMode',
                 'fc-setup-members', 'fc-setup-fplStandings', 'fc-setup-chairmanFplSquad',
             ].forEach(key => localStorage.removeItem(key));
 
@@ -1497,6 +1502,57 @@ export default function AdminSetup() {
                                         allowMultipleTeams ? "translate-x-5" : "translate-x-0"
                                     )} />
                                 </button>
+                            </div>
+
+                            {/* 6. Points Scoring Baseline */}
+                            <div className="bg-[#161d24] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-xs font-bold text-white">Points Scoring Baseline</p>
+                                        <Tooltip text="Choose whether Chama standings start counting from the gameweek your Chama begins, or include all cumulative FPL points since GW1." />
+                                    </div>
+                                    <span className="text-[9px] font-bold text-[#FBBF24]">
+                                        {pointsMode === 'cumulative' ? 'Full Season (GW1+)' : 'From Chama Kickoff'}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPointsMode('from_kickoff')}
+                                        className={clsx(
+                                            "p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-95 flex flex-col justify-between gap-1",
+                                            pointsMode === 'from_kickoff'
+                                                ? "bg-amber-500/10 border-amber-500/50 text-white ring-1 ring-amber-500/30"
+                                                : "bg-[#0b1014]/60 border-white/5 text-gray-400 hover:border-white/20"
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold">From Kickoff</span>
+                                            {pointsMode === 'from_kickoff' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 font-normal leading-tight">
+                                            Pre-Chama gameweeks are deducted. All managers start clean from the kickoff GW.
+                                        </p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPointsMode('cumulative')}
+                                        className={clsx(
+                                            "p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-95 flex flex-col justify-between gap-1",
+                                            pointsMode === 'cumulative'
+                                                ? "bg-[#22c55e]/10 border-[#22c55e]/50 text-white ring-1 ring-[#22c55e]/30"
+                                                : "bg-[#0b1014]/60 border-white/5 text-gray-400 hover:border-white/20"
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold">Full Cumulative</span>
+                                            {pointsMode === 'cumulative' && <Check className="w-3.5 h-3.5 text-[#22c55e]" />}
+                                        </div>
+                                        <p className="text-[10px] text-gray-400 font-normal leading-tight">
+                                            Counts all FPL points from GW1 onwards, even if your Chama was formed mid-season.
+                                        </p>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

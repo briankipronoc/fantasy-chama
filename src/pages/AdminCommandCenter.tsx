@@ -9,6 +9,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import UserAvatar from "../components/UserAvatar";
 import { DashboardSkeleton } from "../components/Skeleton";
 import { haptics } from "../utils/haptics";
+import { formatWhatsAppPhone } from "../utils/phone";
 import {
   Megaphone,
   Share2,
@@ -1519,6 +1520,11 @@ export default function AdminCommandCenter() {
     );
   };
 
+  const lastResetAtRaw = (leagueSettings as any)?.lastResetAt;
+  const lastResetAtMs = lastResetAtRaw
+    ? (typeof lastResetAtRaw.toMillis === 'function' ? lastResetAtRaw.toMillis() : typeof lastResetAtRaw.toDate === 'function' ? lastResetAtRaw.toDate().getTime() : Number(lastResetAtRaw))
+    : null;
+
   const isTxValidInflow = (tx: any) => {
     const type = String(tx.type || '').toLowerCase();
     const status = String(tx.status || '').toLowerCase();
@@ -1530,6 +1536,14 @@ export default function AdminCommandCenter() {
     if (type === 'refund' || type === 'reversal' || type.includes('revers')) return false;
     if (note.includes('reversal') || note.includes('reversed')) return false;
     if (Number(tx.amount || 0) <= 0) return false;
+
+    // Filter out transactions prior to clean slate or before Chama kickoff round
+    const txTime = tx.timestamp?.toMillis ? tx.timestamp.toMillis() : (tx.timestamp?.toDate ? tx.timestamp.toDate().getTime() : (typeof tx.timestamp === 'number' ? tx.timestamp : null));
+    if (lastResetAtMs && txTime && txTime < lastResetAtMs) return false;
+
+    const txGw = Number(tx.gw || tx.gameweek || 0);
+    if (txGw > 0 && txGw < effectiveStartGw) return false;
+
     return true;
   };
 
@@ -1538,7 +1552,12 @@ export default function AdminCommandCenter() {
       const isMatch = (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
         (m.phone && (tx.phoneNumber === m.phone || tx.phone === m.phone)) ||
         (m.displayName && (tx.memberName === m.displayName || tx.playerName === m.displayName));
-      return isMatch && isTxRefundOrReversal(tx);
+      if (!isMatch) return false;
+      const txTime = tx.timestamp?.toMillis ? tx.timestamp.toMillis() : (tx.timestamp?.toDate ? tx.timestamp.toDate().getTime() : (typeof tx.timestamp === 'number' ? tx.timestamp : null));
+      if (lastResetAtMs && txTime && txTime < lastResetAtMs) return false;
+      const txGw = Number(tx.gw || tx.gameweek || 0);
+      if (txGw > 0 && txGw < effectiveStartGw) return false;
+      return isTxRefundOrReversal(tx);
     }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
   };
 
@@ -2128,8 +2147,12 @@ export default function AdminCommandCenter() {
     ].filter(Boolean).join('\n');
 
     if (member.phone) {
-      const phone = member.phone.replace(/[^0-9]/g, '');
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+      const phone = formatWhatsAppPhone(member.phone);
+      if (phone) {
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+      }
     } else {
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
     }
@@ -5037,14 +5060,14 @@ burstFrame();
                         "text-[10.5px] uppercase font-black tracking-wider transition-colors",
                         redZoneMembers.length > 0
                           ? "text-rose-700 dark:text-rose-300 group-hover:text-rose-800 dark:group-hover:text-rose-200"
-                          : "text-slate-500 dark:text-slate-400 stealth:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
+                          : "text-slate-500 dark:text-slate-400 stealth:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300"
                       )}>
                         Red Zone
                       </p>
                       {redZoneMembers.length > 0 ? (
                         <span className="w-2.5 h-2.5 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse shadow-[0_0_10px_#FB7185]" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 stealth:text-slate-500" />
                       )}
                     </div>
                     <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
@@ -5052,7 +5075,7 @@ burstFrame();
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-bold truncate",
-                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-emerald-600 dark:text-emerald-400 font-extrabold"
+                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-500 dark:text-gray-400 stealth:text-slate-400"
                     )}>
                       {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
                     </span>
@@ -6096,9 +6119,11 @@ burstFrame();
                   const resolvedRoundsCount = resolvedGwsList.length;
                   const unspentDepositFloat = Math.max(0, netDeposited - (resolvedRoundsCount * gwCost));
                   // Authoritative wallet balance from member record or net unspent deposit float
-                  const wallet = (row as any).walletBalance !== undefined && (row as any).walletBalance !== null
-                    ? rawWallet
-                    : (netDeposited > 0 ? unspentDepositFloat : rawWallet);
+                  const wallet = (lastResetAtMs && netDeposited === 0)
+                    ? 0
+                    : ((row as any).walletBalance !== undefined && (row as any).walletBalance !== null
+                      ? rawWallet
+                      : (netDeposited > 0 ? unspentDepositFloat : rawWallet));
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                   const isRowSpectator = (row as any).playMode === "sidebets_only";
                   const start = Math.max(1, Number(effectiveStartGw || startGw || 1));

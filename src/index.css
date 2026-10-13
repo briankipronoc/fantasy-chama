@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *, [data-theme=dark], [data-theme=dark] *));
+@custom-variant stealth (&:where(.stealth, .stealth *, [data-theme=stealth], [data-theme=stealth] *));
 @theme {
   --color-chama-bg: #0b1014;
   --color-chama-surface: #10171d;

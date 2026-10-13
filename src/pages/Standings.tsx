@@ -431,7 +431,18 @@ export default function Standings() {
                 setIsFplMaintenance(Boolean(fetchRes?.isMaintenance));
 
                 const fetchPerformances = async () => {
-                    const candidateManagers = results.slice(0, 30);
+                    const activeChamaResults = results.filter((r: any) => {
+                        const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
+                        if (!m) return false;
+                        if (isPendingMember(m)) return false;
+                        if (m.isActive === false) return false;
+                        if ((m as any).playMode === 'sidebets_only') return false;
+                        return true;
+                    });
+                    const candidateManagers = (activeChamaResults.length > 0 ? activeChamaResults : results.filter((r: any) => {
+                        const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
+                        return !m || !isPendingMember(m);
+                    })).slice(0, 30);
                     const teamIds = candidateManagers.map((r: any) => r.entry);
                     
                     const activeUserId = localStorage.getItem('activeUserId') || '';
@@ -879,15 +890,16 @@ export default function Standings() {
         if (!hasEverFunded(m)) return false;
         return true;
     }).map((r: any) => {
+        const isCumulativePoints = (league as any)?.pointsMode === 'cumulative';
         const isPreSeasonRound = effectiveLeagueStartGw > 1 && Number(currentEvent || 1) < effectiveLeagueStartGw;
         const rawPre = preChamaPointsMap[Number(r.entry)];
         const fallbackPre = (effectiveLeagueStartGw > 1)
             ? Math.max(0, Number(r.total || 0) - Number(r.event_total || 0))
             : 0;
-        const preDeduction = (standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1)
+        const preDeduction = (!isCumulativePoints && standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1)
             ? (rawPre !== undefined && rawPre > 0 ? rawPre : fallbackPre)
             : 0;
-        const cleanTotal = (isPreSeasonRound && standingsMode === 'clean_slate')
+        const cleanTotal = (isPreSeasonRound && !isCumulativePoints && standingsMode === 'clean_slate')
             ? 0
             : Math.max(0, Number(r.total || 0) - preDeduction);
         return {
@@ -899,10 +911,25 @@ export default function Standings() {
     });
 
     // Competition tie-ranking (e.g. 1, 1, 3)
-    const sortedSeasonPool = [...seasonPool].sort((a: any, b: any) => Number(b.totalToCompare || 0) - Number(a.totalToCompare || 0));
+    const allSeasonScoresZero = seasonPool.every((r: any) => Number(r.totalToCompare || 0) === 0);
+    const sortedSeasonPool = [...seasonPool].sort((a: any, b: any) => {
+        const diff = Number(b.totalToCompare || 0) - Number(a.totalToCompare || 0);
+        if (diff !== 0) return diff;
+        const nameA = (a.entry_name || a.player_name || '').toLowerCase();
+        const nameB = (b.entry_name || b.player_name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
     const rankedSeasonPool: any[] = [];
     for (let i = 0; i < sortedSeasonPool.length; i++) {
         const current = sortedSeasonPool[i];
+        if (allSeasonScoresZero) {
+            rankedSeasonPool.push({
+                ...current,
+                calculatedRank: i + 1,
+                isTied: false
+            });
+            continue;
+        }
         let rank = i + 1;
         let isTied = false;
         if (i > 0 && Number(current.totalToCompare || 0) === Number(sortedSeasonPool[i - 1].totalToCompare || 0)) {
@@ -1351,7 +1378,8 @@ export default function Standings() {
                         {/* Rows */}
                         <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {(() => {
-                                const isCleanSlateActive = standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1;
+                                const isCumulativePoints = (league as any)?.pointsMode === 'cumulative';
+                                const isCleanSlateActive = !isCumulativePoints && standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1;
                                 const filteredRows = standingsData
                                     .filter((row: any) => {
                                         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
@@ -1387,16 +1415,29 @@ export default function Standings() {
                                         };
                                     })
                                     .sort((a: any, b: any) => {
-                                        if (heroRankView === 'gw') {
-                                            return Number(b.event_total || 0) - Number(a.event_total || 0);
+                                        const scoreA = Number(heroRankView === 'gw' ? a.event_total || 0 : a.seasonCompareScore || 0);
+                                        const scoreB = Number(heroRankView === 'gw' ? b.event_total || 0 : b.seasonCompareScore || 0);
+                                        if (scoreB !== scoreA) {
+                                            return scoreB - scoreA;
                                         }
-                                        return Number(b.seasonCompareScore || 0) - Number(a.seasonCompareScore || 0);
+                                        // Alphabetical order when tied or at zero
+                                        const nameA = (a.entry_name || a.player_name || '').toLowerCase();
+                                        const nameB = (b.entry_name || b.player_name || '').toLowerCase();
+                                        return nameA.localeCompare(nameB);
                                     });
 
                                 // Competition tie-ranking (e.g. 1, 1, 3, 4...)
+                                const compareKey = heroRankView === 'gw' ? 'event_total' : 'seasonCompareScore';
+                                const allScoresZero = filteredRows.every((r: any) => Number(r[compareKey] || 0) === 0);
                                 let currentCompetitionRank = 1;
                                 const rankedRows = filteredRows.map((row: any, idx: number, arr: any[]) => {
-                                    const compareKey = heroRankView === 'gw' ? 'event_total' : 'seasonCompareScore';
+                                    if (allScoresZero) {
+                                        return {
+                                            ...row,
+                                            displayRank: idx + 1,
+                                            isTied: false
+                                        };
+                                    }
                                     if (idx > 0) {
                                         const prev = arr[idx - 1];
                                         if (Number(row[compareKey]) === Number(prev[compareKey])) {
@@ -1441,15 +1482,17 @@ export default function Standings() {
                                 const isSeasonView = heroRankView === 'season';
                                 const displaySeasonTotal = isCleanSlateActive ? Number(row.cleanTotal ?? 0) : Number(row.total || 0);
                                 const maxSeasonScore = Math.max(...filteredRows.map((r: any) => Number(r.seasonCompareScore || 0)), 0);
+                                const currentScore = Number(row[compareKey] || 0);
+                                const isZeroScore = currentScore === 0;
                                 const isOverallSeasonLeader = !isSpectator && !isRowPendingOnboarding && isFunded && maxSeasonScore > 0 && Number(row.seasonCompareScore) === maxSeasonScore;
-                                const isSeasonLeader = isSeasonView ? (rankNum === 1 && !isRowPendingOnboarding && isFunded) : isOverallSeasonLeader;
+                                const isSeasonLeader = isSeasonView ? (rankNum === 1 && !isRowPendingOnboarding && isFunded && !isZeroScore) : isOverallSeasonLeader;
                                 const isDoubleCrown = isOverallSeasonLeader && isGwWinnerRow;
-                                const medal = (isRowPendingOnboarding || !isFunded || isSpectator)
+                                const medal = (isRowPendingOnboarding || !isFunded || isSpectator || isZeroScore || (isSeasonView ? maxSeasonScore === 0 : maxEligibleGwScore === 0))
                                     ? null
                                     : isSeasonView
                                     ? (rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null)
                                     : (rankNum === 1 ? '🥇' : null);
-                                const podiumBorder = (isRowPendingOnboarding || !isFunded || isSpectator)
+                                const podiumBorder = (isRowPendingOnboarding || !isFunded || isSpectator || isZeroScore)
                                     ? 'border-l-4 border-l-transparent'
                                     : isDoubleCrown
                                     ? 'border-l-4 border-l-amber-400 ring-2 ring-amber-400/60'

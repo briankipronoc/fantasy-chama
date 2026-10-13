@@ -111,7 +111,7 @@ export default function ConfirmModal({
             {/* Modal Dialog Squircle Card */}
             <div
                 className={clsx(
-                    'relative w-full bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 sm:p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-slate-900 dark:text-white font-sans',
+                    'relative w-full bg-white dark:bg-gradient-to-b dark:from-[#161a22]/98 dark:to-[#0c0f14]/98 stealth:bg-[#070b0e] border border-slate-200 dark:border-white/10 stealth:border-white/5 rounded-[2rem] p-6 sm:p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 fade-in duration-200 overflow-hidden text-slate-900 dark:text-white stealth:text-slate-100 font-sans',
                     maxWidth
                 )}
                 role="dialog"

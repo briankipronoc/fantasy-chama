@@ -14,6 +14,7 @@ import ChampionFlexCardModal from '../components/ChampionFlexCardModal';
 import AnimatedKes from '../components/AnimatedKes';
 import { calculateMpesaSendFee } from '../utils/mpesaFees';
 import toast from 'react-hot-toast';
+import { formatWhatsAppPhone } from '../utils/phone';
 
 const fetchFplStandings = async (leagueId: number) => {
     const cacheKey = `fpl_standings_${leagueId}`;
@@ -1199,8 +1200,12 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }
 
         if (member.phone) {
-            const phone = member.phone.replace(/[^0-9]/g, '');
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+            const phone = formatWhatsAppPhone(member.phone);
+            if (phone) {
+                window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+            } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
+            }
         } else {
             window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
         }
@@ -1605,9 +1610,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                 <Header role={role || 'member'} title={leagueName} subtitle="Finance & Audit" />
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 pt-0 pb-1 mb-1">
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-400 mb-1 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-                            Red Zone & Finances
+                        <p className={clsx(
+                            "text-[10px] font-black uppercase tracking-[0.24em] mb-1 flex items-center gap-1.5",
+                            redZoneMembers.length > 0 ? "text-rose-400" : "text-emerald-500/90 dark:text-emerald-400/80"
+                        )}>
+                            <span className={clsx(
+                                "w-1.5 h-1.5 rounded-full",
+                                redZoneMembers.length > 0 ? "bg-rose-400 animate-pulse" : "bg-emerald-400"
+                            )} />
+                            {redZoneMembers.length > 0 ? "Red Zone & Finances" : "Chama Finance & Audit"}
                         </p>
                         <h2 className="fc-frosty-title text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 mb-1">
                             <ReceiptText className="w-6 h-6 text-emerald-400" /> Audit Log

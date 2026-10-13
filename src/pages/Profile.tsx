@@ -9,7 +9,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useStore } from '../store/useStore';
 import { useTheme } from '../hooks/useTheme';
 import { compressProfileImage } from '../utils/imageCompressor';
-import { getPhoneVariants } from '../utils/phone';
+import { getPhoneVariants, normalizeKenyanPhone } from '../utils/phone';
 import clsx from 'clsx';
 import Header from '../components/Header';
 import ConfirmModal from '../components/ConfirmModal';
@@ -85,6 +85,7 @@ export default function Profile() {
     const [chairmanPhone, setChairmanPhone] = useState('');
     const [coAdminId, setCoAdminId] = useState('');
     const [chairmanId, setChairmanId] = useState<string | null>(null);
+    const [pointsMode, setPointsMode] = useState<'from_kickoff' | 'cumulative'>('from_kickoff');
     const [isSavingAdmin, setIsSavingAdmin] = useState(false);
     const [showWarningModal, setShowWarningModal] = useState(false);
     const [pendingPhoneMap, setPendingPhoneMap] = useState<Record<string, string>>({});
@@ -205,6 +206,7 @@ export default function Profile() {
                 setCoAdminId(data.coAdminId || '');
                 setChairmanPhone(data.chairmanPhone || '');
                 if (data.chairmanId) setChairmanId(data.chairmanId);
+                if (data.pointsMode) setPointsMode(data.pointsMode);
 
                 const fplId = data.fplLeagueId;
                 setFplLeagueId(fplId || '');
@@ -526,6 +528,7 @@ export default function Profile() {
                 'rules.seasonWinnersCount': effectiveSeasonWinnersCount,
                 'rules.seasonWinnersMode': seasonWinnersMode,
                 'rules.seasonDistribution': effectiveSeasonDistribution,
+                pointsMode: pointsMode,
                 fplLeagueId: fplLeagueId ? Number(fplLeagueId) : null,
                 coAdminId: targetCoAdminId,
                 chairmanPhone: chairmanPhone || null
@@ -822,9 +825,9 @@ export default function Profile() {
 
     const handleActivatePendingMember = async (m: any) => {
         const rawPhone = pendingPhoneMap[m.id] !== undefined ? pendingPhoneMap[m.id] : (m.phoneNumber || m.phone || '');
-        const phone = rawPhone.trim();
-        if (!phone || phone.length < 9) {
-            toast.error('Enter a valid phone number (at least 9 digits)');
+        const phone = normalizeKenyanPhone(rawPhone) || rawPhone.trim();
+        if (!phone || phone.length < 10) {
+            toast.error('Enter a valid 10-digit phone number (e.g. 07XXXXXXXX or 01XXXXXXXX)');
             return;
         }
         setIsSavingPendingPhone(m.id);
@@ -1122,6 +1125,39 @@ export default function Profile() {
                         <span className="text-amber-500">Weekly Pot ({weeklyPrizePercent}%)</span>
                         <span className="text-emerald-500">Season Vault ({100 - weeklyPrizePercent}%)</span>
                     </div>
+
+                    <div className="flex items-center justify-between gap-2 mt-2">
+                        <button
+                            type="button"
+                            disabled={isFinancialsLocked}
+                            onClick={() => {
+                                haptics.selection();
+                                setWeeklyPrizePercent(0);
+                            }}
+                            className={clsx(
+                                "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer active:scale-95 flex items-center gap-1.5",
+                                weeklyPrizePercent === 0
+                                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-xs"
+                                    : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 border-slate-200 dark:border-white/10"
+                            )}
+                            title="Skip weekly payouts: Allocate 100% of collected stakes to the end-of-season vault"
+                        >
+                            <Trophy className="w-3 h-3 text-amber-500" />
+                            <span>100% Season Vault (Skip Weekly Payouts)</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            disabled={isFinancialsLocked}
+                            onClick={() => {
+                                haptics.selection();
+                                setWeeklyPrizePercent(70);
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                        >
+                            Reset 70/30
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1224,6 +1260,66 @@ export default function Profile() {
                 )}
             </div>
 
+            {/* Points Accumulation Mode */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-white/5">
+                <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        Points Scoring Baseline
+                        {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                    </label>
+                    <span className="text-[10px] text-amber-600 dark:text-[#FBBF24] font-bold">
+                        {pointsMode === 'cumulative' ? 'Full Season (GW1+)' : 'From Chama Kickoff'}
+                    </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        disabled={isFinancialsLocked}
+                        onClick={() => {
+                            haptics.selection();
+                            setPointsMode('from_kickoff');
+                        }}
+                        className={clsx(
+                            "p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-95 flex flex-col justify-between gap-1",
+                            pointsMode === 'from_kickoff'
+                                ? "bg-amber-500/10 border-amber-500/40 text-slate-900 dark:text-white ring-1 ring-amber-500/30"
+                                : "bg-slate-50/80 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-white/20"
+                        )}
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase tracking-wider">From Chama Kickoff</span>
+                            {pointsMode === 'from_kickoff' && <Check className="w-3.5 h-3.5 text-amber-500" />}
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium leading-tight">
+                            Pre-Chama rounds are deducted so all managers start on a clean slate from kickoff.
+                        </p>
+                    </button>
+
+                    <button
+                        type="button"
+                        disabled={isFinancialsLocked}
+                        onClick={() => {
+                            haptics.selection();
+                            setPointsMode('cumulative');
+                        }}
+                        className={clsx(
+                            "p-2.5 rounded-xl border text-left transition-all cursor-pointer active:scale-95 flex flex-col justify-between gap-1",
+                            pointsMode === 'cumulative'
+                                ? "bg-emerald-500/10 border-emerald-500/40 text-slate-900 dark:text-white ring-1 ring-emerald-500/30"
+                                : "bg-slate-50/80 dark:bg-white/[0.02] border-slate-200 dark:border-white/10 text-slate-600 dark:text-gray-400 hover:border-slate-300 dark:hover:border-white/20"
+                        )}
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase tracking-wider">Full Cumulative FPL</span>
+                            {pointsMode === 'cumulative' && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium leading-tight">
+                            Includes all FPL points from GW1 through end-of-season regardless of when Chama joined.
+                        </p>
+                    </button>
+                </div>
+            </div>
+
             {/* Bottom Actions */}
             <div className="pt-2">
                 {isFinancialsLocked ? (
@@ -1263,10 +1359,10 @@ export default function Profile() {
                 onClick={() => setShowLeagueSettingsModal(false)}
             >
                 <div 
-                    className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                    className="bg-white dark:bg-[#121820] stealth:bg-[#070b0e] border border-slate-200 dark:border-white/10 stealth:border-white/5 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white stealth:text-slate-100 overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
+                    <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/90 dark:bg-[#161d24]/95 stealth:bg-[#0b1014]/98 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                                 <Trophy className="w-5 h-5" />
@@ -2201,11 +2297,11 @@ export default function Profile() {
                         onClick={() => setShowMembersModal(false)}
                     >
                         <div 
-                            className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                            className="bg-white dark:bg-[#121820] stealth:bg-[#070b0e] border border-slate-200 dark:border-white/10 stealth:border-white/5 rounded-[2rem] max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white stealth:text-slate-100 overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {/* Modal Header */}
-                            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
+                            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/90 dark:bg-[#161d24]/95 stealth:bg-[#0b1014]/98 shrink-0">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs shrink-0">
                                         <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -2489,8 +2585,13 @@ export default function Profile() {
                                                                         type="tel"
                                                                         value={currentInputPhone}
                                                                         onChange={(e) => setPendingPhoneMap(prev => ({ ...prev, [memberId]: e.target.value }))}
-                                                                        placeholder="Enter phone (07XXXXXXXX or +254...)"
-                                                                        className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#0b1014] border border-amber-500/40 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500/30"
+                                                                        onBlur={() => {
+                                                                            if (currentInputPhone) {
+                                                                                setPendingPhoneMap(prev => ({ ...prev, [memberId]: normalizeKenyanPhone(currentInputPhone) }));
+                                                                            }
+                                                                        }}
+                                                                        placeholder="Enter phone number..."
+                                                                        className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#0b1014] stealth:bg-[#070b0e] border border-amber-500/40 text-slate-900 dark:text-white stealth:text-slate-100 outline-none focus:ring-2 focus:ring-amber-500/30"
                                                                     />
                                                                 </div>
                                                                 <button
@@ -2552,10 +2653,10 @@ export default function Profile() {
                     onClick={() => setShowDangerZoneModal(false)}
                 >
                     <div 
-                        className="bg-white dark:bg-[#121820] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                        className="bg-white dark:bg-[#121820] stealth:bg-[#070b0e] border border-rose-300 dark:border-rose-500/30 stealth:border-rose-500/20 rounded-[2rem] max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white stealth:text-slate-100 overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-rose-200 dark:border-white/10 bg-rose-50/70 dark:bg-[#1a1317]/95 shrink-0">
+                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-rose-200 dark:border-white/10 stealth:border-white/5 bg-rose-50/70 dark:bg-[#1a1317]/95 stealth:bg-[#110b0e]/98 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shadow-xs shrink-0">
                                     <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -2598,10 +2699,10 @@ export default function Profile() {
                     onClick={() => setShowSessionModal(false)}
                 >
                     <div 
-                        className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                        className="bg-white dark:bg-[#121820] stealth:bg-[#070b0e] border border-slate-200 dark:border-white/10 stealth:border-white/5 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white stealth:text-slate-100 overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
+                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/90 dark:bg-[#161d24]/95 stealth:bg-[#0b1014]/98 shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shadow-xs shrink-0">
                                     <Fingerprint className="w-5 h-5 text-blue-600 dark:text-blue-400" />

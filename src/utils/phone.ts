@@ -52,3 +52,26 @@ export function getPhoneVariants(phone: string): string[] {
         nineDigits             // "712345678"
     ])).filter(Boolean);
 }
+
+/**
+ * Formats a Kenyan phone number into standard international format for WhatsApp (wa.me/254...).
+ * Strips '+', leading '0', spaces, and prepends 254 if missing.
+ */
+export function formatWhatsAppPhone(phone: string): string {
+    if (!phone) return '';
+    const norm = normalizeKenyanPhone(phone);
+    if (norm && norm.length === 10 && norm.startsWith('0')) {
+        return '254' + norm.slice(1);
+    }
+    const digits = phone.trim().replace(/[^0-9]/g, '');
+    if (digits.startsWith('0') && digits.length === 10) {
+        return '254' + digits.slice(1);
+    }
+    if ((digits.startsWith('7') || digits.startsWith('1')) && digits.length === 9) {
+        return '254' + digits;
+    }
+    if (digits.startsWith('254') && digits.length === 12) {
+        return digits;
+    }
+    return digits;
+}

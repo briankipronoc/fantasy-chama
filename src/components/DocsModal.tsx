@@ -161,10 +161,10 @@ export default function DocsModal({ isOpen, onClose }: DocsModalProps) {
       <div className="fc-docs-backdrop absolute inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200" />
       
       {/* Modal Dialog Card */}
-      <div className="fc-docs-modal relative w-full max-w-3xl bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-200 overflow-hidden flex flex-col max-h-[90vh] text-slate-900 dark:text-white">
+      <div className="fc-docs-modal relative w-full max-w-3xl bg-white dark:bg-[#121820] stealth:bg-[#070b0e] border border-slate-200 dark:border-white/10 stealth:border-white/5 rounded-[2rem] shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-4 fade-in duration-200 overflow-hidden flex flex-col max-h-[90vh] text-slate-900 dark:text-white stealth:text-slate-100">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/90 dark:bg-[#161d24]/95 stealth:bg-[#0b1014]/98 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xs shrink-0">
               <BookOpen className="w-5 h-5" />
