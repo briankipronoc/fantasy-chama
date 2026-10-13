@@ -1156,6 +1156,25 @@ export default function Profile() {
 
     const renderLeagueSettingsForm = () => (
         <form onSubmit={handleSaveAdmin} className="space-y-4">
+            {/* Modal & Form Title Header */}
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                        <Trophy className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                            League Settings & Constitution Rules
+                        </h2>
+                        <p className="text-[10px] text-slate-600 dark:text-gray-400 font-medium">
+                            Official Constitution, Pot Splits & Governance Parameters
+                        </p>
+                    </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider self-start sm:self-auto">
+                    Active League Config
+                </span>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {/* Col 1: League Name */}

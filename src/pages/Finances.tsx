@@ -1153,7 +1153,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
     };
 
-    const handleNudgeArrears = (member: any) => {
+    const handleNudgeArrears = async (member: any) => {
         const appUrl = window.location.origin;
         const message = [
             `🚨 *${leagueName || 'Fantasy Chama'} — Gameweek Funding Reminder*`,
@@ -1164,13 +1164,33 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             `👉 Top up directly: ${appUrl}/deposit`,
         ].join('\n');
 
+        // Dispatch In-App Notification directly to member & log in audit feed
+        if (activeLeagueId && member.id) {
+            try {
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
+                    type: 'warning',
+                    targetMemberId: member.id,
+                    message: `🚨 Gameweek Funding Reminder: Chairman sent a reminder to fund your wallet (KES ${Number(gameweekStake || 50).toLocaleString()}). Top up before kickoff to stay eligible for weekly winnings!`,
+                    timestamp: serverTimestamp(),
+                    readBy: [],
+                });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                    eventType: 'member_nudge',
+                    message: `Chairman sent funding reminder to ${member.displayName}.`,
+                    timestamp: serverTimestamp(),
+                });
+            } catch (err) {
+                console.warn('Failed to dispatch in-app notification on nudge:', err);
+            }
+        }
+
         if (member.phone) {
             const phone = member.phone.replace(/[^0-9]/g, '');
             window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
         } else {
             window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
         }
-        showActionMessage('success', `Opened WhatsApp reminder for ${member.displayName}.`);
+        showActionMessage('success', `Sent in-app notification & opened WhatsApp reminder for ${member.displayName}.`);
     };
 
     const shareTransactionReceipt = (tx: any) => {
@@ -1623,18 +1643,33 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                         <div className="flex items-center gap-2 flex-wrap shrink-0">
                             {redZoneMembers.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsAuditExpanded(true);
-                                        setFundingAuditFilter('skipped');
-                                        const el = document.getElementById('arrears-audit-section');
-                                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                                    }}
-                                    className="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
-                                >
-                                    Review Red Zone ↓
-                                </button>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsAuditExpanded(true);
+                                            setFundingAuditFilter('skipped');
+                                            const el = document.getElementById('arrears-audit-section');
+                                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                        }}
+                                        className="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
+                                    >
+                                        Review Red Zone ↓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            for (const m of redZoneMembers) {
+                                                await handleNudgeArrears(m);
+                                            }
+                                        }}
+                                        className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs flex items-center gap-1.5"
+                                        title="Send in-app notification and WhatsApp nudge to all Red Zone members"
+                                    >
+                                        <MessageCircle className="w-3.5 h-3.5" />
+                                        <span>Nudge All</span>
+                                    </button>
+                                </div>
                             )}
                             {pendingAwaitingPayouts.length > 0 && (
                                 <Link
@@ -1835,10 +1870,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </section>
                 )}
 
-                {/* Main Treasury Metric Cards (Chairman View Only) */}
-                {isAdmin && (
-                    <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 mb-8">
-                        {/* Card 1: Projected Weekly / Season Collection */}
+                {/* Main Treasury Metric Cards (Shared Transparent Audit View for All Members) */}
+                <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6 mb-8">
+                    {/* Card 1: Projected Weekly / Season Collection */}
                         {(() => {
                             const weeklyPercent = Number(rules?.weekly || 0);
                             const vaultPercent = Number(rules?.vault || 0);
@@ -1854,116 +1888,114 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                             return (
                                 <>
-                                    <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-6 sm:p-7 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
-                                        <div className="space-y-2.5 mb-3">
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                    <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 shrink-0">
-                                                        <TrendingUp className="w-4 h-4" />
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white">
-                                                            {effectivePayoutMode === 'weekly_only'
-                                                                ? "Projected Weekly Payout"
-                                                                : effectivePayoutMode === 'season_only'
-                                                                ? (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")
-                                                                : projectedCardIndex === 0
-                                                                ? "Projected Weekly Payout"
-                                                                : (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")}
-                                                        </h3>
-                                                        <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                                                            {effectivePayoutMode === 'weekly_only'
-                                                                ? `Weekly Cash Pot (${weeklyPercent}%)`
-                                                                : effectivePayoutMode === 'season_only'
-                                                                ? (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Season Podium Vault (${vaultPercent}%)`)
-                                                                : projectedCardIndex === 0
-                                                                ? `Current Gameweek Pot (${weeklyPercent}%)`
-                                                                : (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Join-aware remaining estimate (${vaultPercent}%)`)}
-                                                        </p>
-                                                    </div>
+                                    <div className="fc-card bg-gradient-to-br from-emerald-500/10 via-white dark:via-[#161d24] to-white dark:to-[#161d24] border border-emerald-500/25 p-5 sm:p-6 rounded-[1.75rem] relative overflow-hidden flex flex-col justify-between shadow-lg min-h-[195px]">
+                                        <div className="space-y-3 mb-3">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 text-emerald-500 dark:text-emerald-400 shrink-0">
+                                                    <TrendingUp className="w-4 h-4" />
                                                 </div>
-                                                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0">
-                                                    {effectivePayoutMode === 'both' && (
-                                                        <div className="inline-flex items-center gap-1 bg-black/10 dark:bg-black/40 p-1 rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setProjectedCardIndex(0)}
-                                                                className={clsx(
-                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
-                                                                    projectedCardIndex === 0
-                                                                        ? "bg-emerald-500 text-black shadow-xs font-bold"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                                )}
-                                                            >
-                                                                Weekly Pot
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setProjectedCardIndex(1);
-                                                                    setSeasonCardTab('collected');
-                                                                }}
-                                                                className={clsx(
-                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
-                                                                    projectedCardIndex === 1 && seasonCardTab === 'collected'
-                                                                        ? "bg-amber-400 text-black shadow-xs font-bold"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                                )}
-                                                            >
-                                                                Live Vault
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setProjectedCardIndex(1);
-                                                                    setSeasonCardTab('projected');
-                                                                }}
-                                                                className={clsx(
-                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
-                                                                    projectedCardIndex === 1 && seasonCardTab === 'projected'
-                                                                        ? "bg-emerald-500 text-black shadow-xs font-bold"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                                )}
-                                                            >
-                                                                Projected
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                    {effectivePayoutMode === 'season_only' && (
-                                                        <div className="inline-flex items-center gap-1 bg-black/10 dark:bg-black/40 p-1 rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSeasonCardTab('collected')}
-                                                                className={clsx(
-                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
-                                                                    seasonCardTab === 'collected'
-                                                                        ? "bg-amber-400 text-black shadow-xs font-bold"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                                )}
-                                                            >
-                                                                Live Vault
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSeasonCardTab('projected')}
-                                                                className={clsx(
-                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
-                                                                    seasonCardTab === 'projected'
-                                                                        ? "bg-emerald-500 text-black shadow-xs font-bold"
-                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                                                                )}
-                                                            >
-                                                                Projected
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                    {effectivePayoutMode === 'weekly_only' && (
-                                                        <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
-                                                            Weekly Only
-                                                        </span>
-                                                    )}
+                                                <div className="min-w-0">
+                                                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white truncate">
+                                                        {effectivePayoutMode === 'weekly_only'
+                                                            ? "Projected Weekly Payout"
+                                                            : effectivePayoutMode === 'season_only'
+                                                            ? (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")
+                                                            : projectedCardIndex === 0
+                                                            ? "Projected Weekly Payout"
+                                                            : (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")}
+                                                    </h3>
+                                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                                        {effectivePayoutMode === 'weekly_only'
+                                                            ? `Weekly Cash Pot (${weeklyPercent}%)`
+                                                            : effectivePayoutMode === 'season_only'
+                                                            ? (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Season Podium Vault (${vaultPercent}%)`)
+                                                            : projectedCardIndex === 0
+                                                            ? `Current Gameweek Pot (${weeklyPercent}%)`
+                                                            : (seasonCardTab === 'collected' ? `Live Secured Vault (${vaultPercent}%)` : `Join-aware remaining estimate (${vaultPercent}%)`)}
+                                                    </p>
                                                 </div>
                                             </div>
+
+                                            {/* Segmented Switcher on its own clean full-width row */}
+                                            {effectivePayoutMode === 'both' && (
+                                                <div className="grid grid-cols-3 gap-1 bg-black/5 dark:bg-black/40 p-1 rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setProjectedCardIndex(0)}
+                                                        className={clsx(
+                                                            "py-1 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer text-center truncate",
+                                                            projectedCardIndex === 0
+                                                                ? "bg-emerald-500 text-black shadow-xs font-bold"
+                                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                    >
+                                                        Weekly Pot
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setProjectedCardIndex(1);
+                                                            setSeasonCardTab('collected');
+                                                        }}
+                                                        className={clsx(
+                                                            "py-1 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer text-center truncate",
+                                                            projectedCardIndex === 1 && seasonCardTab === 'collected'
+                                                                ? "bg-amber-400 text-black shadow-xs font-bold"
+                                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                    >
+                                                        Live Vault
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setProjectedCardIndex(1);
+                                                            setSeasonCardTab('projected');
+                                                        }}
+                                                        className={clsx(
+                                                            "py-1 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer text-center truncate",
+                                                            projectedCardIndex === 1 && seasonCardTab === 'projected'
+                                                                ? "bg-emerald-500 text-black shadow-xs font-bold"
+                                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                    >
+                                                        Projected
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {effectivePayoutMode === 'season_only' && (
+                                                <div className="grid grid-cols-2 gap-1 bg-black/5 dark:bg-black/40 p-1 rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSeasonCardTab('collected')}
+                                                        className={clsx(
+                                                            "py-1 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer text-center truncate",
+                                                            seasonCardTab === 'collected'
+                                                                ? "bg-amber-400 text-black shadow-xs font-bold"
+                                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                    >
+                                                        Live Vault
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSeasonCardTab('projected')}
+                                                        className={clsx(
+                                                            "py-1 px-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer text-center truncate",
+                                                            seasonCardTab === 'projected'
+                                                                ? "bg-emerald-500 text-black shadow-xs font-bold"
+                                                                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                        )}
+                                                    >
+                                                        Projected
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {effectivePayoutMode === 'weekly_only' && (
+                                                <span className="inline-block px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 w-fit">
+                                                    Weekly Only
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div>
@@ -2095,7 +2127,6 @@ const handleRejectPendingPayout = async (payout: any) => {
                             );
                         })()}
                     </section>
-                )}
 
                 {/* Streamlined Vault Payout Preview */}
                 <section className="fc-card rounded-3xl border border-amber-500/30 dark:border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-white to-slate-50 dark:via-[#161d24] dark:to-[#0c1218] p-4 sm:p-6 mb-6 shadow-xl dark:shadow-2xl relative overflow-hidden text-slate-900 dark:text-white">
@@ -2589,40 +2620,55 @@ const handleRejectPendingPayout = async (payout: any) => {
                             const memberName = tx.memberName || tx.winnerName
                                 || resolvedMember?.displayName
                                 || 'Member';
+                            const isSidebetEscrow = tx.type === 'sidebet_escrow';
+                            const isSidebetPayout = tx.type === 'sidebet_payout';
+                            const isSidebetRefund = tx.type === 'sidebet_refund';
                             const isReversal = Number(tx.amount || 0) < 0
                                 || tx.type === 'ledger_adjustment'
                                 || tx.source === 'manual_reversal'
                                 || String(tx.receiptId || '').startsWith('REV');
                             const isPayout = tx.type === 'payout';
-                            const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
+                            const ledgerDirection = isSidebetEscrow ? '-' : (isSidebetPayout || isSidebetRefund) ? '+' : isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                             const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
-                            const statusLabel = isReversal
-                                ? 'Reversal'
-                                : isWalletFunding
-                                    ? 'Wallet Credit'
-                                    : ledgerDirection === '+'
-                                        ? 'Inflow'
-                                        : 'Outflow';
+                            const statusLabel = isSidebetEscrow
+                                ? 'Side Bet Escrow'
+                                : isSidebetPayout
+                                    ? 'Side Bet Win'
+                                    : isSidebetRefund
+                                        ? 'Side Bet Refund'
+                                        : isReversal
+                                            ? 'Reversal'
+                                            : isWalletFunding
+                                                ? 'Wallet Credit'
+                                                : ledgerDirection === '+'
+                                                    ? 'Inflow'
+                                                    : 'Outflow';
                             const activeCurrentGw = Number(currentGwNumber || leagueStartGw || 6);
                             const rawTxGw = Number(tx.gameweek || tx.gw || 0);
                             const targetTxGw = rawTxGw > 0 ? (rawTxGw > activeCurrentGw ? activeCurrentGw : rawTxGw) : activeCurrentGw;
                             const gwTag = `GW${targetTxGw}`;
                             const rawNote = String(tx.note || '').trim();
                             const sanitizedNote = rawNote.replace(/gw\s*7/gi, `GW${activeCurrentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
-                            const activityLabel = isReversal
-                                ? `Reversal • ${memberName}`
-                                : tx.type === 'payout'
-                                    ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
-                                    : isWalletFunding
-                                        ? `Wallet Credit → ${memberName}`
-                                        : `Deposit • ${memberName}`;
+                            const activityLabel = isSidebetEscrow
+                                ? `Side Bet Escrow • ${memberName}`
+                                : isSidebetPayout
+                                    ? `Side Bet Payout → ${tx.memberName || memberName}`
+                                    : isSidebetRefund
+                                        ? `Side Bet Refund → ${memberName}`
+                                        : isReversal
+                                            ? `Reversal • ${memberName}`
+                                            : tx.type === 'payout'
+                                                ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
+                                                : isWalletFunding
+                                                    ? `Wallet Credit → ${memberName}`
+                                                    : `Deposit • ${memberName}`;
                             const subLabel = sanitizedNote || (isWalletFunding ? `Wallet Top-Up • ${gwTag}` : `Deposit • ${gwTag}`);
                             return (
                                 <div key={tx.id} className="p-4 flex flex-col gap-2">
                                     <div className="flex items-center justify-between">
                                         <span className={clsx(
                                             'text-sm font-extrabold',
-                                            isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                            isSidebetEscrow ? 'text-purple-400' : isSidebetPayout ? 'text-amber-400' : isSidebetRefund ? 'text-sky-400' : isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
                                         )}>
                                             {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
                                         </span>
@@ -2634,7 +2680,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             )}
                                             <span className={clsx(
                                                 'text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md border',
-                                                isReversal
+                                                isSidebetEscrow
+                                                    ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                                                    : isSidebetPayout
+                                                    ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                                    : isSidebetRefund
+                                                    ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+                                                    : isReversal
                                                     ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
                                                     : isWalletFunding || ledgerDirection === '+'
                                                     ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20'
@@ -2752,12 +2804,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const memberName = tx.memberName || tx.winnerName
                                             || resolvedMember?.displayName
                                             || 'Member';
+                                        const isSidebetEscrow = tx.type === 'sidebet_escrow';
+                                        const isSidebetPayout = tx.type === 'sidebet_payout';
+                                        const isSidebetRefund = tx.type === 'sidebet_refund';
                                         const isReversal = Number(tx.amount || 0) < 0
                                             || tx.type === 'ledger_adjustment'
                                             || tx.source === 'manual_reversal'
                                             || String(tx.receiptId || '').startsWith('REV');
                                         const isPayout = tx.type === 'payout';
-                                        const ledgerDirection = isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
+                                        const ledgerDirection = isSidebetEscrow ? '-' : (isSidebetPayout || isSidebetRefund) ? '+' : isReversal ? '-' : isPayout ? (isAdmin ? '-' : '+') : '+';
                                         const safeTxId = typeof tx.id === 'string' ? tx.id : 'UNKNOWN';
                                         const activeCurrentGw = Number(currentGwNumber || leagueStartGw || 6);
                                         const rawTxGw = Number(tx.gameweek || tx.gw || 0);
@@ -2765,20 +2820,32 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const gwTag = `GW${targetTxGw}`;
                                         const rawNote = String(tx.note || '').trim();
                                         const sanitizedNote = rawNote.replace(/gw\s*7/gi, `GW${activeCurrentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
-                                        const statusLabel = isReversal
-                                            ? 'Reversal'
-                                            : isWalletFunding
-                                                ? 'Wallet Credit'
-                                                : ledgerDirection === '+'
-                                                    ? 'Inflow'
-                                                    : 'Outflow';
-                                        const activityLabel = isReversal
-                                            ? `Reversal • ${memberName}`
-                                            : tx.type === 'payout'
-                                                ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
-                                                : isWalletFunding
-                                                    ? `Wallet Credit → ${memberName}`
-                                                    : `Deposit • ${memberName}`;
+                                        const statusLabel = isSidebetEscrow
+                                            ? 'Side Bet Escrow'
+                                            : isSidebetPayout
+                                                ? 'Side Bet Win'
+                                                : isSidebetRefund
+                                                    ? 'Side Bet Refund'
+                                                    : isReversal
+                                                        ? 'Reversal'
+                                                        : isWalletFunding
+                                                            ? 'Wallet Credit'
+                                                            : ledgerDirection === '+'
+                                                                ? 'Inflow'
+                                                                : 'Outflow';
+                                        const activityLabel = isSidebetEscrow
+                                            ? `Side Bet Escrow • ${memberName}`
+                                            : isSidebetPayout
+                                                ? `Side Bet Payout → ${tx.memberName || memberName}`
+                                                : isSidebetRefund
+                                                    ? `Side Bet Refund → ${memberName}`
+                                                    : isReversal
+                                                        ? `Reversal • ${memberName}`
+                                                        : tx.type === 'payout'
+                                                            ? `GW${targetTxGw} Payout → ${tx.winnerName || memberName}`
+                                                            : isWalletFunding
+                                                                ? `Wallet Credit → ${memberName}`
+                                                                : `Deposit • ${memberName}`;
                                         return (
                                             <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">
@@ -2802,7 +2869,9 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         )}
                                                     </div>
                                                     <div className="text-xs text-gray-600 dark:text-gray-400">
-                                                        {isReversal
+                                                        {isSidebetEscrow || isSidebetPayout || isSidebetRefund
+                                                            ? (tx.note || `Side Bet Transaction • ${tx.receiptId || ''}`)
+                                                            : isReversal
                                                             ? `Manual Reversal • ${tx.receiptId || 'Adjustment'}`
                                                             : tx.type === 'payout'
                                                             ? `GW ${tx.gameweek || tx.gw || 'N/A'} • ${tx.winnerPhone || tx.phoneNumber || 'phone not set'}`
@@ -2812,7 +2881,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 <td className="px-6 py-4 text-right">
                                                     <span className={clsx(
                                                         'font-bold text-sm',
-                                                        isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
+                                                        isSidebetEscrow ? 'text-purple-400' : isSidebetPayout ? 'text-amber-400' : isSidebetRefund ? 'text-sky-400' : isReversal ? 'text-[#FBBF24]' : ledgerDirection === '+' ? 'text-[#10B981]' : 'text-[#FBBF24]'
                                                     )}>
                                                         {ledgerDirection} KES {Math.abs(Number(tx.amount || 0)).toLocaleString()}
                                                     </span>
@@ -2820,7 +2889,13 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                 <td className="px-6 py-4 text-center">
                                                     <span className={clsx(
                                                         'inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-md border',
-                                                        isReversal
+                                                        isSidebetEscrow
+                                                            ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                                                            : isSidebetPayout
+                                                            ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                                            : isSidebetRefund
+                                                            ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+                                                            : isReversal
                                                             ? 'bg-amber-500/15 text-[#FBBF24] border-amber-500/30'
                                                             : isWalletFunding || ledgerDirection === '+'
                                                             ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]'

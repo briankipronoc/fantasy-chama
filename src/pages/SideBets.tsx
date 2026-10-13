@@ -5,7 +5,7 @@ import {
     updateDoc, doc, arrayUnion, increment, getDoc
 } from 'firebase/firestore';
 import { useStore } from '../store/useStore';
-import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History, AlertTriangle } from 'lucide-react';
+import { Swords, Check, X, Trophy, Plus, Clock, ShieldCheck, ChevronDown, Flame, Search, History, AlertTriangle, Target } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import Header from '../components/Header';
@@ -41,6 +41,7 @@ interface SideBet {
     cancelRequestedAt?: any;
     cancelledBy?: string | null;
     cancellationReason?: string | null;
+    resolvedAt?: any;
 }
 
 export default function SideBets() {
@@ -152,6 +153,13 @@ export default function SideBets() {
         const opponent = members.find(m => m.id === opponentId);
         if (!opponent) return;
 
+        const numStake = Number(stake) || 0;
+        const currentChallengerWallet = Number(currentUser?.walletBalance || 0);
+        if (fundingMode === 'instant_escrow' && currentChallengerWallet < numStake) {
+            toast.error(`Insufficient wallet balance! You have KES ${currentChallengerWallet.toLocaleString()} but need KES ${numStake.toLocaleString()} to escrow this wager.`);
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const challengerFplEntry = selectedTeam === 'secondary'
@@ -167,6 +175,7 @@ export default function SideBets() {
                 id: challengerId,
                 name: challengerName,
                 signed: true,
+                escrowed: fundingMode === 'instant_escrow',
             };
             if (currentUser.secondFplTeamId) {
                 challengerData.teamLabel = selectedTeam === 'secondary' ? 'Team 2' : 'Team 1';
@@ -176,6 +185,31 @@ export default function SideBets() {
                 challengerData.fplEntryId = parsedFpl;
             }
 
+            // If Wallet Escrow, deduct stake upfront and record ledger transaction
+            if (fundingMode === 'instant_escrow' && numStake > 0) {
+                const chalMemberRef = doc(db, 'leagues', activeLeagueId, 'memberships', challengerId);
+                await updateDoc(chalMemberRef, {
+                    walletBalance: increment(-numStake)
+                });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_escrow',
+                    category: 'sidebet',
+                    amount: -numStake,
+                    memberId: challengerId,
+                    memberName: challengerName,
+                    opponentId: opponentIdClean,
+                    opponentName: opponentName,
+                    note: `Escrow stake locked for side bet: "${betTitle.trim()}" vs ${opponentName}`,
+                    receiptId: `CASH_SB_ESC_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                    eventType: 'sidebet_escrow',
+                    message: `🔒 ${challengerName} locked KES ${numStake.toLocaleString()} in escrow for "${betTitle.trim()}" vs ${opponentName}`,
+                    timestamp: serverTimestamp(),
+                });
+            }
+
             await addDoc(collection(db, 'leagues', activeLeagueId, 'side_bets'), {
                 title: betTitle.trim(),
                 description: (betDescription || '').trim(),
@@ -183,12 +217,13 @@ export default function SideBets() {
                 opponent: {
                     id: opponentIdClean,
                     name: opponentName,
-                    signed: false
+                    signed: false,
+                    escrowed: false
                 },
                 challengerId,
                 opponentId: opponentIdClean,
-                stake: Number(stake) || 0,
-                amount: Number(stake) || 0,
+                stake: numStake,
+                amount: numStake,
                 fundingMode,
                 status: 'pending_opponent',
                 winnerId: null,
@@ -203,7 +238,7 @@ export default function SideBets() {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'warning',
                 targetMemberId: opponent.id,
-                message: `⚔️ Direct Challenge! ${challengerName} challenged you to a head-to-head wager: "${betTitle.trim()}" (KES ${stake.toLocaleString()}). Accept in Side Bets!`,
+                message: `⚔️ Direct Challenge! ${challengerName} challenged you to a head-to-head wager: "${betTitle.trim()}" (KES ${numStake.toLocaleString()}). Accept in Side Bets!`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -211,12 +246,12 @@ export default function SideBets() {
             // 2. Public announcement for other managers in the league
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `🎲 Side Bet Challenge: ${challengerName} challenged ${opponentName} to "${betTitle.trim()}" for KES ${stake.toLocaleString()}`,
+                message: `🎲 Side Bet Challenge: ${challengerName} challenged ${opponentName} to "${betTitle.trim()}" for KES ${numStake.toLocaleString()}`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
 
-            toast.success(`Challenge sent to ${opponent.displayName || 'Opponent'}!`);
+            toast.success(`Challenge sent to ${opponent.displayName || 'Opponent'}!${fundingMode === 'instant_escrow' ? ` KES ${numStake.toLocaleString()} escrowed.` : ''}`);
             setShowCreate(false);
             setBetTitle('');
             setBetDescription('');
@@ -234,9 +269,41 @@ export default function SideBets() {
         if (!activeLeagueId || !currentUser) return;
 
         try {
+            // If instant escrow, opponent must also have required float
+            if (bet.fundingMode === 'instant_escrow' && bet.stake > 0) {
+                const oppMember = members.find(m => m.id === currentUser.id);
+                const oppWallet = Number(oppMember?.walletBalance ?? currentUser?.walletBalance ?? 0);
+                if (oppWallet < bet.stake) {
+                    toast.error(`Insufficient wallet balance! You have KES ${oppWallet.toLocaleString()} but need KES ${bet.stake.toLocaleString()} to lock in this wager.`);
+                    return;
+                }
+                const oppMemberRef = doc(db, 'leagues', activeLeagueId, 'memberships', currentUser.id);
+                await updateDoc(oppMemberRef, {
+                    walletBalance: increment(-bet.stake)
+                });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_escrow',
+                    category: 'sidebet',
+                    amount: -bet.stake,
+                    memberId: currentUser.id,
+                    memberName: currentUser.displayName || 'Opponent',
+                    opponentId: bet.challenger.id,
+                    opponentName: bet.challenger.name,
+                    note: `Escrow stake locked for side bet: "${bet.title}" vs ${bet.challenger.name}`,
+                    receiptId: `CASH_SB_ESC_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                    eventType: 'sidebet_escrow',
+                    message: `🔒 ${currentUser.displayName} matched escrow (KES ${bet.stake.toLocaleString()}) for "${bet.title}" vs ${bet.challenger.name}`,
+                    timestamp: serverTimestamp(),
+                });
+            }
+
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
             await updateDoc(betRef, {
                 'opponent.signed': true,
+                'opponent.escrowed': bet.fundingMode === 'instant_escrow',
                 status: 'pending_chairman',
             });
 
@@ -309,9 +376,56 @@ export default function SideBets() {
         }
     };
 
+    const refundEscrowedStakesIfAny = async (bet: SideBet) => {
+        if (!activeLeagueId || bet.fundingMode !== 'instant_escrow') return;
+        const stake = Number(bet.stake || 0);
+        if (stake <= 0) return;
+
+        // Refund challenger if escrowed
+        if (bet.challenger?.id) {
+            try {
+                const chalRef = doc(db, 'leagues', activeLeagueId, 'memberships', bet.challenger.id);
+                await updateDoc(chalRef, { walletBalance: increment(stake) });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_refund',
+                    category: 'sidebet',
+                    amount: stake,
+                    memberId: bet.challenger.id,
+                    memberName: bet.challenger.name,
+                    note: `Escrow stake refunded for cancelled side bet: "${bet.title}"`,
+                    receiptId: `CASH_SB_REF_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+            } catch (e) {
+                console.error('Failed to refund challenger:', e);
+            }
+        }
+
+        // Refund opponent if they signed and escrowed
+        if (bet.opponent?.id && (bet.opponent?.signed || (bet as any).opponentEscrowed || (bet.opponent as any).escrowed)) {
+            try {
+                const oppRef = doc(db, 'leagues', activeLeagueId, 'memberships', bet.opponent.id);
+                await updateDoc(oppRef, { walletBalance: increment(stake) });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_refund',
+                    category: 'sidebet',
+                    amount: stake,
+                    memberId: bet.opponent.id,
+                    memberName: bet.opponent.name,
+                    note: `Escrow stake refunded for cancelled side bet: "${bet.title}"`,
+                    receiptId: `CASH_SB_REF_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+            } catch (e) {
+                console.error('Failed to refund opponent:', e);
+            }
+        }
+    };
+
     const handleChairmanReject = async (bet: SideBet) => {
         if (!activeLeagueId || !isAdmin) return;
         try {
+            await refundEscrowedStakesIfAny(bet);
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
             await updateDoc(betRef, {
                 status: 'cancelled',
@@ -323,18 +437,18 @@ export default function SideBets() {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'warning',
                 targetMemberId: bet.challenger.id,
-                message: `⚠️ Side Bet Declined: Chairman declined "${bet.title}".`,
+                message: `⚠️ Side Bet Declined: Chairman declined "${bet.title}". Any escrowed stake has been refunded to your wallet.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'warning',
                 targetMemberId: bet.opponent.id,
-                message: `⚠️ Side Bet Declined: Chairman declined "${bet.title}".`,
+                message: `⚠️ Side Bet Declined: Chairman declined "${bet.title}". Any escrowed stake has been refunded to your wallet.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
-            toast.success('Side bet rejected.');
+            toast.success('Side bet rejected and escrow refunded.');
         } catch (_e) {
             toast.error('Failed to reject bet.');
         }
@@ -343,6 +457,7 @@ export default function SideBets() {
     const handleChallengerWithdraw = async (bet: SideBet) => {
         if (!activeLeagueId) return;
         try {
+            await refundEscrowedStakesIfAny(bet);
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
             await updateDoc(betRef, {
                 status: 'cancelled',
@@ -357,7 +472,7 @@ export default function SideBets() {
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
-            toast.success('Challenge withdrawn.');
+            toast.success('Challenge withdrawn and escrow returned.');
         } catch (_e) {
             toast.error('Failed to withdraw challenge.');
         }
@@ -366,6 +481,7 @@ export default function SideBets() {
     const handleChairmanCancel = async (bet: SideBet) => {
         if (!activeLeagueId || !isAdmin) return;
         try {
+            await refundEscrowedStakesIfAny(bet);
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
             await updateDoc(betRef, {
                 status: 'cancelled',
@@ -377,14 +493,14 @@ export default function SideBets() {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'warning',
                 targetMemberId: bet.challenger.id,
-                message: `⚠️ Side bet "${bet.title}" was cancelled by the Chairman.`,
+                message: `⚠️ Side bet "${bet.title}" was cancelled by the Chairman. Any escrow has been returned to your wallet.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'warning',
                 targetMemberId: bet.opponent.id,
-                message: `⚠️ Side bet "${bet.title}" was cancelled by the Chairman.`,
+                message: `⚠️ Side bet "${bet.title}" was cancelled by the Chairman. Any escrow has been returned to your wallet.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -395,7 +511,7 @@ export default function SideBets() {
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
-            toast.success('Side bet cancelled by Chairman.');
+            toast.success('Side bet cancelled and escrow refunded.');
         } catch (_e) {
             toast.error('Failed to cancel bet.');
         }
@@ -427,6 +543,7 @@ export default function SideBets() {
     const handleAgreeCancel = async (bet: SideBet) => {
         if (!activeLeagueId || !activeUserId) return;
         try {
+            await refundEscrowedStakesIfAny(bet);
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
             await updateDoc(betRef, {
                 status: 'cancelled',
@@ -437,14 +554,14 @@ export default function SideBets() {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
                 targetMemberId: bet.challenger.id,
-                message: `🤝 Side bet "${bet.title}" has been cancelled by mutual agreement.`,
+                message: `🤝 Side bet "${bet.title}" has been cancelled by mutual agreement. Any escrow has been returned to your wallet.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
                 targetMemberId: bet.opponent.id,
-                message: `🤝 Side bet "${bet.title}" has been cancelled by mutual agreement.`,
+                message: `🤝 Side bet "${bet.title}" has been cancelled by mutual agreement. Any escrow has been returned to your wallet.`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -454,7 +571,7 @@ export default function SideBets() {
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
-            toast.success('Bet cancelled by mutual agreement.');
+            toast.success('Bet cancelled by mutual agreement and escrow refunded.');
         } catch (_e) {
             toast.error('Failed to agree to cancellation.');
         }
@@ -509,6 +626,7 @@ export default function SideBets() {
         const loser = members.find(m => m.id === loserId);
         const winnerName = isChallenger ? bet.challenger.name : bet.opponent.name;
         const loserName = loser?.displayName || (loser as any)?.name || 'Opponent';
+        const numStake = Number(bet.stake || 0);
 
         try {
             const betRef = doc(db, 'leagues', activeLeagueId, 'side_bets', bet.id);
@@ -519,24 +637,61 @@ export default function SideBets() {
                 resolvedAt: serverTimestamp(),
             });
 
-            // Auto-deduct from loser wallet, credit winner wallet
-            const loserRef = doc(db, 'leagues', activeLeagueId, 'memberships', loserId);
             const winnerRef = doc(db, 'leagues', activeLeagueId, 'memberships', resolveWinnerId);
+            const loserRef = doc(db, 'leagues', activeLeagueId, 'memberships', loserId);
 
-            const loserSnap = await getDoc(loserRef);
-            if (loserSnap.exists()) {
-                await updateDoc(loserRef, { walletBalance: increment(-bet.stake) });
+            if (bet.fundingMode === 'instant_escrow') {
+                // Both stakes were already escrowed upfront, so winner receives the combined 2x pot!
+                const totalPot = numStake * 2;
+                await updateDoc(winnerRef, { walletBalance: increment(totalPot) });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_payout',
+                    category: 'sidebet',
+                    amount: totalPot,
+                    memberId: resolveWinnerId,
+                    memberName: winnerName,
+                    opponentId: loserId,
+                    opponentName: loserName,
+                    note: `Side bet victory pot: "${bet.title}" (Defeated ${loserName})`,
+                    receiptId: `CASH_SB_WIN_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+            } else {
+                // Post-match: deduct loser, credit winner
+                const loserSnap = await getDoc(loserRef);
+                if (loserSnap.exists()) {
+                    await updateDoc(loserRef, { walletBalance: increment(-numStake) });
+                }
+                const winnerSnap = await getDoc(winnerRef);
+                if (winnerSnap.exists()) {
+                    await updateDoc(winnerRef, { walletBalance: increment(numStake) });
+                }
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_payout',
+                    category: 'sidebet',
+                    amount: numStake,
+                    memberId: resolveWinnerId,
+                    memberName: winnerName,
+                    opponentId: loserId,
+                    opponentName: loserName,
+                    note: `Post-match side bet victory: "${bet.title}" (Defeated ${loserName})`,
+                    receiptId: `CASH_SB_WIN_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
             }
-            const winnerSnap = await getDoc(winnerRef);
-            if (winnerSnap.exists()) {
-                await updateDoc(winnerRef, { walletBalance: increment(bet.stake) });
-            }
+
+            // Record celebration in league_events
+            await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
+                eventType: 'sidebet_resolved',
+                message: `🏆 ${winnerName} won the head-to-head duel "${bet.title}" against ${loserName}! Pot: KES ${(bet.fundingMode === 'instant_escrow' ? numStake * 2 : numStake).toLocaleString()}`,
+                timestamp: serverTimestamp(),
+            });
 
             // 1. Personal notification to winner
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'transactionSuccess',
                 targetMemberId: resolveWinnerId,
-                message: `🏆 Victory! You won the head-to-head wager "${bet.title}"! KES ${(bet.stake * 2).toLocaleString()} pot secured to your wallet!`,
+                message: `🏆 Victory! You won the head-to-head wager "${bet.title}"! KES ${(bet.fundingMode === 'instant_escrow' ? numStake * 2 : numStake).toLocaleString()} pot secured to your wallet!`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -545,7 +700,7 @@ export default function SideBets() {
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
                 targetMemberId: loserId,
-                message: `⚔️ Wager Settled: "${bet.title}" concluded. KES ${bet.stake.toLocaleString()} transferred to ${winnerName}. Better luck next gameweek!`,
+                message: `⚔️ Wager Settled: "${bet.title}" concluded. KES ${numStake.toLocaleString()} transferred to ${winnerName}. Better luck next gameweek!`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
@@ -553,12 +708,12 @@ export default function SideBets() {
             // 3. System notification for the league
             await addDoc(collection(db, 'leagues', activeLeagueId, 'notifications'), {
                 type: 'info',
-                message: `🏆 Side Bet Result: ${winnerName} defeated ${loserName} in "${bet.title}" (KES ${(bet.stake * 2).toLocaleString()} total pot)!`,
+                message: `🏆 Side Bet Result: ${winnerName} defeated ${loserName} in "${bet.title}" (KES ${(bet.fundingMode === 'instant_escrow' ? numStake * 2 : numStake).toLocaleString()} total pot)!`,
                 timestamp: serverTimestamp(),
                 readBy: [],
             });
 
-            toast.success(`${winnerName} wins KES ${bet.stake.toLocaleString()}! Wallets auto-settled.`);
+            toast.success(`${winnerName} wins KES ${(bet.fundingMode === 'instant_escrow' ? numStake * 2 : numStake).toLocaleString()}! Wallets auto-settled.`);
             setResolvingBetId(null);
             setResolveWinnerId('');
             setSharingBet({
@@ -668,6 +823,105 @@ export default function SideBets() {
                         <Plus className="w-4 h-4" /> Challenge Someone
                     </button>
                 </div>
+
+                {/* Side Bet Arena Hero & Weekly Champions Banner */}
+                {(() => {
+                    const totalEscrowPot = activeBets.reduce((acc, b) => {
+                        const stake = Number(b.stake || 0);
+                        return acc + (b.fundingMode === 'instant_escrow' ? stake * 2 : stake);
+                    }, 0);
+
+                    // Find latest resolved bet (celebration persists throughout the week)
+                    const latestResolvedBet = pastResolvedBets.length > 0
+                        ? [...pastResolvedBets].sort((a, b) => {
+                            const timeA = (a.resolvedAt as any)?.toMillis?.() || ((a.resolvedAt as any)?.seconds ? (a.resolvedAt as any).seconds * 1000 : 0);
+                            const timeB = (b.resolvedAt as any)?.toMillis?.() || ((b.resolvedAt as any)?.seconds ? (b.resolvedAt as any).seconds * 1000 : 0);
+                            return timeB - timeA;
+                        })[0]
+                        : null;
+
+                    return (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-2">
+                            {/* Card 1: Recent Champion of the Week (Persists whole week) */}
+                            <div className="fc-card rounded-2xl bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 p-4 flex flex-col justify-between shadow-md">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                        <Trophy className="w-3 h-3 text-amber-500" /> Duel Champion
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                                        Weekly Spotlight ⚡
+                                    </span>
+                                </div>
+                                <div>
+                                    {latestResolvedBet ? (
+                                        <>
+                                            <p className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-300 truncate">
+                                                {latestResolvedBet.winnerName || 'Champion'}
+                                            </p>
+                                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1 font-medium">
+                                                Won KES {(latestResolvedBet.fundingMode === 'instant_escrow' ? latestResolvedBet.stake * 2 : latestResolvedBet.stake).toLocaleString()} • "{latestResolvedBet.title}"
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-black text-slate-800 dark:text-gray-200">
+                                                Chamber of Rivals
+                                            </p>
+                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                                Challenge a manager to claim the Weekly Duel crown!
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Card 2: Live Duels Escrow Liquidity */}
+                            <div className="fc-card rounded-2xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/30 p-4 flex flex-col justify-between shadow-md">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                        <Swords className="w-3 h-3 text-emerald-500" /> Active Pot
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
+                                        {activeBets.length} Active Duel{activeBets.length === 1 ? '' : 's'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                        KES {totalEscrowPot.toLocaleString()}
+                                    </p>
+                                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
+                                        Locked in wallet escrow & post-match duels
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Card 3: Milestone / Goal Progress Tracker (e.g. Haaland 20 Goals Target) */}
+                            <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
+                                        <Target className="w-3 h-3 text-indigo-500" /> Milestone Watch
+                                    </span>
+                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                                        GW38 Season Target
+                                    </span>
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200">
+                                        <span>Haaland 20 Goals Duel</span>
+                                        <span className="text-indigo-600 dark:text-indigo-400 font-mono">14 / 20</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full mt-1.5 overflow-hidden">
+                                        <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: '70%' }} />
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
+                                        <span>70% Completed</span>
+                                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">FPL Auto-Tracked 🤖</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Filter Tabs */}
                 <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 flex-wrap">
