@@ -516,13 +516,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             return acc;
         }, {});
 
-    const grossInflows = transactions
-        .filter(isTxValidInflow)
-        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-    const totalRefundsAllTime = transactions
-        .filter(isTxRefundOrReversal)
-        .reduce((sum, tx) => sum + Math.abs(Number(tx.amount || 0)), 0);
-
     const resolvedGws = useMemo(() => {
         const set = new Set<number>();
         (pendingApprovals || []).forEach((p: any) => {
@@ -567,10 +560,11 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, 0);
 
     const vaultPercent = Number(rules.vault ?? 30);
-    // Strict ledger verification: Realized pot includes verified member contributions for tracked rounds
+    // Strict ledger verification: Realized live vault ONLY accrues funds for completed and resolved rounds.
+    // Unspent wallet balances or advance prepayments stay in the user's wallet until rounds kick off and resolve.
     const seasonCollectedSoFarGross = completedGwsCount > 0
         ? cappedMemberContributionsSum
-        : Math.max(0, grossInflows - totalRefundsAllTime);
+        : 0;
     const seasonVaultCollectedSoFar = Math.round(seasonCollectedSoFarGross * (vaultPercent / 100));
 
     const projectedRemainingCollectionsGross = members
@@ -581,7 +575,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             const effectiveMemberGw = Math.max(leagueStartGw, joinedGw);
             const playableFutureGws = Math.max(0, (38 - effectiveMemberGw + 1) - forfeitedGws.filter(g => g >= effectiveMemberGw).length);
             const memberSeasonCap = playableFutureGws * (gameweekStake || 0);
-            const collectedForMember = Number(contributionByMemberId[String(member.id)] || 0);
+            const collectedForMember = completedGwsCount > 0 ? Math.min(memberSeasonCap, Number(contributionByMemberId[String(member.id)] || 0)) : 0;
             const remainingForMember = Math.max(0, memberSeasonCap - collectedForMember);
             return sum + remainingForMember;
         }, 0);

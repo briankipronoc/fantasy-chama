@@ -302,7 +302,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                 <div className={clsx('fc-header-stage flex items-center gap-3 md:gap-4 min-w-0 flex-1', headerMotion)}>
                     <UserAvatar name={fullDisplayName} size="lg" />
                     <div className="min-w-0 flex-1">
-                        <h1 className="fc-frosty-title text-base sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tight flex items-center gap-2 leading-snug break-words text-slate-900 dark:text-white">
+                        <h1 className="fc-header-league-title fc-frosty-title text-base sm:text-xl md:text-2xl lg:text-3xl font-black tracking-tight flex items-center gap-2 leading-snug break-words text-slate-900 dark:text-white">
                             {title || `${getGreeting()}, ${displayName}!`}
                         </h1>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">

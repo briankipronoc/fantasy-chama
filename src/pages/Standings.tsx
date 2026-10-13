@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info } from 'lucide-react';
+import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
@@ -109,6 +109,8 @@ export default function Standings() {
     const [leagueRules, setLeagueRules] = useState<any>({});
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
+    const [preChamaPointsMap, setPreChamaPointsMap] = useState<Record<number, number>>({});
+    const [standingsMode, setStandingsMode] = useState<'clean_slate' | 'raw_fpl'>('clean_slate');
     const [payoutRows, setPayoutRows] = useState<any[]>([]);
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
     const [teamPicksModal, setTeamPicksModal] = useState<{
@@ -425,7 +427,7 @@ export default function Standings() {
                 setIsFplMaintenance(Boolean(fetchRes?.isMaintenance));
 
                 const fetchPerformances = async () => {
-                    const candidateManagers = results.slice(0, 10);
+                    const candidateManagers = results.slice(0, 30);
                     const teamIds = candidateManagers.map((r: any) => r.entry);
                     
                     const activeUserId = localStorage.getItem('activeUserId') || '';
@@ -472,11 +474,18 @@ export default function Standings() {
                         ? (isCurrentEventFinished ? currentEvent : Math.max(1, currentEvent - 1))
                         : 38;
 
+                    const calculatedPreMap: Record<number, number> = {};
                     for (const result of historyResults) {
                         if (result.status !== 'fulfilled') continue;
                         const { tId, histData } = result.value;
                         const current = histData?.current;
                         if (current && current.length > 0) {
+                            if (effectiveLeagueStartGw > 1) {
+                                const preChamaPts = current
+                                    .filter((gw: any) => Number(gw.event) < effectiveLeagueStartGw)
+                                    .reduce((sum: number, gw: any) => sum + (Number(gw.points) || 0), 0);
+                                calculatedPreMap[Number(tId)] = preChamaPts;
+                            }
                             const relevant = current.filter((gw: any) => Number(gw.event) <= maxPlayedGw);
                             const playerEntry = results.find((r: any) => r.entry === tId);
                             const playerName = playerEntry ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
@@ -489,6 +498,10 @@ export default function Standings() {
                                 gwMap.get(evNum)[playerName] = Number(gw.points);
                             }
                         }
+                    }
+
+                    if (Object.keys(calculatedPreMap).length > 0) {
+                        setPreChamaPointsMap(calculatedPreMap);
                     }
 
                     let aggData: any[] = Array.from(gwMap.values());
@@ -791,20 +804,31 @@ export default function Standings() {
         if (isPendingMember(m)) return false;
         if (!hasEverFunded(m)) return false;
         return true;
+    }).map((r: any) => {
+        const preDeduction = (standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1)
+            ? (preChamaPointsMap[Number(r.entry)] || 0)
+            : 0;
+        const cleanTotal = Math.max(0, Number(r.total || 0) - preDeduction);
+        return {
+            ...r,
+            cleanTotal,
+            preDeduction,
+            totalToCompare: (standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1) ? cleanTotal : Number(r.total || 0),
+        };
     });
 
     // Competition tie-ranking (e.g. 1, 1, 3)
-    const sortedSeasonPool = [...seasonPool].sort((a: any, b: any) => Number(b.total || 0) - Number(a.total || 0));
+    const sortedSeasonPool = [...seasonPool].sort((a: any, b: any) => Number(b.totalToCompare || 0) - Number(a.totalToCompare || 0));
     const rankedSeasonPool: any[] = [];
     for (let i = 0; i < sortedSeasonPool.length; i++) {
         const current = sortedSeasonPool[i];
         let rank = i + 1;
         let isTied = false;
-        if (i > 0 && Number(current.total || 0) === Number(sortedSeasonPool[i - 1].total || 0)) {
+        if (i > 0 && Number(current.totalToCompare || 0) === Number(sortedSeasonPool[i - 1].totalToCompare || 0)) {
             rank = rankedSeasonPool[i - 1].calculatedRank;
             isTied = true;
             rankedSeasonPool[i - 1].isTied = true;
-        } else if (i < sortedSeasonPool.length - 1 && Number(current.total || 0) === Number(sortedSeasonPool[i + 1].total || 0)) {
+        } else if (i < sortedSeasonPool.length - 1 && Number(current.totalToCompare || 0) === Number(sortedSeasonPool[i + 1].totalToCompare || 0)) {
             isTied = true;
         }
         rankedSeasonPool.push({
@@ -870,7 +894,37 @@ export default function Standings() {
                         </p>
                     </div>
 
-                    <div className="flex gap-3 flex-wrap items-center">
+                    <div className="flex gap-2.5 flex-wrap items-center">
+                        {effectiveLeagueStartGw > 1 && (
+                            <div className="flex items-center gap-1 bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => { haptics.selection(); setStandingsMode('clean_slate'); }}
+                                    className={clsx(
+                                        'px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer',
+                                        standingsMode === 'clean_slate'
+                                            ? 'bg-[#10B981] text-black shadow-xs'
+                                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                    )}
+                                    title="Clean slate: Points earned only from league kickoff GW onwards"
+                                >
+                                    Chama (GW{effectiveLeagueStartGw}+) 🏁
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { haptics.selection(); setStandingsMode('raw_fpl'); }}
+                                    className={clsx(
+                                        'px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer',
+                                        standingsMode === 'raw_fpl'
+                                            ? 'bg-amber-500 text-black shadow-xs'
+                                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                                    )}
+                                    title="Raw overall FPL points since GW1"
+                                >
+                                    Overall FPL (GW1+)
+                                </button>
+                            </div>
+                        )}
                         <div className="relative group">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-gray-500 group-focus-within:text-[#10B981] transition-colors">
                                 <Search className="w-3.5 h-3.5" />
@@ -879,15 +933,33 @@ export default function Standings() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full sm:w-60 font-sans font-medium bg-slate-100 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl py-1.5 pl-9 pr-3 text-[11px] sm:text-xs focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-[11px] placeholder:text-slate-400 dark:placeholder:text-gray-500 text-slate-900 dark:text-white outline-none shadow-sm"
+                                className="w-full sm:w-56 font-sans font-medium bg-slate-100 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-xl py-1.5 pl-9 pr-3 text-[11px] sm:text-xs focus:ring-1 focus:ring-[#10B981] focus:border-[#10B981] transition-all placeholder:text-[11px] placeholder:text-slate-400 dark:placeholder:text-gray-500 text-slate-900 dark:text-white outline-none shadow-sm"
                                 placeholder="Search members or teams..."
                             />
                         </div>
-                        <button onClick={exportStandingsCSV} className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-black uppercase tracking-wider rounded-xl transition whitespace-nowrap active:scale-95">
-                            <Download className="w-3.5 h-3.5" /> Export CSV
+                        <button onClick={exportStandingsCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[11px] font-black uppercase tracking-wider rounded-xl transition whitespace-nowrap active:scale-95 cursor-pointer">
+                            <Download className="w-3.5 h-3.5" /> Export
                         </button>
                     </div>
                 </div>
+
+                {/* Kickoff Clean Slate Explainer Banner */}
+                {effectiveLeagueStartGw > 1 && (
+                    <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-slate-700 dark:text-gray-200 shadow-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Sparkles className="w-4 h-4 text-emerald-600 dark:text-[#10B981] shrink-0" />
+                            <p className="text-[11px] sm:text-xs">
+                                <strong>Chama Kickoff GW{effectiveLeagueStartGw}:</strong>{' '}
+                                {standingsMode === 'clean_slate'
+                                    ? `Pre-chama rounds (GW1–${effectiveLeagueStartGw - 1}) are deducted so all members start on an equal footing.`
+                                    : `Showing raw cumulative FPL points including pre-chama rounds.`}
+                            </p>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
+                            {standingsMode === 'clean_slate' ? 'Clean Slate Active ✓' : 'Raw FPL'}
+                        </span>
+                    </div>
+                )}
 
                 {/* Stats Cards */}
                 {/* Quick Fix Inline FPL ID Linker (only when existing league has error) */}
@@ -1179,12 +1251,13 @@ export default function Standings() {
                             <div className="col-span-4">Member</div>
                             <div className="col-span-3">FPL Team</div>
                             <div className="col-span-1 text-center">GW</div>
-                            <div className="col-span-1 text-center">Total</div>
+                            <div className="col-span-1 text-center">{standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1 ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'}</div>
                             <div className="col-span-2 text-right">Status</div>
                         </div>
                         {/* Rows */}
                         <div className="divide-y divide-slate-100 dark:divide-white/[0.04]">
                             {(() => {
+                                const isCleanSlateActive = standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1;
                                 const filteredRows = standingsData
                                     .filter((row: any) => {
                                         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
@@ -1199,17 +1272,30 @@ export default function Standings() {
                                         }
                                         return true;
                                     })
+                                    .map((row: any) => {
+                                        const preDeduction = isCleanSlateActive
+                                            ? (preChamaPointsMap[Number(row.entry)] || 0)
+                                            : 0;
+                                        const cleanTotal = Math.max(0, Number(row.total || 0) - preDeduction);
+                                        const seasonCompareScore = isCleanSlateActive ? cleanTotal : Number(row.total || 0);
+                                        return {
+                                            ...row,
+                                            cleanTotal,
+                                            preDeduction,
+                                            seasonCompareScore,
+                                        };
+                                    })
                                     .sort((a: any, b: any) => {
                                         if (heroRankView === 'gw') {
                                             return Number(b.event_total || 0) - Number(a.event_total || 0);
                                         }
-                                        return Number(b.total || 0) - Number(a.total || 0);
+                                        return Number(b.seasonCompareScore || 0) - Number(a.seasonCompareScore || 0);
                                     });
 
                                 // Competition tie-ranking (e.g. 1, 1, 3, 4...)
                                 let currentCompetitionRank = 1;
                                 const rankedRows = filteredRows.map((row: any, idx: number, arr: any[]) => {
-                                    const compareKey = heroRankView === 'gw' ? 'event_total' : 'total';
+                                    const compareKey = heroRankView === 'gw' ? 'event_total' : 'seasonCompareScore';
                                     if (idx > 0) {
                                         const prev = arr[idx - 1];
                                         if (Number(row[compareKey]) === Number(prev[compareKey])) {
@@ -1255,6 +1341,7 @@ export default function Standings() {
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const isSeasonView = heroRankView === 'season';
+                                const displaySeasonTotal = isCleanSlateActive ? Number(row.cleanTotal ?? (row.total - (row.preDeduction || 0))) : Number(row.total || 0);
                                 const isSeasonLeader = isSeasonView && rankNum === 1;
                                 const isDoubleCrown = isSeasonLeader && isGwWinnerRow;
                                 const medal = isSeasonView
@@ -1347,8 +1434,17 @@ export default function Standings() {
                                             {isSeasonView ? (
                                                 <>
                                                     <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-1 md:order-2">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FBBF24] md:hidden mb-1.5">Season Total</span>
-                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg md:bg-transparent md:border-0 md:p-0">{Number(row.total || 0).toLocaleString()}</div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FBBF24] md:hidden mb-1.5">
+                                                            {isCleanSlateActive ? `GW${effectiveLeagueStartGw}+ Total` : 'Season Total'}
+                                                        </span>
+                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg md:bg-transparent md:border-0 md:p-0">
+                                                            {displaySeasonTotal.toLocaleString()}
+                                                            {isCleanSlateActive && (
+                                                                <span className="block text-[8px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
+                                                                    {row.preDeduction > 0 ? `(-${row.preDeduction} pre-GW${effectiveLeagueStartGw})` : `clean start ✓`}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-2 md:order-1">
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">GW Pts</span>
@@ -1371,8 +1467,17 @@ export default function Standings() {
                                                         </span>
                                                     </div>
                                                     <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">Total</span>
-                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">{Number(row.total || 0).toLocaleString()}</div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">
+                                                            {isCleanSlateActive ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'}
+                                                        </span>
+                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">
+                                                            {displaySeasonTotal.toLocaleString()}
+                                                            {isCleanSlateActive && (
+                                                                <span className="block text-[8px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
+                                                                    {row.preDeduction > 0 ? `(-${row.preDeduction})` : `clean start`}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </>
                                             )}

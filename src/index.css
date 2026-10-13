@@ -482,12 +482,42 @@
     letter-spacing: -0.025em;
   }
   [data-theme="light"] .fc-frosty-title {
-    background: linear-gradient(135deg, #090d16 0%, #1e293b 30%, #0f172a 65%, #334155 100%) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: #0f172a !important;
+    color: #0f172a !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-shadow: none !important;
+    filter: none !important;
     letter-spacing: -0.025em;
+  }
+  /* Crisp, sharp rendering for header league title across all themes without rasterized clipping blur */
+  .fc-header-league-title {
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    filter: none !important;
+    text-shadow: none !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  [data-theme="dark"] .fc-header-league-title,
+  [data-theme="stealth"] .fc-header-league-title,
+  .dark .fc-header-league-title,
+  html.dark .fc-header-league-title,
+  html.stealth .fc-header-league-title {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
   }
   /* Scoped dark modal support: only force white metallic title if explicitly inside .fc-dark-modal */
   [data-theme="light"] .fc-dark-modal .fc-frosty-title {

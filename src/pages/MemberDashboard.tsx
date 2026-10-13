@@ -9,7 +9,6 @@ import { doc, onSnapshot, collection, addDoc, serverTimestamp, query, where, upd
 import { useStore } from '../store/useStore';
 import { getApiBaseUrl, secureApiPost } from '../utils/api';
 import { useNotifications } from '../components/NotificationProvider';
-import PotVaultSwapper from '../components/PotVaultSwapper';
 import clsx from 'clsx';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { DashboardSkeleton } from '../components/Skeleton';
@@ -168,7 +167,6 @@ export default function MemberDashboard() {
             setIsNudgingHQ(false);
         }
     };
-    const isStealthMode = useStore(state => state.isStealthMode);
     const role = useStore(state => state.role);
     const { notifications } = useNotifications();
 
@@ -1292,17 +1290,6 @@ export default function MemberDashboard() {
     const totalLeagueGws = playableSeasonCount;
     const vaultPercent = Number(rules.vault ?? (100 - rules.weekly));
     const vaultMultiplier = (vaultPercent > 0 ? vaultPercent : 30) / 100;
-    const activeContendersCount = members.filter(m => m.isActive !== false && !(m as any).isEliminated && !(m as any).isPending).length;
-    const seasonVaultProjected = activeContendersCount * gameweekStake * totalLeagueGws * vaultMultiplier;
-
-    const grossInflows = (transactions || [])
-        .filter(isTxValidInflow)
-        .reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
-    const totalRefunds = (transactions || [])
-        .filter(isTxRefundOrReversal)
-        .reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
-    const netCollectedSoFar = Math.max(0, grossInflows - totalRefunds);
-    const seasonVaultFromTxs = Math.round(netCollectedSoFar * vaultMultiplier);
 
     const maxPastGw = currentFplEvent?.id ? Math.max(effectiveMdStartGw, currentFplEvent.id) : (effectiveMdStartGw || 1);
     const playedPastGws: number[] = [];
@@ -1326,10 +1313,10 @@ export default function MemberDashboard() {
             const memberMaxForCompleted = completedRounds > 0 ? completedRounds * (gameweekStake || 0) : 0;
             return sum + Math.min(memberMaxForCompleted, netContributed);
         }, 0);
-    // Strict ledger verified: accumulated vault reflects realized completed rounds
+    // Strict ledger verified: accumulated vault reflects realized completed rounds only
     const seasonVaultAccumulated = completedRounds > 0
         ? Math.round(cappedMemberContributionsSum * vaultMultiplier)
-        : seasonVaultFromTxs;
+        : 0;
 
     // Upcoming GW Funding Status (Red Zone)
     const isTargetGwUpcoming = Boolean(currentFplEvent?.finished || currentFplEvent?.isPreparingForNextGw);
@@ -1675,6 +1662,26 @@ export default function MemberDashboard() {
         : null;
     const completedLeagueGws = Math.max(0, completedRounds);
     const seasonProgressPct = totalLeagueGws > 0 ? Math.round((completedLeagueGws / totalLeagueGws) * 100) : 0;
+
+    // Auto-scroll Gameweek Winners Ledger rail directly to recent winner / active round
+    useEffect(() => {
+        const targetGw = (currentFplEvent?.id)
+            ? Number(currentFplEvent.id)
+            : (activeChampion?.event ? Number(activeChampion.event) : 1);
+
+        const scrollAction = () => {
+            const rail = ledgerRailRef.current;
+            if (!rail) return;
+            const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
+            if (gwCard) {
+                const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
+                rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+            }
+        };
+
+        const timer = setTimeout(scrollAction, 150);
+        return () => clearTimeout(timer);
+    }, [currentFplEvent?.id, activeChampion?.event, gwWinnersLedger.length]);
 
     // Set of distinct emojis already sent by the current user for this gameweek (max 2 distinct allowed)
     const mySentEmojis = useMemo<string[]>(() => {
@@ -2400,12 +2407,12 @@ export default function MemberDashboard() {
                                             <p className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums tracking-tight">
                                                 {Number(rules.weekly || 0) === 0
                                                     ? `KES ${(seasonVaultAccumulated || 0).toLocaleString()}`
-                                                    : `KES ${(activeChampion.amount || ((members.filter(m => m.hasPaid && m.isActive !== false).length * gameweekStake) * (rules.weekly / 100))).toLocaleString()}`}
+                                                    : `KES ${(activeChampion.amount || Math.round((Math.max(fundedMembersCount, 1) * gameweekStake) * (rules.weekly / 100))).toLocaleString()}`}
                                             </p>
                                             <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
                                                 {Number(rules.weekly || 0) === 0
                                                     ? "Total Season Jackpot • All points count toward Season Grand Prize 🏆"
-                                                    : `${members.filter(m => m.hasPaid && m.isActive !== false).length} active funded contributors`}
+                                                    : `${Math.max(fundedMembersCount, 1)} active funded contributor${Math.max(fundedMembersCount, 1) === 1 ? '' : 's'} · ${rules.weekly}% of KES ${(Math.max(fundedMembersCount, 1) * gameweekStake).toLocaleString()} pool`}
                                             </p>
                                         </div>
                                     </div>
@@ -2456,9 +2463,29 @@ export default function MemberDashboard() {
                                 </h3>
                                 <p className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">Historical payouts and scheduled rounds</p>
                             </div>
-                            <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
-                                Kickoff GW{effectiveMdStartGw}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.selection();
+                                        const targetGw = Number(currentFplEvent?.id || activeChampion?.event || effectiveMdStartGw || 1);
+                                        const rail = ledgerRailRef.current;
+                                        if (!rail) return;
+                                        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
+                                        if (gwCard) {
+                                            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
+                                            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+                                        }
+                                    }}
+                                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                                    title="Scroll rail to active round"
+                                >
+                                    GW{currentFplEvent?.id || effectiveMdStartGw} • Jump 🎯
+                                </button>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                                    Kickoff GW{effectiveMdStartGw}
+                                </span>
+                            </div>
                         </div>
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory" style={{ scrollbarWidth: 'thin' }}>
                             {gwWinnersLedger.map((item: any) => {
@@ -2867,33 +2894,7 @@ export default function MemberDashboard() {
                                     </div>
                                 )}
 
-                                {/* High-value shortcuts when member is fully covered */}
-                                {isCurrentFunded && !isRecentWinner && !isCurrentGwVoided && !isSpectator && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-white/5">
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate('/sidebets')}
-                                            className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
-                                        >
-                                            <Swords className="w-3.5 h-3.5 text-amber-500" /> Side Bets
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate('/standings')}
-                                            className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
-                                        >
-                                            <Trophy className="w-3.5 h-3.5 text-amber-500" /> Standings
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate('/finances')}
-                                            className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
-                                        >
-                                            <Wallet className="w-3.5 h-3.5 text-emerald-500" /> Finances
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                                 </div>
 
                             {isSpectator ? (
                                 <div className="flex flex-col gap-2 mt-auto">
@@ -3109,19 +3110,7 @@ export default function MemberDashboard() {
                     </div>
                 )}
 
-                {/* === ROW 2: Pot & Vault Banner === */}
-                <div className="mb-4">
-                    <PotVaultSwapper
-                        weeklyPot={weeklyPot}
-                        seasonVault={seasonVaultAccumulated}
-                        weeklyRulesPercent={rules.weekly}
-                        isStealthMode={isStealthMode}
-                        projectedSeasonVault={seasonVaultProjected}
-                        leagueStartGw={effectiveMdStartGw}
-                    />
-                </div>
-
-                {/* === ROW 3: Performance Trajectory Chart === */}
+                {/* === Performance Trajectory Chart === */}
                 <div className="fc-member-chart mb-4 bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 shadow-xl rounded-[1.5rem] p-5 flex flex-col justify-between text-slate-900 dark:text-white">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                         <div>
