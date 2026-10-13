@@ -110,6 +110,7 @@ export default function Standings() {
     const [forfeitedGws, setForfeitedGws] = useState<number[]>([]);
     const [leagueStartGw, setLeagueStartGw] = useState<number>(1);
     const [preChamaPointsMap, setPreChamaPointsMap] = useState<Record<number, number>>({});
+    const [memberDepositsMap, setMemberDepositsMap] = useState<Record<string, number>>({});
     const [standingsMode, setStandingsMode] = useState<'clean_slate' | 'raw_fpl'>('clean_slate');
     const [payoutRows, setPayoutRows] = useState<any[]>([]);
     const [pendingPayouts, setPendingPayouts] = useState<any[]>([]);
@@ -324,7 +325,8 @@ export default function Standings() {
     }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
 
     // Effective league start configured for the chama
-    const effectiveLeagueStartGw = Number(leagueStartGw) > 0 ? Number(leagueStartGw) : 1;
+    const rawStartGw = Number(leagueStartGw || (league as any)?.startGw || (league as any)?.startGameweek || (league as any)?.rules?.startGw || 6);
+    const effectiveLeagueStartGw = Math.max(1, rawStartGw || 6);
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -380,10 +382,12 @@ export default function Standings() {
                             setLeagueGameweekStake(Number(lData.monthlyFee));
                         }
                         if (lData.forfeitedGws) setForfeitedGws(lData.forfeitedGws);
-                        if (lData.startGw) {
-                            setLeagueStartGw(Number(lData.startGw));
+                        if (lData.startGw || lData.startGameweek || lData.rules?.startGw) {
+                            setLeagueStartGw(Number(lData.startGw || lData.startGameweek || lData.rules?.startGw));
+                        } else if ((league as any)?.startGw) {
+                            setLeagueStartGw(Number((league as any).startGw));
                         } else {
-                            setLeagueStartGw(1);
+                            setLeagueStartGw(6);
                         }
                         if (lData.fplLeagueId) {
                             setDbFplLeagueId(Number(lData.fplLeagueId));
@@ -574,6 +578,21 @@ export default function Standings() {
                             return { ...tx, gameweek: gw, gw };
                         });
                     setPayoutRows(payoutRowsData);
+
+                    const depMap: Record<string, number> = {};
+                    txSnap.docs.forEach((txDoc) => {
+                        const tx = txDoc.data() as any;
+                        if (tx.type === 'deposit' || tx.type === 'payment' || tx.type === 'credit' || tx.type === 'wallet_topup') {
+                            const amt = Number(tx.amount || 0);
+                            if (amt > 0) {
+                                if (tx.memberId) depMap[tx.memberId] = (depMap[tx.memberId] || 0) + amt;
+                                if (tx.userId) depMap[tx.userId] = (depMap[tx.userId] || 0) + amt;
+                                if (tx.memberName) depMap[tx.memberName.toLowerCase().trim()] = (depMap[tx.memberName.toLowerCase().trim()] || 0) + amt;
+                                if (tx.displayName) depMap[tx.displayName.toLowerCase().trim()] = (depMap[tx.displayName.toLowerCase().trim()] || 0) + amt;
+                            }
+                        }
+                    });
+                    setMemberDepositsMap(depMap);
 
                     try {
                         const pendingSnap = await getDocs(collection(db, 'leagues', activeLeagueId, 'pending_payouts'));
@@ -807,7 +826,16 @@ export default function Standings() {
         Boolean(m && m.isPending === true && !m.hasPaid && Number(m.walletBalance || 0) <= 0);
 
     const hasEverFunded = (m: any) =>
-        Boolean(m && (m.hasPaid === true || Number(m.walletBalance || 0) > 0 || Number((m as any).totalContributed || 0) > 0 || Number((m as any).totalDeposited || 0) > 0));
+        Boolean(
+            m && (
+                m.hasPaid === true ||
+                Number(m.walletBalance || 0) > 0 ||
+                Number((m as any).totalContributed || 0) > 0 ||
+                Number((m as any).totalDeposited || 0) > 0 ||
+                Number(memberDepositsMap[m.id || ''] || 0) > 0 ||
+                Number(memberDepositsMap[m.displayName?.toLowerCase().trim() || ''] || 0) > 0
+            )
+        );
 
     // End-season snapshot: Omit spectators, eliminated members, and un-funded members; rank contenders by total score
     const seasonPool = standingsData.filter((r: any) => {
@@ -821,7 +849,7 @@ export default function Standings() {
         return true;
     }).map((r: any) => {
         const rawPre = preChamaPointsMap[Number(r.entry)];
-        const fallbackPre = (effectiveLeagueStartGw > 1 && currentEvent === effectiveLeagueStartGw)
+        const fallbackPre = (effectiveLeagueStartGw > 1)
             ? Math.max(0, Number(r.total || 0) - Number(r.event_total || 0))
             : 0;
         const preDeduction = (standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1)
@@ -1293,7 +1321,7 @@ export default function Standings() {
                                     })
                                     .map((row: any) => {
                                         const rawPre = preChamaPointsMap[Number(row.entry)];
-                                        const fallbackPre = (effectiveLeagueStartGw > 1 && currentEvent === effectiveLeagueStartGw)
+                                        const fallbackPre = (effectiveLeagueStartGw > 1)
                                             ? Math.max(0, Number(row.total || 0) - Number(row.event_total || 0))
                                             : 0;
                                         const preDeduction = isCleanSlateActive
@@ -1357,16 +1385,25 @@ export default function Standings() {
                                     maxEligibleGwScore > 0 &&
                                     Number(row.event_total) === maxEligibleGwScore
                                 );
+                                const memberDeposited = Math.max(
+                                    totalDeposited,
+                                    Number(memberDepositsMap[matchedMember?.id || ''] || 0),
+                                    Number(memberDepositsMap[matchedMember?.displayName?.toLowerCase().trim() || ''] || 0),
+                                    Number(memberDepositsMap[row.player_name?.toLowerCase().trim() || ''] || 0)
+                                );
                                 const isFunded = Boolean(
-                                    matchedMember &&
-                                    matchedMember.isActive !== false &&
-                                    !isSpectator &&
+                                    isGwWinnerRow ||
                                     (
-                                        matchedMember.hasPaid === true ||
-                                        memberBalance > 0 ||
-                                        (stake > 0 && memberBalance >= stake) ||
-                                        (stake > 0 && totalDeposited >= stake) ||
-                                        isGwWinnerRow
+                                        matchedMember &&
+                                        matchedMember.isActive !== false &&
+                                        !isSpectator &&
+                                        (
+                                            matchedMember.hasPaid === true ||
+                                            memberBalance > 0 ||
+                                            memberDeposited > 0 ||
+                                            (stake > 0 && memberBalance >= stake) ||
+                                            (stake > 0 && memberDeposited >= stake)
+                                        )
                                     )
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
@@ -1471,11 +1508,6 @@ export default function Standings() {
                                                         </span>
                                                         <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg md:bg-transparent md:border-0 md:p-0">
                                                             {displaySeasonTotal.toLocaleString()}
-                                                            {isCleanSlateActive && row.preDeduction > 0 && (
-                                                                <span className="block text-[8px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
-                                                                    (-{row.preDeduction} pre-GW{effectiveLeagueStartGw})
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-2 md:order-1">
@@ -1504,11 +1536,6 @@ export default function Standings() {
                                                         </span>
                                                         <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">
                                                             {displaySeasonTotal.toLocaleString()}
-                                                            {isCleanSlateActive && row.preDeduction > 0 && (
-                                                                <span className="block text-[8px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
-                                                                    (-{row.preDeduction})
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                 </>

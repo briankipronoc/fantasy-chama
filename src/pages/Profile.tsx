@@ -1448,7 +1448,7 @@ export default function Profile() {
                             </div>
                             <div>
                                 <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                    League Governance
+                                    League Settings & Constitution Rules
                                 </h3>
                                 <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
                                     Configure league name, gameweek stake, payout splits, and co-chair
