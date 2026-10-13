@@ -1496,18 +1496,29 @@ export default function Profile() {
 
     const renderLeagueSettingsModal = () => (
         showLeagueSettingsModal && createPortal(
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden">
-                    <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-[#161d24]/95 backdrop-blur-sm shrink-0 sticky top-0 z-20">
+            <div 
+                className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                onClick={() => setShowLeagueSettingsModal(false)}
+            >
+                <div 
+                    className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
                                 <Trophy className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                    League Settings & Constitution Rules
-                                </h3>
-                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                        CHAMA CONSTITUTION & RULES
+                                    </h3>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                        Official Rulebook
+                                    </span>
+                                </div>
+                                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
                                     Configure league name, gameweek stake, payout splits, and co-chair
                                 </p>
                             </div>
@@ -1515,13 +1526,14 @@ export default function Profile() {
                         <button
                             type="button"
                             onClick={() => { haptics.selection(); setShowLeagueSettingsModal(false); }}
-                            className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                            className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer active:scale-95 shrink-0"
+                            aria-label="Close"
                         >
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+                    <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                         {renderLeagueSettingsForm()}
                     </div>
                 </div>
@@ -1798,14 +1810,6 @@ export default function Profile() {
                 })}
             </div>
         </div>
-    );
-
-    const isSuperAdminUser = Boolean(
-        auth.currentUser?.email?.toLowerCase() === 'cbrian@kabarak.ac.ke' ||
-        auth.currentUser?.uid === import.meta.env.VITE_SUPER_ADMIN_UID ||
-        activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
-        role === 'admin' ||
-        localStorage.getItem('isSuperAdmin') === 'true'
     );
 
     return (
@@ -2187,38 +2191,6 @@ export default function Profile() {
                                             <span>→</span>
                                         </div>
                                     </div>
-
-                                    {/* Tile 5: SuperAdmin HQ (SuperAdmin only) */}
-                                    {isSuperAdminUser && (
-                                        <div
-                                            onClick={() => {
-                                                haptics.selection();
-                                                navigate('/hq');
-                                            }}
-                                            className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-purple-500/25 dark:border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
-                                        >
-                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                                <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                                                    <ShieldCheck className="w-4 h-4" />
-                                                </div>
-                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                                    HQ
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                                                    SuperAdmin HQ
-                                                </h4>
-                                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                                    Master cross-league platform telemetry
-                                                </p>
-                                            </div>
-                                            <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-purple-600 dark:text-purple-400">
-                                                <span>Launch HQ</span>
-                                                <span>↗</span>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2329,38 +2301,6 @@ export default function Profile() {
                                     <span>→</span>
                                 </div>
                             </div>
-
-                            {/* Member Tile 4: SuperAdmin HQ (if superadmin) */}
-                            {isSuperAdminUser && (
-                                <div
-                                    onClick={() => {
-                                        haptics.selection();
-                                        navigate('/hq');
-                                    }}
-                                    className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-purple-500/25 dark:border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
-                                >
-                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-                                            <ShieldCheck className="w-5 h-5" />
-                                        </div>
-                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                            HQ
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                                            SuperAdmin HQ
-                                        </h4>
-                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                            Master platform telemetry & controls
-                                        </p>
-                                    </div>
-                                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-purple-600 dark:text-purple-400">
-                                        <span>Launch HQ</span>
-                                        <span>↗</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 )}
@@ -2371,36 +2311,45 @@ export default function Profile() {
 
             {/* Members Directory Modal */}
             {showMembersModal && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                    onClick={() => setShowMembersModal(false)}
+                >
+                    <div 
+                        className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs">
+                                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shadow-xs shrink-0">
                                     <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                            Active Members Directory
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            ACTIVE MEMBERS ROSTER
                                         </h3>
                                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                                            {activeMembersCount} Roster Members
+                                            {activeMembersCount} Active Members
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
-                                        Roster management, activation status, wallet top ups & onboarding
+                                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
+                                        Roster directory, activation status, wallet top ups & onboarding
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => { haptics.selection(); setShowMembersModal(false); }}
-                                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer active:scale-95 shrink-0"
+                                aria-label="Close"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        {renderActiveMembersStrip('!border-0 !shadow-none !bg-transparent !p-0')}
+                        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto flex-1">
+                            {renderActiveMembersStrip('!border-0 !shadow-none !bg-transparent !p-0')}
+                        </div>
                     </div>
                 </div>,
                 document.body
@@ -2411,23 +2360,29 @@ export default function Profile() {
 
             {/* Danger Zone / Succession Modal */}
             {showDangerZoneModal && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#121820] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] p-5 sm:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-4 mb-5 border-b border-rose-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                    onClick={() => setShowDangerZoneModal(false)}
+                >
+                    <div 
+                        className="bg-white dark:bg-[#121820] border border-rose-300 dark:border-rose-500/30 rounded-[2rem] max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-rose-200 dark:border-white/10 bg-rose-50/70 dark:bg-[#1a1317]/95 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shadow-xs">
+                                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shadow-xs shrink-0">
                                     <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                            Succession & League Governance
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            SUCCESSION & LEAGUE GOVERNANCE
                                         </h3>
                                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
                                             Admin Only
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
+                                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
                                         Step down, transfer chairmanship to a manager, or dissolve the league
                                     </p>
                                 </div>
@@ -2435,12 +2390,15 @@ export default function Profile() {
                             <button
                                 type="button"
                                 onClick={() => { haptics.selection(); setShowDangerZoneModal(false); }}
-                                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer active:scale-95 shrink-0"
+                                aria-label="Close"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        {renderOwnershipAndDangerZoneCard('!border-0 !shadow-none !bg-transparent !p-0')}
+                        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto flex-1">
+                            {renderOwnershipAndDangerZoneCard('!border-0 !shadow-none !bg-transparent !p-0')}
+                        </div>
                     </div>
                 </div>,
                 document.body
@@ -2448,23 +2406,29 @@ export default function Profile() {
 
             {/* Session Credentials Modal */}
             {showSessionModal && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] p-5 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative text-slate-900 dark:text-white">
-                        <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-200 dark:border-white/10 sticky top-0 bg-white/95 dark:bg-[#121820]/95 backdrop-blur-sm z-20">
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+                    onClick={() => setShowSessionModal(false)}
+                >
+                    <div 
+                        className="bg-white dark:bg-[#121820] border border-slate-200 dark:border-white/10 rounded-[2rem] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl relative text-slate-900 dark:text-white overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/90 dark:bg-[#161d24]/95 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shadow-xs">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shadow-xs shrink-0">
                                     <Fingerprint className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                            Account & Session Security
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h3 className="text-sm sm:text-base md:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            ACCOUNT & SESSION SECURITY
                                         </h3>
                                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                                             Verified Session
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
+                                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
                                         Cryptographic identifiers, authenticated UID, and security audit details
                                     </p>
                                 </div>
@@ -2472,12 +2436,15 @@ export default function Profile() {
                             <button
                                 type="button"
                                 onClick={() => { haptics.selection(); setShowSessionModal(false); }}
-                                className="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-gray-400 transition cursor-pointer"
+                                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white transition-all cursor-pointer active:scale-95 shrink-0"
+                                aria-label="Close"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        {renderSessionDetailsContent()}
+                        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto flex-1">
+                            {renderSessionDetailsContent()}
+                        </div>
                     </div>
                 </div>,
                 document.body

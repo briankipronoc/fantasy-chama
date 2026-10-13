@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info, Sparkles } from 'lucide-react';
+import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info, Sparkles, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
@@ -662,7 +662,8 @@ export default function Standings() {
 
     useEffect(() => {
         if (isLoading) return;
-        const targetGw = (isCurrentEventFinished && currentEvent) ? currentEvent : (currentEvent || 1);
+        const upcomingGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1);
+        const targetGw = Math.max(Number(effectiveLeagueStartGw || 1), Number(upcomingGw || 1));
         
         const scrollAction = () => {
             const rail = ledgerRailRef.current;
@@ -688,7 +689,7 @@ export default function Standings() {
             clearTimeout(t3);
             clearTimeout(t4);
         };
-    }, [isLoading, currentEvent, isCurrentEventFinished, performanceData.length, payoutRows.length]);
+    }, [isLoading, currentEvent, isCurrentEventFinished, effectiveLeagueStartGw, performanceData.length, payoutRows.length]);
 
     const getMemberStatus = (playerName: string, entryName: string, entryId: number) => {
         const norm = (s: string) => (s || '').toLowerCase().trim();
@@ -878,6 +879,7 @@ export default function Standings() {
         if (!hasEverFunded(m)) return false;
         return true;
     }).map((r: any) => {
+        const isPreSeasonRound = effectiveLeagueStartGw > 1 && Number(currentEvent || 1) < effectiveLeagueStartGw;
         const rawPre = preChamaPointsMap[Number(r.entry)];
         const fallbackPre = (effectiveLeagueStartGw > 1)
             ? Math.max(0, Number(r.total || 0) - Number(r.event_total || 0))
@@ -885,7 +887,9 @@ export default function Standings() {
         const preDeduction = (standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1)
             ? (rawPre !== undefined && rawPre > 0 ? rawPre : fallbackPre)
             : 0;
-        const cleanTotal = Math.max(0, Number(r.total || 0) - preDeduction);
+        const cleanTotal = (isPreSeasonRound && standingsMode === 'clean_slate')
+            ? 0
+            : Math.max(0, Number(r.total || 0) - preDeduction);
         return {
             ...r,
             cleanTotal,
@@ -1370,7 +1374,10 @@ export default function Standings() {
                                         const preDeduction = isCleanSlateActive
                                             ? (rawPre !== undefined && rawPre > 0 ? rawPre : fallbackPre)
                                             : 0;
-                                        const cleanTotal = Math.max(0, Number(row.total || 0) - preDeduction);
+                                        const isPreSeasonRound = effectiveLeagueStartGw > 1 && Number(currentEvent || 1) < effectiveLeagueStartGw;
+                                        const cleanTotal = (isPreSeasonRound && isCleanSlateActive)
+                                            ? 0
+                                            : Math.max(0, Number(row.total || 0) - preDeduction);
                                         const seasonCompareScore = isCleanSlateActive ? cleanTotal : Number(row.total || 0);
                                         return {
                                             ...row,
@@ -1432,15 +1439,19 @@ export default function Standings() {
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const isSeasonView = heroRankView === 'season';
-                                const displaySeasonTotal = isCleanSlateActive ? Number(row.cleanTotal ?? (row.total - (row.preDeduction || 0))) : Number(row.total || 0);
+                                const displaySeasonTotal = isCleanSlateActive ? Number(row.cleanTotal ?? 0) : Number(row.total || 0);
                                 const maxSeasonScore = Math.max(...filteredRows.map((r: any) => Number(r.seasonCompareScore || 0)), 0);
-                                const isOverallSeasonLeader = !isSpectator && maxSeasonScore > 0 && Number(row.seasonCompareScore) === maxSeasonScore;
-                                const isSeasonLeader = isSeasonView ? rankNum === 1 : isOverallSeasonLeader;
+                                const isOverallSeasonLeader = !isSpectator && !isRowPendingOnboarding && isFunded && maxSeasonScore > 0 && Number(row.seasonCompareScore) === maxSeasonScore;
+                                const isSeasonLeader = isSeasonView ? (rankNum === 1 && !isRowPendingOnboarding && isFunded) : isOverallSeasonLeader;
                                 const isDoubleCrown = isOverallSeasonLeader && isGwWinnerRow;
-                                const medal = isSeasonView
+                                const medal = (isRowPendingOnboarding || !isFunded || isSpectator)
+                                    ? null
+                                    : isSeasonView
                                     ? (rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null)
                                     : (rankNum === 1 ? '🥇' : null);
-                                const podiumBorder = isDoubleCrown
+                                const podiumBorder = (isRowPendingOnboarding || !isFunded || isSpectator)
+                                    ? 'border-l-4 border-l-transparent'
+                                    : isDoubleCrown
                                     ? 'border-l-4 border-l-amber-400 ring-2 ring-amber-400/60'
                                     : isSeasonLeader
                                     ? 'border-l-4 border-l-amber-400 ring-1 ring-amber-400/50'
@@ -1990,10 +2001,37 @@ export default function Standings() {
 
                 {!error && gwWinnersLedger.length > 0 && (
                     <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm dark:shadow-xl">
-                        <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                             <div>
                                 <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">Gameweek Winners Ledger</h3>
                                 <p className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">Historical and upcoming round payouts</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        haptics.impact();
+                                        const upcomingGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1);
+                                        const targetGw = Math.max(Number(effectiveLeagueStartGw || 1), Number(upcomingGw || 1));
+                                        const rail = ledgerRailRef.current;
+                                        if (!rail) return;
+                                        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
+                                        if (gwCard) {
+                                            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
+                                            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+                                        }
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs"
+                                    title={`Spring back to active / upcoming round (GW${Math.max(Number(effectiveLeagueStartGw || 1), Number((isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1)))})`}
+                                >
+                                    <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                                    <span>Spring to GW{Math.max(Number(effectiveLeagueStartGw || 1), Number((isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1)))} 🎯</span>
+                                </button>
+                                {effectiveLeagueStartGw > 1 && (
+                                    <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hidden sm:inline-block">
+                                        Kickoff GW{effectiveLeagueStartGw}
+                                    </span>
+                                )}
                             </div>
                         </div>
                         <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">

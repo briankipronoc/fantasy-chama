@@ -1700,11 +1700,12 @@ export default function MemberDashboard() {
     const completedLeagueGws = Math.max(0, completedRounds);
     const seasonProgressPct = totalLeagueGws > 0 ? Math.round((completedLeagueGws / totalLeagueGws) * 100) : 0;
 
-    // Auto-scroll Gameweek Winners Ledger rail directly to recent winner / active round
+    // Auto-scroll Gameweek Winners Ledger rail directly to kickoff / active round
     useEffect(() => {
-        const targetGw = (currentFplEvent?.id)
-            ? Number(currentFplEvent.id)
-            : (activeChampion?.event ? Number(activeChampion.event) : 1);
+        const upcomingGw = (currentFplEvent?.finished && currentFplEvent?.id)
+            ? Number(currentFplEvent.id) + 1
+            : Number(currentFplEvent?.id || 1);
+        const targetGw = Math.max(Number(effectiveMdStartGw || 1), Number(upcomingGw || 1));
 
         const scrollAction = () => {
             const rail = ledgerRailRef.current;
@@ -1718,7 +1719,7 @@ export default function MemberDashboard() {
 
         const timer = setTimeout(scrollAction, 150);
         return () => clearTimeout(timer);
-    }, [currentFplEvent?.id, activeChampion?.event, gwWinnersLedger.length]);
+    }, [currentFplEvent?.id, currentFplEvent?.finished, effectiveMdStartGw, activeChampion?.event, gwWinnersLedger.length]);
 
     // Set of distinct emojis already sent by the current user for this gameweek (max 2 distinct allowed)
     const mySentEmojis = useMemo<string[]>(() => {
@@ -2570,7 +2571,10 @@ export default function MemberDashboard() {
                                     type="button"
                                     onClick={() => {
                                         haptics.selection();
-                                        const targetGw = Number(currentFplEvent?.id || activeChampion?.event || effectiveMdStartGw || 1);
+                                        const upcomingGw = (currentFplEvent?.finished && currentFplEvent?.id)
+                                            ? Number(currentFplEvent.id) + 1
+                                            : Number(currentFplEvent?.id || 1);
+                                        const targetGw = Math.max(Number(effectiveMdStartGw || 1), Number(upcomingGw || 1));
                                         const rail = ledgerRailRef.current;
                                         if (!rail) return;
                                         const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
@@ -2579,10 +2583,10 @@ export default function MemberDashboard() {
                                             rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
                                         }
                                     }}
-                                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer"
-                                    title="Scroll rail to active round"
+                                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer shadow-xs"
+                                    title="Spring back to active / upcoming round"
                                 >
-                                    GW{currentFplEvent?.id || effectiveMdStartGw} • Jump 🎯
+                                    Spring to GW{Math.max(Number(effectiveMdStartGw || 1), Number((currentFplEvent?.finished && currentFplEvent?.id) ? Number(currentFplEvent.id) + 1 : Number(currentFplEvent?.id || 1)))} 🎯
                                 </button>
                                 <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                                     Kickoff GW{effectiveMdStartGw}
