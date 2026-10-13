@@ -17,6 +17,7 @@ export default function Deposit() {
     const [chairmanPhone, setChairmanPhone] = useState<string>('');
     const [leagueName, setLeagueName] = useState<string>('Your League');
     const [mpesaEnabled, setMpesaEnabled] = useState<boolean>(false);
+    const [isPilotMode, setIsPilotMode] = useState<boolean>(true);
     const [isLoading, setIsLoading] = useState(false);
     const [copiedPhone, setCopiedPhone] = useState(false);
     const [isSubmittingPochiAck, setIsSubmittingPochiAck] = useState(false);
@@ -41,6 +42,7 @@ export default function Deposit() {
                     setChairmanPhone(data.chairmanPhone || '');
                     setLeagueName(data.leagueName || 'Your League');
                     setMpesaEnabled(data.mpesaEnabled === true);
+                    setIsPilotMode(data.pilotMode !== false);
                 }
             });
         }
@@ -384,69 +386,71 @@ export default function Deposit() {
                     </div>
                 </div>
 
-                {/* ── STK PUSH SECONDARY CARD ── */}
-                <div className="fc-card rounded-[1.5rem] overflow-hidden mb-4 fc-slide-up" style={{ animationDelay: '0.15s' }}>
-                    <div className={`p-5 ${!mpesaEnabled ? 'opacity-45' : ''}`}>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-[0.875rem] flex items-center justify-center"
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                    <QrCode className="w-5 h-5 text-gray-400" />
-                                </div>
-                                <div>
-                                    <p className="font-bold text-white text-sm leading-none mb-0.5">M-Pesa STK Push</p>
-                                    <p className="text-[10px] text-gray-500 font-medium">Automated payment prompt</p>
-                                </div>
-                            </div>
-                            {!mpesaEnabled && (
-                                <span className="text-[9px] font-bold px-2.5 py-1.5 rounded-full uppercase tracking-widest"
-                                    style={{ color: '#FBBF24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.15)' }}>
-                                    Coming Soon
-                                </span>
-                            )}
-                        </div>
-
-                        {!mpesaEnabled ? (
-                            <div className="rounded-[0.875rem] p-4"
-                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <div className="flex items-start gap-3">
-                                    <Zap className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" />
-                                    <p className="text-gray-600 text-[11px] leading-relaxed">
-                                        Automatic M-Pesa paybill integration is being configured. Once your chairman enables it, payments will be triggered directly from this app.
-                                    </p>
-                                </div>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleStkPush} className="space-y-4">
-                                <div>
-                                    <label className="fc-label mb-1.5 block">M-Pesa Number</label>
-                                    <div className="relative">
-                                        <span className="absolute inset-y-0 left-4 flex items-center text-gray-500 text-sm font-bold">+254</span>
-                                        <input
-                                            type="text"
-                                            value={phoneNumber.replace('254', '')}
-                                            onChange={e => setPhoneNumber(`254${e.target.value.replace(/\D/g, '').slice(0, 9)}`)}
-                                            className="fc-input pl-14"
-                                            placeholder="7X XXXXXXX"
-                                        />
+                {/* ── STK PUSH SECONDARY CARD (Commercial Mode or when M-Pesa is explicitly enabled) ── */}
+                {(!isPilotMode || mpesaEnabled) && (
+                    <div className="fc-card rounded-[1.5rem] overflow-hidden mb-4 fc-slide-up" style={{ animationDelay: '0.15s' }}>
+                        <div className={`p-5 ${!mpesaEnabled ? 'opacity-45' : ''}`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-[0.875rem] flex items-center justify-center"
+                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <QrCode className="w-5 h-5 text-gray-400" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-white text-sm leading-none mb-0.5">M-Pesa STK Push</p>
+                                        <p className="text-[10px] text-gray-500 font-medium">Automated payment prompt</p>
                                     </div>
                                 </div>
-                                <button
-                                    type="submit"
-                                    disabled={isLoading || finalAmount <= 0}
-                                    className="w-full flex items-center justify-center gap-2 font-black py-4 px-6 rounded-[0.875rem] text-sm transition-all disabled:opacity-50"
-                                    style={{ background: '#FBBF24', color: '#0a0700', boxShadow: '0 0 20px rgba(251,191,36,0.2)' }}
-                                >
-                                    {isLoading ? (
-                                        <><span className="w-4 h-4 border-2 border-black/40 border-t-transparent rounded-full animate-spin" /> Awaiting PIN...</>
-                                    ) : (
-                                        <>Push KES {finalAmount > 0 ? finalAmount.toLocaleString() : '...'} to my Phone <ArrowRight className="w-4 h-4" /></>
-                                    )}
-                                </button>
-                            </form>
-                        )}
+                                {!mpesaEnabled && (
+                                    <span className="text-[9px] font-bold px-2.5 py-1.5 rounded-full uppercase tracking-widest"
+                                        style={{ color: '#FBBF24', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                                        Coming Soon
+                                    </span>
+                                )}
+                            </div>
+
+                            {!mpesaEnabled ? (
+                                <div className="rounded-[0.875rem] p-4"
+                                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div className="flex items-start gap-3">
+                                        <Zap className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" />
+                                        <p className="text-gray-600 text-[11px] leading-relaxed">
+                                            Automatic M-Pesa paybill integration is being configured. Once your chairman enables it, payments will be triggered directly from this app.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleStkPush} className="space-y-4">
+                                    <div>
+                                        <label className="fc-label mb-1.5 block">M-Pesa Number</label>
+                                        <div className="relative">
+                                            <span className="absolute inset-y-0 left-4 flex items-center text-gray-500 text-sm font-bold">+254</span>
+                                            <input
+                                                type="text"
+                                                value={phoneNumber.replace('254', '')}
+                                                onChange={e => setPhoneNumber(`254${e.target.value.replace(/\D/g, '').slice(0, 9)}`)}
+                                                className="fc-input pl-14"
+                                                placeholder="7X XXXXXXX"
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={isLoading || finalAmount <= 0}
+                                        className="w-full flex items-center justify-center gap-2 font-black py-4 px-6 rounded-[0.875rem] text-sm transition-all disabled:opacity-50"
+                                        style={{ background: '#FBBF24', color: '#0a0700', boxShadow: '0 0 20px rgba(251,191,36,0.2)' }}
+                                    >
+                                        {isLoading ? (
+                                            <><span className="w-4 h-4 border-2 border-black/40 border-t-transparent rounded-full animate-spin" /> Awaiting PIN...</>
+                                        ) : (
+                                            <>Push KES {finalAmount > 0 ? finalAmount.toLocaleString() : '...'} to my Phone <ArrowRight className="w-4 h-4" /></>
+                                        )}
+                                    </button>
+                                </form>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Footer */}
                 <div className="mt-2 flex items-center justify-center gap-2 text-gray-600 text-[10px] font-medium fc-slide-up" style={{ animationDelay: '0.2s' }}>

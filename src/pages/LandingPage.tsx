@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
+import clsx from 'clsx';
 import { Trophy, ArrowRight, Shield, Zap, Lock, Banknote, Users, Smartphone, TrendingUp, CheckCircle2, Flame, MessageSquare, Calculator, Copy, Shirt, Swords, Sparkles, Share2 } from 'lucide-react';
 
 // ─── Crisp, Zero-Scroll Animated Ledger Demo ────────────────────────────────
@@ -670,23 +673,44 @@ function LedgerDemo() {
 // ─── The Pot Engine Calculator With Interactive Dual-Segment Split Bar ─────────────
 function TrustSlider() {
     const [numPlayers, setNumPlayers] = useState(10);
+    const [startGw, setStartGw] = useState(1);
     const [stakePerGw, setStakePerGw] = useState(1000);
     const [splitWeekly, setSplitWeekly] = useState(70); // 0 to 100% weekly winner pot
-    
+    const [isPilotMode, setIsPilotMode] = useState(true);
+
+    // Sync with HQ global platform settings
+    useEffect(() => {
+        const unsub = onSnapshot(doc(db, 'platform_settings', 'global'), (snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                setIsPilotMode(data.isPilotMode !== false);
+            }
+        }, (err) => {
+            console.warn('[landing] platform_settings listener error:', err);
+        });
+        return () => unsub();
+    }, []);
+
+    const remainingGws = Math.max(1, 38 - startGw + 1);
     const splitVault = 100 - splitWeekly; // remainder into season finale vault
     const potSize = numPlayers * stakePerGw;
-    const netPot = potSize * 0.91;
+
+    // Pilot Mode: 0% Platform HQ cut (100% pass-through). Net pot is 96% (4% Chairman fee).
+    // Commercial Mode: 91% Net pot (4% Chairman, 3.5% Platform HQ, 1.5% M-Pesa Disbursals).
+    const netPotPercent = isPilotMode ? 0.96 : 0.91;
+    const netPot = potSize * netPotPercent;
     const weeklyWinnerPrize = Math.round(netPot * (splitWeekly / 100));
     const seasonVaultWeekly = Math.round(netPot * (splitVault / 100));
-    const seasonVaultTotal = seasonVaultWeekly * 38;
+    const seasonVaultTotal = seasonVaultWeekly * remainingGws;
 
-    const adminCut = potSize * 0.09;
     const chairCut = potSize * 0.04;
-    const hqCut = potSize * 0.035;
-    const mpesaCut = potSize * 0.015;
+    const hqCut = isPilotMode ? 0 : potSize * 0.035;
+    const mpesaCut = isPilotMode ? 0 : potSize * 0.015;
+    const adminCut = chairCut + hqCut + mpesaCut;
 
     const playersPercent = ((numPlayers - 2) / (50 - 2)) * 100;
-    const stakePercent = ((stakePerGw - 100) / (5000 - 100)) * 100;
+    const startGwPercent = ((startGw - 1) / (38 - 1)) * 100;
+    const stakePercent = Math.min(100, Math.max(0, ((stakePerGw - 50) / (3000 - 50)) * 100));
 
     return (
         <section className="fc-landing-section py-10 sm:py-16 md:py-20 max-w-5xl mx-auto px-4 sm:px-6 relative z-30">
@@ -701,14 +725,17 @@ function TrustSlider() {
                         Calculate Your League Pot &amp; Splits
                     </h2>
                     <p className="text-slate-600 dark:text-gray-400 font-medium text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
-                        Customize how much goes to the weekly matchday winner versus the season finale vault jackpot. 91% straight to managers, 0 hidden deductions.
+                        {isPilotMode
+                            ? "Customize how much goes to the weekly matchday winner versus the season finale vault jackpot. 96% straight to managers in Pilot, 0% platform fee."
+                            : "Customize how much goes to the weekly matchday winner versus the season finale vault jackpot. 91% straight to managers, 0 hidden deductions."}
                     </p>
                 </div>
 
                 <div className="space-y-6">
-                    {/* Controls: Players & Stake */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4">
+                    {/* Controls: Players, Start GW & Stake */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Number of Managers */}
+                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between">
                             <div className="flex justify-between items-end mb-2.5">
                                 <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">Number of Managers</span>
                                 <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">{numPlayers} managers</span>
@@ -731,15 +758,43 @@ function TrustSlider() {
                             </div>
                         </div>
 
-                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4">
+                        {/* Starting Gameweek */}
+                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between">
+                            <div className="flex justify-between items-end mb-2.5">
+                                <div>
+                                    <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest block">Starting Gameweek</span>
+                                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">{remainingGws} rounds to play</span>
+                                </div>
+                                <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums font-mono">GW {startGw}</span>
+                            </div>
+                            <input 
+                                type="range" 
+                                min="1" 
+                                max="38" 
+                                step="1" 
+                                value={startGw} 
+                                onChange={(e) => setStartGw(Number(e.target.value))}
+                                style={{
+                                    background: `linear-gradient(to right, #10b981 0%, #10b981 ${startGwPercent}%, var(--fc-slider-track) ${startGwPercent}%, var(--fc-slider-track) 100%)`
+                                }}
+                                className="fc-range w-full h-2 rounded-full appearance-none cursor-pointer transition-all"
+                                aria-label="Starting Gameweek"
+                            />
+                            <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-500 mt-1.5 font-semibold">
+                                <span>GW 1 (Season Start)</span><span>GW 38 (Finale)</span>
+                            </div>
+                        </div>
+
+                        {/* Stake per Gameweek: KES 50 - KES 3,000 */}
+                        <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col justify-between">
                             <div className="flex justify-between items-end mb-2.5">
                                 <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest">Stake per Gameweek</span>
                                 <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">KES {stakePerGw.toLocaleString()}</span>
                             </div>
                             <input 
                                 type="range" 
-                                min="100" 
-                                max="5000" 
+                                min="50" 
+                                max="3000" 
                                 step="50" 
                                 value={stakePerGw} 
                                 onChange={(e) => setStakePerGw(Number(e.target.value))}
@@ -750,20 +805,39 @@ function TrustSlider() {
                                 aria-label="Stake per Gameweek"
                             />
                             <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-500 mt-1.5 font-semibold">
-                                <span>KES 100</span><span>KES 5,000</span>
+                                <span>KES 50</span><span>KES 3,000</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Total Pool Banner */}
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-[#121920] border border-slate-200 dark:border-white/5">
+                    {/* Total Pool Banner & Mode Switch */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-[#121920] border border-slate-200 dark:border-white/5">
                         <div>
                             <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest block">Total Collected Per GW</span>
                             <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums">KES {potSize.toLocaleString()}</span>
                         </div>
-                        <div className="text-right">
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block">Net Manager Pot (91%)</span>
-                            <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">KES {Math.round(netPot).toLocaleString()}</span>
+                        <div className="flex items-center gap-3">
+                            <div className="text-right">
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block">
+                                    Net Manager Pot ({isPilotMode ? '96% Pilot' : '91%'})
+                                </span>
+                                <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                    KES {Math.round(netPot).toLocaleString()}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsPilotMode(prev => !prev)}
+                                className={clsx(
+                                    "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer shrink-0",
+                                    isPilotMode 
+                                        ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/25"
+                                        : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25"
+                                )}
+                                title="Toggle between Pilot (0% Platform Fee) and Commercial Mode"
+                            >
+                                {isPilotMode ? "🚀 Pilot (0% HQ Fee)" : "💼 Commercial (Paybill Active)"}
+                            </button>
                         </div>
                     </div>
 
@@ -881,7 +955,7 @@ function TrustSlider() {
                                     </p>
                                     {splitVault > 0 && (
                                         <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-800 dark:text-amber-300 text-[9px] font-black uppercase tracking-wider">
-                                            38 GWs ESCROW
+                                            {remainingGws} GWs ESCROW (GW {startGw} – 38)
                                         </span>
                                     )}
                                 </div>
@@ -893,10 +967,10 @@ function TrustSlider() {
                                 {splitVault > 0 ? (
                                     <>
                                         <p className="text-xs text-slate-700 dark:text-gray-300 font-semibold leading-relaxed">
-                                            Locked in escrow. Grows to <strong className="text-amber-800 dark:text-amber-300 font-black text-sm">KES {seasonVaultTotal.toLocaleString()}</strong> across 38 GWs for podium winners!
+                                            Locked in escrow. Grows to <strong className="text-amber-800 dark:text-amber-300 font-black text-sm">KES {seasonVaultTotal.toLocaleString()}</strong> across {remainingGws} GWs for podium winners!
                                         </p>
                                         <p className="text-[10.5px] text-amber-800/80 dark:text-amber-400/80 font-mono font-medium mt-1">
-                                            (KES {seasonVaultWeekly.toLocaleString()} / GW × 38 GWs = KES {seasonVaultTotal.toLocaleString()} Grand Jackpot)
+                                            (KES {seasonVaultWeekly.toLocaleString()} / GW × {remainingGws} GWs = KES {seasonVaultTotal.toLocaleString()} Grand Jackpot)
                                         </p>
                                     </>
                                 ) : (
@@ -907,20 +981,44 @@ function TrustSlider() {
                             </div>
                         </div>
 
-                        {/* Ops & Chairman Fee (9%) */}
+                        {/* Ops & Chairman Fee Card */}
                         <div className="md:col-span-4 bg-slate-50 dark:bg-[#161d24] border border-slate-200 dark:border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xs">
                             <div>
                                 <p className="text-[10px] font-black text-slate-700 dark:text-gray-300 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                                    <Banknote className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400" /> Ops &amp; Chairman (9%)
+                                    <Banknote className="w-3.5 h-3.5 text-slate-600 dark:text-gray-400" /> Ops &amp; Chairman ({isPilotMode ? '4% Pilot' : '9%'})
                                 </p>
                                 <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tabular-nums">
                                     KES {Math.round(adminCut).toLocaleString()}
                                 </p>
                             </div>
-                            <div className="space-y-1 mt-2 pt-2 border-t border-slate-200 dark:border-white/5 text-[11px] text-slate-600 dark:text-gray-400">
-                                <div className="flex justify-between font-medium"><span>Chairman Fee (4%)</span> <span className="text-slate-900 dark:text-white font-bold">KES {Math.round(chairCut).toLocaleString()}</span></div>
-                                <div className="flex justify-between font-medium"><span>Platform HQ (3.5%)</span> <span className="text-slate-900 dark:text-white font-bold">KES {Math.round(hqCut).toLocaleString()}</span></div>
-                                <div className="flex justify-between font-medium"><span>M-Pesa Disbursals (1.5%)</span> <span className="text-slate-900 dark:text-white font-bold">KES {Math.round(mpesaCut).toLocaleString()}</span></div>
+                            <div className="space-y-1.5 mt-2 pt-2 border-t border-slate-200 dark:border-white/5 text-[11px] text-slate-600 dark:text-gray-400">
+                                <div className="flex justify-between font-medium">
+                                    <span>Chairman Fee (4%)</span>
+                                    <span className="text-slate-900 dark:text-white font-bold">KES {Math.round(chairCut).toLocaleString()}</span>
+                                </div>
+                                {isPilotMode ? (
+                                    <>
+                                        <div className="flex justify-between font-medium text-amber-600 dark:text-amber-400">
+                                            <span>Platform HQ Fee</span>
+                                            <span className="font-bold">0% (Waived in Pilot 🚀)</span>
+                                        </div>
+                                        <div className="flex justify-between font-medium text-emerald-600 dark:text-emerald-400">
+                                            <span>M-Pesa Disbursals</span>
+                                            <span className="font-bold">Direct P2P Pass-Through</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="flex justify-between font-medium">
+                                            <span>Platform HQ (3.5%)</span>
+                                            <span className="text-slate-900 dark:text-white font-bold">KES {Math.round(hqCut).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between font-medium">
+                                            <span>M-Pesa Disbursals (1.5%)</span>
+                                            <span className="text-slate-900 dark:text-white font-bold">KES {Math.round(mpesaCut).toLocaleString()}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1106,7 +1204,7 @@ export default function LandingPage() {
                             </div>
                             <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1.5">Automated M-Pesa Vault</h3>
                             <p className="text-slate-600 dark:text-gray-400 text-xs leading-relaxed">
-                                91% straight to winners. Payouts calculate down to the shilling with zero manual Excel headaches.
+                                Transparent pot distribution straight to winners. Payouts calculate down to the shilling with zero manual Excel headaches.
                             </p>
                         </div>
 

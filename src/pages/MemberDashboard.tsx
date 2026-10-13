@@ -128,8 +128,9 @@ export default function MemberDashboard() {
     const logout = useStore(state => state.logout);
     const leagueSettings = useStore(state => state.league);
     
-    // Auto-Lockout: 48 Hour Grace Period
-    const pendingHQDebt = leagueSettings?.pendingHQDebt || 0;
+    // Auto-Lockout: 48 Hour Grace Period (Commercial Mode only)
+    const isPilotMode = leagueSettings?.pilotMode !== false;
+    const pendingHQDebt = isPilotMode ? 0 : (leagueSettings?.pendingHQDebt || 0);
     const lastResolvedTS = leagueSettings?.lastResolvedDate;
     const lastResolvedDate = lastResolvedTS?.toDate ? lastResolvedTS.toDate() : new Date();
     const isGracePeriodOver = pendingHQDebt > 0 && (Date.now() - lastResolvedDate.getTime()) > (2 * 24 * 60 * 60 * 1000);
