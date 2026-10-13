@@ -110,6 +110,10 @@ export default function SuperAdminDashboard() {
                 batch.update(mDoc.ref, {
                     walletBalance: 0,
                     hasPaid: false,
+                    paymentStatus: 'unpaid',
+                    isFunded: false,
+                    totalDeposited: 0,
+                    totalContributed: 0,
                     paymentStreak: 0,
                     missedGameweeks: 0,
                     lastPaymentGw: null,

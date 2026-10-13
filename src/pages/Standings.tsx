@@ -325,8 +325,8 @@ export default function Standings() {
     }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
 
     // Effective league start configured for the chama
-    const rawStartGw = Number(leagueStartGw || (league as any)?.startGw || (league as any)?.startGameweek || (league as any)?.rules?.startGw || 6);
-    const effectiveLeagueStartGw = Math.max(1, rawStartGw || 6);
+    const rawStartGw = Number(leagueStartGw || (league as any)?.startGw || (league as any)?.startGameweek || (league as any)?.rules?.startGw || 1);
+    const effectiveLeagueStartGw = Math.max(1, rawStartGw || 1);
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -582,13 +582,16 @@ export default function Standings() {
                     const depMap: Record<string, number> = {};
                     txSnap.docs.forEach((txDoc) => {
                         const tx = txDoc.data() as any;
-                        if (tx.type === 'deposit' || tx.type === 'payment' || tx.type === 'credit' || tx.type === 'wallet_topup') {
-                            const amt = Number(tx.amount || 0);
-                            if (amt > 0) {
-                                if (tx.memberId) depMap[tx.memberId] = (depMap[tx.memberId] || 0) + amt;
-                                if (tx.userId) depMap[tx.userId] = (depMap[tx.userId] || 0) + amt;
-                                if (tx.memberName) depMap[tx.memberName.toLowerCase().trim()] = (depMap[tx.memberName.toLowerCase().trim()] || 0) + amt;
-                                if (tx.displayName) depMap[tx.displayName.toLowerCase().trim()] = (depMap[tx.displayName.toLowerCase().trim()] || 0) + amt;
+                        const amt = Number(tx.amount || 0);
+                        if (amt > 0) {
+                            const isDeposit = tx.type === 'deposit' || tx.type === 'payment' || tx.type === 'credit' || tx.type === 'wallet_topup';
+                            const isReversal = tx.type === 'reversal' || tx.type === 'refund' || tx.type === 'debit';
+                            const delta = isDeposit ? amt : (isReversal ? -amt : 0);
+                            if (delta !== 0) {
+                                if (tx.memberId) depMap[tx.memberId] = (depMap[tx.memberId] || 0) + delta;
+                                if (tx.userId) depMap[tx.userId] = (depMap[tx.userId] || 0) + delta;
+                                if (tx.memberName) depMap[tx.memberName.toLowerCase().trim()] = (depMap[tx.memberName.toLowerCase().trim()] || 0) + delta;
+                                if (tx.displayName) depMap[tx.displayName.toLowerCase().trim()] = (depMap[tx.displayName.toLowerCase().trim()] || 0) + delta;
                             }
                         }
                     });
@@ -784,19 +787,55 @@ export default function Standings() {
         ? (standingsData.reduce((sum, row) => sum + row.event_total, 0) / standingsData.length).toFixed(1)
         : '0.0';
 
+    const isPendingMember = (m: any) =>
+        Boolean(!m || m.isPending === true || (!m.phone && !(m as any).phoneNumber));
+
+    const hasEverFunded = (m: any) => {
+        if (!m) return false;
+        const stake = Number(
+            leagueRules?.gameweekStake ||
+            (league as any)?.gameweekStake ||
+            (league as any)?.rules?.gameweekStake ||
+            (league as any)?.monthlyFee ||
+            0
+        );
+        const memberBalance = Number(m.walletBalance || 0);
+        const depAmt = Math.max(
+            Number(memberDepositsMap[m.id || ''] || 0),
+            Number(memberDepositsMap[m.displayName?.toLowerCase().trim() || ''] || 0)
+        );
+        if (effectiveLeagueStartGw > 1) {
+            return Boolean(
+                m.hasPaid === true ||
+                (stake > 0 ? memberBalance >= stake : memberBalance > 0) ||
+                (stake > 0 ? depAmt >= stake : depAmt > 0)
+            );
+        }
+        return Boolean(
+            m.hasPaid === true ||
+            memberBalance > 0 ||
+            depAmt > 0 ||
+            Number((m as any).totalContributed || 0) > 0 ||
+            Number((m as any).totalDeposited || 0) > 0
+        );
+    };
+
     const isMemberEligibleWinner = (row: any) => {
         const matched = getMemberStatus(row.player_name, row.entry_name, row.entry);
-        if (matched) {
-            if (matched.isActive === false) return false;
-            if ((matched as any).isEliminated === true) return false;
-            if ((matched as any).playMode === 'sidebets_only') return false;
-        }
+        if (!matched) return false;
+        if (matched.isActive === false) return false;
+        if ((matched as any).isEliminated === true) return false;
+        if ((matched as any).playMode === 'sidebets_only') return false;
+        if (isPendingMember(matched)) return false;
+        if (!hasEverFunded(matched)) return false;
         return true;
     };
 
     const eligibleGwStandings = standingsData.filter(isMemberEligibleWinner);
-    const candidatePool = eligibleGwStandings.length > 0 ? eligibleGwStandings : standingsData;
-    const maxEligibleGwScore = candidatePool.reduce((max, r) => Math.max(max, Number(r.event_total || 0)), 0);
+    const candidatePool = eligibleGwStandings;
+    const maxEligibleGwScore = candidatePool.length > 0
+        ? candidatePool.reduce((max, r) => Math.max(max, Number(r.event_total || 0)), 0)
+        : 0;
 
     const mergedRules = { ...((league as any)?.rules || {}), ...(leagueRules || {}) };
     const configuredSeasonWinnersCount = Math.max(1, Number(mergedRules.seasonWinnersCount || 3));
@@ -820,22 +859,6 @@ export default function Standings() {
                 : configuredSeasonWinnersCount; // 'custom' or fallback
 
     const seasonSnapshotLabel = `Top ${visibleSeasonWinnerCount}`;
-
-
-    const isPendingMember = (m: any) =>
-        Boolean(m && (m.isPending === true || (!m.phone && !(m as any).phoneNumber)));
-
-    const hasEverFunded = (m: any) =>
-        Boolean(
-            m && (
-                m.hasPaid === true ||
-                Number(m.walletBalance || 0) > 0 ||
-                Number((m as any).totalContributed || 0) > 0 ||
-                Number((m as any).totalDeposited || 0) > 0 ||
-                Number(memberDepositsMap[m.id || ''] || 0) > 0 ||
-                Number(memberDepositsMap[m.displayName?.toLowerCase().trim() || ''] || 0) > 0
-            )
-        );
 
     // End-season snapshot: Omit spectators, eliminated members, and un-funded members; rank contenders by total score
     const seasonPool = standingsData.filter((r: any) => {
@@ -1384,40 +1407,21 @@ export default function Standings() {
                                 const isInPodium = rankNum <= visibleSeasonWinnerCount;
                                 const matchedMember = getMemberStatus(row.player_name, row.entry_name, row.entry);
                                 const isSpectator = (matchedMember as any)?.playMode === 'sidebets_only';
-                                const stake = Number(
-                                    leagueRules?.gameweekStake ||
-                                    (league as any)?.gameweekStake ||
-                                    (league as any)?.rules?.gameweekStake ||
-                                    (league as any)?.monthlyFee ||
-                                    0
+                                const isRowPendingOnboarding = Boolean(!matchedMember || isPendingMember(matchedMember));
+                                const isFunded = Boolean(
+                                    !isRowPendingOnboarding &&
+                                    !isSpectator &&
+                                    matchedMember &&
+                                    matchedMember.isActive !== false &&
+                                    !(matchedMember as any).isEliminated &&
+                                    hasEverFunded(matchedMember)
                                 );
-                                const memberBalance = Number(matchedMember?.walletBalance || 0);
-                                const totalDeposited = Number((matchedMember as any)?.totalDeposited || 0);
                                 const isGwWinnerRow = Boolean(
                                     !isSpectator &&
+                                    !isRowPendingOnboarding &&
+                                    isFunded &&
                                     maxEligibleGwScore > 0 &&
                                     Number(row.event_total) === maxEligibleGwScore
-                                );
-                                const memberDeposited = Math.max(
-                                    totalDeposited,
-                                    Number(memberDepositsMap[matchedMember?.id || ''] || 0),
-                                    Number(memberDepositsMap[matchedMember?.displayName?.toLowerCase().trim() || ''] || 0),
-                                    Number(memberDepositsMap[row.player_name?.toLowerCase().trim() || ''] || 0)
-                                );
-                                const isFunded = Boolean(
-                                    isGwWinnerRow ||
-                                    (
-                                        matchedMember &&
-                                        matchedMember.isActive !== false &&
-                                        !isSpectator &&
-                                        (
-                                            matchedMember.hasPaid === true ||
-                                            memberBalance > 0 ||
-                                            memberDeposited > 0 ||
-                                            (stake > 0 && memberBalance >= stake) ||
-                                            (stake > 0 && memberDeposited >= stake)
-                                        )
-                                    )
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const isSeasonView = heroRankView === 'season';
@@ -1455,7 +1459,9 @@ export default function Standings() {
                                         className={clsx(
                                             'px-4 py-3 md:grid md:grid-cols-12 md:gap-3 md:items-center md:px-5 md:py-4 flex flex-col transition-all animate-in fade-in slide-in-from-bottom-2 fill-mode-backwards cursor-pointer group',
                                             podiumBorder,
-                                            isDoubleCrown
+                                            isRowPendingOnboarding
+                                                ? 'opacity-40 hover:opacity-75 transition-opacity bg-slate-50/40 dark:bg-white/[0.01]'
+                                                : isDoubleCrown
                                                 ? 'bg-gradient-to-r from-amber-500/20 via-emerald-500/15 to-amber-500/20 hover:from-amber-500/25 hover:to-amber-500/25 shadow-md'
                                                 : isSeasonLeader
                                                 ? 'bg-amber-400/15 hover:bg-amber-400/20 dark:bg-amber-400/10 dark:hover:bg-amber-400/15 shadow-xs'
@@ -1513,68 +1519,53 @@ export default function Standings() {
 
                                         {/* Stats Row (Row 2 on Mobile, Col 9-12 on Desktop) */}
                                         <div className="flex items-center justify-between md:contents mt-3 md:mt-0 pt-3 md:pt-0 border-t border-slate-200 dark:border-white/5 md:border-0 w-full">
-                                            {isSeasonView ? (
-                                                <>
-                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-1 md:order-2">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FBBF24] md:hidden mb-1.5">
-                                                            {isCleanSlateActive ? `GW${effectiveLeagueStartGw}+ Total` : 'Season Total'}
-                                                        </span>
-                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg md:bg-transparent md:border-0 md:p-0">
-                                                            {displaySeasonTotal.toLocaleString()}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center order-2 md:order-1">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">GW Pts</span>
-                                                        <span className="px-2 py-0.5 font-bold rounded-lg text-xs tabular-nums border text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5">
-                                                            {row.event_total}
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 md:hidden mb-1.5">GW Pts</span>
-                                                        <span className={clsx(
-                                                            'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
-                                                            isGwWinnerRow
-                                                                ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
-                                                                : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-slate-200 border-slate-200 dark:border-white/5'
-                                                        )}>
-                                                            {row.event_total}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
-                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">
-                                                            {isCleanSlateActive ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'}
-                                                        </span>
-                                                        <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">
-                                                            {displaySeasonTotal.toLocaleString()}
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            )}
-                                            <div className="md:col-span-2 flex justify-end md:justify-end items-center w-28 md:w-auto">
-                                                {isSpectator ? (
+                                            {/* Column 9: GW Pts (Always in Col 9 on Desktop) */}
+                                            <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 md:hidden mb-1.5">GW Pts</span>
+                                                <span className={clsx(
+                                                    'px-2.5 py-1 font-bold rounded-lg text-xs tabular-nums border md:inline-block transition-all',
+                                                    isGwWinnerRow
+                                                        ? 'bg-[#10B981] text-black font-black border-transparent shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                                                        : 'bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-slate-200 border-slate-200 dark:border-white/5'
+                                                )}>
+                                                    {row.event_total}
+                                                </span>
+                                            </div>
+
+                                            {/* Column 10: Total Pts (Always in Col 10 on Desktop) */}
+                                            <div className="flex flex-col md:block items-center md:col-span-1 md:text-center">
+                                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 md:hidden mb-1.5">
+                                                    {isCleanSlateActive ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'}
+                                                </span>
+                                                <div className={clsx(
+                                                    "font-extrabold text-sm tabular-nums",
+                                                    isSeasonView ? "text-amber-500 dark:text-amber-400 font-black" : "text-slate-900 dark:text-white"
+                                                )}>
+                                                    {displaySeasonTotal.toLocaleString()}
+                                                </div>
+                                            </div>
+
+                                            {/* Column 11-12: Status (Col 11-12 on Desktop) */}
+                                            <div className="md:col-span-2 flex justify-end items-center">
+                                                {isRowPendingOnboarding ? (
+                                                    <span className="text-[11px] font-semibold text-slate-400 dark:text-gray-500 pr-1">
+                                                        —
+                                                    </span>
+                                                ) : isSpectator ? (
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-indigo-300 border-indigo-500/30 bg-indigo-500/15 flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" /> Spectator
                                                     </span>
-                                                ) : !isFunded ? (
-                                                    (matchedMember as any)?.isEliminated ? (
-                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
-                                                        </span>
-                                                    ) : (!matchedMember || (matchedMember as any)?.isPending || (!matchedMember.phone && !(matchedMember as any).phoneNumber)) ? (
-                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-slate-500 dark:text-gray-400 border-slate-300 dark:border-white/10 bg-slate-100 dark:bg-white/5 flex items-center gap-1" title="Manager has not completed onboarding with phone number. Ineligible for Pot.">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> Pending Onboarding · Ineligible for Pot
-                                                        </span>
-                                                    ) : (
-                                                        <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-amber-500 dark:text-amber-400 border-amber-500/25 bg-amber-500/10 flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Pending Deposit
-                                                        </span>
-                                                    )
-                                                ) : (
+                                                ) : (matchedMember as any)?.isEliminated ? (
+                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-red-400 border-red-500/25 bg-red-500/10 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" /> Eliminated
+                                                    </span>
+                                                ) : isFunded ? (
                                                     <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-emerald-600 dark:text-emerald-300 border-emerald-500/30 bg-emerald-500/10 flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Funded
+                                                    </span>
+                                                ) : (
+                                                    <span className="font-black text-[9px] md:text-[10px] tracking-tight border px-2 py-0.5 rounded-lg text-amber-500 dark:text-amber-400 border-amber-500/25 bg-amber-500/10 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Pending Deposit
                                                     </span>
                                                 )}
                                                 {/* Hide lineup button on own row — hero card already has it */}

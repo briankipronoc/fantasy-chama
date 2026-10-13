@@ -758,6 +758,16 @@ export default function AdminCommandCenter() {
     const norm = (s: string) => String(s || "").toLowerCase().trim();
     const stake = gameweekStake || 0;
     const isSeasonPotOnly = Number(rules?.weekly || 0) === 0;
+    const effectiveStart = Math.max(1, Number(leagueSettings?.startGw || startGw || 1));
+    const activeGw = Number(currentGwNumber || 1);
+    const isPreSeason = effectiveStart > 1 && activeGw < effectiveStart;
+
+    if (isPreSeason) {
+      setGwWinner(null);
+      return;
+    }
+
+    const isPending = (m: any) => Boolean(!m || m.isPending === true || (!m.phone && !m.phoneNumber));
 
     // 1. Identify matched Chama members from standings
     const chamaResults = rawFplStandings
@@ -770,7 +780,7 @@ export default function AdminCommandCenter() {
         });
         return { entry: r, member: dbMember };
       })
-      .filter(({ member }) => !member || (member.isActive !== false && (member as any).playMode !== 'sidebets_only'))
+      .filter(({ member }) => Boolean(member && member.isActive !== false && !isPending(member) && (member as any).playMode !== 'sidebets_only'))
       .map(({ entry }) => entry);
 
     // 2. Identify funded members (if applicable and configured)
@@ -787,12 +797,10 @@ export default function AdminCommandCenter() {
       return isFunded;
     });
 
-    // 3. Determine candidate pool:
-    // If it's a 100% Season Vault league, all Chama members count;
-    // If weekly pot league, prioritize funded members, but fallback to Chama members (or raw standings) so live leader is NEVER missing!
+    // 3. Determine candidate pool (onboarded Chama members only)
     const candidatePool = isSeasonPotOnly
-      ? (chamaResults.length > 0 ? chamaResults : rawFplStandings)
-      : (fundedResults.length > 0 ? fundedResults : (chamaResults.length > 0 ? chamaResults : rawFplStandings));
+      ? chamaResults
+      : (fundedResults.length > 0 ? fundedResults : chamaResults);
 
     if (candidatePool.length >= 1) {
       const sorted = [...candidatePool].sort((a: any, b: any) => Number(b.event_total || 0) - Number(a.event_total || 0));
@@ -2407,6 +2415,8 @@ export default function AdminCommandCenter() {
           hasPaid: false,
           paymentStatus: 'unpaid',
           isFunded: false,
+          totalDeposited: 0,
+          totalContributed: 0,
           paymentStreak: 0,
           missedGameweeks: 0,
           lastPaymentGw: null,
@@ -2468,6 +2478,9 @@ export default function AdminCommandCenter() {
           walletBalance: 0,
           hasPaid: false,
           paymentStatus: 'unpaid',
+          isFunded: false,
+          totalDeposited: 0,
+          totalContributed: 0,
           joinedAtGw: targetGw
         })),
         transactions: [],

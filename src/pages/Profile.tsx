@@ -1816,41 +1816,6 @@ export default function Profile() {
             <div className="max-w-6xl mx-auto space-y-8">
                 <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity · League · Controls" hideCountdown={true} />
 
-                {/* SuperAdmin HQ Platform Command Bar */}
-                {isSuperAdminUser && (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-500/15 via-indigo-500/10 to-transparent border border-purple-500/30 shadow-md">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
-                                <ShieldCheck className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                                        SuperAdmin HQ
-                                    </h3>
-                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30">
-                                        Platform Control
-                                    </span>
-                                </div>
-                                <p className="text-xs text-slate-600 dark:text-gray-400 font-medium mt-0.5">
-                                    Cross-league management, live financial telemetry, payout audits & master admin tools.
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                haptics.selection();
-                                navigate('/hq');
-                            }}
-                            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-purple-600/25 flex items-center gap-1.5 cursor-pointer whitespace-nowrap self-stretch sm:self-auto justify-center"
-                        >
-                            <span>Launch SuperAdmin HQ</span>
-                            <span>↗</span>
-                        </button>
-                    </div>
-                )}
-
                 {/* Top Section: Personal Details + League Governance side-by-side on desktop */}
                 <div className={clsx(
                     "grid gap-5 md:gap-6 items-start",
@@ -2222,6 +2187,38 @@ export default function Profile() {
                                             <span>→</span>
                                         </div>
                                     </div>
+
+                                    {/* Tile 5: SuperAdmin HQ (SuperAdmin only) */}
+                                    {isSuperAdminUser && (
+                                        <div
+                                            onClick={() => {
+                                                haptics.selection();
+                                                navigate('/hq');
+                                            }}
+                                            className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-purple-500/25 dark:border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
+                                        >
+                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                                <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                </div>
+                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                                    HQ
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                                                    SuperAdmin HQ
+                                                </h4>
+                                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                                    Master cross-league platform telemetry
+                                                </p>
+                                            </div>
+                                            <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                                                <span>Launch HQ</span>
+                                                <span>↗</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2332,6 +2329,38 @@ export default function Profile() {
                                     <span>→</span>
                                 </div>
                             </div>
+
+                            {/* Member Tile 4: SuperAdmin HQ (if superadmin) */}
+                            {isSuperAdminUser && (
+                                <div
+                                    onClick={() => {
+                                        haptics.selection();
+                                        navigate('/hq');
+                                    }}
+                                    className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-purple-500/25 dark:border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                                >
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                                            <ShieldCheck className="w-5 h-5" />
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                            HQ
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                                            SuperAdmin HQ
+                                        </h4>
+                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                            Master platform telemetry & controls
+                                        </p>
+                                    </div>
+                                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                                        <span>Launch HQ</span>
+                                        <span>↗</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

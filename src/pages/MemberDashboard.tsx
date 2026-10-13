@@ -636,6 +636,21 @@ export default function MemberDashboard() {
         }
 
         const norm = (s: string) => String(s || '').toLowerCase().trim();
+        const isPendingMember = (m: any) => Boolean(!m || m.isPending === true || (!m.phone && !(m as any).phoneNumber));
+
+        const rawStart = Number((leagueSettings as any)?.startGw || (leagueSettings as any)?.startGameweek || 1);
+        const effectiveStart = Math.max(1, rawStart || 1);
+        const eventGw = Number(currentFplEvent?.id || 1);
+        const isPreSeasonRound = effectiveStart > 1 && (
+            eventGw < effectiveStart ||
+            (eventGw === effectiveStart && Boolean(currentFplEvent?.isPreparingForNextGw))
+        );
+
+        if (isPreSeasonRound) {
+            setFplStandings([]);
+            setGwWinner(null);
+            return;
+        }
 
         // Match each FPL entry to a Chama member — covers fplTeamId, secondFplTeamId, and fuzzy name
         const matchMember = (r: any) => members.find((m: any) => {
@@ -645,17 +660,17 @@ export default function MemberDashboard() {
             return norm(r.player_name).includes(db) || db.includes(norm(r.player_name)) || norm(r.entry_name || '').includes(db);
         });
 
-        // GW Standings card — show ALL active, non-spectator Chama members
+        // GW Standings card — show ALL active, onboarded, non-spectator Chama members
         const chamaResults = rawFplStandings
             .map((r: any) => ({ entry: r, member: matchMember(r) }))
-            .filter(({ member }) => !member || (member.isActive !== false && (member as any).playMode !== 'sidebets_only'))
+            .filter(({ member }) => Boolean(member && member.isActive !== false && !isPendingMember(member) && (member as any).playMode !== 'sidebets_only'))
             .sort((a: any, b: any) => Number(b.entry.event_total || 0) - Number(a.entry.event_total || 0))
             .map(({ entry }) => entry);
 
         setFplStandings(chamaResults);
 
-        // GW Winner & Live Leader — rank by event_total among active Chama members
-        const candidatePool = chamaResults.length > 0 ? chamaResults : rawFplStandings;
+        // GW Winner & Live Leader — rank by event_total among active Chama members only
+        const candidatePool = chamaResults;
 
         if (candidatePool.length >= 1 && Number(candidatePool[0]?.event_total || 0) > 0) {
             const topScore = Number(candidatePool[0]?.event_total || 0);
@@ -682,7 +697,7 @@ export default function MemberDashboard() {
         } else {
             setGwWinner(null);
         }
-    }, [rawFplStandings, members, gameweekStake, rules?.weekly]);
+    }, [rawFplStandings, members, gameweekStake, rules?.weekly, currentFplEvent, leagueSettings]);
 
     // ── missedGameweeks client-side computation ──────────────────────────────
     // Runs whenever transactions or currentFplEvent changes. Computes the number
@@ -1271,14 +1286,12 @@ export default function MemberDashboard() {
 
     const rawStart = Number((leagueSettings as any)?.startGw || leagueStartGw || 1);
     const effectiveMdStartGw = Math.max(1, rawStart || 1);
-    const hasAnySettledGws = (pendingPayouts || []).some((p: any) => p.status === 'approved' || p.status === 'settled') ||
-        (transactions || []).some((t: any) => t.type === 'payout');
-
     const isPreLeagueGw = Boolean(
-        !hasAnySettledGws &&
-        currentFplEvent?.id &&
         effectiveMdStartGw > 1 &&
-        currentFplEvent.id < effectiveMdStartGw
+        (
+            Number(currentFplEvent?.id || 1) < effectiveMdStartGw ||
+            (Number(currentFplEvent?.id || 1) === effectiveMdStartGw && Boolean(currentFplEvent?.isPreparingForNextGw))
+        )
     );
 
     const forfeitedList: number[] = Array.from(new Set([
@@ -1611,7 +1624,9 @@ export default function MemberDashboard() {
     );
 
     const activeChampion = useMemo(() => {
+        if (isPreLeagueGw) return null;
         if (shouldUseLatestApproved && latestApprovedPayout) {
+            if (Number(latestApprovedPayout.gw) < effectiveMdStartGw) return null;
             const resolvedMember = members.find((m: any) =>
                 m.id === latestApprovedPayout.winnerId ||
                 m.displayName?.toLowerCase() === latestApprovedPayout.winnerName?.toLowerCase()
@@ -1629,8 +1644,12 @@ export default function MemberDashboard() {
             };
         }
 
+        if (gwWinner && Number(gwWinner.event || currentFplEvent?.id || 1) < effectiveMdStartGw) {
+            return null;
+        }
+
         return gwWinner;
-    }, [shouldUseLatestApproved, latestApprovedPayout, gwWinner, members]);
+    }, [isPreLeagueGw, shouldUseLatestApproved, latestApprovedPayout, gwWinner, members, effectiveMdStartGw, currentFplEvent]);
 
     // Phase 30: Is the logged-in user the current GW Winner / Leader?
     const isCurrentUserGwWinner = Boolean(

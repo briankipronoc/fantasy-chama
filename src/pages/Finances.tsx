@@ -1056,7 +1056,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, [memberFundingSummary]);
 
     const fundedMembersCount = useMemo(() => {
-        return memberFundingSummary.filter(m => !m.isSpectator && m.gwsSkippedCount === 0).length;
+        return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding && (m.hasPaidCurrent || (m.gwsSkippedCount === 0 && (m.totalDeposited > 0 || m.walletBalance > 0)))).length;
     }, [memberFundingSummary]);
 
     const spectatorsCount = useMemo(() => {
@@ -1064,12 +1064,16 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     }, [memberFundingSummary]);
 
     const regularMembersCount = useMemo(() => {
-        return memberFundingSummary.filter(m => !m.isSpectator).length;
+        return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding).length;
     }, [memberFundingSummary]);
 
-    // Use the authoritative transaction-based gross (same source as seasonCollectedSoFarGross)
-    // to avoid inflating or understating from stale per-member Firestore fields.
-    const seasonDepositedTotal = Math.max(0, seasonCollectedSoFarGross);
+    const totalDepositedAudit = useMemo(() => {
+        return memberFundingSummary.reduce((sum, m) => sum + (Number(m.totalDeposited) || 0), 0);
+    }, [memberFundingSummary]);
+
+    // Use the authoritative transaction-based gross / verified deposits
+    // to accurately show verified funds raised even when rounds are upcoming
+    const seasonDepositedTotal = totalDepositedAudit > 0 ? totalDepositedAudit : Math.max(0, seasonCollectedSoFarGross);
 
     const activeChamaMembers = useMemo(() => {
         return memberFundingSummary.filter(m => !m.isSpectator && !m.isPendingOnboarding);
@@ -2347,7 +2351,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                     {/* Weekly Pot Balancing Indicator */}
                     <div className="px-4 py-3 md:px-6 bg-emerald-500/[0.06] dark:bg-emerald-500/[0.04] border-b border-slate-200/60 dark:border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-slate-700 dark:text-gray-300">GW{currentGwNumber || leagueStartGw || 1} Weekly Pot:</span>
+                            <span className="font-bold text-slate-700 dark:text-gray-300">GW{Math.max(Number(leagueStartGw || 1), Number(currentGwNumber || leagueStartGw || 1))} Weekly Pot:</span>
                             <span className="font-black text-slate-900 dark:text-white tabular-nums">KES {currentGwCollectedWeekly.toLocaleString()}</span>
                             <span className="text-slate-500 dark:text-gray-400">collected of</span>
                             <span className="font-black text-emerald-700 dark:text-emerald-400 tabular-nums">KES {currentGwExpectedWeekly.toLocaleString()}</span>
@@ -2357,7 +2361,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                             {isWeeklyPotBalanced ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    Pot Balanced for GW{currentGwNumber || leagueStartGw || 1}
+                                    Pot Balanced for GW{Math.max(Number(leagueStartGw || 1), Number(currentGwNumber || leagueStartGw || 1))}
                                 </span>
                             ) : (
                                 <div className="flex items-center gap-2 flex-wrap">
