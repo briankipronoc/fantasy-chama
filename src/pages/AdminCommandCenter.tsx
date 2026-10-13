@@ -4527,47 +4527,100 @@ burstFrame();
                     {/* TILE 2: Matchday Clock & Fixtures */}
                     <div className="rounded-2xl p-4 bg-slate-50/80 dark:bg-black/30 border border-slate-200 dark:border-white/10 flex flex-col justify-between shadow-xs">
                       <div>
-                        <div className="mb-2">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-0.5">
-                            {currentGwNumber ? `Gameweek ${currentGwNumber}` : (firestoreGw ? `Gameweek ${firestoreGw}` : 'Gameweek')}
-                          </span>
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-800 dark:text-white">
-                              <Clock className="w-3.5 h-3.5 text-amber-500" /> Fixtures & Schedule
-                            </p>
-                            <span className="text-[9px] font-black text-slate-600 dark:text-gray-300 tabular-nums">
-                              {fixtureStats ? `${fixtureStats.finished}/${fixtureStats.total} Played` : 'FPL Live'}
-                            </span>
+                        {(fixtureStats?.remaining === 0 || isRoundConcluded) ? (
+                          <div>
+                            <div className="mb-2">
+                              <div className="flex items-center justify-between gap-1 mb-0.5">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                                  {currentGwNumber ? `Gameweek ${currentGwNumber}` : (firestoreGw ? `Gameweek ${firestoreGw}` : 'Gameweek')} Concluded ✓
+                                </span>
+                                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                  Finalized
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-800 dark:text-white">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Preparing for GW{(Number(currentGwNumber || firestoreGw) || 6) + 1}
+                              </p>
+                            </div>
+
+                            <div className="mt-2.5 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                              <p className="text-xs font-bold flex items-center justify-between">
+                                <span>All {fixtureStats?.total || 10} Matches Played</span>
+                                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400">100% Concluded</span>
+                              </p>
+                              <p className="text-[11px] text-slate-600 dark:text-gray-300 mt-1 leading-snug">
+                                Official gameweek scores locked in. Ready for next gameweek administration!
+                              </p>
+                            </div>
+
+                            {formattedDeadline && (
+                              <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-amber-500" /> GW{(Number(currentGwNumber || firestoreGw) || 6) + 1} Deadline
+                                </p>
+                                <p className="font-bold text-xs mt-0.5">{formattedDeadline}</p>
+                              </div>
+                            )}
+
+                            <details className="mt-2.5 text-[10px] text-slate-500 dark:text-gray-400 group">
+                              <summary className="cursor-pointer hover:text-slate-800 dark:hover:text-gray-200 font-bold select-none flex items-center justify-between">
+                                <span>View Concluded GW{currentGwNumber || firestoreGw || 6} Record</span>
+                                <span className="text-[9px] font-mono group-open:rotate-180 transition-transform">▼</span>
+                              </summary>
+                              <div className="pt-2 space-y-1 text-[10px]">
+                                <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden mb-1.5">
+                                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }} />
+                                </div>
+                                <p className="flex justify-between"><span>Matches Concluded:</span> <span className="font-bold text-emerald-600 dark:text-emerald-400">{fixtureStats?.finished || 10}/{fixtureStats?.total || 10}</span></p>
+                                <p className="flex justify-between"><span>Matches In Play:</span> <span className="font-bold">0</span></p>
+                              </div>
+                            </details>
                           </div>
-                        </div>
+                        ) : (
+                          <div>
+                            <div className="mb-2">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                                {currentGwNumber ? `Gameweek ${currentGwNumber}` : (firestoreGw ? `Gameweek ${firestoreGw}` : 'Gameweek')}
+                              </span>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 text-slate-800 dark:text-white">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500" /> Fixtures & Schedule
+                                </p>
+                                <span className="text-[9px] font-black text-slate-600 dark:text-gray-300 tabular-nums">
+                                  {fixtureStats ? `${fixtureStats.finished}/${fixtureStats.total} Played` : 'FPL Live'}
+                                </span>
+                              </div>
+                            </div>
 
-                        {/* Visual Progress Bar */}
-                        <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full overflow-hidden my-2.5">
-                          <div
-                            className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                            style={{ width: `${fixturePct}%` }}
-                          />
-                        </div>
+                            {/* Visual Progress Bar */}
+                            <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full overflow-hidden my-2.5">
+                              <div
+                                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${fixturePct}%` }}
+                              />
+                            </div>
 
-                        <div className="space-y-1.5 mt-2">
-                          <p className="text-xs font-bold text-slate-800 dark:text-gray-200 flex items-center justify-between">
-                            <span>Matches Status:</span>
-                            <span className="text-emerald-600 dark:text-emerald-400 font-black">
-                              {fixtureStats?.remaining === 0 ? (fixtureStats.total ? `All ${fixtureStats.total} Concluded` : "All Concluded") : fixtureStats?.remaining === 1 ? "1 game remaining" : `${fixtureStats?.remaining ?? 0} games remaining`}
-                            </span>
-                          </p>
-                          {fixtureStats && fixtureStats.inPlay > 0 && (
-                            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center justify-between">
-                              <span>Active Right Now:</span>
-                              <span className="font-black animate-pulse">{fixtureStats.inPlay} live in play</span>
-                            </p>
-                          )}
-                        </div>
+                            <div className="space-y-1.5 mt-2">
+                              <p className="text-xs font-bold text-slate-800 dark:text-gray-200 flex items-center justify-between">
+                                <span>Matches Status:</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                                  {fixtureStats?.remaining === 1 ? "1 game remaining" : `${fixtureStats?.remaining ?? 0} games remaining`}
+                                </span>
+                              </p>
+                              {fixtureStats && fixtureStats.inPlay > 0 && (
+                                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center justify-between">
+                                  <span>Active Right Now:</span>
+                                  <span className="font-black animate-pulse">{fixtureStats.inPlay} live in play</span>
+                                </p>
+                              )}
+                            </div>
 
-                        {formattedDeadline && (
-                          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Next GW Deadline</p>
-                            <p className="font-bold text-xs mt-0.5">{formattedDeadline}</p>
+                            {formattedDeadline && (
+                              <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Next GW Deadline</p>
+                                <p className="font-bold text-xs mt-0.5">{formattedDeadline}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

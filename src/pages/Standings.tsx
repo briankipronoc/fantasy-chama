@@ -942,36 +942,7 @@ export default function Standings() {
                     </div>
 
                     <div className="flex gap-2.5 flex-wrap items-center">
-                        {effectiveLeagueStartGw > 1 && (
-                            <div className="flex items-center gap-1 bg-slate-100 dark:bg-black/30 p-1 rounded-xl border border-slate-200 dark:border-white/10">
-                                <button
-                                    type="button"
-                                    onClick={() => { haptics.selection(); setStandingsMode('clean_slate'); }}
-                                    className={clsx(
-                                        'px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer',
-                                        standingsMode === 'clean_slate'
-                                            ? 'bg-[#10B981] text-black shadow-xs'
-                                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                                    )}
-                                    title="Calculate standings from league kickoff GW on Fantasy Chama"
-                                >
-                                    Since Chama Start (GW{effectiveLeagueStartGw}+) 🏁
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { haptics.selection(); setStandingsMode('raw_fpl'); }}
-                                    className={clsx(
-                                        'px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer',
-                                        standingsMode === 'raw_fpl'
-                                            ? 'bg-amber-500 text-black shadow-xs'
-                                            : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                                    )}
-                                    title="Overall FPL points since Gameweek 1"
-                                >
-                                    Overall FPL (GW1+)
-                                </button>
-                            </div>
-                        )}
+
                         <div className="relative group">
                             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-gray-500 group-focus-within:text-[#10B981] transition-colors">
                                 <Search className="w-3.5 h-3.5" />
@@ -1292,43 +1263,43 @@ export default function Standings() {
                     )
                 ) : (
                     <div className="fc-card w-full bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl overflow-hidden shadow-sm">
-                        {/* Table Controls Bar: Toggle between Overall Season and GW Round */}
+                        {/* Table Controls Bar: Since Chama Start vs Overall FPL */}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-200 dark:border-white/5 bg-slate-50/70 dark:bg-black/20">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400">Sort Standings:</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400">Standings Scope:</span>
                                 <div className="inline-flex items-center p-1 rounded-xl bg-slate-200/80 dark:bg-white/5 border border-slate-300 dark:border-white/10">
+                                    {effectiveLeagueStartGw > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { haptics.selection(); setStandingsMode('clean_slate'); }}
+                                            className={clsx(
+                                                "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                standingsMode === 'clean_slate'
+                                                    ? "bg-[#10B981] text-slate-950 shadow-sm"
+                                                    : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                                            )}
+                                        >
+                                            <span>Since Chama Start (GW{effectiveLeagueStartGw}+) 🏁</span>
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
-                                        onClick={() => { haptics.selection(); setHeroRankView('season'); }}
+                                        onClick={() => { haptics.selection(); setStandingsMode('raw_fpl'); }}
                                         className={clsx(
                                             "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
-                                            heroRankView === 'season'
+                                            standingsMode === 'raw_fpl'
                                                 ? "bg-amber-400 dark:bg-[#FBBF24] text-slate-950 shadow-sm"
                                                 : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
                                         )}
                                     >
-                                        <span>🏆 Overall Total</span>
-                                        {heroRankView === 'season' && <span className="text-[10px]">▼</span>}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
-                                        className={clsx(
-                                            "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
-                                            heroRankView === 'gw'
-                                                ? "bg-amber-400 dark:bg-[#FBBF24] text-slate-950 shadow-sm"
-                                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                                        )}
-                                    >
-                                        <span>⚡ GW Round</span>
-                                        {heroRankView === 'gw' && <span className="text-[10px]">▼</span>}
+                                        <span>Overall FPL (GW1+)</span>
                                     </button>
                                 </div>
                             </div>
                             <div className="text-[11px] font-semibold text-slate-500 dark:text-gray-400">
-                                {heroRankView === 'season'
-                                    ? 'Sorted by cumulative season points (Vault Leader #1)'
-                                    : `Sorted by GW${currentEvent || ''} round points (Weekly Pot Winner)`}
+                                {standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1
+                                    ? `Points counted from Gameweek ${effectiveLeagueStartGw} Chama kickoff`
+                                    : 'Cumulative points across the entire 38-gameweek season'}
                             </div>
                         </div>
 
@@ -1337,22 +1308,10 @@ export default function Standings() {
                             <div className="col-span-1">Rank</div>
                             <div className="col-span-4">Member</div>
                             <div className="col-span-3">FPL Team</div>
-                            <button
-                                type="button"
-                                onClick={() => { haptics.selection(); setHeroRankView('gw'); }}
-                                className={clsx("col-span-1 text-center flex items-center justify-center gap-1 cursor-pointer transition-colors", heroRankView === 'gw' ? 'text-amber-500 dark:text-[#FBBF24] font-black' : 'hover:text-slate-900 dark:hover:text-white')}
-                                title="Sort by Gameweek round points"
-                            >
-                                GW {heroRankView === 'gw' && '▼'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { haptics.selection(); setHeroRankView('season'); }}
-                                className={clsx("col-span-1 text-center flex items-center justify-center gap-1 cursor-pointer transition-colors", heroRankView === 'season' ? 'text-amber-500 dark:text-[#FBBF24] font-black' : 'hover:text-slate-900 dark:hover:text-white')}
-                                title="Sort by Total season points"
-                            >
-                                {standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1 ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'} {heroRankView === 'season' && '▼'}
-                            </button>
+                            <div className="col-span-1 text-center">GW</div>
+                            <div className="col-span-1 text-center">
+                                {standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1 ? `GW${effectiveLeagueStartGw}+ Total` : 'Total'}
+                            </div>
                             <div className="col-span-2 text-right">Status</div>
                         </div>
                         {/* Rows */}
@@ -1873,77 +1832,160 @@ export default function Standings() {
                                 </span>
                             </div>
                         </div>
-                        <div className={clsx(
-                            "w-full",
-                            topSeasonLeaders.length === 1
-                                ? "flex justify-center max-w-sm mx-auto"
-                                : topSeasonLeaders.length === 2
-                                ? "grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-w-xl mx-auto"
-                                : "grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3"
-                        )}>
-                            {topSeasonLeaders.map((leader: any, idx: number) => {
-                                const leaderRank = Number(leader.calculatedRank || idx + 1);
-                                const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
+                        <div className="w-full">
+                            {topSeasonLeaders.length === 1 ? (() => {
+                                const leader = topSeasonLeaders[0];
                                 const isLeaderFunded = isMemberEligibleWinner(leader);
                                 const isLeaderTied = Boolean(leader.isTied);
+                                const projectedPayoutVal = Number((leader as any)?.projectedPayout || (leader as any)?.amount || 0);
                                 return (
-                                    <div 
-                                        key={leader.id || idx} 
+                                    <div
                                         onClick={() => {
                                             setFlexCardData({
                                                 winnerName: leader.player_name,
                                                 teamName: leader.entry_name,
                                                 points: Number(leader.event_total || leader.total || 0),
-                                                amountWon: Number((leader as any)?.projectedPayout || (leader as any)?.amount || 0),
+                                                amountWon: projectedPayoutVal,
                                                 gameweek: currentEvent || 1,
-                                                isJointWinner: Boolean(leader.isTied),
-                                                tiedCount: leader.isTied ? 2 : 1
+                                                isJointWinner: isLeaderTied,
+                                                tiedCount: isLeaderTied ? 2 : 1
                                             });
                                         }}
-                                        className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 flex flex-col justify-between shadow-sm dark:shadow-lg hover:border-amber-500/40 transition-all min-w-0 cursor-pointer group select-none"
+                                        className="max-w-2xl mx-auto rounded-3xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/15 via-white dark:via-[#0e141a] to-emerald-500/10 p-5 sm:p-7 flex flex-col justify-between shadow-xl shadow-amber-500/10 hover:border-amber-400 hover:shadow-2xl transition-all cursor-pointer group select-none relative overflow-hidden"
                                         title="Click to view and share champion card"
                                     >
+                                        <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+
                                         <div>
-                                            <div className="flex items-center justify-between gap-1 mb-1.5">
-                                                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 truncate">
-                                                    {leaderMedal ? `${leaderMedal} #${leaderRank}` : `#${leaderRank}`}
+                                            <div className="flex items-center justify-between gap-2 mb-3">
+                                                <span className="text-xs uppercase tracking-widest font-black text-amber-500 dark:text-amber-400 flex items-center gap-1.5">
+                                                    <Crown className="w-4 h-4 text-amber-500" />
+                                                    <span>🥇 #1 END-SEASON VAULT LEADER</span>
                                                     {isLeaderTied && (
-                                                        <span className="text-[7px] sm:text-[8px] font-black text-amber-700 dark:text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
+                                                        <span className="text-[9px] font-black text-amber-700 dark:text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1.5 py-0.5">
                                                             Tied
                                                         </span>
                                                     )}
                                                 </span>
                                                 {isLeaderFunded ? (
-                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 truncate">
-                                                        ✓ Funded
+                                                    <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                                                        ✓ Fully Funded & Eligible
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
-                                                        ⏳ Pending
+                                                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-[#FBBF24] border border-amber-500/30">
+                                                        ⏳ Deposit Required
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate group-hover:text-amber-400 transition-colors">{leader.player_name}</p>
-                                            <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
-                                        </div>
-                                        <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between">
-                                            <div>
-                                                <p className="text-xs sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
-                                                <p className="text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-500 font-bold mt-0.5 truncate">
-                                                    {isLeaderFunded ? (
-                                                        Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
-                                                            ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
-                                                            : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} behind`
-                                                    ) : (
-                                                        <span className="text-amber-600 dark:text-amber-400/90 font-medium">Pending deposit</span>
-                                                    )}
-                                                </p>
+
+                                            <div className="flex items-center gap-4 py-2">
+                                                <UserAvatar name={leader.player_name} size="lg" className="ring-2 ring-amber-400 shadow-md" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate group-hover:text-amber-500 transition-colors">
+                                                        {leader.player_name}
+                                                    </p>
+                                                    <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-gray-400 truncate flex items-center gap-1.5 mt-0.5">
+                                                        <Shirt className="w-3.5 h-3.5 text-emerald-500" />
+                                                        <span>{leader.entry_name}</span>
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                                        {Number(leader.total || 0).toLocaleString()} pts
+                                                    </p>
+                                                    <p className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
+                                                        Cumulative Points
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <Share2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
+                                        </div>
+
+                                        <div className="mt-4 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-xs">
+                                            <span className="font-bold text-slate-600 dark:text-gray-400 flex items-center gap-1.5">
+                                                <Trophy className="w-4 h-4 text-amber-500" />
+                                                <span>Projected Vault Payout:</span>
+                                                <strong className="text-amber-600 dark:text-amber-400 font-mono text-sm">
+                                                    KES {projectedPayoutVal.toLocaleString()}
+                                                </strong>
+                                            </span>
+                                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 group-hover:underline flex items-center gap-1">
+                                                <span>Share Leader Card</span> ↗
+                                            </span>
                                         </div>
                                     </div>
                                 );
-                            })}
+                            })() : (
+                                <div className={clsx(
+                                    "w-full",
+                                    topSeasonLeaders.length === 2
+                                        ? "grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 max-w-xl mx-auto"
+                                        : "grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3"
+                                )}>
+                                    {topSeasonLeaders.map((leader: any, idx: number) => {
+                                        const leaderRank = Number(leader.calculatedRank || idx + 1);
+                                        const leaderMedal = leaderRank === 1 ? '🥇' : leaderRank === 2 ? '🥈' : leaderRank === 3 ? '🥉' : null;
+                                        const isLeaderFunded = isMemberEligibleWinner(leader);
+                                        const isLeaderTied = Boolean(leader.isTied);
+                                        return (
+                                            <div 
+                                                key={leader.id || idx} 
+                                                onClick={() => {
+                                                    setFlexCardData({
+                                                        winnerName: leader.player_name,
+                                                        teamName: leader.entry_name,
+                                                        points: Number(leader.event_total || leader.total || 0),
+                                                        amountWon: Number((leader as any)?.projectedPayout || (leader as any)?.amount || 0),
+                                                        gameweek: currentEvent || 1,
+                                                        isJointWinner: Boolean(leader.isTied),
+                                                        tiedCount: leader.isTied ? 2 : 1
+                                                    });
+                                                }}
+                                                className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-3 sm:p-4 flex flex-col justify-between shadow-sm dark:shadow-lg hover:border-amber-500/40 transition-all min-w-0 cursor-pointer group select-none"
+                                                title="Click to view and share champion card"
+                                            >
+                                                <div>
+                                                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                                                        <span className="text-[9px] sm:text-[10px] uppercase tracking-widest font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 truncate">
+                                                            {leaderMedal ? `${leaderMedal} #${leaderRank}` : `#${leaderRank}`}
+                                                            {isLeaderTied && (
+                                                                <span className="text-[7px] sm:text-[8px] font-black text-amber-700 dark:text-amber-300 bg-amber-500/20 border border-amber-500/35 rounded px-1 py-0.2">
+                                                                    Tied
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                        {isLeaderFunded ? (
+                                                            <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 truncate">
+                                                                ✓ Funded
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[7px] sm:text-[9px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-[#FBBF24] border border-amber-500/30 truncate" title="Deposit required to claim vault prize">
+                                                                ⏳ Pending
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate group-hover:text-amber-400 transition-colors">{leader.player_name}</p>
+                                                    <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{leader.entry_name}</p>
+                                                </div>
+                                                <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums truncate">{Number(leader.total || 0).toLocaleString()} pts</p>
+                                                        <p className="text-[8px] sm:text-[10px] text-slate-500 dark:text-gray-500 font-bold mt-0.5 truncate">
+                                                            {isLeaderFunded ? (
+                                                                Number(leader.total || 0) === Number(topSeasonLeaders[0]?.total || 0)
+                                                                    ? (isLeaderTied ? 'Tied for Lead' : 'Vault Leader')
+                                                                    : `${Math.max(0, Number(topSeasonLeaders[0]?.total || 0) - Number(leader.total || 0)).toLocaleString()} behind`
+                                                            ) : (
+                                                                <span className="text-amber-600 dark:text-amber-400/90 font-medium">Pending deposit</span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <Share2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

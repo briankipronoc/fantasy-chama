@@ -103,10 +103,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [cashTopUpAmount, setCashTopUpAmount] = useState('');
     const [cashTopUpNote, setCashTopUpNote] = useState('');
     const [isSubmittingCashTopUpRequest, setIsSubmittingCashTopUpRequest] = useState(false);
-    // @ts-ignore
-    const [isResolvingWalletRequestId, setIsResolvingWalletRequestId] = useState<string | null>(null);
+    const [, setIsResolvingWalletRequestId] = useState<string | null>(null);
     const [standingsData, setStandingsData] = useState<any[]>([]);
-    const [seasonFilter, setSeasonFilter] = useState<'current' | 'all'>('current');
+    const [activityFilter, setActivityFilter] = useState<'all' | 'credits' | 'payouts'>('all');
     const [currentGwNumber, setCurrentGwNumber] = useState<number | null>(null);
     const [isCurrentEventFinished, setIsCurrentEventFinished] = useState<boolean>(false);
     const [leagueCreatedAtMs, setLeagueCreatedAtMs] = useState<number | null>(null);
@@ -824,15 +823,18 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             seen.add(txId);
 
             const ts = toMillis(tx.timestamp);
-            if (seasonFilter === 'current') {
-                if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
-                if (ts && ts < currentSeasonStartMs) return false;
-                const gw = Number(tx.gw || tx.gameweek || 0);
-                if (gw > 0 && gw < leagueStartGw) return false;
-            }
+            if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
+            if (ts && ts < currentSeasonStartMs) return false;
+            const gw = Number(tx.gw || tx.gameweek || 0);
+            if (gw > 0 && gw < leagueStartGw) return false;
+
+            const isPayout = tx.type === 'payout' || tx.type === 'sidebet_payout';
+            if (activityFilter === 'credits' && isPayout) return false;
+            if (activityFilter === 'payouts' && !isPayout) return false;
+
             return true;
         });
-    }, [myTransactions, seasonFilter, lastResetAtMs, currentSeasonStartMs]);
+    }, [myTransactions, activityFilter, lastResetAtMs, currentSeasonStartMs, leagueStartGw]);
 
     const filteredModalTransactions = useMemo(() => {
         return displayedTransactions.filter((tx: any) => {
@@ -1899,10 +1901,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         {effectivePayoutMode === 'weekly_only'
                                                             ? "Projected Weekly Payout"
                                                             : effectivePayoutMode === 'season_only'
-                                                            ? (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")
+                                                            ? (seasonCardTab === 'collected' ? "Season Vault" : "End-Season Vault (Projected)")
                                                             : projectedCardIndex === 0
                                                             ? "Projected Weekly Payout"
-                                                            : (seasonCardTab === 'collected' ? "Season Vault" : "Projected Season Collection")}
+                                                            : (seasonCardTab === 'collected' ? "Season Vault" : "End-Season Vault (Projected)")}
                                                     </h3>
                                                     <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                                                         {effectivePayoutMode === 'weekly_only'
@@ -1959,7 +1961,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                                         )}
                                                     >
-                                                        Projected
+                                                        End-Season Vault
                                                     </button>
                                                 </div>
                                             )}
@@ -1987,7 +1989,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                                         )}
                                                     >
-                                                        Projected
+                                                        End-Season Vault
                                                     </button>
                                                 </div>
                                             )}
@@ -2570,33 +2572,45 @@ const handleRejectPendingPayout = async (payout: any) => {
                             <History className="w-5 h-5 text-emerald-400" />
                             <h3 className="font-bold text-lg text-white">Recent Activity</h3>
                             <span className="text-[10px] uppercase tracking-widest font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                {seasonFilter === 'current' ? '2026/27 Season' : 'All Time'}
+                                2026/27 Season
                             </span>
                         </div>
                         <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 w-fit">
                             <button
                                 type="button"
-                                onClick={() => setSeasonFilter('current')}
+                                onClick={() => setActivityFilter('all')}
                                 className={clsx(
-                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all',
-                                    seasonFilter === 'current'
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                                    activityFilter === 'all'
                                         ? 'bg-emerald-500 text-black shadow-sm'
                                         : 'text-gray-400 hover:text-white'
                                 )}
                             >
-                                Current Season
+                                All
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setSeasonFilter('all')}
+                                onClick={() => setActivityFilter('credits')}
                                 className={clsx(
-                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all',
-                                    seasonFilter === 'all'
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                                    activityFilter === 'credits'
                                         ? 'bg-emerald-500 text-black shadow-sm'
                                         : 'text-gray-400 hover:text-white'
                                 )}
                             >
-                                All History
+                                Credits & Deposits
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActivityFilter('payouts')}
+                                className={clsx(
+                                    'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
+                                    activityFilter === 'payouts'
+                                        ? 'bg-emerald-500 text-black shadow-sm'
+                                        : 'text-gray-400 hover:text-white'
+                                )}
+                            >
+                                Payouts
                             </button>
                         </div>
                     </div>
@@ -3011,7 +3025,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                             </span>
                                         </div>
                                         <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                                            {seasonFilter === 'current' ? '2026/27 Season complete ledger & audit log' : 'All-time transaction history'}
+                                            2026/27 Season complete ledger & audit log
                                         </p>
                                     </div>
                                 </div>

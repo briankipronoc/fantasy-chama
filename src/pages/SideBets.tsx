@@ -980,19 +980,18 @@ export default function SideBets() {
                         return acc + (b.fundingMode === 'instant_escrow' ? stake * 2 : stake);
                     }, 0);
 
-                    // Find latest resolved bet (celebration persists throughout the week)
-                    const latestResolvedBet = pastResolvedBets.length > 0
-                        ? [...pastResolvedBets].sort((a, b) => {
-                            const timeA = (a.resolvedAt as any)?.toMillis?.() || ((a.resolvedAt as any)?.seconds ? (a.resolvedAt as any).seconds * 1000 : 0);
-                            const timeB = (b.resolvedAt as any)?.toMillis?.() || ((b.resolvedAt as any)?.seconds ? (b.resolvedAt as any).seconds * 1000 : 0);
-                            return timeB - timeA;
-                        })[0]
-                        : null;
-
                     return (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-2">
-                            {/* Card 1: Recent Champion of the Week (Persists whole week) */}
-                            <div className="fc-card rounded-2xl bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 p-4 flex flex-col justify-between shadow-md">
+                            {/* Card 1: Duel Champion / Next GW Points Contest */}
+                            <div
+                                onClick={() => {
+                                    setBetTitle('Next GW Matchday Points Duel');
+                                    setBetDescription('Head-to-head matchday duel. Manager with the higher official FPL score in the upcoming gameweek takes the pot.');
+                                    setShowCreate(true);
+                                }}
+                                className="fc-card rounded-2xl bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 p-4 flex flex-col justify-between shadow-md cursor-pointer hover:border-amber-500/60 transition-all group"
+                                title="Click to challenge a manager for the next gameweek points stake"
+                            >
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                     <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
                                         <Trophy className="w-3 h-3 text-amber-500" /> Duel Champion
@@ -1002,25 +1001,16 @@ export default function SideBets() {
                                     </span>
                                 </div>
                                 <div>
-                                    {latestResolvedBet ? (
-                                        <>
-                                            <p className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-300 truncate">
-                                                {latestResolvedBet.winnerName || 'Champion'}
-                                            </p>
-                                            <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-1 font-medium">
-                                                Won KES {(latestResolvedBet.fundingMode === 'instant_escrow' ? latestResolvedBet.stake * 2 : latestResolvedBet.stake).toLocaleString()} • "{latestResolvedBet.title}"
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-sm font-black text-slate-800 dark:text-gray-200">
-                                                Chamber of Rivals
-                                            </p>
-                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                                Challenge a manager to claim the Weekly Duel crown!
-                                            </p>
-                                        </>
-                                    )}
+                                    <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors">
+                                        Next GW Points Stake Duel
+                                    </p>
+                                    <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5 font-medium">
+                                        Challenge a manager to claim the Weekly Duel crown!
+                                    </p>
+                                </div>
+                                <div className="mt-3 pt-2 border-t border-amber-500/20 flex items-center justify-between text-[10px] font-black text-amber-600 dark:text-amber-400">
+                                    <span>⚡ Points Clash Stake</span>
+                                    <span className="flex items-center gap-1 group-hover:underline">Tap to Challenge →</span>
                                 </div>
                             </div>
 
@@ -1042,69 +1032,70 @@ export default function SideBets() {
                                         Locked in wallet escrow & post-match duels
                                     </p>
                                 </div>
+                                <div className="mt-3 pt-2 border-t border-emerald-500/20 flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                    <span>Auto-Settlement Ready</span>
+                                    <span>Escrow Verified ✓</span>
+                                </div>
                             </div>
 
-                            {/* Card 3: Milestone / Goal Progress Tracker (Dynamic or Interactive Template) */}
-                            {(() => {
-                                const activeMilestoneBet = activeBets.find(b => 
-                                    /goal|target|milestone|score|blank|clean\s*sheet|haaland|salah|palmer|saka|son|watkins|isak/i.test(b.title)
-                                );
-                                return (
-                                    <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
-                                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                                                <Target className="w-3 h-3 text-indigo-500" /> Milestone Watch
-                                            </span>
-                                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
-                                                {activeMilestoneBet ? 'Active Duel' : 'GW38 Target (Tap to Use)'}
+                            {/* Card 3: Milestone & Prop Watch Types */}
+                            <div className="fc-card rounded-2xl bg-gradient-to-br from-indigo-500/15 via-indigo-500/5 to-transparent border border-indigo-500/30 p-4 flex flex-col justify-between shadow-md">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
+                                        <Target className="w-3 h-3 text-indigo-500" /> Milestone & Prop Watch
+                                    </span>
+                                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                                        Tap to Duel ⚡
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {/* Type 1: Milestone Target (Has progress bar) */}
+                                    <div
+                                        onClick={() => {
+                                            setBetTitle('Haaland 20 Goals Duel');
+                                            setBetDescription('Challenger backs Erling Haaland to hit 20 Premier League goals in the 2026/27 season.');
+                                            setShowCreate(true);
+                                        }}
+                                        className="p-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all cursor-pointer group"
+                                        title="Click to challenge with Haaland 20 Goals Milestone"
+                                    >
+                                        <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200 group-hover:text-indigo-500 transition-colors">
+                                            <span className="truncate">🎯 Haaland 20 Goals Target</span>
+                                            <span className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px] shrink-0">14 / 20</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full mt-1 overflow-hidden">
+                                            <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: '70%' }} />
+                                        </div>
+                                        <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mt-1">
+                                            <span>70% • Progressive Target</span>
+                                            <span className="font-semibold text-indigo-600 dark:text-indigo-400">Auto-Tracked FPL 🤖</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Type 2: Binary Proposition Bet (YES/NO - NO progress bar) */}
+                                    <div
+                                        onClick={() => {
+                                            setBetTitle('Haaland to blank GW8');
+                                            setBetDescription('Erling Haaland to score 0 goals and 0 assists in GW8 (Binary Yes/No wager).');
+                                            setShowCreate(true);
+                                        }}
+                                        className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all cursor-pointer group"
+                                        title="Click to challenge with Haaland to blank GW8 Prop Bet"
+                                    >
+                                        <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-500 transition-colors">
+                                            <span className="truncate">🎲 Haaland to blank GW8</span>
+                                            <span className="text-[9px] uppercase tracking-wider font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                                                YES / NO Binary
                                             </span>
                                         </div>
-                                        {activeMilestoneBet ? (
-                                            <div>
-                                                <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200">
-                                                    <span className="truncate max-w-[170px]">{activeMilestoneBet.title}</span>
-                                                    <span className="text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">KES {(activeMilestoneBet.stake * 2).toLocaleString()} Pot</span>
-                                                </div>
-                                                <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full mt-1.5 overflow-hidden">
-                                                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-500 animate-pulse" style={{ width: '65%' }} />
-                                                </div>
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between">
-                                                    <span>{activeMilestoneBet.challenger.name} vs {activeMilestoneBet.opponent.name}</span>
-                                                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                                        Auto-Tracking FPL 🤖
-                                                    </span>
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <div
-                                                onClick={() => {
-                                                    setBetTitle('Haaland 20 Goals Duel');
-                                                    setBetDescription('Challenger backs Erling Haaland to hit 20 Premier League goals this season.');
-                                                    setFundingMode('instant_escrow');
-                                                    setShowCreate(true);
-                                                }}
-                                                className="cursor-pointer group select-none"
-                                                title="Click to challenge a manager with this milestone template"
-                                            >
-                                                <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-gray-200 group-hover:text-indigo-500 transition-colors">
-                                                    <span>Haaland 20 Goals Duel</span>
-                                                    <span className="text-indigo-600 dark:text-indigo-400 font-mono">14 / 20</span>
-                                                </div>
-                                                <div className="w-full bg-slate-200 dark:bg-white/10 h-2 rounded-full mt-1.5 overflow-hidden">
-                                                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: '70%' }} />
-                                                </div>
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 flex justify-between items-center">
-                                                    <span>70% Completed</span>
-                                                    <span className="font-bold text-amber-600 dark:text-amber-400 group-hover:underline flex items-center gap-0.5">
-                                                        ⚡ Tap to Setup Duel
-                                                    </span>
-                                                </p>
-                                            </div>
-                                        )}
+                                        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1 flex items-center justify-between">
+                                            <span>Single match outcome</span>
+                                            <span className="font-semibold text-amber-600 dark:text-amber-400">Direct whistle settlement</span>
+                                        </p>
                                     </div>
-                                );
-                            })()}
+                                </div>
+                            </div>
                         </div>
                     );
                 })()}
@@ -1443,14 +1434,14 @@ export default function SideBets() {
                         {/* Quick Template Chips */}
                         <div className="mb-4">
                             <span className="block text-[10px] font-black text-slate-500 dark:text-gray-400 mb-1.5 uppercase tracking-widest flex items-center gap-1">
-                                <Sparkles className="w-3 h-3 text-amber-500" /> Example Side Bet Ideas
+                                <Sparkles className="w-3 h-3 text-amber-500" /> Side Bet Types & Templates
                             </span>
                             <div className="flex flex-wrap gap-1.5">
                                 {[
-                                    { title: 'Haaland to blank GW8', desc: 'Erling Haaland scores 0 goals and 0 assists in GW8.' },
-                                    { title: 'Haaland 20 Goals Duel', desc: 'Erling Haaland reaches 20 Premier League goals in 2026.' },
-                                    { title: 'GW Matchday Points Duel', desc: 'Higher FPL points in current gameweek takes the pot.' },
-                                    { title: 'Arsenal Clean Sheet GW8', desc: 'Arsenal defense maintains a clean sheet in GW8.' },
+                                    { tag: 'Points', title: 'Next GW Points Duel', desc: 'Higher official FPL points in the next gameweek takes the pot.' },
+                                    { tag: 'Milestone', title: 'Haaland 20 Goals Duel', desc: 'Challenger backs Erling Haaland to reach 20 Premier League goals in 2026/27.' },
+                                    { tag: 'Yes/No', title: 'Haaland to blank GW8', desc: 'Erling Haaland scores 0 goals and 0 assists in GW8 (Binary Yes/No outcome).' },
+                                    { tag: 'Prop', title: 'Arsenal Clean Sheet GW8', desc: 'Arsenal defense maintains a clean sheet in GW8.' },
                                 ].map((tpl) => (
                                     <button
                                         key={tpl.title}
@@ -1459,9 +1450,10 @@ export default function SideBets() {
                                             setBetTitle(tpl.title);
                                             setBetDescription(tpl.desc);
                                         }}
-                                        className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[10px] font-bold transition-colors cursor-pointer"
+                                        className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
                                     >
-                                        ⚡ {tpl.title}
+                                        <span className="text-[9px] uppercase px-1 py-0.2 bg-amber-500/20 rounded font-black">{tpl.tag}</span>
+                                        <span>{tpl.title}</span>
                                     </button>
                                 ))}
                             </div>

@@ -423,14 +423,16 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
 
                     {/* Line 2: Stealth Eye + Notification Bell right below */}
                     <div className="flex items-center gap-1.5 sm:gap-2 justify-end" ref={dropdownRef}>
-                        {/* Stealth Mode Toggle */}
-                        <button
-                            onClick={toggleStealthMode}
-                            className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
-                            title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
-                        >
-                            {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
-                        </button>
+                        {/* Stealth Mode Toggle (Only on Chairman/Member Hub and Finances) */}
+                        {(['/dashboard', '/admin', '/command-center', '/finances', '/'].includes(location.pathname)) && (
+                            <button
+                                onClick={toggleStealthMode}
+                                className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
+                                title={isStealthMode ? "Disable Stealth Mode" : "Enable Stealth Mode"}
+                            >
+                                {isStealthMode ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+                            </button>
+                        )}
 
                         {/* Notifications Bell */}
                         <div className="relative">

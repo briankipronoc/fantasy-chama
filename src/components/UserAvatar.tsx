@@ -67,14 +67,31 @@ export default function UserAvatar({
     if (photoUrl) return photoUrl;
 
     const localSavedAvatar = typeof window !== 'undefined' ? localStorage.getItem('fc_user_avatar') : null;
-    const currentUserName = auth.currentUser?.displayName || (typeof window !== 'undefined' ? localStorage.getItem('activeUserName') : null);
+    const activeUserId = typeof window !== 'undefined' ? localStorage.getItem('activeUserId') : null;
+    const currentMember = members?.find((m: any) => (activeUserId && (m.id === activeUserId || m.authUid === activeUserId)) || (auth.currentUser?.uid && m.authUid === auth.currentUser.uid));
+    const currentUserName = auth.currentUser?.displayName || (typeof window !== 'undefined' ? localStorage.getItem('activeUserName') : null) || currentMember?.displayName;
 
-    if (localSavedAvatar && name && currentUserName && name.trim().toLowerCase() === currentUserName.trim().toLowerCase()) {
-      return localSavedAvatar;
+    if (localSavedAvatar) {
+      if (!name || name === 'Manager' || name === 'You' || name === 'Me') {
+        return localSavedAvatar;
+      }
+      const cleanName = name.trim().toLowerCase();
+      if (currentUserName && cleanName === currentUserName.trim().toLowerCase()) {
+        return localSavedAvatar;
+      }
+      if (currentMember?.displayName && cleanName === currentMember.displayName.trim().toLowerCase()) {
+        return localSavedAvatar;
+      }
+      if (currentMember?.fplTeamName && cleanName === currentMember.fplTeamName.trim().toLowerCase()) {
+        return localSavedAvatar;
+      }
     }
 
-    if (auth.currentUser?.photoURL && name && currentUserName && name.trim().toLowerCase() === currentUserName.trim().toLowerCase()) {
-      return auth.currentUser.photoURL;
+    if (auth.currentUser?.photoURL) {
+      const cleanName = (name || '').trim().toLowerCase();
+      if (!name || name === 'Manager' || name === 'You' || (currentUserName && cleanName === currentUserName.trim().toLowerCase())) {
+        return auth.currentUser.photoURL;
+      }
     }
 
     if (name && members && members.length > 0) {
@@ -87,10 +104,6 @@ export default function UserAvatar({
       if (match && ((match as any).photoUrl || (match as any).avatarUrl)) {
         return (match as any).photoUrl || (match as any).avatarUrl;
       }
-    }
-
-    if (localSavedAvatar && (!name || name === 'Manager' || name === 'You')) {
-      return localSavedAvatar;
     }
 
     return null;
