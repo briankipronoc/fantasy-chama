@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { useNotifications } from './NotificationProvider';
-import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles } from 'lucide-react';
+import { Bell, Eye, EyeOff, Shield, Trophy, CheckCircle2, AlertTriangle, Info, CheckCheck, Sun, Moon, Laptop, LogOut, Sparkles, Wallet } from 'lucide-react';
 
 import clsx from 'clsx';
 import LeagueRulesModal from './LeagueRulesModal';
@@ -666,7 +666,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between gap-2 mb-1">
                                                             <span className={clsx(
-                                                                "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border",
+                                                                "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
                                                                 isWinner
                                                                     ? "bg-amber-100 dark:bg-[#FBBF24]/20 border-amber-300 dark:border-[#FBBF24]/40 text-amber-900 dark:text-[#FBBF24]"
                                                                     : isFinancial
@@ -677,7 +677,32 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                                                                 ? "bg-indigo-100 dark:bg-indigo-500/15 border-indigo-300 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-300"
                                                                                 : "bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
                                                             )}>
-                                                                {isWinner ? '👑 GW Champion' : isFinancial ? '💰 Inflow / Deposit' : isWarning ? '⚠️ Deadline Alert' : isProps ? '🎉 Cheers & Props' : 'ℹ️ Chama Sync'}
+                                                                {isWinner ? (
+                                                                    <>
+                                                                        <Trophy className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                                                                        <span>GW Champion</span>
+                                                                    </>
+                                                                ) : isFinancial ? (
+                                                                    <>
+                                                                        <Wallet className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                                                                        <span>Inflow / Deposit</span>
+                                                                    </>
+                                                                ) : isWarning ? (
+                                                                    <>
+                                                                        <AlertTriangle className="w-2.5 h-2.5 text-red-500 shrink-0" />
+                                                                        <span>Deadline Alert</span>
+                                                                    </>
+                                                                ) : isProps ? (
+                                                                    <>
+                                                                        <Sparkles className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+                                                                        <span>Cheers & Props</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Info className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                                                                        <span>Chama Sync</span>
+                                                                    </>
+                                                                )}
                                                             </span>
                                                             <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono">
                                                                 {formatMessageTime(notif.timestamp)}

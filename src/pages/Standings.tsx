@@ -497,6 +497,27 @@ export default function Standings() {
                                 }
                                 gwMap.get(evNum)[playerName] = Number(gw.points);
                             }
+                        } else {
+                            // If history is not returned or player just joined, ensure current event score is plotted
+                            const playerEntry = results.find((r: any) => r.entry === tId);
+                            if (playerEntry) {
+                                const playerName = playerEntry.player_name ? playerEntry.player_name.split(' ')[0] : `Team ${tId}`;
+                                const evNum = currentEvent || 6;
+                                if (!gwMap.has(evNum)) {
+                                    gwMap.set(evNum, { name: `GW${evNum}` });
+                                }
+                                gwMap.get(evNum)[playerName] = Number(playerEntry.event_total || 0);
+                            }
+                        }
+                    }
+
+                    // Fallback preChama calculation for all managers if history API was unavailable or current round is kickoff
+                    for (const r of results) {
+                        const entryId = Number(r.entry);
+                        if (calculatedPreMap[entryId] === undefined && effectiveLeagueStartGw > 1) {
+                            if (currentEvent === effectiveLeagueStartGw) {
+                                calculatedPreMap[entryId] = Math.max(0, Number(r.total || 0) - Number(r.event_total || 0));
+                            }
                         }
                     }
 
@@ -799,8 +820,12 @@ export default function Standings() {
         if (!hasEverFunded(m)) return false;
         return true;
     }).map((r: any) => {
+        const rawPre = preChamaPointsMap[Number(r.entry)];
+        const fallbackPre = (effectiveLeagueStartGw > 1 && currentEvent === effectiveLeagueStartGw)
+            ? Math.max(0, Number(r.total || 0) - Number(r.event_total || 0))
+            : 0;
         const preDeduction = (standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1)
-            ? (preChamaPointsMap[Number(r.entry)] || 0)
+            ? (rawPre !== undefined && rawPre > 0 ? rawPre : fallbackPre)
             : 0;
         const cleanTotal = Math.max(0, Number(r.total || 0) - preDeduction);
         return {
@@ -900,9 +925,9 @@ export default function Standings() {
                                             ? 'bg-[#10B981] text-black shadow-xs'
                                             : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                                     )}
-                                    title="Clean slate: Points earned only from league kickoff GW onwards"
+                                    title="Calculate standings from league kickoff GW on Fantasy Chama"
                                 >
-                                    Chama (GW{effectiveLeagueStartGw}+) 🏁
+                                    Since Chama Start (GW{effectiveLeagueStartGw}+) 🏁
                                 </button>
                                 <button
                                     type="button"
@@ -913,7 +938,7 @@ export default function Standings() {
                                             ? 'bg-amber-500 text-black shadow-xs'
                                             : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
                                     )}
-                                    title="Raw overall FPL points since GW1"
+                                    title="Overall FPL points since Gameweek 1"
                                 >
                                     Overall FPL (GW1+)
                                 </button>
@@ -937,20 +962,20 @@ export default function Standings() {
                     </div>
                 </div>
 
-                {/* Kickoff Clean Slate Explainer Banner */}
+                {/* Kickoff / Chama Start Explainer Banner */}
                 {effectiveLeagueStartGw > 1 && (
                     <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-slate-700 dark:text-gray-200 shadow-xs">
                         <div className="flex items-center gap-2 min-w-0">
                             <Sparkles className="w-4 h-4 text-emerald-600 dark:text-[#10B981] shrink-0" />
                             <p className="text-[11px] sm:text-xs">
-                                <strong>Chama Kickoff GW{effectiveLeagueStartGw}:</strong>{' '}
+                                <strong>Fantasy Chama Kickoff GW{effectiveLeagueStartGw}:</strong>{' '}
                                 {standingsMode === 'clean_slate'
-                                    ? `Pre-chama rounds (GW1–${effectiveLeagueStartGw - 1}) are deducted so all members start on an equal footing.`
-                                    : `Showing raw cumulative FPL points including pre-chama rounds.`}
+                                    ? `Pre-chama rounds (GW1–${effectiveLeagueStartGw - 1}) are deducted so all members start on an equal footing since the league was created on Fantasy Chama.`
+                                    : `Showing raw cumulative FPL points including pre-chama rounds from Gameweek 1.`}
                             </p>
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
-                            {standingsMode === 'clean_slate' ? 'Clean Slate Active ✓' : 'Raw FPL'}
+                            {standingsMode === 'clean_slate' ? 'Since Chama Start Active ✓' : 'Overall FPL (GW1+)'}
                         </span>
                     </div>
                 )}
@@ -1267,8 +1292,12 @@ export default function Standings() {
                                         return true;
                                     })
                                     .map((row: any) => {
+                                        const rawPre = preChamaPointsMap[Number(row.entry)];
+                                        const fallbackPre = (effectiveLeagueStartGw > 1 && currentEvent === effectiveLeagueStartGw)
+                                            ? Math.max(0, Number(row.total || 0) - Number(row.event_total || 0))
+                                            : 0;
                                         const preDeduction = isCleanSlateActive
-                                            ? (preChamaPointsMap[Number(row.entry)] || 0)
+                                            ? (rawPre !== undefined && rawPre > 0 ? rawPre : fallbackPre)
                                             : 0;
                                         const cleanTotal = Math.max(0, Number(row.total || 0) - preDeduction);
                                         const seasonCompareScore = isCleanSlateActive ? cleanTotal : Number(row.total || 0);
@@ -1322,16 +1351,23 @@ export default function Standings() {
                                     0
                                 );
                                 const memberBalance = Number(matchedMember?.walletBalance || 0);
-                                const isFunded = Boolean(
-                                    matchedMember &&
-                                    matchedMember.isActive !== false &&
-                                    !isSpectator &&
-                                    (matchedMember.hasPaid === true || memberBalance > 0 || (stake > 0 && memberBalance >= stake))
-                                );
+                                const totalDeposited = Number((matchedMember as any)?.totalDeposited || 0);
                                 const isGwWinnerRow = Boolean(
                                     !isSpectator &&
                                     maxEligibleGwScore > 0 &&
                                     Number(row.event_total) === maxEligibleGwScore
+                                );
+                                const isFunded = Boolean(
+                                    matchedMember &&
+                                    matchedMember.isActive !== false &&
+                                    !isSpectator &&
+                                    (
+                                        matchedMember.hasPaid === true ||
+                                        memberBalance > 0 ||
+                                        (stake > 0 && memberBalance >= stake) ||
+                                        (stake > 0 && totalDeposited >= stake) ||
+                                        isGwWinnerRow
+                                    )
                                 );
                                 const isMe = myStanding && row.id === myStanding.id;
                                 const isSeasonView = heroRankView === 'season';
@@ -1435,9 +1471,9 @@ export default function Standings() {
                                                         </span>
                                                         <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg md:bg-transparent md:border-0 md:p-0">
                                                             {displaySeasonTotal.toLocaleString()}
-                                                            {isCleanSlateActive && (
+                                                            {isCleanSlateActive && row.preDeduction > 0 && (
                                                                 <span className="block text-[8px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
-                                                                    {row.preDeduction > 0 ? `(-${row.preDeduction} pre-GW${effectiveLeagueStartGw})` : `clean start ✓`}
+                                                                    (-{row.preDeduction} pre-GW{effectiveLeagueStartGw})
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1468,9 +1504,9 @@ export default function Standings() {
                                                         </span>
                                                         <div className="font-extrabold text-slate-900 dark:text-white text-sm tabular-nums">
                                                             {displaySeasonTotal.toLocaleString()}
-                                                            {isCleanSlateActive && (
+                                                            {isCleanSlateActive && row.preDeduction > 0 && (
                                                                 <span className="block text-[8px] font-bold text-slate-500 dark:text-gray-400 mt-0.5">
-                                                                    {row.preDeduction > 0 ? `(-${row.preDeduction})` : `clean start`}
+                                                                    (-{row.preDeduction})
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1590,7 +1626,15 @@ export default function Standings() {
                         {/* Interactive & Clear Legend Chips for PC & Mobile */}
                         {(() => {
                             const colors = ['#10B981', '#3B82F6', '#F43F5E', '#A855F7', '#F97316', '#06B6D4', '#EAB308', '#EC4899', '#8B5CF6', '#14B8A6'];
-                            const allKeys = Object.keys(performanceData[0] || {}).filter(k => k !== 'name' && k !== 'Average');
+                            const allKeysSet = new Set<string>();
+                            performanceData.forEach((row) => {
+                                Object.keys(row || {}).forEach((k) => {
+                                    if (k !== 'name' && k !== 'Average') {
+                                        allKeysSet.add(k);
+                                    }
+                                });
+                            });
+                            const allKeys = Array.from(allKeysSet);
                             const myMember = members.find(m => m.id === (localStorage.getItem('activeUserId') || ''));
                             const myFirstName = myMember?.displayName ? myMember.displayName.split(' ')[0] : '';
                             const playerKeys = trajectoryView === 'top5'

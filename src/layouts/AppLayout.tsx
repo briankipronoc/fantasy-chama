@@ -129,7 +129,8 @@ export default function AppLayout() {
 
     // Navigation Items
     const redZoneCount = members.filter((m) => m.role !== 'admin' && m.isActive !== false && (m as any).playMode !== 'sidebets_only' && !m.hasPaid).length;
-    const adminFinanceBadge = redZoneCount + pendingApprovalCount;
+    // Only badge actionable approvals waiting for the Chairman (e.g. pending payout requests)
+    const adminFinanceBadge = pendingApprovalCount;
     const activeUserMember = members.find(m => m.id === activeUserId);
     // Member badge: only show if the current user personally hasn't paid and is playing in the pot
     const isUserSpectator = (activeUserMember as any)?.playMode === 'sidebets_only';

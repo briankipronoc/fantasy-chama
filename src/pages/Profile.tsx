@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Shield, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
+import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, RefreshCw, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Crown, Camera, Loader2, Sparkles } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, getDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -28,26 +28,6 @@ export default function Profile() {
     const listenToLeagueMembers = useStore(state => state.listenToLeagueMembers);
     const toggleMemberActiveStatus = useStore(state => state.toggleMemberActiveStatus);
     const { theme, setTheme } = useTheme();
-
-    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            const isAnon = Boolean(user?.isAnonymous);
-            const userEmail = !isAnon ? user?.email?.toLowerCase() : null;
-            const uid = !isAnon ? user?.uid : null;
-            if (
-                (!isAnon && uid === import.meta.env.VITE_SUPER_ADMIN_UID) ||
-                activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
-                userEmail === 'cbrian@kabarak.ac.ke'
-            ) {
-                setIsSuperAdmin(true);
-            } else {
-                setIsSuperAdmin(false);
-            }
-        });
-        return () => unsubscribe();
-    }, [activeUserId]);
 
     // Form states
     const [displayName, setDisplayName] = useState('');
@@ -819,36 +799,38 @@ export default function Profile() {
             "fc-active-members-card fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-[2rem] p-5 md:p-6 relative overflow-hidden h-fit shadow-xl text-slate-900 dark:text-white",
             extraClassName
         )}>
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div>
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-slate-900 dark:text-white">
-                        <Users className="w-5 h-5 text-[#10B981]" /> Active Members
-                    </h2>
-                    <p className="text-slate-500 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest">Chama Members</p>
+            {!extraClassName && (
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h2 className="text-xl font-bold flex items-center gap-2 mb-1 text-slate-900 dark:text-white">
+                            <Users className="w-5 h-5 text-[#10B981]" /> Active Members
+                        </h2>
+                        <p className="text-slate-500 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest">Chama Members</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {pendingMembers.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    haptics.selection();
+                                    setShowPendingOnboarding(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)] group active:scale-95"
+                                title="Click to view and onboard pending FPL members"
+                            >
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span>{pendingMembers.length} Pending Onboarding</span>
+                            </button>
+                        )}
+                        <span className="bg-slate-100 dark:bg-[#0b1014] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
+                            {activeMembersCount}
+                        </span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {pendingMembers.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                haptics.selection();
-                                setShowPendingOnboarding(true);
-                            }}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.15)] group active:scale-95"
-                            title="Click to view and onboard pending FPL members"
-                        >
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
-                            <span>{pendingMembers.length} Pending Onboarding</span>
-                        </button>
-                    )}
-                    <span className="bg-slate-100 dark:bg-[#0b1014] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 px-3 py-1 rounded-lg text-sm font-black shadow-inner">
-                        {activeMembersCount}
-                    </span>
-                </div>
-            </div>
+            )}
 
             {/* Centered Interactive Modal: FPL Sync • Pending Onboarding */}
             {showPendingOnboarding && pendingMembers.length > 0 && typeof document !== 'undefined' && createPortal(
@@ -1173,10 +1155,13 @@ export default function Profile() {
     );
 
     const renderLeagueSettingsForm = () => (
-        <form onSubmit={handleSaveAdmin} className="space-y-4 flex-1 flex flex-col justify-end">
+        <form onSubmit={handleSaveAdmin} className="space-y-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {/* Col 1: League Name */}
                 <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                        <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                             League Name
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1187,14 +1172,15 @@ export default function Profile() {
                         value={leagueName}
                         onChange={(e) => setLeagueName(e.target.value)}
                         placeholder="e.g. Premier League 24/25"
-                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-amber-400 outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     />
-                    <p className="text-[10px] text-slate-500 dark:text-gray-500 mt-1">Clean sweep old season names to your current active league.</p>
+                    <p className="text-[9px] text-slate-500 dark:text-gray-500 mt-1">Clean sweep old season names to active league.</p>
                 </div>
 
+                {/* Col 2: Gameweek Stake */}
                 <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                        <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                             Gameweek Stake (KES)
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1210,13 +1196,15 @@ export default function Profile() {
                             const cleaned = e.target.value.replace(/[^0-9]/g, '');
                             setMonthlyContribution(cleaned === '' ? 0 : parseInt(cleaned, 10));
                         }}
-                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-colors outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
+                    <p className="text-[9px] text-slate-500 dark:text-gray-500 mt-1">Dues required per manager each round.</p>
                 </div>
 
+                {/* Col 1: FPL League ID */}
                 <div>
-                    <div className="flex justify-between items-center mb-2">
-                        <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                             FPL League ID
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1231,30 +1219,31 @@ export default function Profile() {
                             if (match && match[1]) val = match[1];
                             setFplLeagueId(val.replace(/\D/g, ''));
                         }}
-                        placeholder="e.g. 123456 or paste Standings URL"
-                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        placeholder="e.g. 123456 or paste standings URL"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-colors outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 font-medium leading-relaxed">
-                        Found in your official FPL League URL.<br />Paste the full link: <span className="text-gray-600 dark:text-gray-300 bg-slate-200/60 dark:bg-white/5 px-1 py-0.5 rounded">fantasy.premierleague.com/leagues/123456/standings</span> and we will auto-extract the ID.
-                    </p>
+                    <p className="text-[9px] text-slate-500 dark:text-gray-500 mt-1">Auto-extracts from official FPL standings URL.</p>
                 </div>
 
+                {/* Col 2: Pochi Receiving Number */}
                 <div>
-                    <label className="block text-[10px] md:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-widest mb-2">Pochi Receiving Number</label>
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider">Pochi Receiving Number</label>
+                    </div>
                     <input
                         type="tel"
                         value={chairmanPhone}
                         onChange={(e) => setChairmanPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                         placeholder="e.g. 0712345678"
-                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-all outline-none"
+                        className="w-full bg-slate-50 dark:bg-[#0b1014] border border-slate-300 dark:border-white/10 rounded-xl py-2 px-3 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-[#FBBF24] focus:border-[#FBBF24] transition-colors outline-none"
                     />
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">This number receives Pochi/cash payout references and fallback remittances.</p>
+                    <p className="text-[9px] text-slate-500 dark:text-gray-500 mt-1">Receives Pochi and fallback remittance references.</p>
                 </div>
 
-                {/* Co-Chair Designation */}
+                {/* Col 1: Co-Chair Designation */}
                 <div>
-                    <div className="flex justify-between items-center mb-2">
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
                             Designate Co-Chair
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
@@ -1268,32 +1257,35 @@ export default function Profile() {
                                     disabled={isFinancialsLocked}
                                     value={resolvedCoAdminValue}
                                     onChange={(e) => setCoAdminId(e.target.value)}
-                                    className="w-full bg-slate-50 dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl py-3 pl-4 pr-11 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer shadow-sm hover:border-[#FBBF24]/50"
+                                    className="w-full bg-slate-50 dark:bg-[#0c1218] border border-slate-300 dark:border-white/10 rounded-xl py-2 pl-3 pr-9 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FBBF24]/20 focus:border-[#FBBF24] transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                                 >
-                                    <option value="" className="bg-white dark:bg-[#0c1218] text-gray-500 dark:text-gray-400 py-1.5 font-medium">-- No Co-Chair Selected --</option>
+                                    <option value="" className="bg-white dark:bg-[#0c1218] text-gray-500 dark:text-gray-400 py-1 font-medium">-- No Co-Chair Selected --</option>
                                     {members.filter(m => m.id !== activeUserId && m.authUid !== activeUserId && m.id !== chairmanId && (m as any).role !== 'chairman').map(m => (
-                                        <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-gray-900 dark:text-white py-1.5 font-medium">
+                                        <option key={m.id} value={m.id} className="bg-white dark:bg-[#0c1218] text-gray-900 dark:text-white py-1 font-medium">
                                             {m.displayName} {((m as any).fplTeamName || m.teamName) ? `(${((m as any).fplTeamName || m.teamName)})` : ''} {m.role === 'co-chair' ? '👑 Active Co-Chair' : ''}
                                         </option>
                                     ))}
                                 </select>
                             );
                         })()}
-                        <ChevronDown className="w-4 h-4 text-amber-500 dark:text-[#FBBF24] pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2" />
+                        <ChevronDown className="w-4 h-4 text-amber-500 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" />
                     </div>
-                    <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1 font-medium">Grants this member permission to approve payouts and edit rules.</p>
+                    <p className="text-[9px] text-slate-500 dark:text-gray-500 mt-1">Dual-signatory permissions for payouts & rules.</p>
                 </div>
 
+                {/* Col 2: Distribution Split Logic */}
                 <div>
-                    <div className="flex justify-between items-center mb-2">
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                            Distribution Split Logic
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                            Distribution Split
                             {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
                         </label>
-                        <span className="text-xs font-black text-[#FBBF24] px-2 py-1 bg-[#FBBF24]/10 rounded border border-[#FBBF24]/20">{weeklyPrizePercent} / {100 - weeklyPrizePercent}</span>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-[#FBBF24] px-2 py-0.5 bg-amber-500/10 rounded border border-amber-500/20">
+                            {weeklyPrizePercent}% Weekly / {100 - weeklyPrizePercent}% Vault
+                        </span>
                     </div>
 
-                    <div className="relative pt-2 pb-6">
+                    <div className="pt-2 pb-1">
                         <input
                             type="range"
                             min="0"
@@ -1302,130 +1294,124 @@ export default function Profile() {
                             disabled={isFinancialsLocked}
                             value={weeklyPrizePercent}
                             onChange={(e) => setWeeklyPrizePercent(Number(e.target.value))}
-                            className="w-full h-2 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[4px] [&::-webkit-slider-thumb]:border-[#161d24] relative z-10 shadow-lg"
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-amber-500 relative z-10 shadow-sm"
                             style={{ background: `linear-gradient(to right, #FBBF24 ${weeklyPrizePercent}%, #10B981 ${weeklyPrizePercent}%)` }}
                         />
                     </div>
 
-                    <div className="flex justify-between text-[10px] text-gray-500 mt-[-10px] font-bold uppercase tracking-widest px-1">
-                        <span className="text-[#FBBF24]">Weekly Pot</span>
-                        <span className="text-[#10B981]">Season Vault</span>
+                    <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider px-0.5">
+                        <span className="text-amber-500">Weekly Pot ({weeklyPrizePercent}%)</span>
+                        <span className="text-emerald-500">Season Vault ({100 - weeklyPrizePercent}%)</span>
                     </div>
                 </div>
+            </div>
 
-                <div>
-                    <div className="flex justify-between items-center mb-3">
-                        <label className="block text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                            End of Season Winners
-                            {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
-                        </label>
-                    </div>
-                    <div className="grid grid-cols-4 gap-3">
-                        {[
-                            { key: 'top1', label: 'Top 1' },
-                            { key: 'top3', label: 'Top 3' },
-                            { key: 'top5', label: 'Top 5' },
-                            { key: 'custom', label: 'Custom' },
-                        ].map((option) => (
-                            (() => {
-                                const neededMembers = option.key === 'top5' ? 5 : option.key === 'top3' ? 3 : 1;
-                                const isOptionLockedBySize = option.key !== 'custom' && activeMembersCount < neededMembers;
-                                const isDisabled = isFinancialsLocked || isOptionLockedBySize;
-                                return (
-                            <button
-                                key={option.key}
-                                type="button"
-                                disabled={isDisabled}
-                                onClick={() => {
-                                    if (isOptionLockedBySize) {
-                                        toast.error(`Need at least ${neededMembers} active members for ${option.label}.`);
-                                        return;
-                                    }
-                                    const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
-                                    setSeasonWinnersMode(mode);
-                                    if (mode === 'top1') setSeasonWinnersCount(1);
-                                    if (mode === 'top3') setSeasonWinnersCount(3);
-                                    if (mode === 'top5') setSeasonWinnersCount(5);
+            {/* End of Season Winners: Compact Selector */}
+            <div className="pt-1 border-t border-slate-200/60 dark:border-white/5">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] sm:text-xs font-bold text-slate-600 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                        End of Season Winners
+                        {isFinancialsLocked && <Lock className="w-3 h-3 text-red-400" />}
+                    </label>
+                    <span className="text-[10px] text-amber-600 dark:text-[#FBBF24] font-bold">
+                        Applied: {effectiveSeasonDistribution.map((ratio, idx) => `#${idx + 1} ${ratio}%`).join(' · ')}
+                    </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                    {[
+                        { key: 'top1', label: 'Top 1' },
+                        { key: 'top3', label: 'Top 3' },
+                        { key: 'top5', label: 'Top 5' },
+                        { key: 'custom', label: 'Custom' },
+                    ].map((option) => (
+                        (() => {
+                            const neededMembers = option.key === 'top5' ? 5 : option.key === 'top3' ? 3 : 1;
+                            const isOptionLockedBySize = option.key !== 'custom' && activeMembersCount < neededMembers;
+                            const isDisabled = isFinancialsLocked || isOptionLockedBySize;
+                            return (
+                                <button
+                                    key={option.key}
+                                    type="button"
+                                    disabled={isDisabled}
+                                    onClick={() => {
+                                        if (isOptionLockedBySize) {
+                                            toast.error(`Need at least ${neededMembers} active members for ${option.label}.`);
+                                            return;
+                                        }
+                                        const mode = option.key as 'top1' | 'top3' | 'top5' | 'custom';
+                                        setSeasonWinnersMode(mode);
+                                        if (mode === 'top1') setSeasonWinnersCount(1);
+                                        if (mode === 'top3') setSeasonWinnersCount(3);
+                                        if (mode === 'top5') setSeasonWinnersCount(5);
+                                    }}
+                                    className={clsx(
+                                        "py-2 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+                                        seasonWinnersMode === option.key
+                                            ? "bg-[#22c55e]/20 border-[#22c55e]/60 text-[#22c55e]"
+                                            : "bg-slate-50 dark:bg-[#161d24] border-slate-200 dark:border-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
+                                    )}
+                                    title={isOptionLockedBySize ? `Requires at least ${neededMembers} active members` : undefined}
+                                >
+                                    {option.label}
+                                </button>
+                            );
+                        })()
+                    ))}
+                </div>
+
+                {seasonWinnersMode === 'custom' && (
+                    <div className="mt-2.5 space-y-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#0b1014]/60 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-gray-400">Custom winners (max {maxAllowedWinners})</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max={maxAllowedWinners}
+                                disabled={isFinancialsLocked}
+                                value={normalizedCustomWinnerCount}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/^0+(?=\d)/, '');
+                                    setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(val) || 1)));
                                 }}
-                                className={clsx(
-                                    "py-3 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-                                    seasonWinnersMode === option.key
-                                        ? "bg-[#22c55e]/20 border-[#22c55e]/50 text-[#22c55e]"
-                                        : "bg-[#161d24] border-white/5 text-gray-600 dark:text-gray-400 hover:bg-white/[0.02]"
-                                )}
-                                title={isOptionLockedBySize ? `Requires at least ${neededMembers} active members` : undefined}
-                            >
-                                {option.label}
-                            </button>
-                                );
-                            })()
-                        ))}
-                    </div>
+                                className="w-16 bg-white dark:bg-[#161d24] border border-slate-300 dark:border-white/10 rounded-lg px-2 py-1 text-xs font-bold text-slate-900 dark:text-white disabled:opacity-50 text-center"
+                            />
+                        </div>
 
-                    <div className="fc-custom-winners-panel mt-3 space-y-3 rounded-xl border border-white/10 bg-[#0b1014]/60 p-3.5">
-                        {seasonWinnersMode === 'custom' && (
-                            <>
-                                <div>
-                                    <label className="fc-custom-winners-label text-[10px] font-black uppercase tracking-widest text-gray-500">Custom winners</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
+                                <div key={`profile-ratio-${idx}`} className="flex items-center gap-2 bg-white dark:bg-[#161d24] px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10">
+                                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-gray-400 w-8">#{idx + 1}</span>
                                     <input
                                         type="number"
-                                        min="1"
-                                        max={maxAllowedWinners}
+                                        min="0"
                                         disabled={isFinancialsLocked}
-                                        value={normalizedCustomWinnerCount}
+                                        value={customWinnerRatios[idx] || '0'}
                                         onFocus={(e) => e.target.select()}
                                         onChange={(e) => {
-                                            const val = e.target.value.replace(/^0+(?=\d)/, '');
-                                            setCustomWinnerCount(Math.max(1, Math.min(maxAllowedWinners, Number(val) || 1)));
+                                            const next = [...customWinnerRatios];
+                                            next[idx] = e.target.value.replace(/^0+(?=\d)/, '');
+                                            setCustomWinnerRatios(next);
                                         }}
-                                        className="fc-custom-winners-count mt-1.5 w-full bg-[#161d24] border border-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                                        className="w-14 bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded px-1.5 py-0.5 text-xs font-bold text-slate-900 dark:text-white text-center"
                                     />
-                                    <p className="fc-custom-winners-meta text-[9px] text-gray-500 mt-1">Max now: {maxAllowedWinners} (cannot exceed active members).</p>
+                                    <span className="text-[10px] text-slate-400">%</span>
+                                    <span className="ml-auto text-[10px] font-bold text-amber-500">{effectiveSeasonDistribution[idx] || 0}% eff.</span>
                                 </div>
-
-                                <div className="fc-custom-winners-rows space-y-2">
-                                    {Array.from({ length: normalizedCustomWinnerCount }, (_, idx) => (
-                                        <div key={`profile-ratio-${idx}`} className="flex items-center gap-2">
-                                            <span className="fc-custom-winners-rank w-12 text-[10px] font-black uppercase tracking-widest text-gray-500">#{idx + 1}</span>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                disabled={isFinancialsLocked}
-                                                value={customWinnerRatios[idx] || '0'}
-                                                onFocus={(e) => e.target.select()}
-                                                onChange={(e) => {
-                                                    const next = [...customWinnerRatios];
-                                                    next[idx] = e.target.value.replace(/^0+(?=\d)/, '');
-                                                    setCustomWinnerRatios(next);
-                                                }}
-                                                className="fc-custom-winners-input flex-1 bg-[#161d24] border border-white/10 rounded-lg px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
-                                            />
-                                            <span className="fc-custom-winners-percent text-[10px] font-black text-gray-500">%</span>
-                                            <span className="w-16 text-right text-[10px] font-bold text-[#FBBF24]">{effectiveSeasonDistribution[idx] || 0}%</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                        <div className="fc-custom-winners-applied rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Applied ratios</p>
-                            <p className="text-[10px] text-[#FBBF24] font-bold mt-1">{effectiveSeasonDistribution.map((ratio, idx) => `#${idx + 1} ${ratio}%`).join(' · ')}</p>
-                            {seasonWinnersMode === 'custom' && (
-                                <p className="text-[9px] text-gray-500 mt-1">Raw input: {rawCustomRatioSummary || 'n/a'}</p>
-                            )}
+                            ))}
                         </div>
-                        {seasonWinnersMode === 'custom' && (
-                            <p className="fc-custom-winners-footnote text-[9px] text-gray-500">Raw custom inputs are auto-normalized to total 100%.</p>
-                        )}
+                        <p className="text-[9px] text-slate-500 dark:text-gray-400 mt-1">Raw inputs: {rawCustomRatioSummary || 'n/a'} (auto-normalized to 100%)</p>
                     </div>
-                    <p className="text-[9px] text-gray-500 mt-2">Stored baseline winner count: Top {seasonWinnersCount}.</p>
-                </div>
+                )}
+            </div>
 
+            {/* Bottom Actions */}
+            <div className="pt-2">
                 {isFinancialsLocked ? (
                     <button
                         type="button"
                         onClick={handleUnlockFinancials}
-                        className="w-full bg-[#161d24] hover:bg-white/5 border border-red-500/30 text-red-400 font-bold rounded-xl py-3.5 transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer shadow-sm"
+                        className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-[#161d24] dark:hover:bg-white/5 border border-red-500/30 text-red-500 dark:text-red-400 font-bold rounded-xl py-3 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer shadow-sm"
                     >
                         <Lock className="w-4 h-4" /> Unlock to Modify League Rules
                     </button>
@@ -1434,20 +1420,21 @@ export default function Profile() {
                         <button
                             type="button"
                             onClick={() => setIsFinancialsLocked(true)}
-                            className="w-1/3 bg-[#161d24] hover:bg-white/5 border border-white/10 text-gray-400 font-bold rounded-xl py-3.5 transition-colors text-sm cursor-pointer"
+                            className="w-1/3 bg-slate-100 hover:bg-slate-200 dark:bg-[#161d24] dark:hover:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-gray-400 font-bold rounded-xl py-3 transition-colors text-xs sm:text-sm cursor-pointer"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isSavingAdmin}
-                            className="w-2/3 bg-[#FBBF24] hover:bg-[#FBBF24]/80 text-[#0b1014] font-black rounded-xl py-3.5 transition-colors flex items-center justify-center gap-2 text-sm cursor-pointer shadow-[0_0_15px_rgba(251,191,36,0.2)]"
+                            className="w-2/3 bg-[#FBBF24] hover:bg-[#FBBF24]/90 text-slate-950 font-black rounded-xl py-3 transition-colors flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer shadow-md shadow-amber-500/20"
                         >
                             {isSavingAdmin ? 'Saving...' : 'Save League Settings'}
                         </button>
                     </div>
                 )}
-                    </form>
+            </div>
+        </form>
     );
 
     const renderLeagueSettingsModal = () => (
@@ -1460,11 +1447,11 @@ export default function Profile() {
                                 <Trophy className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-base font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                    League Settings & Rules
+                                <h3 className="text-base sm:text-lg font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                    League Governance
                                 </h3>
                                 <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                                    Financials, kickoff gameweek, prize splits & co-chair
+                                    Configure league name, gameweek stake, payout splits, and co-chair
                                 </p>
                             </div>
                         </div>
@@ -1488,48 +1475,32 @@ export default function Profile() {
 
     const renderOwnershipAndDangerZoneCard = (extraClassName = '') => (
         <div className={clsx("fc-card w-full bg-gradient-to-br from-rose-50/70 via-white to-red-50/50 dark:from-[#161418] dark:via-[#1a1317] dark:to-[#1e1014] border border-rose-200/80 dark:border-rose-500/25 p-5 md:p-6 rounded-[2rem] relative overflow-hidden flex flex-col shadow-xl", extraClassName)}>
-            {/* Header with two-row title & pill controls below */}
-            <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-rose-200/50 dark:border-white/5">
-                <div className="flex items-start gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
-                        <AlertTriangle className="w-4 h-4" />
-                    </div>
-                    <div>
-                        <h2 className="fc-frosty-title text-base font-black uppercase tracking-wider text-rose-700 dark:text-rose-300 leading-tight">
-                            League Lifecycle & Controls
-                        </h2>
-                        <p className="text-xs text-slate-600 dark:text-gray-400 font-medium mt-1">
-                            Chairman succession transfer & league termination
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => { haptics.selection(); setDangerZoneTab('succession'); }}
-                        className={clsx(
-                            "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
-                            dangerZoneTab === 'succession'
-                                ? "bg-rose-500 text-white shadow-sm"
-                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                        )}
-                    >
-                        <Crown className="w-3.5 h-3.5" /> Succession
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { haptics.selection(); setDangerZoneTab('delete'); }}
-                        className={clsx(
-                            "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
-                            dangerZoneTab === 'delete'
-                                ? "bg-red-600 text-white shadow-sm"
-                                : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                        )}
-                    >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete League
-                    </button>
-                </div>
+            {/* Tab controls */}
+            <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-black/40 p-1 rounded-xl border border-slate-300 dark:border-white/10 w-fit shrink-0 mb-4">
+                <button
+                    type="button"
+                    onClick={() => { haptics.selection(); setDangerZoneTab('succession'); }}
+                    className={clsx(
+                        "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
+                        dangerZoneTab === 'succession'
+                            ? "bg-rose-500 text-white shadow-sm"
+                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                >
+                    <Crown className="w-3.5 h-3.5" /> Succession
+                </button>
+                <button
+                    type="button"
+                    onClick={() => { haptics.selection(); setDangerZoneTab('delete'); }}
+                    className={clsx(
+                        "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
+                        dangerZoneTab === 'delete'
+                            ? "bg-red-600 text-white shadow-sm"
+                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete League
+                </button>
             </div>
 
             {dangerZoneTab === 'succession' ? (
@@ -1783,7 +1754,7 @@ export default function Profile() {
                 {/* Top Section: Personal Details + League Governance side-by-side on desktop */}
                 <div className={clsx(
                     "grid gap-5 md:gap-6 items-start",
-                    isAdminView ? "grid-cols-1 xl:grid-cols-2" : "grid-cols-1"
+                    isAdminView ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
                 )}>
                     {/* Member View (Personal Settings) */}
                     <div className={clsx(
@@ -1808,28 +1779,13 @@ export default function Profile() {
                                 </div>
                             </div>
                         )}
-                        <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-                            <div>
-                                <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-                                    <User className="w-5 h-5 text-[#10B981]" /> Personal Details
-                                </h2>
-                                <p className="text-[11px] text-gray-600 dark:text-gray-400 font-medium mt-1 max-w-xl leading-relaxed">
-                                    Update the member identity that powers invites, payouts, and FPL matching.
-                                </p>
-                            </div>
-                            {isSuperAdmin && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        haptics.impact();
-                                        navigate('/hq');
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500 border border-emerald-500/40 hover:border-emerald-500 rounded-xl text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-black transition-all font-black text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 cursor-pointer shrink-0"
-                                    title="Access Super Admin Platform HQ"
-                                >
-                                    <Shield className="w-4 h-4" /> Go to HQ
-                                </button>
-                            )}
+                        <div className="mb-4">
+                            <h2 className="text-lg md:text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
+                                <User className="w-5 h-5 text-[#10B981]" /> Personal Details
+                            </h2>
+                            <p className="text-[11px] text-gray-600 dark:text-gray-400 font-medium mt-1 max-w-xl leading-relaxed">
+                                Update the member identity that powers invites, payouts, and FPL matching.
+                            </p>
                         </div>
 
                         <div className="flex flex-col gap-4 items-stretch">
@@ -2028,153 +1984,260 @@ export default function Profile() {
                         </div>
                     </div>
 
-                    {/* League Governance: Clean, compact top display for Chairman */}
-                    {isAdminView && renderLeagueGovernance()}
+                    {/* League Governance + Executive Hub: Cleanly balanced side-by-side with Personal Details */}
+                    {isAdminView && (
+                        <div className="space-y-4">
+                            {renderLeagueGovernance()}
+
+                            {/* Executive Controls: 2x2 grid nestled directly below League Governance to eliminate dead space */}
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                            Executive Controls & Hub
+                                        </h3>
+                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                            Quick access to roster, rules, security, and credentials
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {/* Tile 1: Members Directory */}
+                                    <div
+                                        onClick={() => {
+                                            haptics.selection();
+                                            setShowMembersModal(true);
+                                        }}
+                                        className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                                                <Users className="w-4 h-4" />
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                {activeMembersCount} Members
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                                Active Members
+                                            </h4>
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                                Roster, activation status & onboarding
+                                            </p>
+                                        </div>
+                                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                            <span>Manage Roster</span>
+                                            <span>→</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Tile 2: Succession & League Controls */}
+                                    <div
+                                        onClick={() => {
+                                            haptics.selection();
+                                            setShowDangerZoneModal(true);
+                                        }}
+                                        className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-rose-200/80 dark:border-rose-500/25 hover:border-rose-400 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform">
+                                                <ShieldAlert className="w-4 h-4" />
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                                Admin
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                                                Succession & Controls
+                                            </h4>
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                                Transfer chairmanship or delete league
+                                            </p>
+                                        </div>
+                                        <div className="mt-2.5 pt-2 border-t border-rose-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                            <span>Open Controls</span>
+                                            <span>→</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Tile 3: Chama Constitution & Docs */}
+                                    <div
+                                        onClick={() => {
+                                            haptics.selection();
+                                            setShowDocsModal(true);
+                                        }}
+                                        className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-amber-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                                                <BookOpen className="w-4 h-4" />
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                                Guide
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                                Chama Constitution
+                                            </h4>
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                                Official rulebook, payout schedule & FAQ
+                                            </p>
+                                        </div>
+                                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                            <span>Read Manual</span>
+                                            <span>→</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Tile 4: Account & Security */}
+                                    <div
+                                        onClick={() => {
+                                            haptics.selection();
+                                            setShowSessionModal(true);
+                                        }}
+                                        className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-blue-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white"
+                                    >
+                                        <div className="flex items-start justify-between gap-2 mb-2">
+                                            <div className="w-8 h-8 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                                <Fingerprint className="w-4 h-4" />
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                                Security
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                                Session Credentials
+                                            </h4>
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                                Authenticated UID, Chairman ID & tokens
+                                            </p>
+                                        </div>
+                                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                                            <span>View Credentials</span>
+                                            <span>→</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Executive Controls & Hub: 4 Compact Action Tiles */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                {isAdminView ? 'Executive Controls & Hub' : 'Chama Hub & Utilities'}
-                            </h3>
-                            <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                                Quick access to roster, rules, security, and credentials
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className={clsx(
-                        "grid gap-3 sm:gap-4",
-                        isAdminView ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"
-                    )}>
-                        {/* Tile 1: Members Directory */}
-                        <div
-                            onClick={() => {
-                                haptics.selection();
-                                setShowMembersModal(true);
-                            }}
-                            className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
-                        >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                                    <Users className="w-5 h-5" />
-                                </div>
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                                    {activeMembersCount} Members
-                                </span>
-                            </div>
+                {/* Member View Chama Hub & Utilities (Only for non-admin) */}
+                {!isAdminView && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                                    Active Members
-                                </h4>
-                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                    View roster, activation status & pending onboarding
+                                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                                    Chama Hub & Utilities
+                                </h3>
+                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                                    Quick access to roster, rules, security, and credentials
                                 </p>
                             </div>
-                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                                <span>Manage Roster</span>
-                                <span>→</span>
-                            </div>
                         </div>
 
-                        {/* Tile 2: Succession & League Controls (Admin only) */}
-                        {isAdminView && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                            {/* Member Tile 1: Active Members Directory */}
                             <div
                                 onClick={() => {
                                     haptics.selection();
-                                    setShowDangerZoneModal(true);
+                                    setShowMembersModal(true);
                                 }}
-                                className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-rose-200/80 dark:border-rose-500/25 hover:border-rose-400 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                                className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
                             >
                                 <div className="flex items-start justify-between gap-2 mb-2">
-                                    <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform">
-                                        <ShieldAlert className="w-5 h-5" />
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                                        <Users className="w-5 h-5" />
                                     </div>
-                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                        Admin
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        {activeMembersCount} Members
                                     </span>
                                 </div>
                                 <div>
-                                    <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
-                                        Succession & Controls
+                                    <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                                        Active Members
                                     </h4>
                                     <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                        Transfer chairmanship or permanently delete league
+                                        View roster & member status
                                     </p>
                                 </div>
-                                <div className="mt-3 pt-2.5 border-t border-rose-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-rose-600 dark:text-rose-400">
-                                    <span>Open Controls</span>
+                                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    <span>View Roster</span>
                                     <span>→</span>
                                 </div>
                             </div>
-                        )}
 
-                        {/* Tile 3: Chama Constitution & Docs */}
-                        <div
-                            onClick={() => {
-                                haptics.selection();
-                                setShowDocsModal(true);
-                            }}
-                            className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-amber-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
-                        >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-                                    <BookOpen className="w-5 h-5" />
+                            {/* Member Tile 2: Chama Constitution & Docs */}
+                            <div
+                                onClick={() => {
+                                    haptics.selection();
+                                    setShowDocsModal(true);
+                                }}
+                                className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-amber-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                            >
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
+                                        <BookOpen className="w-5 h-5" />
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                        Guide
+                                    </span>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                                    Guide
-                                </span>
+                                <div>
+                                    <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                        Chama Constitution
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                        Official rulebook, payout schedule & FAQ manual
+                                    </p>
+                                </div>
+                                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                                    <span>Read Manual</span>
+                                    <span>→</span>
+                                </div>
                             </div>
-                            <div>
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                                    Chama Constitution
-                                </h4>
-                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                    Official rulebook, payout schedule & FAQ manual
-                                </p>
-                            </div>
-                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                                <span>Read Manual</span>
-                                <span>→</span>
-                            </div>
-                        </div>
 
-                        {/* Tile 4: Account & Security */}
-                        <div
-                            onClick={() => {
-                                haptics.selection();
-                                setShowSessionModal(true);
-                            }}
-                            className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-blue-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
-                        >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                                    <Fingerprint className="w-5 h-5" />
+                            {/* Member Tile 3: Account & Security */}
+                            <div
+                                onClick={() => {
+                                    haptics.selection();
+                                    setShowSessionModal(true);
+                                }}
+                                className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/10 hover:border-blue-500/50 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                            >
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                                        <Fingerprint className="w-5 h-5" />
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                        Security
+                                    </span>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                    Security
-                                </span>
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                    Session Credentials
-                                </h4>
-                                <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
-                                    Authenticated UID, Chairman ID & access tokens
-                                </p>
-                            </div>
-                            <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
-                                <span>View Credentials</span>
-                                <span>→</span>
+                                <div>
+                                    <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                        Session Credentials
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                        Authenticated UID & access tokens
+                                    </p>
+                                </div>
+                                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                                    <span>View Credentials</span>
+                                    <span>→</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                )}
 
-                    {/* Theme switcher */}
-                    {renderThemeSelector()}
-                </div>
+                {/* Theme switcher */}
+                {renderThemeSelector()}
             </div>
 
             {/* Members Directory Modal */}

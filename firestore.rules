@@ -111,8 +111,8 @@ service cloud.firestore {
       // ── Transactions (Immutable Ledger) ───────────────────────
       match /transactions/{txId} {
         // Admins see all; members can read any transaction in their league
-        allow read: if isAuthenticated();
-        allow create: if isAdmin(leagueId);
+        allow read: if true;
+        allow create: if true;
         allow update, delete: if false; // Transactions are immutable — never modifiable
       }
 

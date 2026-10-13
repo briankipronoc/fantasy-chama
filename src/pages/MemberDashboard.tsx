@@ -1327,6 +1327,17 @@ export default function MemberDashboard() {
     // If member has funds (walletBalance >= gameweekStake) or currentUser.hasPaid is true, they are funded and on time!
     const isCurrentFunded = isSpectator ? false : Boolean(currentUser?.hasPaid || (gameweekStake > 0 && walletBalance >= gameweekStake));
 
+    const hoursUntilNextKickoff = useMemo(() => {
+        const rawTime = currentFplEvent?.deadlineTime && new Date(currentFplEvent.deadlineTime).getTime() > Date.now()
+            ? currentFplEvent.deadlineTime
+            : currentFplEvent?.nextDeadlineTime;
+        if (!rawTime) return null;
+        const diffMs = new Date(rawTime).getTime() - Date.now();
+        if (diffMs <= 0) return null;
+        return diffMs / (1000 * 60 * 60);
+    }, [currentFplEvent?.deadlineTime, currentFplEvent?.nextDeadlineTime]);
+    const isDeadlineWithin24h = hoursUntilNextKickoff !== null && hoursUntilNextKickoff <= 24;
+
     // Dynamic Winner calculation:
     // A gameweek is only voided if active funded participants < 2 AND voided in governance
     const fundedMembersCount = members.filter(m => (m.hasPaid || (Number(m.walletBalance || 0) >= gameweekStake)) && m.isActive !== false && !(m as any).isEliminated).length;
@@ -2083,27 +2094,31 @@ export default function MemberDashboard() {
                                     {Number(rules.weekly || 0) === 0 ? '100% Vaulted' : (activeChampion.amount ? `KES ${activeChampion.amount.toLocaleString()}` : `KES ${Math.round(weeklyPot).toLocaleString()}`)}
                                 </p>
                             </div>
-                            {/* Phase 8: Flex on WhatsApp */}
+                            {/* Phase 8: Flex on WhatsApp — Champion Only */}
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => {
-                                        haptics.celebrate();
-                                        setShowFlexModal(true);
-                                    }}
-                                    className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40"
-                                >
-                                    🏆 Victory Card
-                                </button>
+                                {isRoundFinished && isCurrentUserGwWinner && (
+                                    <button
+                                        onClick={() => {
+                                            haptics.celebrate();
+                                            setShowFlexModal(true);
+                                        }}
+                                        className="fc-share-win-btn relative z-10 flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ease-out active:scale-95 shadow-lg shadow-amber-950/40 cursor-pointer"
+                                    >
+                                        <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                                        <span>Victory Card</span>
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => {
                                         haptics.impact();
                                         setShowBanterSlipModal(true);
                                     }}
-                                    className="relative z-10 flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 transition-all duration-300 active:scale-95 shadow-sm"
+                                    className="relative z-10 flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 transition-all duration-300 active:scale-95 shadow-sm cursor-pointer"
                                     title="Open WhatsApp Banter Slip"
                                 >
-                                    📰 Banter Slip
+                                    <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Banter Slip</span>
                                 </button>
                             </div>
                         </div>
@@ -2418,7 +2433,7 @@ export default function MemberDashboard() {
                                     </div>
 
                                     <div className="mt-3 pt-2.5 border-t border-white/5 flex flex-col gap-2">
-                                        {isRoundFinished && (
+                                        {isRoundFinished && isCurrentUserGwWinner && (
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -2426,10 +2441,10 @@ export default function MemberDashboard() {
                                                     setShowFlexModal(true);
                                                 }}
                                                 className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 text-xs font-black tracking-wide transition-all active:scale-95 cursor-pointer shadow-xs"
-                                                title="View & share champion card on WhatsApp"
+                                                title="View & share your champion victory card on WhatsApp"
                                             >
                                                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                                                <span>Victory Card 🏆</span>
+                                                <span>Victory Card</span>
                                             </button>
                                         )}
                                         <button
@@ -2615,38 +2630,67 @@ export default function MemberDashboard() {
                     </div>
                 )}
 
-                        {/* Phase 10.5: Action Required Banner — static, high-visibility, never a toast */}
+                        {/* Phase 10.5: Action Required Banner — Theme-Aware with <24h Deadline Urgent Callout */}
                         {(currentUser && (winnerConfirmation || (!isCurrentFunded && !isSpectator))) && (
                             <div className={clsx(
-                                "w-full rounded-2xl border px-4 py-3 flex items-center gap-3 animate-in slide-in-from-top-2 duration-300",
+                                "w-full rounded-2xl border px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-300 shadow-md",
                                 winnerConfirmation
-                                    ? "bg-[#1c1a09] border-[#FBBF24]/40 shadow-[0_0_20px_rgba(251,191,36,0.1)]"
-                                    : "bg-red-950/40 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.08)]"
+                                    ? "bg-amber-50 dark:bg-[#1c1a09] border-amber-300 dark:border-[#FBBF24]/40 text-amber-950 dark:text-white shadow-amber-500/5"
+                                    : isDeadlineWithin24h
+                                        ? "bg-rose-50 dark:bg-red-950/40 border-rose-300 dark:border-red-500/40 text-rose-950 dark:text-white shadow-rose-500/10"
+                                        : "bg-amber-50 dark:bg-amber-950/25 border-amber-200 dark:border-amber-500/30 text-amber-950 dark:text-white shadow-amber-500/5"
                             )}>
-                                <span className="text-xl flex-shrink-0">{winnerConfirmation ? '🏆' : '⚠️'}</span>
-                                <div className="flex-1 min-w-0">
-                                    <p className={clsx(
-                                        "font-extrabold text-sm leading-tight",
-                                        winnerConfirmation ? "text-[#FBBF24]" : "text-red-400"
-                                    )}>
-                                        {winnerConfirmation
-                                            ? `ACTION REQUIRED: Confirm receipt of KES ${winnerConfirmation.amount?.toLocaleString()}`
-                                            : 'ACTION REQUIRED: Pay before the FPL deadline'}
-                                    </p>
-                                    <p className="text-[11px] text-gray-500 mt-0.5">
-                                        {winnerConfirmation
-                                            ? 'Tap below once you receive the funds in your M-Pesa'
-                                            : `Your wallet balance is empty. Pay KES ${gameweekStake.toLocaleString()} to stay eligible.`}
-                                    </p>
+                                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                                    <span className={clsx("text-xl flex-shrink-0", isDeadlineWithin24h && !winnerConfirmation && "animate-pulse")}>
+                                        {winnerConfirmation ? '🏆' : isDeadlineWithin24h ? '🚨' : '⚠️'}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={clsx(
+                                            "font-black text-xs sm:text-sm leading-tight flex items-center gap-1.5 flex-wrap",
+                                            winnerConfirmation
+                                                ? "text-amber-800 dark:text-[#FBBF24]"
+                                                : isDeadlineWithin24h
+                                                    ? "text-rose-700 dark:text-red-400"
+                                                    : "text-amber-700 dark:text-amber-400"
+                                        )}>
+                                            {winnerConfirmation
+                                                ? `ACTION REQUIRED: Confirm receipt of KES ${winnerConfirmation.amount?.toLocaleString()}`
+                                                : isDeadlineWithin24h
+                                                    ? `ACTION REQUIRED: Kickoff in ${Math.floor(hoursUntilNextKickoff!)}h ${Math.floor((hoursUntilNextKickoff! % 1) * 60)}m — Fund Wallet Now`
+                                                    : `ACTION REQUIRED: Fund GW${activeFundingGw} Before Deadline`}
+                                        </p>
+                                        <p className="text-[11px] text-slate-600 dark:text-gray-300 mt-0.5 leading-snug">
+                                            {winnerConfirmation
+                                                ? 'Tap below once you receive the funds in your M-Pesa'
+                                                : isDeadlineWithin24h
+                                                    ? `Your wallet balance is empty. Pay KES ${gameweekStake.toLocaleString()} before kickoff to avoid being locked out of GW${activeFundingGw}'s weekly pot!`
+                                                    : `Your wallet balance is empty. Deposit KES ${gameweekStake.toLocaleString()} to secure your spot in the cash pot.`}
+                                        </p>
+                                    </div>
                                 </div>
-                                {winnerConfirmation && (
-                                    <button
-                                        onClick={handleConfirmWinnings}
-                                        className="flex-shrink-0 bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-3 py-2 rounded-xl transition-colors"
-                                    >
-                                        Confirm ✓
-                                    </button>
-                                )}
+                                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                    {winnerConfirmation ? (
+                                        <button
+                                            onClick={handleConfirmWinnings}
+                                            className="bg-[#FBBF24] hover:bg-[#eab308] text-black text-xs font-black px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md active:scale-95"
+                                        >
+                                            Confirm Receipt ✓
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => setShowTopUpModal(true)}
+                                            className={clsx(
+                                                "text-xs font-black px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5",
+                                                isDeadlineWithin24h
+                                                    ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30"
+                                                    : "bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20"
+                                            )}
+                                        >
+                                            <Wallet className="w-3.5 h-3.5" />
+                                            <span>Deposit KES {gameweekStake.toLocaleString()}</span>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         )}
 

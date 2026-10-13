@@ -42,6 +42,7 @@ import {
   Zap,
   Lock,
   Info,
+  Sparkles,
   Edit3,
   Plus,
   Trash2,
@@ -477,7 +478,8 @@ export default function AdminCommandCenter() {
   const leagueSettings = useStore((state) => state.league);
   const isPilotMode = leagueSettings?.pilotMode !== false; // Pilot: no HQ cut yet unless commercial explicitly configured
   const pendingHQDebt = isPilotMode ? 0 : (leagueSettings?.pendingHQDebt || 0);
-  const [payoutCustomFee, setPayoutCustomFee] = useState<Record<string, number>>({});
+  const [payoutCustomFee] = useState<Record<string, number>>({});
+  const [payoutMethodChoice, setPayoutMethodChoice] = useState<Record<string, 'mpesa' | 'cash'>>({});
 
   // Auto-Lockout: 48 Hour Grace Period
   const lastResolvedTS = leagueSettings?.lastResolvedDate;
@@ -1649,69 +1651,26 @@ export default function AdminCommandCenter() {
 
   const resolvedGwsList = useMemo(() => {
     const set = new Set<number>();
+    const minGw = Math.max(1, Number(effectiveStartGw || 1));
     pendingPayouts
-      .filter((p: any) => ['approved', 'settled'].includes(p.status) || Number(p.amount || 0) > 0)
+      .filter((p: any) => (['approved', 'settled'].includes(p.status) || Number(p.amount || 0) > 0))
       .forEach((p: any) => {
         const g = Number(p.gw);
-        if (g > 0 && Number.isFinite(g)) set.add(g);
+        if (g >= minGw && Number.isFinite(g)) set.add(g);
       });
     transactions
       .filter((t: any) => t.type === 'payout' || t.description?.toLowerCase().includes('gw'))
       .forEach((t: any) => {
         const gwMatch = t.description?.match(/gw\s*(\d+)|gameweek\s*(\d+)/i);
         const parsed = gwMatch ? parseInt(gwMatch[1] || gwMatch[2], 10) : Number(t.gw);
-        if (Number.isFinite(parsed) && parsed > 0) set.add(parsed);
+        if (Number.isFinite(parsed) && parsed >= minGw) set.add(parsed);
       });
     return Array.from(set).sort((a, b) => a - b);
-  }, [pendingPayouts, transactions]);
+  }, [pendingPayouts, transactions, effectiveStartGw]);
 
-  // Auto-reconcile member wallet balances against resolved rounds (e.g. GW5) if deduction was missed
-  const hasReconciledRef = useRef(false);
-  useEffect(() => {
-    if (!activeLeagueId || hasReconciledRef.current || members.length === 0 || gameweekStake <= 0 || resolvedGwsList.length === 0) return;
-    
-    const resolvedCount = resolvedGwsList.length;
-    const requiredConsumed = resolvedCount * gameweekStake;
+  // Note: Gameweek stake deductions are handled systematically during gameweek resolution and payout approval.
+  // Retroactive automatic wiping of member wallets on load has been removed to preserve member deposit balances.
 
-    const outOfSyncMembers = members.filter((m: any) => {
-      if (m.isActive === false || (m as any).isEliminated || (m as any).playMode === 'sidebets_only') return false;
-      const refundTotal = getMemberRefundTotal(m);
-      const inflowTotal = getMemberInflowTotal(m);
-      const netDeposited = Math.max(0, inflowTotal - refundTotal);
-      const expectedWallet = Math.max(0, netDeposited - requiredConsumed);
-      return Number(m.walletBalance || 0) > expectedWallet;
-    });
-
-    if (outOfSyncMembers.length > 0) {
-      hasReconciledRef.current = true;
-      (async () => {
-        try {
-          for (const m of outOfSyncMembers) {
-            const refundTotal = getMemberRefundTotal(m);
-            const inflowTotal = getMemberInflowTotal(m);
-            const netDeposited = Math.max(0, inflowTotal - refundTotal);
-            const expectedWallet = Math.max(0, netDeposited - requiredConsumed);
-
-            const mRef = doc(db, "leagues", activeLeagueId, "memberships", m.id);
-            await updateDoc(mRef, {
-              walletBalance: expectedWallet,
-              hasPaid: expectedWallet >= gameweekStake,
-            });
-          }
-
-          await addDoc(collection(db, "leagues", activeLeagueId, "league_events"), {
-            eventType: "gw_deduction",
-            message: `Ledger reconciled: Deducted stakes for ${resolvedCount} resolved round(s) (KES ${gameweekStake} × ${outOfSyncMembers.length} members).`,
-            actor: auth.currentUser?.displayName || "System / Chairman",
-            timestamp: serverTimestamp(),
-          });
-          console.log(`[reconcile] Successfully reconciled ${outOfSyncMembers.length} member wallets for ${resolvedCount} resolved round(s).`);
-        } catch (err) {
-          console.warn("[reconcile] Failed to reconcile member wallets:", err);
-        }
-      })();
-    }
-  }, [activeLeagueId, members, transactions, resolvedGwsList, gameweekStake]);
 
   const latestApprovedPayout = useMemo(() => {
     const approved = pendingPayouts
@@ -3210,17 +3169,26 @@ burstFrame();
           throw new Error(
             "Payment server is not configured. Set VITE_API_URL for production.",
           );
-        data = await secureApiPost(`${payoutApiUrl}/api/mpesa/b2c`, {
-          phone: payoutPhone,
-          amount: payout.amount,
-          winnerName: payout.winnerName,
-          remarks: `FantasyChama GW${payout.gw} Approved Payout`,
-          userId: payout.winnerId || winnerMember?.id || activeUserId,
-          leagueId: activeLeagueId,
-          gw: Number(payout.gw || 0),
-          points: payoutPoints,
-        });
-        if (!data.success) throw new Error(data.message);
+        try {
+          data = await secureApiPost(`${payoutApiUrl}/api/mpesa/b2c`, {
+            phone: payoutPhone,
+            amount: payout.amount,
+            winnerName: payout.winnerName,
+            remarks: `FantasyChama GW${payout.gw} Approved Payout`,
+            userId: payout.winnerId || winnerMember?.id || activeUserId,
+            leagueId: activeLeagueId,
+            gw: Number(payout.gw || 0),
+            points: payoutPoints,
+          });
+          if (!data?.success) {
+            throw new Error(data?.message || "M-Pesa B2C dispatch failed.");
+          }
+        } catch (apiErr: any) {
+          console.warn("[payout] M-Pesa B2C request failed:", apiErr);
+          throw new Error(
+            `M-Pesa Gateway Error: ${apiErr?.message || 'Server timeout'}. Use "Cash Handoff" to approve manually.`
+          );
+        }
       }
 
       // Mark the pending payout as approved in Firestore
@@ -3230,7 +3198,7 @@ burstFrame();
           status: "approved",
           method: resolvedMethod,
           cashHandoffDate: resolvedMethod === "cash" ? cashHandoffDate : null,
-          approvedBy: auth.currentUser?.displayName || "Co-Chair",
+          approvedBy: auth.currentUser?.displayName || "Chairman",
           winnerPhone: payoutPhone || null,
           approvedAt: serverTimestamp(),
         },
@@ -3273,49 +3241,51 @@ burstFrame();
       );
 
       const payoutGross = Number(payout.grossAmount || (payout.feeAmount ? Number(payout.amount || 0) + Number(payout.feeAmount || 0) : payout.amount) || 0);
-      const payoutFee = Number(payout.feeAmount !== undefined ? payout.feeAmount : calculateMpesaSendFee(payoutGross));
+      const payoutFee = Number(payoutCustomFee[payout.id] ?? (payout.feeAmount !== undefined ? payout.feeAmount : calculateMpesaSendFee(payoutGross)));
       const payoutNet = Number(payout.amount && payout.grossAmount ? payout.amount : Math.max(0, payoutGross - payoutFee));
 
-      if (resolvedMethod === "cash") {
-        await addDoc(
-          collection(db, "leagues", activeLeagueId, "transactions"),
-          {
-            type: "payout",
-            amount: payoutNet,
-            grossAmount: payoutGross,
-            feeAmount: payoutFee,
-            feeBreakdown: payoutFee > 0 ? `Gross KES ${payoutGross.toLocaleString()} less KES ${payoutFee} M-Pesa transfer fee = KES ${payoutNet.toLocaleString()}` : undefined,
-            winnerName: payout.winnerName,
-            winnerId: payout.winnerId,
-            winnerPhone: payoutPhone || null,
-            points: payoutPoints,
-            gw: Number(payout.gw || 0),
-            receiptId: `CASH_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`,
-            cashHandoffDate,
-            timestamp: serverTimestamp(),
-          },
-        );
+      // Always write to immutable transactions ledger
+      await addDoc(
+        collection(db, "leagues", activeLeagueId, "transactions"),
+        {
+          type: "payout",
+          amount: payoutNet,
+          grossAmount: payoutGross,
+          feeAmount: payoutFee,
+          method: resolvedMethod,
+          feeBreakdown: payoutFee > 0 ? `Gross KES ${payoutGross.toLocaleString()} less KES ${payoutFee} fee = KES ${payoutNet.toLocaleString()}` : undefined,
+          winnerName: payout.winnerName,
+          winnerId: payout.winnerId,
+          winnerPhone: payoutPhone || null,
+          points: payoutPoints,
+          gw: Number(payout.gw || 0),
+          receiptId: resolvedMethod === "cash"
+            ? `CASH_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`
+            : `MPESA_GW${Number(payout.gw || 0)}_${Date.now().toString().slice(-6)}`,
+          cashHandoffDate: resolvedMethod === "cash" ? cashHandoffDate : null,
+          timestamp: serverTimestamp(),
+        },
+      );
 
-        await addDoc(
-          collection(db, "leagues", activeLeagueId, "notifications"),
-          {
-            type: "transactionSuccess",
-            isWinnerEvent: true,
-            winnerId: payout.winnerId,
-            winnerName: payout.winnerName,
-            points: payoutPoints,
-            gw: Number(payout.gw || 0),
-            message: payoutFee > 0
-              ? `Cash handoff confirmed: ${payout.winnerName} received KES ${payoutNet.toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts) [Gross KES ${payoutGross.toLocaleString()} less KES ${payoutFee} fee].`
-              : `Cash handoff confirmed: ${payout.winnerName} received KES ${payoutNet.toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts).`,
-            timestamp: serverTimestamp(),
-            readBy: [],
-          },
-        );
-      }
+      await addDoc(
+        collection(db, "leagues", activeLeagueId, "notifications"),
+        {
+          type: "transactionSuccess",
+          isWinnerEvent: true,
+          winnerId: payout.winnerId,
+          winnerName: payout.winnerName,
+          points: payoutPoints,
+          gw: Number(payout.gw || 0),
+          message: resolvedMethod === "cash"
+            ? `Cash handoff confirmed: ${payout.winnerName} received KES ${payoutNet.toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts).`
+            : `M-Pesa payout dispatched: ${payout.winnerName} received KES ${payoutNet.toLocaleString()} for GW${Number(payout.gw || 0)} (${payoutPoints} pts).`,
+          timestamp: serverTimestamp(),
+          readBy: [],
+        },
+      );
 
       showToast(
-        `✅ Approved! ${resolvedMethod === "cash" ? "Cash Handoff logged for" : "B2C Dispatch sent to"} ${payout.winnerName} (KES ${payout.amount.toLocaleString()}).`,
+        `✅ Approved! ${resolvedMethod === "cash" ? "Cash Handoff confirmed for" : "M-Pesa Payout sent to"} ${payout.winnerName} (KES ${payoutNet.toLocaleString()}).`,
       );
       triggerResolutionPulse();
       confetti({
@@ -3370,6 +3340,17 @@ burstFrame();
         confirmed: true,
         approvalPending: false,
       }));
+
+      // Seamless flow: set winner data and open WhatsApp Champion Victory Card immediately
+      setGwWinner({
+        player_name: payout.winnerName,
+        entry_name: (winnerMember as any)?.fplTeamName || (winnerMember as any)?.teamName || payout.winnerName,
+        event_total: payoutPoints,
+        event: Number(payout.gw || 0),
+        id: payout.winnerId || null,
+        amount: payoutNet,
+      });
+      setShowChairmanFlexModal(true);
     } catch (err: any) {
       const rawMessage = err?.message || "Unknown error during payout approval";
       const message =
@@ -3982,6 +3963,224 @@ burstFrame();
 
           </div>
 
+          {/* Dual Signatory Maker/Checker Queue (Prominently Placed at Top of Admin Command Center) */}
+          {sortedPendingPayouts.length > 0 && (
+            <section
+              id="pending-payout-queue"
+              className="rounded-3xl bg-white/95 dark:bg-[#121820]/95 backdrop-blur-xl border-2 border-amber-400 dark:border-amber-400/50 p-4 sm:p-6 shadow-2xl space-y-4 mb-3 animate-in fade-in slide-in-from-top-4 duration-300"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-amber-200/60 dark:border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-[#FBBF24] shrink-0 shadow-sm">
+                    <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-[#FBBF24] animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                        {isCoChairSession
+                          ? "Co-Chair Dual Approval Queue"
+                          : "Maker/Checker: Awaiting Approval"}
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                        {sortedPendingPayouts.length} Action{sortedPendingPayouts.length > 1 ? "s" : ""} Required
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium">
+                      Dual authorization protocol • Disburse via automated M-Pesa or confirm cash handoff
+                    </p>
+                  </div>
+                </div>
+                {hasValidCoChair && (
+                  <button
+                    type="button"
+                    disabled={nudgeSent}
+                    onClick={handleNudge}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-slate-950 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-md"
+                  >
+                    {nudgeSent ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
+                    {nudgeSent ? "Nudged ✓" : "Nudge Co-Chair"}
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {sortedPendingPayouts.map((payout) => {
+                  const effectiveApprovalTarget = getEffectiveApprovalTarget(payout);
+                  const requiresCoChairSignature = effectiveApprovalTarget === "co-chair";
+                  const winnerMember = members.find(
+                    (m) => m.id === payout.winnerId || m.displayName === payout.winnerName,
+                  );
+                  const payoutPhone = payout.winnerPhone || winnerMember?.phone;
+                  const selectedMethod = payoutMethodChoice[payout.id] || payout.method || "mpesa";
+                  const isApprovingThis = isApprovingPayout === payout.id;
+                  const payoutAgeMs = payout.timestamp?.toDate
+                    ? Date.now() - payout.timestamp.toDate().getTime()
+                    : 0;
+                  const payoutAgeMins = Math.max(0, Math.floor(payoutAgeMs / (1000 * 60)));
+
+                    return (
+                      <div
+                        key={payout.id}
+                        className="rounded-[1.75rem] bg-gradient-to-br from-amber-500/10 via-white to-emerald-500/5 dark:from-[#1b170c] dark:via-[#161d24] dark:to-[#0d1417] border-2 border-amber-400/60 dark:border-[#FBBF24]/40 p-4 sm:p-6 shadow-xl space-y-4 relative overflow-hidden transition-all text-slate-900 dark:text-white"
+                      >
+                        <div className="absolute top-0 right-0 w-64 h-32 bg-amber-500/10 blur-[70px] pointer-events-none" />
+
+                        {/* Top Meta Header */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-amber-200/60 dark:border-white/10 relative z-10">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400/20 text-amber-800 dark:text-[#FBBF24] border border-amber-400/40 shadow-xs">
+                              <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                              {payout.gwName || `GW${payout.gw}`} Champion Payout Request
+                            </span>
+                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300">
+                              ⏱ {payoutAgeMins}m ago · by {payout.requestedBy || "Chairman"}
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300">
+                            {requiresCoChairSignature ? "Dual Signatory Required" : "Awaiting Chairman Authorization"}
+                          </span>
+                        </div>
+
+                        {/* Champion Spotlight & Prize Section */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="relative shrink-0">
+                              <UserAvatar name={payout.winnerName} size="lg" className="ring-2 ring-amber-400 shadow-md" />
+                              <span className="absolute -top-1 -right-1 text-sm">👑</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                                  {payout.winnerName}
+                                </h3>
+                                {payout.points !== undefined && (
+                                  <span className="text-xs font-black px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                                    {payout.points} pts
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs font-mono font-bold text-slate-500 dark:text-gray-400 mt-0.5 truncate">
+                                {payoutPhone || "Missing phone"} · {(winnerMember as any)?.fplTeamName || (winnerMember as any)?.teamName || "Mini-League Winner"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Prize and Fee Callout */}
+                          <div className="flex items-center gap-3 shrink-0 bg-white/80 dark:bg-black/40 border border-amber-300/80 dark:border-white/10 rounded-2xl p-3 shadow-xs">
+                            <div>
+                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">Net Prize</p>
+                              <p className="text-xl sm:text-2xl font-black text-amber-600 dark:text-[#FBBF24] tabular-nums leading-none mt-0.5">
+                                KES {Number(payout.amount).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="border-l border-slate-200 dark:border-white/10 pl-3">
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400 block">B2C Fee</span>
+                              <span className="text-xs font-mono font-black text-slate-700 dark:text-slate-300">
+                                KES {payoutCustomFee[payout.id] ?? payout.mpesaFee ?? (isPilotMode ? 15 : Math.round(Number(payout.grossPot || payout.amount || 0) * 0.015))}
+                              </span>
+                              {isPilotMode && (
+                                <span className="text-[8px] uppercase font-bold text-amber-600 dark:text-amber-400 block">Pilot</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Disburse Method Selector & Unified Execution */}
+                        <div className="pt-2 border-t border-slate-200/80 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+                          {/* Segmented Method Toggle */}
+                          <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/50 p-1 rounded-xl border border-slate-300 dark:border-white/10 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setPayoutMethodChoice(prev => ({ ...prev, [payout.id]: 'mpesa' }));
+                              }}
+                              className={clsx(
+                                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
+                                selectedMethod === 'mpesa'
+                                  ? "bg-emerald-500 text-black shadow-xs font-black"
+                                  : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                              )}
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              <span>M-Pesa B2C</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                haptics.selection();
+                                setPayoutMethodChoice(prev => ({ ...prev, [payout.id]: 'cash' }));
+                              }}
+                              className={clsx(
+                                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5",
+                                selectedMethod === 'cash'
+                                  ? "bg-amber-400 text-black shadow-xs font-black"
+                                  : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                              )}
+                            >
+                              <Banknote className="w-3.5 h-3.5" />
+                              <span>Cash / Pochi</span>
+                            </button>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => generateWhatsAppReceipt(payout)}
+                              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              title="Share WhatsApp Winner Receipt"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-emerald-500" />
+                              <span className="hidden sm:inline">Receipt</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRejectPayout(payout.id)}
+                              className="px-3 py-2 rounded-xl border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                              title="Reject payout request"
+                            >
+                              <ShieldAlert className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+
+                            {/* Authoritative Single Primary Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleApprovePayout(payout, selectedMethod)}
+                              disabled={isApprovingThis}
+                              className={clsx(
+                                "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer",
+                                selectedMethod === 'mpesa'
+                                  ? "bg-[#10B981] hover:bg-[#059669] text-slate-950 shadow-emerald-500/25"
+                                  : "bg-[#FBBF24] hover:bg-[#eab308] text-slate-950 shadow-amber-500/25"
+                              )}
+                            >
+                              {isApprovingThis ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : selectedMethod === 'mpesa' ? (
+                                <Zap className="w-4 h-4" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4" />
+                              )}
+                              <span>
+                                {isApprovingThis
+                                  ? "Disbursing..."
+                                  : selectedMethod === 'mpesa'
+                                  ? `Authorize & Send M-Pesa KES ${Number(payout.amount).toLocaleString()} →`
+                                  : `Confirm Cash Handoff KES ${Number(payout.amount).toLocaleString()} →`}
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* Main Tab Navigation */}
           <div
             className="flex items-center justify-between gap-2 pb-1 mb-3 border-b border-slate-200 dark:border-white/5"
@@ -4098,6 +4297,7 @@ burstFrame();
 
               return (
                 <>
+
                   {/* Action Notice: Prompt Chairman to resolve immediately upon final whistle */}
                   {isRoundConcluded && !gwAlreadySettled && !isResolved && !isPreLeagueRound && (
                     <div className="mb-4 p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-amber-500/20 via-amber-400/15 to-emerald-500/20 border-2 border-amber-400/60 dark:border-amber-400/50 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
@@ -5129,192 +5329,6 @@ burstFrame();
 
 
 
-          {/* Co-Chair: Pending Payout Approval Panel */}
-
-          {/* Co-Chair: Pending Payout Approval Panel */}
-
-          {sortedPendingPayouts.length > 0 && (
-            <section id="pending-payout-queue" className="rounded-[2rem] bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white/90 dark:from-amber-500/15 dark:via-[#16130b] dark:to-[#0f141a] border border-amber-300/80 dark:border-[#FBBF24]/30 p-5 sm:p-6 shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-extrabold flex items-center gap-2 text-amber-700 dark:text-[#FBBF24]">
-                  <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-[#FBBF24] animate-pulse" />{" "}
-                  {isCoChairSession
-                    ? "Co-Chair Inbox: Awaiting Approval"
-                    : "Maker/Checker: Awaiting Approval"}
-                </h2>
-                {hasValidCoChair && (
-                  <button
-                    disabled={nudgeSent}
-                    onClick={handleNudge}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FBBF24] hover:bg-[#eab308] text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
-                  >
-                    {nudgeSent ? (
-                      <CheckCircle2 className="w-3 h-3" />
-                    ) : (
-                      <Bell className="w-3 h-3" />
-                    )}
-                    {nudgeSent ? "Nudged ✓" : "Nudge Co-Chair"}
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3">
-                {sortedPendingPayouts.map((payout) =>
-                  (() => {
-                    const effectiveApprovalTarget =
-                      getEffectiveApprovalTarget(payout);
-                    const legacyApprovalTarget =
-                      !payout.approvalTarget ||
-                      (payout.approvalTarget === "co-chair" &&
-                        !hasValidCoChair);
-                    const requiresCoChairSignature =
-                      effectiveApprovalTarget === "co-chair";
-                    const canCurrentUserApprove = true; // Pilot Override: Allow Chairman to approve any payout immediately without strict Maker/Checker.
-                    const winnerMember = members.find(
-                      (member) =>
-                        member.id === payout.winnerId ||
-                        member.displayName === payout.winnerName,
-                    );
-                    const payoutPhone =
-                      payout.winnerPhone || winnerMember?.phone;
-                    const duplicateCandidate =
-                      sortedPendingPayouts.filter(
-                        (item: any) =>
-                          Number(item.gw) === Number(payout.gw) &&
-                          item.status === "awaiting_approval",
-                      ).length > 1;
-                    const payoutAgeMs = payout.timestamp?.toDate
-                      ? Date.now() - payout.timestamp.toDate().getTime()
-                      : 0;
-                    const payoutAgeMins = Math.max(
-                      0,
-                      Math.floor(payoutAgeMs / (1000 * 60)),
-                    );
-                    return (
-                      <div
-                        key={payout.id}
-                        className={clsx(
-                          "bg-white/95 dark:bg-white/[0.04] border border-amber-200/80 dark:border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 shadow-sm",
-                          resolutionPulse && "fc-burst-success",
-                        )}
-                      >
-                        <div>
-                          <p className="text-slate-900 dark:text-white font-black text-sm tracking-tight">
-                            {payout.gwName || `GW${payout.gw}`} Payout Request
-                          </p>
-                          <p className="text-slate-600 dark:text-gray-300 text-sm mt-1">
-                            <span className="text-amber-600 dark:text-[#FBBF24] font-black">
-                              KES {Number(payout.amount).toLocaleString()}
-                            </span>{" "}
-                            → {payout.winnerName} ({payout.winnerPhone})
-                          </p>
-                          <p className="text-slate-400 dark:text-gray-500 text-[10px] mt-1 uppercase tracking-widest font-bold">
-                            Requested by: {payout.requestedBy || "Chairman"}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {!payoutPhone && (
-                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300">
-                                Missing phone
-                              </span>
-                            )}
-                            {duplicateCandidate && (
-                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-                                Possible duplicate
-                              </span>
-                            )}
-                            {legacyApprovalTarget && (
-                              <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300">
-                                Legacy approval target
-                              </span>
-                            )}
-                            <span
-                              className={clsx(
-                                "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border",
-                                payoutAgeMins > 30
-                                  ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300"
-                                  : "border-slate-200 dark:border-white/20 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300",
-                              )}
-                            >
-                              SLA age: {payoutAgeMins}m
-                            </span>
-                          </div>
-
-                          {/* M-Pesa Actual Cost Input */}
-                          <div className="flex items-center gap-2 mt-2.5 bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/5 rounded-xl px-3 py-1.5 w-fit">
-                            <span className="text-[10px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">M-Pesa Fee:</span>
-                            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold">KES</span>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={payoutCustomFee[payout.id] ?? payout.mpesaFee ?? (isPilotMode ? 15 : Math.round(Number(payout.grossPot || payout.amount || 0) * 0.015))}
-                              onFocus={(e) => e.target.select()}
-                              onChange={(e) => setPayoutCustomFee(prev => ({ ...prev, [payout.id]: Math.max(0, Number(e.target.value)) }))}
-                              className="w-16 bg-white dark:bg-black/60 border border-slate-300 dark:border-white/10 rounded px-2 py-0.5 text-xs text-slate-900 dark:text-white font-mono focus:border-emerald-500 focus:outline-none"
-                              placeholder="15"
-                              title="Enter actual M-Pesa B2C / sending fee incurred"
-                            />
-                            <span className="text-[9px] text-slate-400 dark:text-gray-500">{isPilotMode ? "Pilot Cost" : "1.5% network"}</span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 flex-wrap w-full sm:w-auto mt-2 sm:mt-0 items-center">
-                          <span className="flex-1 sm:flex-initial px-4 py-2.5 bg-amber-50 dark:bg-black/40 text-amber-800 dark:text-[#FBBF24] border border-amber-200 dark:border-[#FBBF24]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl flex items-center justify-center gap-2 shadow-inner">
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600 dark:text-amber-400" />{" "}
-                            {requiresCoChairSignature
-                              ? "Awaiting Co-Chair Signature"
-                              : hasValidCoChair
-                                ? "Awaiting Chairman Signature"
-                                : "Awaiting Chairman Signature (Fallback)"}
-                          </span>
-                          <button
-                            onClick={() => generateWhatsAppReceipt(payout)}
-                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <Share2 className="w-3.5 h-3.5" /> Share
-                          </button>
-                          <button
-                            onClick={() => handleRejectPayout(payout.id)}
-                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 text-[10px] sm:text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-inner flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <ShieldAlert className="w-3.5 h-3.5" /> Reject
-                          </button>
-                          {canCurrentUserApprove && (
-                            <>
-                              <button
-                                onClick={() => handleApprovePayout(payout)}
-                                disabled={isApprovingPayout === payout.id}
-                                className="w-full sm:w-auto px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-black text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors shadow-[0_0_20px_rgba(16,185,129,0.25)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                              >
-                                {isApprovingPayout === payout.id ? (
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                )}
-                                {payout.method === "cash"
-                                  ? "Confirm Cash Handoff"
-                                  : "Approve M-Pesa"}
-                              </button>
-                              {payout.method !== "cash" && (
-                                <button
-                                  onClick={() =>
-                                    handleApprovePayout(payout, "cash")
-                                  }
-                                  disabled={isApprovingPayout === payout.id}
-                                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-black tracking-widest uppercase rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                                >
-                                  <Banknote className="w-3.5 h-3.5" />
-                                  Cash Handoff
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })(),
-                )}
-              </div>
-            </section>
-          )}
         </div>
 
         <div
@@ -5512,6 +5526,21 @@ burstFrame();
                               : `Accepting deposits for Gameweek ${currentGwNumber || firestoreGw || '--'}. Deadline approaches.`
                         }
                       </p>
+                      {gwAlreadySettled && (
+                        <div className="mt-3 flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptics.impact();
+                              setShowBanterSlipModal(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all active:scale-95 shadow-md cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>Share Matchday Communiqué & Results ↗</span>
+                          </button>
+                        </div>
+                      )}
                       <span className="text-[9px] font-bold text-gray-500 tracking-widest uppercase mt-2 block">
                         System
                       </span>
@@ -5786,9 +5815,12 @@ burstFrame();
               ) : (
                 filteredMembers.map((row: any) => {
                   const refundTotal = getMemberRefundTotal(row);
+                  const netDeposited = Math.max(0, getMemberInflowTotal(row) - refundTotal);
                   const rawWallet = Math.max(0, Number((row as any).walletBalance || 0));
-                  const wallet = rawWallet;
                   const gwCost = gameweekStake;
+                  const resolvedRoundsCount = resolvedGwsList.length;
+                  const unspentDepositFloat = Math.max(0, netDeposited - (resolvedRoundsCount * gwCost));
+                  const wallet = netDeposited > 0 ? unspentDepositFloat : rawWallet;
                   const gwsLeft = gwCost > 0 ? Math.floor(wallet / gwCost) : 0;
                   const isRowSpectator = (row as any).playMode === "sidebets_only";
                   const start = Math.max(1, Number(effectiveStartGw || startGw || 1));
@@ -5802,8 +5834,7 @@ burstFrame();
                   const rowHasPaidCurrent = memberHasFunding(row);
                   
                   // In Chama play, purchasing power includes total net deposits plus current wallet
-                  const netDeposited = Math.max(0, getMemberInflowTotal(row) - refundTotal);
-                  const totalContributed = Math.max(netDeposited, rawWallet);
+                  const totalContributed = Math.max(netDeposited, wallet);
                   const totalFundedRounds = gwCost > 0 ? Math.floor(totalContributed / gwCost) : totalCompletedOrCurrent;
                   const rowFundedCount = rowHasPaidCurrent ? Math.max(1, totalFundedRounds) : totalFundedRounds;
                   // If the member is funded for current round, they do NOT owe current round dues
@@ -5838,8 +5869,9 @@ burstFrame();
                             <span className="bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">Admin</span>
                           )}
                           {(row as any).paymentStreak >= 2 && (
-                            <span className="inline-flex items-center gap-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black" title={`${(row as any).paymentStreak}-GW streak!`}>
-                              🔥{(row as any).paymentStreak}
+                            <span className="inline-flex items-center gap-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-black" title={`${(row as any).paymentStreak}-GW streak!`}>
+                              <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                              <span>{(row as any).paymentStreak}</span>
                             </span>
                           )}
                           {rowSkippedGws > 0 && !isRowSpectator && (
@@ -5848,7 +5880,8 @@ burstFrame();
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-500/15 text-rose-300 border border-rose-500/30"
                                 title={`Skipped ${rowSkippedGws} GWs — KES ${rowOwedArrears.toLocaleString()} in arrears`}
                               >
-                                ⚠️ {rowSkippedGws} GW{rowSkippedGws > 1 ? 's' : ''} Skipped · KES {rowOwedArrears.toLocaleString()} Dues
+                                <AlertTriangle className="w-2.5 h-2.5 text-rose-400 shrink-0" />
+                                <span>{rowSkippedGws} GW{rowSkippedGws > 1 ? 's' : ''} Skipped · KES {rowOwedArrears.toLocaleString()} Dues</span>
                               </span>
                               <button
                                 type="button"

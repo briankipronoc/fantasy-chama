@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ReceiptText, History, Download, Wallet, TrendingUp, Clock3, Trophy, Crown, AlertTriangle, Check, MessageCircle, Search, X, AlertCircle, Trash2, Users, Lock, BarChart3 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { useStore } from '../store/useStore';
@@ -119,7 +119,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const [ledgerModalFilter, setLedgerModalFilter] = useState<'all' | 'deposits' | 'payouts' | 'reversals'>('all');
     const [personalCardTab, setPersonalCardTab] = useState<'due' | 'loaded'>('due');
     const [nextEventDeadline, setNextEventDeadline] = useState<string | null>(null);
-    const [vaultPodiumView, setVaultPodiumView] = useState<'accrued' | 'projected'>('accrued');
     const [showMpesaTopUpModal, setShowMpesaTopUpModal] = useState(false);
     const [topUpCustomAmount, setTopUpCustomAmount] = useState('');
     const [copiedPochiPhone, setCopiedPochiPhone] = useState(false);
@@ -361,6 +360,20 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         };
     }, [activeLeagueId, role, activeUserId, memberPhone]);
 
+    const redZoneMembers = useMemo(() => {
+        return members.filter((m: any) => 
+            m.role !== 'admin' && 
+            m.isActive !== false && 
+            (m as any).playMode !== 'sidebets_only' && 
+            !m.hasPaid && 
+            Number(m.walletBalance || 0) < Number(gameweekStake || 50)
+        );
+    }, [members, gameweekStake]);
+
+    const pendingAwaitingPayouts = useMemo(() => {
+        return (pendingApprovals || []).filter((p: any) => p.status === 'awaiting_approval');
+    }, [pendingApprovals]);
+
     const contributionTypes = new Set(['deposit', 'payment', 'contribution', 'wallet_funding', 'wallet_prefund', 'manual_deposit', 'ledger_adjustment']);
     const isTxValidInflow = (tx: any) => {
         const type = String(tx.type || '').toLowerCase();
@@ -516,22 +529,26 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             return acc;
         }, {});
 
+    const effectiveLeagueStartGw = leagueStartGw || 1;
     const resolvedGws = useMemo(() => {
         const set = new Set<number>();
         (pendingApprovals || []).forEach((p: any) => {
-            if ((p.status === 'approved' || p.status === 'settled') && Number(p.gw) > 0) {
-                set.add(Number(p.gw));
+            const gw = Number(p.gw);
+            if ((p.status === 'approved' || p.status === 'settled') && gw >= effectiveLeagueStartGw) {
+                set.add(gw);
             }
         });
         (transactions || []).forEach((tx: any) => {
-            if (tx.type === 'payout' && Number(tx.gw) > 0) {
-                set.add(Number(tx.gw));
+            const gw = Number(tx.gw);
+            if (tx.type === 'payout' && gw >= effectiveLeagueStartGw) {
+                const ts = tx.createdAt?.toDate ? tx.createdAt.toDate().getTime() : (tx.timestamp?.toDate ? tx.timestamp.toDate().getTime() : (typeof tx.timestamp === 'number' ? tx.timestamp : null));
+                if (!lastResetAtMs || !ts || ts >= lastResetAtMs) {
+                    set.add(gw);
+                }
             }
         });
         return set;
-    }, [pendingApprovals, transactions]);
-
-    const effectiveLeagueStartGw = leagueStartGw;
+    }, [pendingApprovals, transactions, effectiveLeagueStartGw, lastResetAtMs]);
     // Count active and completed playable rounds to date (includes past rounds and current round ONLY if resolved)
     const playedCompletedGws = useMemo(() => {
         if (!currentGwNumber || currentGwNumber < effectiveLeagueStartGw) return [];
@@ -910,7 +927,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const memberFundingSummary = useMemo(() => {
         const start = leagueStartGw;
         const currentGw = Number(currentGwNumber || start);
-        const resolvedCount = resolvedGws.size > 0 ? resolvedGws.size : playedCompletedGws.length;
+        const resolvedCount = resolvedGws.size;
         const stake = Number(gameweekStake || 0);
 
         return members
@@ -947,8 +964,8 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 // Real unspent credit: deposits remaining after resolved rounds have deducted their stakes
                 const consumedStakeForResolved = isMemberSpectator ? 0 : resolvedCount * stake;
                 const netUnspentFloat = Math.max(0, totalDeposited - consumedStakeForResolved);
-                // Reconciled available float: if raw DB balance hasn't been deducted for resolved rounds, cap at netUnspentFloat
-                const reconciledWalletBalance = isMemberSpectator ? 0 : Math.min(rawMemberBalance, netUnspentFloat);
+                // Reconciled available float: Authoritative float derived from net deposits minus resolved round stakes
+                const reconciledWalletBalance = isMemberSpectator ? 0 : (totalDeposited > 0 ? netUnspentFloat : rawMemberBalance);
                 const unspentCredit = reconciledWalletBalance;
 
                 // Member has paid current GW if stake is 0, unspent credit covers stake, cumulative deposits cover all rounds including current,
@@ -1014,7 +1031,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
             const totalDep = Math.max(0, mInflows.reduce((sum, tx) => sum + Number(tx.amount || 0), 0) - mRefunds);
             const expectedWallet = Math.max(0, totalDep - (resolvedCount * stake));
 
-            if (Number(m.walletBalance || 0) > expectedWallet) {
+            if (totalDep > 0 && Number(m.walletBalance || 0) !== expectedWallet) {
                 try {
                     const mRef = doc(db, 'leagues', activeLeagueId, 'memberships', m.id);
                     await updateDoc(mRef, {
@@ -1573,6 +1590,63 @@ const handleRejectPendingPayout = async (payout: any) => {
                     </div>
                 </div>
 
+                {/* Explicit Action Required Attention Banner (Resolves badge notification confusion) */}
+                {isAdmin && (redZoneMembers.length > 0 || pendingAwaitingPayouts.length > 0) && (
+                    <div className="w-full rounded-2xl border-2 border-rose-500/50 bg-gradient-to-r from-rose-500/15 via-red-500/10 to-amber-500/10 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl mb-4 text-slate-900 dark:text-white">
+                        <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500 shrink-0 mt-0.5 shadow-sm">
+                                <AlertTriangle className="w-5 h-5 animate-pulse" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="text-sm sm:text-base font-black tracking-tight">
+                                        Action Required ({redZoneMembers.length + pendingAwaitingPayouts.length} Items Need Attention)
+                                    </h3>
+                                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                        Active Badge
+                                    </span>
+                                </div>
+                                <div className="text-xs text-slate-600 dark:text-gray-300 font-medium mt-1 space-y-1">
+                                    {redZoneMembers.length > 0 && (
+                                        <p>
+                                            🔴 <strong className="text-rose-600 dark:text-rose-400">{redZoneMembers.length} Manager{redZoneMembers.length > 1 ? 's' : ''} in Red Zone</strong> — Unfunded wallet balances ({redZoneMembers.map(m => m.displayName?.split(' ')[0] || 'Manager').slice(0, 3).join(', ')}{redZoneMembers.length > 3 ? ` +${redZoneMembers.length - 3} more` : ''}).
+                                        </p>
+                                    )}
+                                    {pendingAwaitingPayouts.length > 0 && (
+                                        <p>
+                                            ⚡ <strong className="text-amber-600 dark:text-amber-400">{pendingAwaitingPayouts.length} Payout Request{pendingAwaitingPayouts.length > 1 ? 's' : ''}</strong> awaiting Chairman signature in Hub.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap shrink-0">
+                            {redZoneMembers.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const el = document.getElementById('arrears-audit-section');
+                                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                    className="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
+                                >
+                                    Review Red Zone ↓
+                                </button>
+                            )}
+                            {pendingAwaitingPayouts.length > 0 && (
+                                <Link
+                                    to="/dashboard"
+                                    className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                                >
+                                    <span>Maker/Checker Hub</span>
+                                    <span>↗</span>
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Member Personal Wallet & Due Actions (shown for members) */}
                 {!isAdmin && currentUser && (
                     <section className={clsx(
@@ -1806,46 +1880,76 @@ const handleRejectPendingPayout = async (payout: any) => {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0 sm:ml-auto">
+                                                <div className="flex items-center gap-1.5 flex-wrap justify-start sm:justify-end shrink-0">
                                                     {effectivePayoutMode === 'both' && (
-                                                        <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10">
+                                                        <div className="inline-flex items-center gap-1 bg-black/10 dark:bg-black/40 p-1 rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setProjectedCardIndex(0)}
-                                                                className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 0 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                                className={clsx(
+                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                                    projectedCardIndex === 0
+                                                                        ? "bg-emerald-500 text-black shadow-xs font-bold"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                )}
                                                             >
-                                                                GW
+                                                                Weekly Pot
                                                             </button>
                                                             <button
                                                                 type="button"
-                                                                onClick={() => setProjectedCardIndex(1)}
-                                                                className={clsx("px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer", projectedCardIndex === 1 ? "bg-emerald-500 text-black shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")}
+                                                                onClick={() => {
+                                                                    setProjectedCardIndex(1);
+                                                                    setSeasonCardTab('collected');
+                                                                }}
+                                                                className={clsx(
+                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                                    projectedCardIndex === 1 && seasonCardTab === 'collected'
+                                                                        ? "bg-amber-400 text-black shadow-xs font-bold"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                )}
                                                             >
-                                                                Season
+                                                                Live Vault
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setProjectedCardIndex(1);
+                                                                    setSeasonCardTab('projected');
+                                                                }}
+                                                                className={clsx(
+                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                                    projectedCardIndex === 1 && seasonCardTab === 'projected'
+                                                                        ? "bg-emerald-500 text-black shadow-xs font-bold"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                )}
+                                                            >
+                                                                Projected
                                                             </button>
                                                         </div>
                                                     )}
-                                                    {(effectivePayoutMode === 'season_only' || projectedCardIndex === 1) && (
-                                                        <div className="flex items-center gap-1 bg-black/10 dark:bg-black/40 p-0.5 rounded-lg border border-black/5 dark:border-white/10 shadow-xs sm:ml-2">
+                                                    {effectivePayoutMode === 'season_only' && (
+                                                        <div className="inline-flex items-center gap-1 bg-black/10 dark:bg-black/40 p-1 rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSeasonCardTab('collected')}
                                                                 className={clsx(
-                                                                    "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
-                                                                    seasonCardTab === 'collected' ? "bg-amber-400 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                                    seasonCardTab === 'collected'
+                                                                        ? "bg-amber-400 text-black shadow-xs font-bold"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                                                 )}
-                                                                title="Actual funds secured in the vault right now"
                                                             >
-                                                                Now
+                                                                Live Vault
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setSeasonCardTab('projected')}
                                                                 className={clsx(
-                                                                    "px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1",
-                                                                    seasonCardTab === 'projected' ? "bg-emerald-500 text-black shadow-sm font-bold" : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                                                                    "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
+                                                                    seasonCardTab === 'projected'
+                                                                        ? "bg-emerald-500 text-black shadow-xs font-bold"
+                                                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                                                 )}
-                                                                title="Projected season collection across remaining rounds"
                                                             >
                                                                 Projected
                                                             </button>
@@ -2012,39 +2116,15 @@ const handleRejectPendingPayout = async (payout: any) => {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
-                            {/* Toggle: Live Accrued vs Projected */}
-                            <div className="flex items-center gap-1 bg-slate-200/80 dark:bg-black/50 p-1 rounded-xl border border-slate-300 dark:border-white/10 text-[11px]">
-                                <button
-                                    type="button"
-                                    onClick={() => setVaultPodiumView('accrued')}
-                                    className={clsx(
-                                        "px-2.5 py-1 rounded-lg font-black uppercase tracking-wider transition-all cursor-pointer",
-                                        vaultPodiumView === 'accrued'
-                                            ? "bg-emerald-500 text-black shadow-xs font-extrabold"
-                                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                                    )}
-                                >
-                                    Live Accrued
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setVaultPodiumView('projected')}
-                                    className={clsx(
-                                        "px-2.5 py-1 rounded-lg font-black uppercase tracking-wider transition-all cursor-pointer",
-                                        vaultPodiumView === 'projected'
-                                            ? "bg-amber-400 text-black shadow-xs font-extrabold"
-                                            : "text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                                    )}
-                                >
-                                    Projected Final
-                                </button>
-                            </div>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-gray-300">
+                                <span>🏆</span> Season Vault Pool
+                            </span>
 
                             {role === 'admin' && (
                                 (Number(currentGwNumber) >= 38 && isCurrentEventFinished) ? (
                                     <button
                                         onClick={() => setShowSeasonCeremony(true)}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-700 dark:text-amber-300 hover:text-black dark:hover:text-white hover:border-amber-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-xs"
                                     >
                                         <Trophy className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                                         Launch Ceremony
@@ -2059,64 +2139,67 @@ const handleRejectPendingPayout = async (payout: any) => {
                         </div>
                     </div>
 
-                    {/* Podium Grid */}
+                    {/* Podium Grid (Centered on Desktop for single winner #1 card) */}
                     <div className={clsx(
-                        "w-full items-stretch gap-2 sm:gap-3",
+                        "w-full items-stretch gap-3",
                         tiedSeasonVaultPreview.length === 1
-                            ? "flex justify-center max-w-xs sm:max-w-sm mx-auto"
+                            ? "flex justify-center max-w-md mx-auto"
                             : tiedSeasonVaultPreview.length === 2
                                 ? "grid grid-cols-2 max-w-xl mx-auto"
-                                : "grid grid-cols-3"
+                                : "grid grid-cols-1 sm:grid-cols-3"
                     )}>
                         {tiedSeasonVaultPreview.slice(0, 3).map((tier: any) => {
-                            const isAccrued = vaultPodiumView === 'accrued';
-                            const primaryAmount = isAccrued ? (tier.accruedAmount ?? tier.amount) : (tier.projectedAmount || tier.amount);
-                            const secondaryAmount = isAccrued ? (tier.projectedAmount || tier.amount) : (tier.accruedAmount ?? tier.amount);
+                            const accruedVal = Math.round(tier.accruedAmount ?? tier.amount ?? 0);
+                            const projectedVal = Math.round(tier.projectedAmount ?? tier.amount ?? 0);
                             const medal = tier.rank === 1 ? '🥇' : tier.rank === 2 ? '🥈' : '🥉';
                             return (
                                 <div
                                     key={`${tier.originalPlace}-${tier.player_name}`}
-                                    onClick={() => setVaultPodiumView(prev => prev === 'accrued' ? 'projected' : 'accrued')}
                                     className={clsx(
-                                        "rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-2.5 sm:p-3.5 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs min-w-0 cursor-pointer select-none",
+                                        "rounded-2xl border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-[#0b1014]/90 p-4 text-center flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-md min-w-0 select-none",
                                         tiedSeasonVaultPreview.length === 1 ? "w-full" : ""
                                     )}
-                                    title="Tap to toggle live accrued vs projected final"
                                 >
                                     <div>
-                                        <div className="flex items-center justify-between gap-1 mb-1.5">
-                                            <span className="text-[10px] sm:text-xs font-black text-slate-900 dark:text-white flex items-center gap-1 truncate">
+                                        <div className="flex items-center justify-between gap-1 mb-2">
+                                            <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
                                                 <span>{medal}</span> #{tier.rank}
-                                                {tier.isTied && <span className="text-[7.5px] text-amber-600 dark:text-amber-400 font-bold">(Tied)</span>}
+                                                {tier.isTied && <span className="text-[8px] text-amber-600 dark:text-amber-400 font-bold">(Tied)</span>}
                                             </span>
                                             <span className={clsx(
-                                                'text-[8px] sm:text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full border shrink-0',
+                                                'text-[9px] font-black uppercase px-2 py-0.5 rounded-full border shrink-0',
                                                 tier.rank === 1 ? 'border-amber-400/40 bg-amber-400/15 text-amber-700 dark:text-amber-400' : tier.rank === 2 ? 'border-slate-300 bg-slate-100 dark:border-slate-300/30 dark:bg-slate-300/10 text-slate-700 dark:text-slate-200' : 'border-amber-600/30 bg-amber-600/15 text-amber-800 dark:text-amber-500'
                                             )}>
-                                                {tier.percentage}%
+                                                {tier.percentage}% Share
                                             </span>
                                         </div>
-                                        <div className="mt-1">
-                                            <p className={clsx(
-                                                "text-sm sm:text-lg md:text-xl font-black tabular-nums truncate",
-                                                isAccrued ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                            )}>
-                                                KES {Math.round(primaryAmount || 0).toLocaleString()}
-                                            </p>
-                                            <p className="mt-0.5 text-[8px] sm:text-[9.5px] text-slate-500 dark:text-gray-400 truncate font-medium">
-                                                {isAccrued ? (
-                                                    <>Est: <strong className="text-amber-600 dark:text-amber-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
-                                                ) : (
-                                                    <>Accrued: <strong className="text-emerald-600 dark:text-emerald-400 font-mono font-bold">KES {Math.round(secondaryAmount || 0).toLocaleString()}</strong></>
-                                                )}
-                                            </p>
+
+                                        {/* Side-by-Side Accrued and Projected Amounts */}
+                                        <div className="grid grid-cols-2 gap-2 my-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/5">
+                                            <div className="text-center">
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+                                                    Live Accrued
+                                                </span>
+                                                <span className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                                    KES {accruedVal.toLocaleString()}
+                                                </span>
+                                            </div>
+                                            <div className="text-center border-l border-slate-200 dark:border-white/10">
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">
+                                                    Projected Final
+                                                </span>
+                                                <span className="text-sm sm:text-base font-black text-amber-600 dark:text-amber-400 tabular-nums">
+                                                    KES {projectedVal.toLocaleString()}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-white/5">
-                                        <p className="text-[10px] sm:text-[11px] font-black text-slate-800 dark:text-gray-200 truncate">
+
+                                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-white/5">
+                                        <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-gray-200 truncate">
                                             {tier.player_name}
                                         </p>
-                                        <p className="text-[8px] sm:text-[9px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{tier.entry_name}</p>
+                                        <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">{tier.entry_name}</p>
                                     </div>
                                 </div>
                             );
