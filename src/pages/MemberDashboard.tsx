@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { useCountUp } from '../hooks/useCountUp';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
@@ -2567,33 +2567,14 @@ export default function MemberDashboard() {
                                 <p className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">Historical payouts and scheduled rounds</p>
                             </div>
                             <div className="flex items-center gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        haptics.selection();
-                                        const upcomingGw = (currentFplEvent?.finished && currentFplEvent?.id)
-                                            ? Number(currentFplEvent.id) + 1
-                                            : Number(currentFplEvent?.id || 1);
-                                        const targetGw = Math.max(Number(effectiveMdStartGw || 1), Number(upcomingGw || 1));
-                                        const rail = ledgerRailRef.current;
-                                        if (!rail) return;
-                                        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
-                                        if (gwCard) {
-                                            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
-                                            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-                                        }
-                                    }}
-                                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer shadow-xs"
-                                    title="Spring back to active / upcoming round"
-                                >
-                                    Spring to GW{Math.max(Number(effectiveMdStartGw || 1), Number((currentFplEvent?.finished && currentFplEvent?.id) ? Number(currentFplEvent.id) + 1 : Number(currentFplEvent?.id || 1)))} 🎯
-                                </button>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                                    Kickoff GW{effectiveMdStartGw}
-                                </span>
+                                {Number(effectiveMdStartGw || 1) > 1 && (
+                                    <span className="text-[9px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-1 shadow-xs">
+                                        <span>🏁</span> Kickoff GW{effectiveMdStartGw}
+                                    </span>
+                                )}
                             </div>
                         </div>
-                        <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory" style={{ scrollbarWidth: 'thin' }}>
+                        <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex items-stretch gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory" style={{ scrollbarWidth: 'thin' }}>
                             {gwWinnersLedger.map((item: any) => {
                                 const isVoided = Boolean(item.isVoided);
                                 const isPreLeague = Boolean(item.isPreLeague);
@@ -2604,75 +2585,99 @@ export default function MemberDashboard() {
                                 const isResolved = isApprovedPaid || (!isCurrentLive && !item.isUpcoming && !isVoided && !isPreLeague && item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved');
 
                                 return (
-                                    <div
-                                        key={item.gw}
-                                        data-gw-card={item.gw}
-                                        className={clsx(
-                                            'fc-gw-ledger-card snap-start shrink-0 w-48 sm:w-52 rounded-xl border p-3 transition-all shadow-sm',
-                                            isApprovedPaid || isResolved
-                                                ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
-                                                : isCurrentLive
-                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                                : isAwaitingPayment
-                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                                : isPreLeague
-                                                ? 'border-slate-300 dark:border-slate-500/25 bg-slate-100/90 dark:bg-slate-500/8 text-slate-700 dark:text-slate-300'
-                                                : isVoided
-                                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                                                : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
+                                    <Fragment key={item.gw}>
+                                        {/* Prominent Start Line at Kickoff GW */}
+                                        {Number(effectiveMdStartGw || 1) > 1 && item.gw === Number(effectiveMdStartGw) && (
+                                            <div 
+                                                key="kickoff-divider-line"
+                                                className="shrink-0 flex flex-col items-center justify-center px-2 select-none self-stretch min-w-[65px]" 
+                                                title={`Official Chama Kickoff: Pot rounds begin at GW${effectiveMdStartGw}`}
+                                            >
+                                                <div className="w-full h-full min-h-[110px] flex flex-col items-center justify-center relative">
+                                                    <div className="w-1.5 h-full min-h-[100px] bg-gradient-to-b from-amber-500/20 via-amber-400 to-amber-500/20 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.6)]" />
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <span className="px-2 py-1 rounded-lg bg-amber-400 text-slate-950 font-black text-[8px] uppercase tracking-wider whitespace-nowrap shadow-xl border border-amber-300 flex items-center gap-1">
+                                                            🏁 Kickoff GW{effectiveMdStartGw}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         )}
-                                    >
-                                        <div className="flex items-center justify-between gap-2 mb-1">
-                                            <p className="text-[9px] uppercase tracking-widest font-black text-slate-500 dark:text-gray-400">GW {item.gw}</p>
-                                            {isPreLeague ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-500/30">
-                                                    Pre-Chama
-                                                </span>
-                                            ) : isCurrentLive ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40 animate-pulse">
-                                                    Live
-                                                </span>
-                                            ) : isApprovedPaid ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                    {(item.amount === 0 || Number(rules?.weekly || 0) === 0) ? 'Resolved ✓' : 'Paid ✓'}
-                                                </span>
-                                            ) : isResolved ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                    Resolved ✓
-                                                </span>
-                                            ) : isAwaitingPayment ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40">
-                                                    Pending
-                                                </span>
-                                            ) : (
-                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
-                                                    Upcoming
-                                                </span>
+                                        <div
+                                            data-gw-card={item.gw}
+                                            className={clsx(
+                                                'fc-gw-ledger-card snap-start shrink-0 w-48 sm:w-52 rounded-xl border p-3 transition-all shadow-sm',
+                                                isApprovedPaid || isResolved
+                                                    ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent text-emerald-950 dark:text-white shadow-sm hover:border-emerald-400'
+                                                    : isCurrentLive
+                                                    ? 'border-amber-400 dark:border-amber-400/80 bg-gradient-to-br from-amber-500/20 via-amber-500/5 to-transparent ring-2 ring-amber-400/40 shadow-md hover:border-amber-300'
+                                                    : isAwaitingPayment
+                                                    ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
+                                                    : isVoided
+                                                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                                                    : isPreLeague
+                                                    ? 'border-dashed border-slate-300 dark:border-slate-500/25 bg-slate-100/60 dark:bg-slate-500/5 text-slate-500 dark:text-slate-400 opacity-60'
+                                                    : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
                                             )}
-                                        </div>
-                                        <p className={clsx(
-                                            'text-xs font-black truncate',
-                                            isApprovedPaid || isResolved ? 'text-slate-900 dark:text-white' : isCurrentLive ? 'text-amber-400 dark:text-[#FBBF24]' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-gray-500'
-                                        )}>
-                                            {isCurrentLive && item.winnerName !== 'In Progress' ? `Live: ${item.winnerName}` : item.winnerName}
-                                        </p>
-                                        <p className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
-                                            {isPreLeague
-                                                ? 'Pre-League · No fees'
-                                                : isCurrentLive
-                                                ? 'Matches in progress'
-                                                : item.winnerTeam || (item.isPaid ? ((item.amount === 0 || Number(rules?.weekly || 0) === 0) ? 'Season Vault · Points Secured' : 'Payout Dispatched') : 'Scheduled')}
-                                        </p>
-                                        <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px]">
-                                            <span className="font-bold text-slate-500 dark:text-gray-400">Prize</span>
-                                            <span className={clsx(
-                                                'font-mono font-black tabular-nums',
-                                                isApprovedPaid ? 'text-emerald-600 dark:text-emerald-400' : isCurrentLive ? 'text-amber-500 dark:text-[#FBBF24]' : 'text-slate-600 dark:text-gray-400'
+                                        >
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <p className="text-[9px] uppercase tracking-widest font-black text-slate-500 dark:text-gray-400">GW {item.gw}</p>
+                                                {isPreLeague ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-500/30">
+                                                        Pre-Chama
+                                                    </span>
+                                                ) : isVoided ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                                                        Skipped
+                                                    </span>
+                                                ) : isCurrentLive ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-amber-400 text-slate-950 border border-amber-300 shadow-xs animate-pulse">
+                                                        ⚡ LIVE IN PLAY
+                                                    </span>
+                                                ) : isApprovedPaid ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {(item.amount === 0 || Number(rules?.weekly || 0) === 0) ? 'Resolved ✓' : 'Paid ✓'}
+                                                    </span>
+                                                ) : isResolved ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Resolved ✓
+                                                    </span>
+                                                ) : isAwaitingPayment ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
+                                                        Pending
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
+                                                        Upcoming
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className={clsx(
+                                                'text-xs font-black truncate',
+                                                isApprovedPaid || isResolved ? 'text-slate-900 dark:text-white' : isCurrentLive ? 'text-amber-400 dark:text-[#FBBF24]' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-gray-500'
                                             )}>
-                                                {item.amount && item.amount > 0 && Number(rules?.weekly || 0) > 0 ? `KES ${Number(item.amount).toLocaleString()}` : isPreLeague ? '—' : Number(rules?.weekly || 0) === 0 ? '100% Vault' : 'Weekly Pot'}
-                                            </span>
+                                                {isCurrentLive && item.winnerName !== 'In Progress' ? `Live: ${item.winnerName}` : item.winnerName}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 dark:text-gray-400 truncate mt-0.5">
+                                                {isPreLeague
+                                                    ? 'Pre-League · No fees'
+                                                    : isCurrentLive
+                                                    ? 'Matches in progress'
+                                                    : isVoided
+                                                    ? (item.winnerTeam || 'Not resolved / Unplayed')
+                                                    : item.winnerTeam || (item.isPaid ? ((item.amount === 0 || Number(rules?.weekly || 0) === 0) ? 'Season Vault · Points Secured' : 'Payout Dispatched') : 'Scheduled')}
+                                            </p>
+                                            <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-white/5 flex items-center justify-between text-[10px]">
+                                                <span className="font-bold text-slate-500 dark:text-gray-400">Prize</span>
+                                                <span className={clsx(
+                                                    'font-mono font-black tabular-nums',
+                                                    isApprovedPaid ? 'text-emerald-600 dark:text-emerald-400' : isCurrentLive ? 'text-amber-500 dark:text-[#FBBF24]' : 'text-slate-600 dark:text-gray-400'
+                                                )}>
+                                                    {item.amount && item.amount > 0 && Number(rules?.weekly || 0) > 0 ? `KES ${Number(item.amount).toLocaleString()}` : isPreLeague ? '—' : Number(rules?.weekly || 0) === 0 ? '100% Vault' : 'Weekly Pot'}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </Fragment>
                                 );
                             })}
                         </div>

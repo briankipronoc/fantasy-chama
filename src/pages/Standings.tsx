@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info, Sparkles, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
+import { Search, Download, Trophy, Zap, Save, ShieldAlert, BarChart3, Users, RefreshCw, Shirt, Crown, Share2, Info, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { useStore } from '../store/useStore';
@@ -126,6 +126,17 @@ export default function Standings() {
         managerName: ''
     });
     const members = useStore(state => state.members);
+
+    // Effective league start configured for the chama
+    const configuredLeagueStartGw = Number(
+        (league as any)?.startGw ||
+        (league as any)?.leagueStartGw ||
+        (league as any)?.rules?.startGw ||
+        (leagueRules as any)?.startGw ||
+        0
+    );
+    const effectiveLeagueStartGw = Math.max(1, configuredLeagueStartGw > 0 ? configuredLeagueStartGw : (leagueStartGw > 0 ? leagueStartGw : 1));
+
     const gwWinnersLedger = useMemo(() => {
         const winnerByGw = new Map<number, { gw: number; winnerName: string; winnerTeam?: string | null; amount?: number | null; isPaid?: boolean; isVoided?: boolean; isAwaitingPayment?: boolean }>();
         payoutRows.forEach((tx) => {
@@ -243,7 +254,7 @@ export default function Standings() {
             }
 
             // 4. Pre-league gameweeks based on configured start GW
-            const effectiveStart = Number(leagueStartGw) > 0 ? Number(leagueStartGw) : 1;
+            const effectiveStart = effectiveLeagueStartGw;
             if (effectiveStart > 1 && gw < effectiveStart) {
                 return {
                     gw,
@@ -322,11 +333,7 @@ export default function Standings() {
                 isUpcoming: true,
             };
         });
-    }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, leagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
-
-    // Effective league start configured for the chama
-    const rawStartGw = Number(leagueStartGw || (league as any)?.startGw || (league as any)?.startGameweek || (league as any)?.rules?.startGw || 1);
-    const effectiveLeagueStartGw = Math.max(1, rawStartGw || 1);
+    }, [payoutRows, pendingPayouts, currentEvent, isCurrentEventFinished, effectiveLeagueStartGw, leagueRules, forfeitedGws, standingsData, members]);
 
     const [performanceData, setPerformanceData] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -431,28 +438,30 @@ export default function Standings() {
                 setIsFplMaintenance(Boolean(fetchRes?.isMaintenance));
 
                 const fetchPerformances = async () => {
+                    // Only include managers who have fully onboarded (valid phone, active, not pending, not sidebets-only)
                     const activeChamaResults = results.filter((r: any) => {
                         const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
                         if (!m) return false;
                         if (isPendingMember(m)) return false;
+                        if (!m.phone && !(m as any).phoneNumber) return false;
                         if (m.isActive === false) return false;
                         if ((m as any).playMode === 'sidebets_only') return false;
                         return true;
                     });
-                    const candidateManagers = (activeChamaResults.length > 0 ? activeChamaResults : results.filter((r: any) => {
-                        const m = getMemberStatus(r.player_name, r.entry_name, r.entry);
-                        return !m || !isPendingMember(m);
-                    })).slice(0, 30);
+                    const candidateManagers = activeChamaResults.slice(0, 30);
                     const teamIds = candidateManagers.map((r: any) => r.entry);
                     
                     const activeUserId = localStorage.getItem('activeUserId') || '';
                     const myMember = members.find(m => m.id === activeUserId);
                     const myFplTeamId = myMember ? Number((myMember as any).fplTeamId || 0) : null;
-                    if (myFplTeamId && !teamIds.includes(myFplTeamId)) {
+                    if (myFplTeamId && !teamIds.includes(myFplTeamId) && myMember && !isPendingMember(myMember)) {
                         teamIds.push(myFplTeamId);
                     }
 
-                    if (teamIds.length === 0) return;
+                    if (teamIds.length === 0) {
+                        setPerformanceData([]);
+                        return;
+                    }
 
                     const leagueAvg = results.length > 0
                         ? Math.round(results.reduce((s: number, curRes: any) => s + (Number(curRes.event_total) || 0), 0) / results.length)
@@ -1415,19 +1424,21 @@ export default function Standings() {
                                         };
                                     })
                                     .sort((a: any, b: any) => {
-                                        const scoreA = Number(heroRankView === 'gw' ? a.event_total || 0 : a.seasonCompareScore || 0);
-                                        const scoreB = Number(heroRankView === 'gw' ? b.event_total || 0 : b.seasonCompareScore || 0);
+                                        const isClean = standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1;
+                                        const scoreA = Number(isClean ? a.cleanTotal ?? 0 : (heroRankView === 'gw' ? a.event_total || 0 : a.seasonCompareScore || 0));
+                                        const scoreB = Number(isClean ? b.cleanTotal ?? 0 : (heroRankView === 'gw' ? b.event_total || 0 : b.seasonCompareScore || 0));
                                         if (scoreB !== scoreA) {
                                             return scoreB - scoreA;
                                         }
-                                        // Alphabetical order when tied or at zero
-                                        const nameA = (a.entry_name || a.player_name || '').toLowerCase();
-                                        const nameB = (b.entry_name || b.player_name || '').toLowerCase();
+                                        // Alphabetical order like EPL table at season kickoff
+                                        const nameA = (a.player_name || a.entry_name || '').toLowerCase();
+                                        const nameB = (b.player_name || b.entry_name || '').toLowerCase();
                                         return nameA.localeCompare(nameB);
                                     });
 
                                 // Competition tie-ranking (e.g. 1, 1, 3, 4...)
-                                const compareKey = heroRankView === 'gw' ? 'event_total' : 'seasonCompareScore';
+                                const isClean = standingsMode === 'clean_slate' && effectiveLeagueStartGw > 1;
+                                const compareKey = isClean ? 'cleanTotal' : (heroRankView === 'gw' ? 'event_total' : 'seasonCompareScore');
                                 const allScoresZero = filteredRows.every((r: any) => Number(r[compareKey] || 0) === 0);
                                 let currentCompetitionRank = 1;
                                 const rankedRows = filteredRows.map((row: any, idx: number, arr: any[]) => {
@@ -1472,6 +1483,7 @@ export default function Standings() {
                                     hasEverFunded(matchedMember)
                                 );
                                 const isGwWinnerRow = Boolean(
+                                    !allScoresZero &&
                                     !isSpectator &&
                                     !isRowPendingOnboarding &&
                                     isFunded &&
@@ -1484,15 +1496,15 @@ export default function Standings() {
                                 const maxSeasonScore = Math.max(...filteredRows.map((r: any) => Number(r.seasonCompareScore || 0)), 0);
                                 const currentScore = Number(row[compareKey] || 0);
                                 const isZeroScore = currentScore === 0;
-                                const isOverallSeasonLeader = !isSpectator && !isRowPendingOnboarding && isFunded && maxSeasonScore > 0 && Number(row.seasonCompareScore) === maxSeasonScore;
-                                const isSeasonLeader = isSeasonView ? (rankNum === 1 && !isRowPendingOnboarding && isFunded && !isZeroScore) : isOverallSeasonLeader;
+                                const isOverallSeasonLeader = !allScoresZero && !isZeroScore && !isSpectator && !isRowPendingOnboarding && isFunded && maxSeasonScore > 0 && Number(row.seasonCompareScore) === maxSeasonScore;
+                                const isSeasonLeader = isSeasonView ? (rankNum === 1 && !isRowPendingOnboarding && isFunded && !isZeroScore && !allScoresZero) : isOverallSeasonLeader;
                                 const isDoubleCrown = isOverallSeasonLeader && isGwWinnerRow;
-                                const medal = (isRowPendingOnboarding || !isFunded || isSpectator || isZeroScore || (isSeasonView ? maxSeasonScore === 0 : maxEligibleGwScore === 0))
+                                const medal = (allScoresZero || isZeroScore || isRowPendingOnboarding || !isFunded || isSpectator || (isSeasonView ? maxSeasonScore === 0 : maxEligibleGwScore === 0))
                                     ? null
                                     : isSeasonView
                                     ? (rankNum === 1 ? '🥇' : rankNum === 2 ? '🥈' : rankNum === 3 ? '🥉' : null)
                                     : (rankNum === 1 ? '🥇' : null);
-                                const podiumBorder = (isRowPendingOnboarding || !isFunded || isSpectator || isZeroScore)
+                                const podiumBorder = (allScoresZero || isZeroScore || isRowPendingOnboarding || !isFunded || isSpectator)
                                     ? 'border-l-4 border-l-transparent'
                                     : isDoubleCrown
                                     ? 'border-l-4 border-l-amber-400 ring-2 ring-amber-400/60'
@@ -2044,40 +2056,30 @@ export default function Standings() {
 
                 {!error && gwWinnersLedger.length > 0 && (
                     <div className="fc-card bg-white dark:bg-[#161d24] border border-slate-200 dark:border-white/5 rounded-2xl p-5 md:p-6 shadow-sm dark:shadow-xl">
-                        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                             <div>
-                                <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight">Gameweek Winners Ledger</h3>
-                                <p className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">Historical and upcoming round payouts</p>
+                                <h3 className="text-sm md:text-base font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                                    <Trophy className="w-4 h-4 text-amber-500 dark:text-[#FBBF24]" />
+                                    <span>Gameweek Winners Ledger</span>
+                                </h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-500 mt-1">
+                                    HISTORICAL AND UPCOMING ROUND PAYOUTS
+                                </p>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        haptics.impact();
-                                        const upcomingGw = (isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1);
-                                        const targetGw = Math.max(Number(effectiveLeagueStartGw || 1), Number(upcomingGw || 1));
-                                        const rail = ledgerRailRef.current;
-                                        if (!rail) return;
-                                        const gwCard = rail.querySelector<HTMLElement>(`[data-gw-card="${targetGw}"]`);
-                                        if (gwCard) {
-                                            const targetLeft = gwCard.offsetLeft - (rail.clientWidth / 2) + (gwCard.clientWidth / 2);
-                                            rail.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-                                        }
-                                    }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-xs"
-                                    title={`Spring back to active / upcoming round (GW${Math.max(Number(effectiveLeagueStartGw || 1), Number((isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1)))})`}
-                                >
-                                    <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
-                                    <span>Spring to GW{Math.max(Number(effectiveLeagueStartGw || 1), Number((isCurrentEventFinished && currentEvent) ? currentEvent + 1 : (currentEvent || 1)))} 🎯</span>
-                                </button>
+                            <div className="flex items-center gap-2 flex-wrap">
                                 {effectiveLeagueStartGw > 1 && (
-                                    <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-widest px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hidden sm:inline-block">
-                                        Kickoff GW{effectiveLeagueStartGw}
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#FBBF24]/25 bg-[#FBBF24]/10 text-[#FBBF24] flex items-center gap-1">
+                                        <span>🏁</span> KICKOFF GW{effectiveLeagueStartGw}
+                                    </span>
+                                )}
+                                {currentEvent && (
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-[#10B981]/25 bg-[#10B981]/10 text-[#10B981]">
+                                        {currentGwLabel}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
+                        <div ref={ledgerRailRef} className="fc-gw-ledger-rail flex items-stretch gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
                             {gwWinnersLedger.map((item: any) => {
                                 const isVoided = Boolean(item.isVoided);
                                 const isPreLeague = Boolean(item.isPreLeague);
@@ -2091,72 +2093,89 @@ export default function Standings() {
                                 const isSeasonOnlyLeague = Number(leagueRules?.weekly ?? (league as any)?.rules?.weekly ?? 70) === 0 || item.amount === 0;
 
                                 return (
-                                    <div
-                                        onClick={() => {
-                                            if (item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved' && item.winnerName !== 'In Progress') {
-                                                setFlexCardData({
-                                                    winnerName: item.winnerName,
-                                                    teamName: item.winnerTeam,
-                                                    points: Number(item.points || 0),
-                                                    amountWon: Number(item.amount || 0),
-                                                    gameweek: item.gw,
-                                                    isJointWinner: Boolean(item.isTie),
-                                                    tiedCount: item.tiedCount || 1
-                                                });
-                                            }
-                                        }}
-                                        key={item.gw}
-                                        data-gw-card={item.gw}
-                                        className={clsx(
-                                            'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm select-none',
-                                            (isApprovedPaid || isResolved || isCurrentLive) && 'cursor-pointer hover:border-amber-500/50',
-                                            isApprovedPaid || isResolved
-                                                ? 'fc-gw-ledger-card-resolved border-emerald-500/30 bg-emerald-500/10'
-                                                : isCurrentLive
-                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                                : isAwaitingPayment
-                                                ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
-                                                : isPreLeague
-                                                ? 'border-slate-300 dark:border-slate-500/25 bg-slate-100/90 dark:bg-slate-500/8 text-slate-700 dark:text-slate-300'
-                                                : isVoided || isSkipped
-                                                ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                                                : isNextUpcoming
-                                                ? 'border-white/15 bg-white/[0.03]'
-                                                : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
+                                    <Fragment key={item.gw}>
+                                        {/* Prominent Start Line at Kickoff GW */}
+                                        {effectiveLeagueStartGw > 1 && item.gw === effectiveLeagueStartGw && (
+                                            <div 
+                                                key="kickoff-divider-line"
+                                                className="shrink-0 flex flex-col items-center justify-center px-2 select-none self-stretch min-w-[70px]" 
+                                                title={`Official Chama Kickoff: Pot rounds begin at GW${effectiveLeagueStartGw}`}
+                                            >
+                                                <div className="w-full h-full min-h-[120px] flex flex-col items-center justify-center relative">
+                                                    <div className="w-1.5 h-full min-h-[110px] bg-gradient-to-b from-amber-500/20 via-amber-400 to-amber-500/20 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.6)]" />
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <span className="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider whitespace-nowrap shadow-xl border border-amber-300 flex items-center gap-1">
+                                                            🏁 Kickoff GW{effectiveLeagueStartGw}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         )}
-                                    >
-                                        <div className="flex items-center justify-between gap-2 mb-1">
-                                            <p className="text-[9px] uppercase tracking-widest font-black text-slate-500 dark:text-gray-400">GW {item.gw}</p>
-                                            {isPreLeague ? (
-                                                 <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-500/30">
-                                                     Pre-Chama
-                                                 </span>
-                                            ) : isVoided || isSkipped ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                                                    Skipped
-                                                </span>
-                                            ) : isCurrentLive ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-[#FBBF24]/20 text-amber-700 dark:text-[#FBBF24] border border-[#FBBF24]/40 animate-pulse">
-                                                    Live · In Play
-                                                </span>
-                                            ) : isApprovedPaid ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {isSeasonOnlyLeague || item.amount === 0 ? 'Resolved ✓' : 'Paid ✓'}
-                                                </span>
-                                            ) : isResolved ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Resolved ✓
-                                                </span>
-                                            ) : isAwaitingPayment ? (
-                                                <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40">
-                                                    Awaiting Payout
-                                                </span>
-                                            ) : (
-                                                <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
-                                                    Upcoming
-                                                </span>
+                                        <div
+                                            onClick={() => {
+                                                if (item.winnerName && item.winnerName !== 'Upcoming' && item.winnerName !== 'Unresolved' && item.winnerName !== 'In Progress') {
+                                                    setFlexCardData({
+                                                        winnerName: item.winnerName,
+                                                        teamName: item.winnerTeam,
+                                                        points: Number(item.points || 0),
+                                                        amountWon: Number(item.amount || 0),
+                                                        gameweek: item.gw,
+                                                        isJointWinner: Boolean(item.isTie),
+                                                        tiedCount: item.tiedCount || 1
+                                                    });
+                                                }
+                                            }}
+                                            data-gw-card={item.gw}
+                                            className={clsx(
+                                                'fc-gw-ledger-card snap-start shrink-0 w-56 sm:w-60 lg:w-52 rounded-xl border p-3.5 transition-all shadow-sm select-none',
+                                                (isApprovedPaid || isResolved || isCurrentLive) && 'cursor-pointer',
+                                                isApprovedPaid || isResolved
+                                                    ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent text-emerald-950 dark:text-white shadow-sm hover:border-emerald-400'
+                                                    : isCurrentLive
+                                                    ? 'border-amber-400 dark:border-amber-400/80 bg-gradient-to-br from-amber-500/20 via-amber-500/5 to-transparent ring-2 ring-amber-400/40 shadow-md hover:border-amber-300'
+                                                    : isAwaitingPayment
+                                                    ? 'border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/30'
+                                                    : isVoided || isSkipped
+                                                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                                                    : isPreLeague
+                                                    ? 'border-dashed border-slate-300 dark:border-slate-500/25 bg-slate-100/60 dark:bg-slate-500/5 text-slate-500 dark:text-slate-400 opacity-60'
+                                                    : isNextUpcoming
+                                                    ? 'border-slate-300 dark:border-white/20 bg-slate-100/50 dark:bg-white/[0.04]'
+                                                    : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-black/25'
                                             )}
-                                        </div>
+                                        >
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <p className="text-[9px] uppercase tracking-widest font-black text-slate-500 dark:text-gray-400">GW {item.gw}</p>
+                                                {isPreLeague ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-500/20 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-500/30">
+                                                        Pre-Chama
+                                                    </span>
+                                                ) : isVoided || isSkipped ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                                                        Skipped
+                                                    </span>
+                                                ) : isCurrentLive ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-amber-400 text-slate-950 border border-amber-300 shadow-xs animate-pulse">
+                                                        ⚡ LIVE IN PLAY
+                                                    </span>
+                                                ) : isApprovedPaid ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> {isSeasonOnlyLeague || item.amount === 0 ? 'Resolved ✓' : 'Paid ✓'}
+                                                    </span>
+                                                ) : isResolved ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> Resolved ✓
+                                                    </span>
+                                                ) : isAwaitingPayment ? (
+                                                    <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
+                                                        Pending
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-500 border border-slate-200 dark:border-white/10">
+                                                        Upcoming
+                                                    </span>
+                                                )}
+                                            </div>
                                         <p className={clsx(
                                             'text-xs font-black truncate',
                                             isApprovedPaid || isResolved ? 'text-slate-900 dark:text-white' : isCurrentLive ? 'text-amber-400 dark:text-[#FBBF24]' : isPreLeague ? 'text-slate-600 dark:text-slate-400' : isVoided || isSkipped ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-gray-500'
@@ -2184,6 +2203,7 @@ export default function Standings() {
                                             <p className="text-[10px] font-bold text-amber-300/80 mt-1">Est. Pot: KES {item.amount.toLocaleString()}</p>
                                         )}
                                     </div>
+                                    </Fragment>
                                 );
                             })}
                         </div>

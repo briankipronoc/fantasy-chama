@@ -340,9 +340,6 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                     <span className="fc-metallic-badge text-[10px] md:text-xs tracking-widest uppercase font-black text-slate-800 dark:text-gray-200 group-hover:text-amber-500 transition-colors">
                                         Member Hub
                                     </span>
-                                    <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-500/20 px-1 rounded uppercase tracking-tight ml-0.5">
-                                        Chairman HQ
-                                    </span>
                                 </button>
                             ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-white/10 bg-transparent shadow-xs">
@@ -364,8 +361,8 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                 <div className="shrink-0 flex flex-col items-end gap-1.5 transition-all duration-300 ease-in-out">
                     {/* Line 1: Theme, Leagues Switcher, GW Timer on one single horizontal row */}
                     <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end transition-all duration-300 ease-in-out">
-                        {/* SuperAdmin HQ Pill */}
-                        {isSuperAdmin && (
+                        {/* SuperAdmin HQ Pill — strictly on profile module */}
+                        {isSuperAdmin && location.pathname === '/profile' && (
                             <Link
                                 to="/hq"
                                 onClick={() => haptics.selection()}
@@ -377,10 +374,7 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                             </Link>
                         )}
 
-                        {/* On chairman profile module, keep ONLY the HQ pill */}
-                        {!(location.pathname === '/profile' && role === 'admin') && (
-                            <>
-                                {/* Theme Toggle Pill */}
+                        {/* Theme Toggle Pill */}
                                 <div className="relative hidden md:block transition-all duration-300 ease-in-out" ref={themeMenuRef}>
                                     {!isThemeMenuOpen ? (
                                         <button
@@ -448,14 +442,12 @@ export default function Header({ role, title, subtitle, hideCountdown, hideExtra
                                         <DeadlineCountdown />
                                     </div>
                                 )}
-                            </>
-                        )}
                     </div>
 
                     {/* Line 2: Stealth Eye + Notification Bell right below */}
                     <div className="flex items-center gap-1.5 sm:gap-2 justify-end" ref={dropdownRef}>
-                        {/* Stealth Mode Toggle (Only on Chairman/Member Hub and Finances) */}
-                        {(['/dashboard', '/admin', '/command-center', '/finances', '/'].includes(location.pathname)) && (
+                        {/* Stealth Mode Toggle (Only on Chairman/Member Hub, Finances, and Profile) */}
+                        {(['/dashboard', '/admin', '/command-center', '/finances', '/profile', '/'].includes(location.pathname)) && (
                             <button
                                 onClick={toggleStealthMode}
                                 className="fc-stealth-toggle p-2 sm:p-2.5 border border-slate-200 dark:border-white/10 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"

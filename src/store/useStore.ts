@@ -72,7 +72,7 @@ interface AppState {
     toggleMemberActiveStatus: (leagueId: string, memberId: string, newStatus: boolean) => Promise<void>;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
     role: (((localStorage.getItem('fc-role') || localStorage.getItem('role')) as Role) || (localStorage.getItem('activeLeagueId') ? 'member' : null)), // Hydrate role with least-privilege fallback
     activeLeagueId: (typeof window !== 'undefined' ? localStorage.getItem('activeLeagueId') : null),
     league: null,
@@ -99,16 +99,18 @@ export const useStore = create<AppState>((set) => ({
     },
     setLeagueSettings: (settings) => set({ league: settings }),
     toggleStealthMode: () => {
+        const nextState = !get().isStealthMode;
         if (typeof document !== 'undefined') {
             document.documentElement.classList.remove('fc-stealth-anim');
             // Force reflow so repeated taps replay animation reliably.
             void document.documentElement.offsetWidth;
             document.documentElement.classList.add('fc-stealth-anim');
+            document.documentElement.classList.toggle('stealth', nextState);
             window.setTimeout(() => {
                 document.documentElement.classList.remove('fc-stealth-anim');
             }, 280);
         }
-        set((state) => ({ isStealthMode: !state.isStealthMode }));
+        set({ isStealthMode: nextState });
     },
     addMember: (member) =>
         set((state) => ({

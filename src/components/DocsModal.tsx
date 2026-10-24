@@ -23,7 +23,7 @@ const financialRules = [
     title: 'Mid-Season Buy-In Math',
     desc: 'Invite friends in GW10 or GW15 fairly. Backdates exact contribution into Season Vault with 1-tap WhatsApp billing.',
     badge: 'Calculator',
-    to: '/admin',
+    to: '/manual/chairman#buyin',
   },
   {
     icon: RefreshCw,
@@ -33,7 +33,7 @@ const financialRules = [
     title: 'GW5 Kickoff & Forfeiture',
     desc: 'How mid-season league launches forfeit prior unplayed rounds so member wallets and season vaults balance to 0.',
     badge: 'Ledger Operations',
-    to: '/admin',
+    to: '/manual/chairman#kickoff',
   },
 ];
 

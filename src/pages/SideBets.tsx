@@ -19,6 +19,7 @@ interface Participant {
     signed: boolean;
     teamLabel?: string;
     fplEntryId?: number;
+    escrowed?: boolean;
 }
 
 interface SideBet {
@@ -94,7 +95,7 @@ export default function SideBets() {
     const [betTitle, setBetTitle] = useState('');
     const [betDescription, setBetDescription] = useState('');
     const [betStake, setBetStake] = useState('');
-    const [fundingMode, setFundingMode] = useState<'post_match' | 'instant_escrow'>('post_match');
+    const [fundingMode, setFundingMode] = useState<'post_match' | 'instant_escrow'>('instant_escrow');
     const [opponentId, setOpponentId] = useState('');
     const [selectedTeam, setSelectedTeam] = useState<'primary' | 'secondary'>('primary');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -732,6 +733,18 @@ export default function SideBets() {
                     receiptId: `AUTO_SB_${Date.now().toString().slice(-6)}`,
                     timestamp: serverTimestamp(),
                 });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_loss',
+                    category: 'sidebet',
+                    amount: numStake,
+                    memberId: loserId,
+                    memberName: loserName,
+                    opponentId: autoWinnerId,
+                    opponentName: autoWinnerName,
+                    note: `Post-match duel loss: "${bet.title}" (${loserName} vs ${autoWinnerName})`,
+                    receiptId: `AUTO_SB_DED_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
             }
 
             await addDoc(collection(db, 'leagues', activeLeagueId, 'league_events'), {
@@ -825,6 +838,18 @@ export default function SideBets() {
                     opponentName: loserName,
                     note: `Post-match side bet victory: "${bet.title}" (Defeated ${loserName})`,
                     receiptId: `CASH_SB_WIN_${Date.now().toString().slice(-6)}`,
+                    timestamp: serverTimestamp(),
+                });
+                await addDoc(collection(db, 'leagues', activeLeagueId, 'transactions'), {
+                    type: 'sidebet_loss',
+                    category: 'sidebet',
+                    amount: numStake,
+                    memberId: loserId,
+                    memberName: loserName,
+                    opponentId: resolveWinnerId,
+                    opponentName: winnerName,
+                    note: `Post-match wager loss: "${bet.title}" (${loserName} vs ${winnerName})`,
+                    receiptId: `CASH_SB_LOSS_${Date.now().toString().slice(-6)}`,
                     timestamp: serverTimestamp(),
                 });
             }
@@ -1830,7 +1855,11 @@ function BetCard({
                     )}>
                         {bet.challenger.signed && <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
                         <span>{bet.challenger.name}</span>
-                        {bet.challenger.signed && <span className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">(Challenger)</span>}
+                        {bet.challenger.signed && (
+                            <span className="text-[9px] text-emerald-600/90 dark:text-emerald-400/90 font-bold">
+                                {bet.challenger.escrowed || bet.fundingMode === 'instant_escrow' ? '✓ Funded from Wallet' : '(Challenger)'}
+                            </span>
+                        )}
                     </div>
                     <span className="text-slate-400 dark:text-gray-500 text-xs font-black">vs</span>
                     <div className={clsx(
@@ -1842,7 +1871,9 @@ function BetCard({
                         {bet.opponent.signed ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
                         <span>{bet.opponent.name}</span>
                         {bet.opponent.signed ? (
-                            <span className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-normal">(Signed)</span>
+                            <span className="text-[9px] text-emerald-600/90 dark:text-emerald-400/90 font-bold">
+                                {bet.opponent.escrowed || (bet as any).opponentEscrowed || bet.fundingMode === 'instant_escrow' ? '✓ Funded from Wallet' : '(Signed)'}
+                            </span>
                         ) : (
                             <span className="text-[9px] text-amber-600/80 dark:text-amber-400/80 font-normal">(Pending)</span>
                         )}

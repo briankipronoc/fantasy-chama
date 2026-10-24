@@ -1,8 +1,8 @@
 import { BookOpenCheck, Trophy, Users, Settings, DollarSign, Link2, HelpCircle, CheckCircle2, AlertCircle, Zap, Calculator } from 'lucide-react';
 import DocLayout from '../layouts/DocLayout';
 
-const Section = ({ icon: Icon, color, title, children }: any) => (
-  <section className="rounded-3xl border border-white/10 bg-[#161d24] p-6 md:p-8 space-y-4">
+const Section = ({ icon: Icon, color, title, children, id }: any) => (
+  <section id={id} className="rounded-3xl border border-white/10 bg-[#161d24] p-6 md:p-8 space-y-4 scroll-mt-24">
     <h2 className="text-xl font-black text-white flex items-center gap-3">
       <Icon className={`w-5 h-5 ${color}`} />
       {title}

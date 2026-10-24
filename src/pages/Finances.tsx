@@ -436,6 +436,9 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const txTime = toMillis(t.timestamp);
                 if (txTime && txTime < lastResetAtMs) return false;
             }
+            // Member inflows and wallet funding are legitimate deposits that fund the season; never drop them by gw
+            const isInflow = isTxValidInflow(t) || t.type === 'wallet_funding';
+            if (isInflow) return true;
             const txGw = Number(t.gw || t.gameweek || 0);
             if (txGw > 0 && txGw < leagueStartGw) return false;
             return true;
@@ -445,6 +448,12 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const isMemberFunded = (m: any) => {
         if (!m || m.isActive === false || (m as any).isEliminated || (m as any).isPending) return false;
         if ((m as any).playMode === 'sidebets_only') return false;
+
+        const rawWallet = Math.max(0, Number(m.walletBalance || 0));
+        const stake = Number(gameweekStake || 0);
+        if (Boolean(m.hasPaid)) return true;
+        if (stake === 0) return true;
+        if (rawWallet >= stake) return true;
 
         const isMatchedMember = (tx: any) =>
             (m.id && (tx.memberId === m.id || tx.userId === m.id)) ||
@@ -462,7 +471,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }).reduce((sum: number, tx: any) => sum + Number(tx.amount || 0), 0);
 
         const netDeposited = Math.max(0, memberInflows - refundTotal);
-        if (refundTotal > 0 && netDeposited < (gameweekStake || 0)) {
+        if (refundTotal > 0 && netDeposited < stake && rawWallet < stake) {
             return false;
         }
 
@@ -473,27 +482,20 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
         }
         const totalRounds = Math.max(1, playableGws.length);
         const pastCompletedCount = Math.max(0, totalRounds - 1);
-        const pastConsumedStake = pastCompletedCount * (gameweekStake || 0);
+        const pastConsumedStake = pastCompletedCount * stake;
         const unspentCredit = Math.max(0, netDeposited - pastConsumedStake);
 
         return Boolean(
-            (gameweekStake || 0) === 0 ||
-            (unspentCredit >= (gameweekStake || 0)) ||
-            (netDeposited >= totalRounds * (gameweekStake || 0)) ||
+            (stake === 0) ||
+            (rawWallet >= stake) ||
+            (unspentCredit >= stake) ||
+            (netDeposited >= totalRounds * stake) ||
             (currentSeasonTransactions || []).some((tx: any) => isTxValidInflow(tx) && isMatchedMember(tx) && Number(tx.gw || tx.gameweek || 0) === currentGw)
         );
     };
 
     const paidMembers = members.filter(isMemberFunded);
     const totalSecured = paidMembers.length * (gameweekStake || 0);
-    
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-    
-    const toJoinedGw = (joinedMs?: number | null) => {
-        if (!leagueCreatedAtMs || !joinedMs) return leagueStartGw;
-        const weeksSinceStart = Math.max(0, Math.floor((joinedMs - leagueCreatedAtMs) / WEEK_MS));
-        return Math.min(38, leagueStartGw + weeksSinceStart);
-    };
 
     const activeMembers = members.filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending);
     const activeMembersCount = activeMembers.length;
@@ -501,7 +503,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const eligibleWinnersCount = Math.min(configuredWinnersCount, activeMembersCount || configuredWinnersCount);
     const seasonWinnersMode = String(rules.seasonWinnersMode || (configuredWinnersCount === 1 ? 'top1' : configuredWinnersCount === 5 ? 'top5' : 'top3'));
 
-    const contributionByMemberId = transactions
+    const contributionByMemberId = (currentSeasonTransactions || [])
         .reduce((acc: Record<string, number>, tx: any) => {
             const isCredit = isTxValidInflow(tx);
             const isDebit = isTxRefundOrReversal(tx);
@@ -595,12 +597,19 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
     const projectedRemainingCollectionsGross = members
         .filter((member) => member.isActive !== false && !(member as any).isEliminated && !(member as any).isPending)
         .reduce((sum, member: any) => {
-            const joinedMs = member?.joinedAt?.toDate ? member.joinedAt.toDate().getTime() : leagueCreatedAtMs;
-            const joinedGw = toJoinedGw(joinedMs);
-            const effectiveMemberGw = Math.max(leagueStartGw, joinedGw);
+            // Anchor member start: league start GW (e.g. GW1 or GW10 chosen at setup)
+            // If the member joined mid-season after kickoff, they start on the upcoming GW
+            const upcomingGw = currentGwNumber ? Math.min(38, currentGwNumber + 1) : leagueStartGw;
+            const memberJoinedMs = toMillis(member?.joinedAt);
+            const isLateJoiner = Boolean(memberJoinedMs && leagueCreatedAtMs && memberJoinedMs > (leagueCreatedAtMs + 7 * 24 * 3600 * 1000));
+            const effectiveMemberGw = Math.max(
+                leagueStartGw,
+                Number(member?.startGw || member?.joinedGw || (isLateJoiner ? upcomingGw : leagueStartGw))
+            );
             const playableFutureGws = Math.max(0, (38 - effectiveMemberGw + 1) - forfeitedGws.filter(g => g >= effectiveMemberGw).length);
             const memberSeasonCap = playableFutureGws * (gameweekStake || 0);
-            const collectedForMember = completedGwsCount > 0 ? Math.min(memberSeasonCap, Number(contributionByMemberId[String(member.id)] || 0)) : 0;
+            const completedRoundsForMember = playedCompletedGws.filter(g => g >= effectiveMemberGw).length;
+            const collectedForMember = completedRoundsForMember * (gameweekStake || 0);
             const remainingForMember = Math.max(0, memberSeasonCap - collectedForMember);
             return sum + remainingForMember;
         }, 0);
@@ -836,9 +845,6 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
             const ts = toMillis(tx.timestamp);
             if (lastResetAtMs && ts && ts < lastResetAtMs) return false;
-            if (ts && ts < currentSeasonStartMs) return false;
-            const gw = Number(tx.gw || tx.gameweek || 0);
-            if (gw > 0 && gw < leagueStartGw) return false;
 
             const isPayout = tx.type === 'payout' || tx.type === 'sidebet_payout';
             if (activityFilter === 'credits' && isPayout) return false;
@@ -846,7 +852,7 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
 
             return true;
         });
-    }, [myTransactions, activityFilter, lastResetAtMs, currentSeasonStartMs, leagueStartGw]);
+    }, [myTransactions, activityFilter, lastResetAtMs]);
 
     const filteredModalTransactions = useMemo(() => {
         return displayedTransactions.filter((tx: any) => {
@@ -964,19 +970,22 @@ const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; 
                 const grossDeposited = memberInflowTxs.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
                 const totalDeposited = Math.max(0, grossDeposited - refundTotal);
                 
+                const rawMemberWallet = Math.max(0, Number(m.walletBalance ?? 0));
                 // Real unspent credit: deposits remaining after resolved rounds have deducted their stakes
                 const consumedStakeForResolved = isMemberSpectator ? 0 : resolvedCount * stake;
                 const netUnspentFloat = Math.max(0, totalDeposited - consumedStakeForResolved);
-                // Reconciled available float: Authoritative float derived from verified current season deposits
-                const reconciledWalletBalance = isMemberSpectator ? 0 : (totalDeposited > 0 ? netUnspentFloat : 0);
+                // Reconciled available float: Authoritative float derived from member record or verified current season deposits
+                const reconciledWalletBalance = isMemberSpectator ? 0 : Math.max(rawMemberWallet, netUnspentFloat);
                 const unspentCredit = reconciledWalletBalance;
 
-                // Member has paid current GW if stake is 0, unspent credit covers stake, cumulative deposits cover all rounds including current,
+                // Member has paid current GW if stake is 0, member hasPaid flag is true, wallet covers stake, unspent credit covers stake, cumulative deposits cover all rounds including current,
                 // or they made an inflow transaction explicitly tagged with the current GW
                 const hasPaidCurrent = !isMemberSpectator && !isPendingOnboarding && (
+                    Boolean(m.hasPaid) ||
                     (stake === 0) ||
+                    (rawMemberWallet >= stake) ||
+                    (unspentCredit >= stake) ||
                     (stake > 0 && totalDeposited >= (resolvedCount + 1) * stake) ||
-                    (stake > 0 && unspentCredit >= stake) ||
                     (memberInflowTxs.some((tx: any) => Number(tx.gw || tx.gameweek || 0) === currentGw))
                 );
 
@@ -2105,8 +2114,8 @@ const handleRejectPendingPayout = async (payout: any) => {
 
                         {/* Card 3: Member Receipts & Inflow Liquidity (Player Collections) */}
                         {(() => {
-                            const totalContributedByAll = activeMembers.reduce((sum, m: any) => {
-                                return sum + Number(contributionByMemberId[String(m.id)] || 0);
+                            const totalContributedByAll = memberFundingSummary.reduce((sum, m: any) => {
+                                return sum + Number(m.totalDeposited || 0);
                             }, 0);
                             const totalWalletFloat = memberFundingSummary.reduce((sum, m: any) => sum + (Number(m.walletBalance) || 0), 0);
                             const regularCount = activeMembers.filter(m => (m as any).playMode !== 'sidebets_only').length || 1;
@@ -2383,19 +2392,10 @@ const handleRejectPendingPayout = async (payout: any) => {
                                     Pot Balanced for GW{Math.max(Number(leagueStartGw || 1), Number(currentGwNumber || leagueStartGw || 1))}
                                 </span>
                             ) : (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-[11px]">
-                                        <AlertCircle className="w-3.5 h-3.5" />
-                                        Unbalanced: {currentGwUnfundedMembers.length} Pending
-                                    </span>
-                                    <div className="flex items-center gap-1 flex-wrap">
-                                        {currentGwUnfundedMembers.map((m: any) => (
-                                            <span key={m.id} className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30 font-semibold">
-                                                {m.displayName} (KES {gameweekStake || 0} due)
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs shadow-xs">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    <span>{currentGwUnfundedMembers.length} Manager{currentGwUnfundedMembers.length !== 1 ? 's' : ''} Pending</span>
+                                </span>
                             )}
                         </div>
                     </div>
@@ -2856,7 +2856,7 @@ const handleRejectPendingPayout = async (payout: any) => {
                                         const targetTxGw = rawTxGw > 0 ? (rawTxGw > activeCurrentGw ? activeCurrentGw : rawTxGw) : activeCurrentGw;
                                         const gwTag = `GW${targetTxGw}`;
                                         const rawNote = String(tx.note || '').trim();
-                                        const sanitizedNote = rawNote.replace(/gw\s*7/gi, `GW${activeCurrentGw}`).replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
+                                        const sanitizedNote = rawNote;
                                         const statusLabel = isSidebetEscrow
                                             ? 'Side Bet Escrow'
                                             : isSidebetPayout

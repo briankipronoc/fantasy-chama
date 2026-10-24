@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface DocLayoutProps {
   children: ReactNode;
@@ -24,6 +24,20 @@ export default function DocLayout({
   prose = true
 }: DocLayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const targetId = location.hash.replace('#', '');
+      const timer = setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [location.hash]);
 
   return (
     <div className="fc-doc-page min-h-screen bg-[#0d1316] text-white p-2 md:p-6 lg:p-10 flex items-start justify-center font-sans overflow-y-auto">

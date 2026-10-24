@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, UserPlus, UserMinus, ShieldAlert, User, Mail, Copy, Share2, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Crown, Camera, Loader2, Sparkles, Phone, Check } from 'lucide-react';
+import { ShieldCheck, Trophy, Users, AlertTriangle, Lock, ShieldAlert, User, Mail, Copy, Share2, Trash2, Fingerprint, Key, BookOpen, X, Search, CheckCircle2, ChevronDown, Crown, Camera, Loader2, Sparkles, Phone, Check } from 'lucide-react';
 import { haptics } from '../utils/haptics';
 import { db, auth } from '../firebase';
 import { doc, updateDoc, setDoc, getDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -449,6 +449,13 @@ export default function Profile() {
     const currentMember = members.find(m => m.id === activeUserId) || members[0];
     const hasPaid = currentMember ? isMemberFunded(currentMember) : true; // default true to avoid false red on load
     const isAdminView = role === 'admin';
+    const isSuperAdmin = Boolean(
+        auth.currentUser?.email?.toLowerCase() === 'cbrian@kabarak.ac.ke' ||
+        auth.currentUser?.uid === import.meta.env.VITE_SUPER_ADMIN_UID ||
+        activeUserId === import.meta.env.VITE_SUPER_ADMIN_UID ||
+        role === 'admin' ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('isSuperAdmin') === 'true')
+    );
 
     const handleSaveMember = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1769,7 +1776,42 @@ export default function Profile() {
                 <div className="absolute -top-24 left-[8%] h-72 w-72 rounded-full bg-emerald-500/12 blur-3xl" />
             </div>
             <div className="max-w-6xl mx-auto space-y-8">
-                <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity · League · Controls" hideCountdown={true} />
+                <Header role={role || 'member'} title="Profile & Settings" subtitle="Identity · League · Controls" hideCountdown={false} />
+
+                {/* SuperAdmin HQ Launch Banner */}
+                {isSuperAdmin && (
+                    <div className="fc-card w-full bg-gradient-to-r from-purple-500/15 via-purple-500/5 to-transparent border border-purple-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg text-slate-900 dark:text-white">
+                        <div className="flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-600 dark:text-purple-400 shadow-sm shrink-0">
+                                <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                                        SuperAdmin HQ
+                                    </h3>
+                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                                        Platform Control
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-600 dark:text-gray-400 font-medium mt-0.5">
+                                    Cross-league management, live financial telemetry, payout audits & master admin tools.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                haptics.selection();
+                                navigate('/hq');
+                            }}
+                            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs uppercase tracking-wider transition-all active:scale-95 shadow-md shadow-purple-600/25 flex items-center gap-1.5 cursor-pointer whitespace-nowrap self-stretch sm:self-auto justify-center"
+                        >
+                            <span>Launch SuperAdmin HQ</span>
+                            <span>↗</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* Top Section: Personal Details + League Governance side-by-side on desktop */}
                 <div className={clsx(
@@ -2142,6 +2184,38 @@ export default function Profile() {
                                             <span>→</span>
                                         </div>
                                     </div>
+
+                                    {/* Tile 5: SuperAdmin HQ (SuperAdmin only) */}
+                                    {isSuperAdmin && (
+                                        <div
+                                            onClick={() => {
+                                                haptics.selection();
+                                                navigate('/hq');
+                                            }}
+                                            className="fc-card group p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#161d24] border border-purple-500/25 dark:border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[130px] text-slate-900 dark:text-white sm:col-span-2"
+                                        >
+                                            <div className="flex items-start justify-between gap-2 mb-2">
+                                                <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                                                    <ShieldCheck className="w-4 h-4" />
+                                                </div>
+                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                                    HQ
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                                                    SuperAdmin HQ
+                                                </h4>
+                                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                                    Master cross-league platform telemetry & system controls
+                                                </p>
+                                            </div>
+                                            <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                                                <span>Launch HQ</span>
+                                                <span>↗</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -2252,6 +2326,38 @@ export default function Profile() {
                                     <span>→</span>
                                 </div>
                             </div>
+
+                            {/* Member Tile 4: SuperAdmin HQ (if superadmin) */}
+                            {isSuperAdmin && (
+                                <div
+                                    onClick={() => {
+                                        haptics.selection();
+                                        navigate('/hq');
+                                    }}
+                                    className="fc-card group p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#161d24] border border-purple-500/25 dark:border-purple-500/30 hover:border-purple-500/60 shadow-md hover:shadow-lg transition-all cursor-pointer flex flex-col justify-between min-h-[140px] text-slate-900 dark:text-white"
+                                >
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                        <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+                                            <ShieldCheck className="w-5 h-5" />
+                                        </div>
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                            HQ
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                                            SuperAdmin HQ
+                                        </h4>
+                                        <p className="text-[11px] text-slate-500 dark:text-gray-400 font-medium mt-0.5 leading-snug">
+                                            Master platform telemetry & controls
+                                        </p>
+                                    </div>
+                                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                                        <span>Launch HQ</span>
+                                        <span>↗</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -2322,7 +2428,7 @@ export default function Profile() {
                                             )}
                                         </div>
                                         <p className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 font-medium mt-0.5">
-                                            Roster management, M-Pesa phone onboarding, self-onboard invite code &amp; member controls
+                                            Roster management, M-Pesa phone onboarding &amp; member controls
                                         </p>
                                     </div>
                                 </div>
@@ -2337,57 +2443,6 @@ export default function Profile() {
                             </div>
 
                             <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
-                                {/* Self-Onboarding Master Code Hero */}
-                                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-emerald-500/5 to-transparent border border-amber-500/25 dark:border-amber-500/20 shadow-xs">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <Key className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                                                    Master Invite Code (Self-Onboarding)
-                                                </h4>
-                                            </div>
-                                            <p className="text-[11px] text-slate-600 dark:text-gray-400 font-medium leading-relaxed">
-                                                Share this code or invite link so members can log in and self-onboard directly to their team.
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                            <div className="px-3.5 py-2 rounded-xl bg-white dark:bg-black/50 border border-amber-500/40 text-amber-600 dark:text-amber-400 font-mono font-black text-sm tracking-widest shadow-inner flex items-center gap-2.5">
-                                                <span>{inviteCode || '------'}</span>
-                                                {inviteCode && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            navigator.clipboard.writeText(inviteCode);
-                                                            toast.success('Invite code copied!');
-                                                        }}
-                                                        className="p-1 hover:bg-amber-500/20 rounded transition-colors text-amber-600 dark:text-amber-400"
-                                                        title="Copy Code"
-                                                    >
-                                                        <Copy className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleCopy}
-                                                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-800 dark:text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
-                                            >
-                                                <Copy className="w-3.5 h-3.5 text-slate-500" />
-                                                <span>Copy Invite</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleShare}
-                                                className="px-3 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-xs"
-                                            >
-                                                <Share2 className="w-3.5 h-3.5" />
-                                                <span>WhatsApp</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 {/* Filter Tabs and Search Bar */}
                                 <div className="space-y-3">
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -2478,39 +2533,39 @@ export default function Profile() {
                                                 <div
                                                     key={memberId || `mem-${rawName}`}
                                                     className={clsx(
-                                                        "p-4 rounded-2xl border transition-all duration-200",
+                                                        "p-3 rounded-2xl border transition-all duration-200",
                                                         !isActive
                                                             ? "bg-slate-100/50 dark:bg-black/20 border-slate-200 dark:border-white/5 opacity-65"
                                                             : isPending
-                                                            ? "bg-amber-50/60 dark:bg-amber-500/[0.04] border-amber-500/30 shadow-xs"
+                                                            ? "bg-amber-50/40 dark:bg-amber-500/[0.03] border-amber-500/30 shadow-xs"
                                                             : "bg-slate-50/80 dark:bg-[#161d24] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-xs"
                                                     )}
                                                 >
-                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                        {/* Identity */}
-                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                                        {/* Left: Avatar + Identity + Squad */}
+                                                        <div className="flex items-center gap-2.5 min-w-0">
                                                             <UserAvatar name={member.displayName} size="sm" />
-                                                            <div className="min-w-0">
-                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
                                                                     <span className={clsx(
-                                                                        "text-sm font-bold truncate",
+                                                                        "text-xs sm:text-sm font-bold truncate",
                                                                         !isActive ? "line-through text-slate-400 dark:text-gray-500" : "text-slate-900 dark:text-white"
                                                                     )}>
                                                                         {rawName}
                                                                     </span>
                                                                     {isChairman && (
-                                                                        <span className="bg-[#FBBF24]/15 text-amber-700 dark:text-[#FBBF24] text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-1">
+                                                                        <span className="bg-[#FBBF24]/15 text-amber-700 dark:text-[#FBBF24] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-black border border-[#FBBF24]/30 flex items-center gap-0.5">
                                                                             <Crown className="w-2.5 h-2.5" /> Chairman
                                                                         </span>
                                                                     )}
                                                                     {isValidCoChair && (
-                                                                        <span className="bg-[#3B82F6]/15 text-blue-700 dark:text-[#3B82F6] text-[8px] px-2 py-0.5 rounded-md uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-1">
+                                                                        <span className="bg-[#3B82F6]/15 text-blue-700 dark:text-[#3B82F6] text-[8px] px-1.5 py-0.5 rounded uppercase tracking-wider font-black border border-[#3B82F6]/30 flex items-center gap-0.5">
                                                                             <ShieldCheck className="w-2.5 h-2.5" /> Co-Chair
                                                                         </span>
                                                                     )}
                                                                     {!isChairman && !isValidCoChair && (
                                                                         <span className={clsx(
-                                                                            "text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border",
+                                                                            "text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border",
                                                                             !isActive
                                                                                 ? "bg-slate-200/60 text-slate-500 dark:bg-white/5 dark:text-gray-500 border-transparent"
                                                                                 : isPending
@@ -2524,95 +2579,49 @@ export default function Profile() {
                                                                     )}
                                                                 </div>
                                                                 {squadName && (
-                                                                    <p className="text-xs text-slate-500 dark:text-gray-400 truncate mt-0.5 font-medium">
+                                                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 truncate font-semibold mt-0.5">
                                                                         🏆 {squadName}
                                                                     </p>
                                                                 )}
                                                             </div>
                                                         </div>
 
-                                                        {/* Executive Actions (Deactivate & Delete) */}
-                                                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                                            {!isChairman ? (
-                                                                <>
+                                                        {/* Right: Phone Actions + Admin Controls */}
+                                                        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
+                                                            {!hasPhone || isPending ? (
+                                                                <div className="flex items-center gap-1.5 flex-1 sm:flex-initial">
+                                                                    <div className="relative flex-1 sm:w-44">
+                                                                        <Phone className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500" />
+                                                                        <input
+                                                                            type="tel"
+                                                                            value={currentInputPhone}
+                                                                            onChange={(e) => setPendingPhoneMap(prev => ({ ...prev, [memberId]: e.target.value }))}
+                                                                            onBlur={() => {
+                                                                                if (currentInputPhone) {
+                                                                                    setPendingPhoneMap(prev => ({ ...prev, [memberId]: normalizeKenyanPhone(currentInputPhone) }));
+                                                                                }
+                                                                            }}
+                                                                            placeholder="07XX XXX XXX"
+                                                                            className="w-full pl-7 pr-2 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-[#0b1014] stealth:bg-[#070b0e] border border-amber-500/40 text-slate-900 dark:text-white stealth:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/50"
+                                                                        />
+                                                                    </div>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => handleToggleActive(memberId, isActive)}
-                                                                        className={clsx(
-                                                                            "px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 border",
-                                                                            isActive
-                                                                                ? "bg-slate-100 hover:bg-amber-500/15 text-slate-700 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400 border-slate-200 dark:border-white/10 hover:border-amber-500/30 dark:bg-white/5"
-                                                                                : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                                                                        )}
-                                                                        title={isActive ? "Deactivate member" : "Reactivate member"}
+                                                                        disabled={isSavingPendingPhone === memberId}
+                                                                        onClick={() => handleActivatePendingMember(member)}
+                                                                        className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50 shrink-0"
                                                                     >
-                                                                        {isActive ? (
-                                                                            <>
-                                                                                <UserMinus className="w-3.5 h-3.5" />
-                                                                                <span>Deactivate</span>
-                                                                            </>
+                                                                        {isSavingPendingPhone === memberId ? (
+                                                                            <Loader2 className="w-3 h-3 animate-spin" />
                                                                         ) : (
-                                                                            <>
-                                                                                <UserPlus className="w-3.5 h-3.5" />
-                                                                                <span>Reactivate</span>
-                                                                            </>
+                                                                            <Check className="w-3 h-3" />
                                                                         )}
+                                                                        <span>{isPending ? 'Activate & Link' : 'Save'}</span>
                                                                     </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleDeleteMember(memberId, rawName)}
-                                                                        className="p-1.5 sm:p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:border-rose-500/40 transition-all cursor-pointer active:scale-95"
-                                                                        title="Remove member permanently"
-                                                                    >
-                                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </>
-                                                            ) : (
-                                                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl flex items-center gap-1">
-                                                                    <Crown className="w-3 h-3" /> Chairman
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Chairman Onboarding: Phone input or verified display */}
-                                                    <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5">
-                                                        {!hasPhone || isPending ? (
-                                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                                                <div className="relative flex-1">
-                                                                    <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-amber-500" />
-                                                                    <input
-                                                                        type="tel"
-                                                                        value={currentInputPhone}
-                                                                        onChange={(e) => setPendingPhoneMap(prev => ({ ...prev, [memberId]: e.target.value }))}
-                                                                        onBlur={() => {
-                                                                            if (currentInputPhone) {
-                                                                                setPendingPhoneMap(prev => ({ ...prev, [memberId]: normalizeKenyanPhone(currentInputPhone) }));
-                                                                            }
-                                                                        }}
-                                                                        placeholder="Enter phone number..."
-                                                                        className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#0b1014] stealth:bg-[#070b0e] border border-amber-500/40 text-slate-900 dark:text-white stealth:text-slate-100 outline-none focus:ring-2 focus:ring-amber-500/30"
-                                                                    />
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    disabled={isSavingPendingPhone === memberId}
-                                                                    onClick={() => handleActivatePendingMember(member)}
-                                                                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-50 shrink-0"
-                                                                >
-                                                                    {isSavingPendingPhone === memberId ? (
-                                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                                    ) : (
-                                                                        <Check className="w-3.5 h-3.5" />
-                                                                    )}
-                                                                    <span>{isPending ? 'Activate & Link' : 'Save Phone'}</span>
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <div className="flex items-center gap-2 text-slate-600 dark:text-gray-300 font-mono">
-                                                                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                                                                    <span>{memberPhone}</span>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1.5 text-xs">
+                                                                    <span className="font-mono text-slate-700 dark:text-gray-300 text-[11px] font-bold">{memberPhone}</span>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => {
@@ -2625,11 +2634,34 @@ export default function Profile() {
                                                                         <Copy className="w-3 h-3" />
                                                                     </button>
                                                                 </div>
-                                                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
-                                                                    Verified Phone
-                                                                </span>
-                                                            </div>
-                                                        )}
+                                                            )}
+
+                                                            {!isChairman && (
+                                                                <div className="flex items-center gap-1 shrink-0 ml-1">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleToggleActive(memberId, isActive)}
+                                                                        className={clsx(
+                                                                            "px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer active:scale-95 border",
+                                                                            isActive
+                                                                                ? "bg-slate-100 hover:bg-amber-500/15 text-slate-600 dark:text-gray-300 hover:text-amber-600 border-slate-200 dark:border-white/10 dark:bg-white/5"
+                                                                                : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                                                        )}
+                                                                        title={isActive ? "Deactivate member" : "Reactivate member"}
+                                                                    >
+                                                                        {isActive ? "Deactivate" : "Activate"}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDeleteMember(memberId, rawName)}
+                                                                        className="p-1 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer"
+                                                                        title="Remove member permanently"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );

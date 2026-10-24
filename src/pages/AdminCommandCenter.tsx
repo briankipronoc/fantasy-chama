@@ -1000,30 +1000,34 @@ export default function AdminCommandCenter() {
     return () => unsub();
   }, [activeLeagueId, currentGwNumber, firestoreGw]);
 
-  // Combined Operations Feed: Merges real-time league_events with ledger transactions (ensures all 15 transactions & top-ups appear)
+  // Combined Operations Feed: Merges real-time league_events with ledger transactions (cleanly deduplicated)
   const allOpsEvents = useMemo(() => {
-    const activeCurrentGw = Number(currentGwNumber || firestoreGw || effectiveStartGw || 6);
-    const list = liveOpsEvents.map((e) => ({
-      ...e,
-      message: String(e.message || '')
-        .replace(/gw\s*7/gi, `GW${activeCurrentGw}`)
-        .replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`),
-    }));
+    const list: any[] = [...liveOpsEvents];
     const seenReceipts = new Set<string>();
+    const seenMemberAmts = new Set<string>();
 
-    list.forEach((e) => {
-      const match = String(e.message || '').match(/(CASH_\w+|DEP\w+|REV\w+)/i);
+    list.forEach((e: any) => {
+      const match = String(e.message || '').match(/(CASH_\w+|DEP\w+|REV\w+|AUTO_SB_\w+|SB_\w+)/i);
       if (match) seenReceipts.add(match[1].toUpperCase());
+      if (e.receiptId) seenReceipts.add(String(e.receiptId).toUpperCase());
+
+      const mMatch = String(e.message || '').match(/recorded for ([^:]+):\s*KES\s*([\d,]+)/i);
+      if (mMatch) {
+        seenMemberAmts.add(`${mMatch[1].trim().toLowerCase()}_${mMatch[2].replace(/,/g, '')}`);
+      }
     });
 
     for (const tx of transactions) {
       const receipt = String(tx.receiptId || '').toUpperCase();
       if (receipt && seenReceipts.has(receipt)) continue;
 
-      const isReversal = tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0;
-      const isPayout = tx.type === 'payout';
       const mName = tx.memberName || tx.winnerName || 'Member';
       const amt = Math.abs(Number(tx.amount || 0));
+      const key = `${mName.trim().toLowerCase()}_${amt}`;
+      if (seenMemberAmts.has(key)) continue;
+
+      const isReversal = tx.source === 'manual_reversal' || Number(tx.amount || 0) < 0;
+      const isPayout = tx.type === 'payout' || tx.type === 'sidebet_payout';
 
       const title = isReversal
         ? 'Manual reversal recorded'
@@ -1031,15 +1035,11 @@ export default function AdminCommandCenter() {
           ? 'Gameweek payout settled'
           : 'Manual deposit verified';
 
-      const rawMsg = isReversal
+      const message = isReversal
         ? (tx.note || `Manual reversal recorded for ${mName}: -KES ${amt.toLocaleString()} (${receipt || 'Adjustment'}).`)
         : isPayout
           ? (tx.note || `Gameweek payout settled for ${mName}: KES ${amt.toLocaleString()} (${receipt || 'Approved'}).`)
           : (tx.note || `Manual deposit recorded for ${mName}: KES ${amt.toLocaleString()} (${receipt || 'Verified'}).`);
-
-      const message = String(rawMsg || '')
-        .replace(/gw\s*7/gi, `GW${activeCurrentGw}`)
-        .replace(/gameweek\s*7/gi, `Gameweek ${activeCurrentGw}`);
 
       list.push({
         id: tx.id || receipt || `tx_${Math.random()}`,
@@ -1050,6 +1050,7 @@ export default function AdminCommandCenter() {
       });
 
       if (receipt) seenReceipts.add(receipt);
+      seenMemberAmts.add(key);
     }
 
     return list.sort((a, b) => {
@@ -1537,12 +1538,9 @@ export default function AdminCommandCenter() {
     if (note.includes('reversal') || note.includes('reversed')) return false;
     if (Number(tx.amount || 0) <= 0) return false;
 
-    // Filter out transactions prior to clean slate or before Chama kickoff round
+    // Filter out transactions prior to clean slate / reset
     const txTime = tx.timestamp?.toMillis ? tx.timestamp.toMillis() : (tx.timestamp?.toDate ? tx.timestamp.toDate().getTime() : (typeof tx.timestamp === 'number' ? tx.timestamp : null));
     if (lastResetAtMs && txTime && txTime < lastResetAtMs) return false;
-
-    const txGw = Number(tx.gw || tx.gameweek || 0);
-    if (txGw > 0 && txGw < effectiveStartGw) return false;
 
     return true;
   };
@@ -1555,8 +1553,6 @@ export default function AdminCommandCenter() {
       if (!isMatch) return false;
       const txTime = tx.timestamp?.toMillis ? tx.timestamp.toMillis() : (tx.timestamp?.toDate ? tx.timestamp.toDate().getTime() : (typeof tx.timestamp === 'number' ? tx.timestamp : null));
       if (lastResetAtMs && txTime && txTime < lastResetAtMs) return false;
-      const txGw = Number(tx.gw || tx.gameweek || 0);
-      if (txGw > 0 && txGw < effectiveStartGw) return false;
       return isTxRefundOrReversal(tx);
     }).reduce((sum: number, tx: any) => sum + Math.abs(Number(tx.amount || 0)), 0);
   };
@@ -2715,7 +2711,7 @@ export default function AdminCommandCenter() {
 
       await recordOperationEvent({
         title: "Manual deposit verified",
-        message: `Manual deposit recorded for ${member?.displayName || "Member"}: KES ${amount.toLocaleString()} (${fundMethod === "mpesa" ? "M-Pesa" : "Cash"}).`,
+        message: `Manual deposit recorded for ${member?.displayName || "Member"}: KES ${amount.toLocaleString()} (${fundMethod === "mpesa" ? "M-Pesa" : "Cash"}). Receipt: ${receiptId}`,
         targetMemberId,
         type: "success",
       });
@@ -5045,7 +5041,7 @@ burstFrame();
                       "rounded-2xl border p-3.5 transition-all shadow-sm flex flex-col justify-between cursor-pointer active:scale-95 group",
                       redZoneMembers.length > 0
                         ? "border-rose-400 bg-rose-100/80 dark:border-rose-400 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:border-rose-300 shadow-[0_0_24px_rgba(244,63,94,0.25)] ring-1 ring-rose-500/50"
-                        : "border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/70 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] stealth:hover:bg-[#0c1218] dark:hover:border-white/20"
+                        : "border-slate-200 dark:border-white/10 stealth:border-white/5 bg-slate-50/70 dark:bg-[#111822] stealth:bg-[#070b0e] hover:bg-slate-100/80 dark:hover:bg-[#151f2c] stealth:hover:bg-[#0c1218] dark:hover:border-white/20 shadow-none"
                     )}
                     onClick={() => {
                       setActiveTab("ledger");
@@ -5060,22 +5056,25 @@ burstFrame();
                         "text-[10.5px] uppercase font-black tracking-wider transition-colors",
                         redZoneMembers.length > 0
                           ? "text-rose-700 dark:text-rose-300 group-hover:text-rose-800 dark:group-hover:text-rose-200"
-                          : "text-slate-500 dark:text-slate-400 stealth:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300"
+                          : "text-slate-500 dark:text-gray-400 group-hover:text-slate-700 dark:group-hover:text-slate-300"
                       )}>
                         Red Zone
                       </p>
                       {redZoneMembers.length > 0 ? (
                         <span className="w-2.5 h-2.5 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse shadow-[0_0_10px_#FB7185]" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 stealth:text-slate-500" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       )}
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white my-1 tabular-nums">
+                    <p className={clsx(
+                      "text-2xl sm:text-3xl font-black tracking-tight my-1 tabular-nums",
+                      redZoneMembers.length > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"
+                    )}>
                       {redZoneMembers.length}
                     </p>
                     <span className={clsx(
                       "text-[9.5px] font-bold truncate",
-                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-500 dark:text-gray-400 stealth:text-slate-400"
+                      redZoneMembers.length > 0 ? "text-rose-700 dark:text-rose-300" : "text-slate-500 dark:text-gray-400"
                     )}>
                       {redZoneMembers.length > 0 ? "Send reminders" : "All funded ✓"}
                     </span>
